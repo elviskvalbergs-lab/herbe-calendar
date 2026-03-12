@@ -18,7 +18,8 @@ function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
   return false
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   let session
   try {
     session = await requireSession()
@@ -26,13 +27,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return unauthorized()
   }
 
-  const activity = await fetchActivity(params.id)
+  const activity = await fetchActivity(id)
   if (!activity) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canEdit(activity, session.userCode)) return forbidden()
 
   try {
     const body = await req.json()
-    const res = await herbeFetch(REGISTERS.activities, `id=${params.id}`, {
+    const res = await herbeFetch(REGISTERS.activities, `id=${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     })
@@ -43,7 +44,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   let session
   try {
     session = await requireSession()
@@ -51,12 +53,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return unauthorized()
   }
 
-  const activity = await fetchActivity(params.id)
+  const activity = await fetchActivity(id)
   if (!activity) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canEdit(activity, session.userCode)) return forbidden()
 
   try {
-    const res = await herbeFetch(REGISTERS.activities, `id=${params.id}`, { method: 'DELETE' })
+    const res = await herbeFetch(REGISTERS.activities, `id=${id}`, { method: 'DELETE' })
     return new NextResponse(null, { status: res.ok ? 204 : res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

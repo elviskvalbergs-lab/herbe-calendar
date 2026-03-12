@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   let session
   try {
     session = await requireSession()
@@ -12,7 +13,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   try {
     // Fetch the event to check organizer
-    const check = await graphFetch(`/users/${session.email}/events/${params.id}`)
+    const check = await graphFetch(`/users/${session.email}/events/${id}`)
     if (!check.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const ev = await check.json() as Record<string, unknown>
     const organizer = ev['organizer'] as { emailAddress?: { address?: string } } | undefined
@@ -21,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const body = await req.json()
-    const res = await graphFetch(`/users/${session.email}/events/${params.id}`, {
+    const res = await graphFetch(`/users/${session.email}/events/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     })
@@ -32,7 +33,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   let session
   try {
     session = await requireSession()
@@ -41,7 +43,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   }
 
   try {
-    const check = await graphFetch(`/users/${session.email}/events/${params.id}`)
+    const check = await graphFetch(`/users/${session.email}/events/${id}`)
     if (!check.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const ev = await check.json() as Record<string, unknown>
     const organizer = ev['organizer'] as { emailAddress?: { address?: string } } | undefined
@@ -49,7 +51,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
       return forbidden()
     }
 
-    const res = await graphFetch(`/users/${session.email}/events/${params.id}`, { method: 'DELETE' })
+    const res = await graphFetch(`/users/${session.email}/events/${id}`, { method: 'DELETE' })
     return new NextResponse(null, { status: res.ok ? 204 : res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
