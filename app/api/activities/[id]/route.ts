@@ -6,8 +6,9 @@ import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 async function fetchActivity(id: string) {
   const res = await herbeFetch(REGISTERS.activities, `id=${id}`)
   if (!res.ok) return null
-  const data = await res.json()
-  return Array.isArray(data) ? data[0] : data
+  const json = await res.json()
+  const items = (json?.data?.[REGISTERS.activities] ?? []) as Record<string, unknown>[]
+  return items[0] ?? null
 }
 
 function canEdit(activity: Record<string, unknown>, userCode: string): boolean {

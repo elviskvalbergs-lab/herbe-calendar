@@ -24,9 +24,7 @@ export async function GET(req: Request) {
     const allActivities = await Promise.all(
       personList.map(code =>
         herbeFetchAll(REGISTERS.activities, {
-          // Filter field names: verify against ActVc docs; see ACTIVITY_ACCESS_GROUP_FIELD in constants.ts
-          // 'Person' and date fields may differ — update constants.ts if needed
-          filter: `Person eq '${code}'`,
+          'filter.Person': code,
           dateFrom: dateFrom!,
           dateTo: dateTo!,
         })

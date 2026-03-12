@@ -17,7 +17,7 @@ export default function LoginPage() {
     if (res?.error === 'AccessDenied') {
       setError('This email is not registered in Herbe. Contact your administrator.')
     } else if (res?.error) {
-      setError('Something went wrong. Please try again.')
+      setError('Something went wrong. If Herbe ERP is not connected yet, visit /setup.')
     } else {
       setSent(true)
     }

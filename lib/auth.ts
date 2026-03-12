@@ -10,10 +10,16 @@ import { AccessDenied } from '@auth/core/errors'
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 async function isEmailRegistered(email: string): Promise<{ registered: boolean; userCode: string }> {
-  const safeEmail = email.replace(/'/g, "''")
-  const users = await herbeFetchAll(REGISTERS.users, { filter: `Email eq '${safeEmail}'` }, 10)
-  if (users.length === 0) return { registered: false, userCode: '' }
-  const user = users[0] as Record<string, unknown>
+  const users = await herbeFetchAll(REGISTERS.users, {}, 500)
+  const lower = email.toLowerCase()
+  const user = users.find((u) => {
+    const r = u as Record<string, unknown>
+    return (
+      String(r['emailAddr'] ?? '').toLowerCase() === lower ||
+      String(r['LoginEmailAddr'] ?? '').toLowerCase() === lower
+    )
+  }) as Record<string, unknown> | undefined
+  if (!user) return { registered: false, userCode: '' }
   return { registered: true, userCode: String(user['Code'] ?? '') }
 }
 
@@ -24,7 +30,16 @@ const emailProvider: EmailConfig = {
   from: process.env.AZURE_SENDER_EMAIL!,
   maxAge: 24 * 60 * 60,
   async sendVerificationRequest({ identifier: email, url }) {
-    const { registered } = await isEmailRegistered(email)
+    let registered: boolean
+    try {
+      const result = await isEmailRegistered(email)
+      registered = result.registered
+    } catch (e) {
+      if ((e as Error).message === 'HERBE_NOT_CONFIGURED') {
+        throw new Error('HERBE_NOT_CONFIGURED')
+      }
+      throw e
+    }
     if (!registered) {
       throw new AccessDenied()
     }
