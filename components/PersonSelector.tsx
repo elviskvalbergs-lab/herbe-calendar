@@ -1,0 +1,81 @@
+'use client'
+import { useState } from 'react'
+import { Person } from '@/types'
+import { personColor } from '@/lib/colors'
+
+interface Props {
+  people: Person[]
+  selected: Person[]
+  onChange: (persons: Person[]) => void
+  onClose: () => void
+}
+
+export default function PersonSelector({ people, selected, onChange, onClose }: Props) {
+  const [query, setQuery] = useState('')
+  const [local, setLocal] = useState<Person[]>(selected)
+
+  const filtered = people.filter(p =>
+    p.code.toLowerCase().includes(query.toLowerCase()) ||
+    p.name.toLowerCase().includes(query.toLowerCase())
+  )
+
+  function toggle(person: Person) {
+    setLocal(prev =>
+      prev.find(p => p.code === person.code)
+        ? prev.filter(p => p.code !== person.code)
+        : [...prev, person]
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[70vh] flex flex-col">
+        <div className="p-4 border-b border-border">
+          <h2 className="font-bold mb-3">Select people</h2>
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search by name or code…"
+            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+          />
+        </div>
+        <div className="overflow-y-auto flex-1 p-2">
+          {filtered.map((p) => {
+            const isSelected = local.some(s => s.code === p.code)
+            const colorIndex = local.findIndex(s => s.code === p.code)
+            return (
+              <button
+                key={p.code}
+                onClick={() => toggle(p)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-border text-left"
+              >
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded-full border"
+                  style={isSelected ? {
+                    color: personColor(colorIndex),
+                    borderColor: personColor(colorIndex) + '44',
+                    background: personColor(colorIndex) + '22',
+                  } : { color: '#6b6467', borderColor: '#3a3435' }}
+                >
+                  {p.code}
+                </span>
+                <span className="text-sm">{p.name}</span>
+                {isSelected && <span className="ml-auto text-primary">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+        <div className="p-4 border-t border-border">
+          <button
+            onClick={() => onChange(local)}
+            className="w-full bg-primary text-white font-bold py-2.5 rounded-lg"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
