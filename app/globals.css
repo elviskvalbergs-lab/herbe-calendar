@@ -1,6 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #231f20;
+  --color-surface: #2d2829;
+  --color-border: #3a3435;
+  --color-primary: #cd4c38;
+  --color-person-1: #00ABCE;
+  --color-person-2: #cd4c38;
+  --color-person-3: #4db89a;
+  --color-text-muted: #6b6467;
+}
 
 html, body {
   background-color: #231f20;
