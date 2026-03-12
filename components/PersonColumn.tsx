@@ -33,6 +33,7 @@ export default function PersonColumn({
   const color = personColor(personIndex)
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
+  const [dragError, setDragError] = useState<string | null>(null)
 
   const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
 
@@ -106,7 +107,8 @@ export default function PersonColumn({
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: res.statusText }))
-        alert('Could not save time change: ' + (data.error ?? res.statusText))
+        setDragError(data.error ?? res.statusText ?? 'Could not save time change')
+        setTimeout(() => setDragError(null), 4000)  // auto-dismiss after 4s
       }
       onActivityUpdate()
     }
@@ -119,7 +121,11 @@ export default function PersonColumn({
   const sorted = [...activities].sort((a, b) => a.timeFrom.localeCompare(b.timeFrom))
   const groups: Activity[][] = []
   for (const act of sorted) {
-    const col = groups.find(g => timeToMinutes(g[g.length - 1].timeTo) <= timeToMinutes(act.timeFrom))
+    // Find a sub-column where all activities end at or before act.timeFrom
+    const col = groups.find(g => {
+      const maxEndMins = Math.max(...g.map(a => timeToMinutes(a.timeTo)))
+      return maxEndMins <= timeToMinutes(act.timeFrom)
+    })
     if (col) col.push(act)
     else groups.push([act])
   }
@@ -133,6 +139,13 @@ export default function PersonColumn({
       >
         {personCode}
       </div>
+      {dragError && (
+        <div className="absolute top-12 left-0 right-0 z-30 mx-2">
+          <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
+            {dragError}
+          </div>
+        </div>
+      )}
 
       {/* Hour rows */}
       <div className="relative">

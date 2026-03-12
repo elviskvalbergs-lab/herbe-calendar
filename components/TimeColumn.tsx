@@ -13,6 +13,8 @@ export default function TimeColumn() {
           <span className="absolute -top-2 right-2 text-[10px] text-text-muted">
             {String(h).padStart(2, '0')}:00
           </span>
+          {/* Half-hour dashed divider */}
+          <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
         </div>
       ))}
     </div>
