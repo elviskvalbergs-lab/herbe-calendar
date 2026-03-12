@@ -14,7 +14,7 @@ export default function LoginPage() {
     setError('')
     const res = await signIn('email', { email, redirect: false })
     setLoading(false)
-    if (res?.error === 'EMAIL_NOT_REGISTERED') {
+    if (res?.error === 'AccessDenied') {
       setError('This email is not registered in Herbe. Contact your administrator.')
     } else if (res?.error) {
       setError('Something went wrong. Please try again.')

@@ -5,6 +5,7 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { sendMail } from '@/lib/graph/client'
 import type { EmailConfig } from 'next-auth/providers/email'
+import { AccessDenied } from '@auth/core/errors'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
@@ -24,7 +25,7 @@ const emailProvider: EmailConfig = {
   async sendVerificationRequest({ identifier: email, url }) {
     const { registered } = await isEmailRegistered(email)
     if (!registered) {
-      throw new Error('EMAIL_NOT_REGISTERED')
+      throw new AccessDenied()
     }
     await sendMail(
       email,
