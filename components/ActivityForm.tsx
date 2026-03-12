@@ -13,10 +13,11 @@ interface Props {
   onClose: () => void
   onSaved: () => void
   onDuplicate: (initial: Partial<Activity>) => void
+  canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, todayActivities, onClose, onSaved, onDuplicate
+  initial, editId, people, defaultPersonCode, todayActivities, onClose, onSaved, onDuplicate, canEdit = true
 }: Props) {
   const isEdit = !!editId
 
@@ -143,7 +144,13 @@ export default function ActivityForm({
     setSaving(true)
     try {
       const url = source === 'herbe' ? `/api/activities/${editId}` : `/api/outlook/${editId}`
-      await fetch(url, { method: 'DELETE' })
+      const res = await fetch(url, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        setErrors([data?.error ?? `Delete failed (${res.status})`])
+        setSaving(false)
+        return
+      }
       onSaved()
       onClose()
     } catch (e) {
@@ -337,15 +344,22 @@ export default function ActivityForm({
 
         {/* Footer actions */}
         <div className="p-4 border-t border-border space-y-2">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
-          </button>
+          {/* If editing but canEdit is false, show close only */}
+          {isEdit && !(canEdit ?? true) ? (
+            <button onClick={onClose} className="w-full border border-border text-text-muted font-bold py-3 rounded-xl">
+              Close
+            </button>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
+            </button>
+          )}
 
-          {isEdit && (
+          {isEdit && (canEdit ?? true) && (
             <div className="flex gap-2">
               <button
                 onClick={handleDuplicate}

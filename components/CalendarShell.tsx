@@ -21,7 +21,15 @@ export default function CalendarShell({ userCode }: Props) {
     open: boolean
     initial?: Partial<Activity>
     editId?: string
+    canEdit?: boolean
   }>({ open: false })
+
+  function canEditActivity(activity: Activity): boolean {
+    if (activity.source === 'outlook') return !!activity.isOrganizer
+    if (!activity.accessGroup) return activity.personCode === userCode
+    return activity.personCode === userCode ||
+      activity.accessGroup.split(',').map(s => s.trim()).includes(userCode)
+  }
 
   // Load people list on mount
   useEffect(() => {
@@ -90,7 +98,12 @@ export default function CalendarShell({ userCode }: Props) {
           setFormState({ open: true, initial: { personCode, timeFrom: time, date: state.date } })
         }
         onActivityClick={(activity) =>
-          setFormState({ open: true, initial: activity, editId: activity.id })
+          setFormState({
+            open: true,
+            initial: activity,
+            editId: activity.id,
+            canEdit: canEditActivity(activity)
+          })
         }
         onActivityUpdate={fetchActivities}
       />
@@ -104,6 +117,7 @@ export default function CalendarShell({ userCode }: Props) {
           onClose={() => setFormState({ open: false })}
           onSaved={fetchActivities}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
+          canEdit={formState.canEdit}
         />
       )}
     </div>
