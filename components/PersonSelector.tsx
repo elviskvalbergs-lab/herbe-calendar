@@ -20,11 +20,11 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
   )
 
   function toggle(person: Person) {
-    setLocal(prev =>
-      prev.find(p => p.code === person.code)
-        ? prev.filter(p => p.code !== person.code)
-        : [...prev, person]
-    )
+    const next = local.find(p => p.code === person.code)
+      ? local.filter(p => p.code !== person.code)
+      : [...local, person]
+    setLocal(next)
+    onChange(next)  // immediate update to parent
   }
 
   return (
@@ -44,7 +44,7 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
         <div className="overflow-y-auto flex-1 p-2">
           {filtered.map((p) => {
             const isSelected = local.some(s => s.code === p.code)
-            const colorIndex = local.findIndex(s => s.code === p.code)
+            const colorIndex = selected.findIndex(s => s.code === p.code)
             return (
               <button
                 key={p.code}
@@ -69,7 +69,7 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
         </div>
         <div className="p-4 border-t border-border">
           <button
-            onClick={() => onChange(local)}
+            onClick={onClose}
             className="w-full bg-primary text-white font-bold py-2.5 rounded-lg"
           >
             Done
