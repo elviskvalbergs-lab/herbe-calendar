@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
       // Use calendarView for date-range queries; exclude recurring series masters
       const startDt = `${dateFrom}T00:00:00`
-      const endDt = `${dateTo ?? dateFrom}T23:59:59`
+      const endDt = `${dateTo}T23:59:59`
       const res = await graphFetch(
         `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$filter=type eq 'singleInstance'&$top=100`
       )
