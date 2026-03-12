@@ -10,7 +10,8 @@ import { AccessDenied } from '@auth/core/errors'
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 async function isEmailRegistered(email: string): Promise<{ registered: boolean; userCode: string }> {
-  const users = await herbeFetchAll(REGISTERS.users, { filter: `Email eq '${email}'` }, 10)
+  const safeEmail = email.replace(/'/g, "''")
+  const users = await herbeFetchAll(REGISTERS.users, { filter: `Email eq '${safeEmail}'` }, 10)
   if (users.length === 0) return { registered: false, userCode: '' }
   const user = users[0] as Record<string, unknown>
   return { registered: true, userCode: String(user['Code'] ?? '') }
@@ -44,9 +45,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, user }) {
       try {
         const { userCode } = await isEmailRegistered(user.email)
-        ;(session.user as { userCode?: string }).userCode = userCode
-      } catch {
-        ;(session.user as { userCode?: string }).userCode = ''
+        session.user.userCode = userCode
+      } catch (err) {
+        console.error('[auth] Failed to fetch userCode from Herbe ERP:', err)
+        session.user.userCode = ''
       }
       return session
     },
