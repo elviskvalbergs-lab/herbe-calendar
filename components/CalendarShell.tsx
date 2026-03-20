@@ -33,9 +33,9 @@ export default function CalendarShell({ userCode }: Props) {
 
   function canEditActivity(activity: Activity): boolean {
     if (activity.source === 'outlook') return !!activity.isOrganizer
-    if (!activity.accessGroup) return activity.personCode === userCode
-    return activity.personCode === userCode ||
-      activity.accessGroup.split(',').map(s => s.trim()).includes(userCode)
+    const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
+    const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
+    return activity.personCode === userCode || inMainPersons || inAccessGroup
   }
 
   // Persist state to localStorage (only after people have loaded, to avoid overwriting saved person codes on mount)
