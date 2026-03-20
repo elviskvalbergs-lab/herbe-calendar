@@ -159,7 +159,7 @@ export default function ActivityForm({
       PRCode: projectCode || undefined,
       CUCode: customerCode || undefined,
       ItemCode: itemCode || undefined,
-      TextInMatrix: textInMatrix || undefined,
+      Text: textInMatrix || undefined,
       MainPersons: selectedPersonCodes.join(','),
     }
   }

@@ -26,7 +26,7 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     projectCode: String(r['PRCode'] ?? '') || undefined,
     projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
     itemCode: String(r['ItemCode'] ?? '') || undefined,
-    textInMatrix: String(r['TextInMatrix'] ?? '') || undefined,
+    textInMatrix: String(r['Text'] ?? '') || undefined,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
   }
 }
@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
     })
     const data = await res.json().catch(() => null)
+    console.log(`POST ActVc → ${res.status}`, JSON.stringify(data))
     if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
     // Check for Herbe validation errors returned with HTTP 200
     if (Array.isArray(data?.errors) && data.errors.length > 0) {
