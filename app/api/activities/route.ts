@@ -66,14 +66,9 @@ export async function GET(req: Request) {
 }
 
 function toHerbeForm(body: Record<string, unknown>): string {
-  // Send raw UTF-8 values — only escape chars that break form parsing.
-  // encodeURIComponent produces %C5%BE for ž, which Herbe decodes as Latin-1 (Å¾).
-  function escapeValue(v: string) {
-    return v.replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D').replace(/\+/g, '%2B')
-  }
   return Object.entries(body)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `set_field.${k}=${escapeValue(String(v))}`)
+    .map(([k, v]) => `set_field.${k}=${encodeURIComponent(String(v))}`)
     .join('&')
 }
 
@@ -90,7 +85,7 @@ export async function POST(req: NextRequest) {
     const res = await herbeFetch(REGISTERS.activities, undefined, {
       method: 'POST',
       body: formBody,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
     })
     const data = await res.json().catch(() => null)
     if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })

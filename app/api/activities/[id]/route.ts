@@ -4,12 +4,9 @@ import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 
 function toHerbeForm(body: Record<string, unknown>): string {
-  function escapeValue(v: string) {
-    return v.replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D').replace(/\+/g, '%2B')
-  }
   return Object.entries(body)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `set_field.${k}=${escapeValue(String(v))}`)
+    .map(([k, v]) => `set_field.${k}=${encodeURIComponent(String(v))}`)
     .join('&')
 }
 
@@ -49,7 +46,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const res = await herbeFetchById(REGISTERS.activities, id, {
       method: 'PATCH',
       body: formBody,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
     })
     const data = await res.json().catch(() => null)
     console.log(`PATCH ActVc/${id} → ${res.status}`, JSON.stringify(data))
