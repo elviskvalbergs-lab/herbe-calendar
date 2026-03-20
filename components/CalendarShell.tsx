@@ -19,6 +19,7 @@ export default function CalendarShell({ userCode }: Props) {
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
+  const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
   const [state, setState] = useState<CalendarState>(() => {
     try {
       const saved = localStorage.getItem('calendarState')
@@ -91,8 +92,13 @@ export default function CalendarShell({ userCode }: Props) {
       fetch('/api/activity-class-groups').then(r => r.json()),
     ]).then(([types, groups]) => {
       if (Array.isArray(types)) setActivityTypes(types as ActivityType[])
-      if (Array.isArray(groups)) setClassGroups(groups as ActivityClassGroup[])
-    }).catch(console.error)
+      if (Array.isArray(groups)) {
+        setClassGroups(groups as ActivityClassGroup[])
+        setClassGroupsError(null)
+      } else {
+        setClassGroupsError(groups?.error ?? JSON.stringify(groups))
+      }
+    }).catch(e => setClassGroupsError(String(e)))
   }, [])
 
   // Load people list on mount
@@ -229,6 +235,7 @@ export default function CalendarShell({ userCode }: Props) {
         <ColorSettings
           classGroups={classGroups}
           colorMap={classGroupToColor}
+          error={classGroupsError}
           onClose={() => setColorSettingsOpen(false)}
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))

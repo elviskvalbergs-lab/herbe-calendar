@@ -5,11 +5,12 @@ import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR, saveColorOverride } from 
 interface Props {
   classGroups: ActivityClassGroup[]
   colorMap: Map<string, string>          // classGroupCode → current hex
+  error?: string | null
   onClose: () => void
   onColorChange: (groupCode: string, color: string) => void
 }
 
-export default function ColorSettings({ classGroups, colorMap, onClose, onColorChange }: Props) {
+export default function ColorSettings({ classGroups, colorMap, error, onClose, onColorChange }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -41,7 +42,10 @@ export default function ColorSettings({ classGroups, colorMap, onClose, onColorC
           {/* Class groups */}
           <div>
             <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Herbe activity class groups</p>
-            {classGroups.length === 0 && (
+            {error && (
+              <p className="text-xs text-red-400 font-mono bg-red-900/20 rounded p-2 mb-2 break-all">{error}</p>
+            )}
+            {!error && classGroups.length === 0 && (
               <p className="text-sm text-text-muted">No class groups loaded yet.</p>
             )}
             <div className="space-y-3">
