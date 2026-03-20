@@ -15,10 +15,11 @@ interface Props {
   onSaved: () => void
   onDuplicate: (initial: Partial<Activity>) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
+  getTypeColor?: (typeCode: string) => string
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -525,7 +526,17 @@ export default function ActivityForm({
                       }}
                       className="w-full text-left px-3 py-1.5 text-sm hover:bg-border flex items-center gap-2"
                     >
-                      <span className="font-mono text-primary text-xs w-10 shrink-0">{t.code}</span>
+                      {(() => {
+                        const c = getTypeColor?.(t.code)
+                        return (
+                          <span
+                            className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center"
+                            style={c ? { background: c + '33', color: c } : { color: 'var(--color-primary)' }}
+                          >
+                            {t.code}
+                          </span>
+                        )
+                      })()}
                       <span>{t.name}</span>
                     </button>
                   ))}

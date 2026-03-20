@@ -84,6 +84,12 @@ export default function CalendarShell({ userCode }: Props) {
     return getActivityColor(activity, typeToClassGroup, classGroupToColor)
   }
 
+  function typeGroupColor(typeCode: string): string {
+    const grp = typeToClassGroup.get(typeCode)
+    if (!grp) return ''
+    return classGroupToColor.get(grp) ?? ''
+  }
+
   // Load activity types + class groups for color mapping
   useEffect(() => {
     setColorOverrides(loadColorOverrides())
@@ -255,6 +261,7 @@ export default function CalendarShell({ userCode }: Props) {
           onSaved={fetchActivities}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
           canEdit={formState.canEdit}
+          getTypeColor={typeGroupColor}
         />
       )}
     </div>
