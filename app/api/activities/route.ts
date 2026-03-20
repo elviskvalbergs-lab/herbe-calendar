@@ -92,14 +92,19 @@ export async function POST(req: NextRequest) {
     const data = await res.json().catch(() => null)
     console.log(`POST ActVc → ${res.status}`, JSON.stringify(data))
     if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
-    // Check for Herbe validation errors returned with HTTP 200
+    // Check for Herbe validation errors returned with HTTP 200 (errors array)
     if (Array.isArray(data?.errors) && data.errors.length > 0) {
       const msgs = (data.errors as Record<string, unknown>[]).map(e => String(e.message ?? e.text ?? e.msg ?? JSON.stringify(e)))
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
     // Extract the created record so SerNr is at top level
     const created = (data?.data?.[REGISTERS.activities] as Record<string, unknown>[] | undefined)?.[0]
-    return NextResponse.json(created ?? data ?? {}, { status: 201 })
+    // If Herbe returned an empty result (no record created), it likely rejected due to a validation rule
+    if (!created?.['SerNr']) {
+      const fallbackErr = data?.error ?? data?.message ?? 'Activity was not saved — a required field may be missing or invalid'
+      return NextResponse.json({ error: String(fallbackErr) }, { status: 422 })
+    }
+    return NextResponse.json(created, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
