@@ -14,8 +14,8 @@ export async function GET() {
     const types = (raw as Record<string, unknown>[]).map(t => ({
       code: String(t['Code'] ?? ''),
       name: String(t['Comment'] ?? t['Name'] ?? t['Code'] ?? ''),
-      // Try common field names for the class group reference
-      classGroupCode: String(t['ActClassGr'] ?? t['ClassGr'] ?? t['GrCode'] ?? t['ClassGroup'] ?? '') || undefined,
+      // Try common field names for the class group reference (ActTypeGrVc)
+      classGroupCode: String(t['ActTypeGr'] ?? t['ActClassGr'] ?? t['ClassGr'] ?? t['GrCode'] ?? t['ClassGroup'] ?? '') || undefined,
     }))
     return NextResponse.json(types, {
       headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
