@@ -8,9 +8,10 @@ interface Props {
   error?: string | null
   onClose: () => void
   onColorChange: (groupCode: string, color: string) => void
+  onReload?: () => void
 }
 
-export default function ColorSettings({ classGroups, colorMap, error, onClose, onColorChange }: Props) {
+export default function ColorSettings({ classGroups, colorMap, error, onClose, onColorChange, onReload }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -20,7 +21,14 @@ export default function ColorSettings({ classGroups, colorMap, error, onClose, o
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="font-bold">Activity Colors</h2>
-          <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+          <div className="flex items-center gap-2">
+            {onReload && (
+              <button onClick={onReload} className="text-text-muted text-sm px-2 py-1 rounded hover:bg-border" title="Reload types & groups from Herbe">
+                ↻ Reload
+              </button>
+            )}
+            <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+          </div>
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">

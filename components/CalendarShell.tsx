@@ -90,12 +90,11 @@ export default function CalendarShell({ userCode }: Props) {
     return classGroupToColor.get(grp) ?? ''
   }
 
-  // Load activity types + class groups for color mapping
-  useEffect(() => {
-    setColorOverrides(loadColorOverrides())
+  function reloadColorData(bust = false) {
+    const opts: RequestInit = bust ? { cache: 'reload' } : {}
     Promise.all([
-      fetch('/api/activity-types').then(r => r.json()),
-      fetch('/api/activity-class-groups').then(r => r.json()),
+      fetch('/api/activity-types', opts).then(r => r.json()),
+      fetch('/api/activity-class-groups', opts).then(r => r.json()),
     ]).then(([types, groups]) => {
       if (Array.isArray(types)) setActivityTypes(types as ActivityType[])
       if (Array.isArray(groups)) {
@@ -105,7 +104,13 @@ export default function CalendarShell({ userCode }: Props) {
         setClassGroupsError(groups?.error ?? JSON.stringify(groups))
       }
     }).catch(e => setClassGroupsError(String(e)))
-  }, [])
+  }
+
+  // Load activity types + class groups for color mapping
+  useEffect(() => {
+    setColorOverrides(loadColorOverrides())
+    reloadColorData()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load people list on mount
   useEffect(() => {
@@ -246,6 +251,7 @@ export default function CalendarShell({ userCode }: Props) {
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
           }}
+          onReload={() => reloadColorData(true)}
         />
       )}
 

@@ -17,7 +17,7 @@ export async function GET() {
       calColNr: g['CalColNr'] != null ? String(g['CalColNr']) : undefined,
     }))
     return NextResponse.json(groups, {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
     })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
