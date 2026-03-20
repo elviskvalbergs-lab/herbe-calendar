@@ -6,7 +6,7 @@ export const REGISTERS = {
   activities:           'ActVc',
   users:                'UserVc',
   activityTypes:        'ActTypeVc',
-  activityClassGroups:  'ActClassGrVc',
+  activityClassGroups:  'ActTypeGrVc',
   projects:             'PRVc',
   customers:            'CUVc',
 } as const
