@@ -66,12 +66,11 @@ export default function ActivityForm({
   useEffect(() => {
     fetch('/api/activity-types')
       .then(r => r.json())
-      .then((types: Record<string, unknown>[]) => {
-        const list = types.map(t => ({ code: t['Code'] as string, name: (t['Comment'] || t['Name'] || t['Code']) as string }))
-        setActivityTypes(list)
+      .then((types: ActivityType[]) => {
+        setActivityTypes(types)
         // Set display name for pre-selected type (edit mode)
         if (initial?.activityTypeCode) {
-          const found = list.find(t => t.code === initial.activityTypeCode)
+          const found = types.find(t => t.code === initial.activityTypeCode)
           if (found) setActivityTypeName(found.name)
         }
       })
