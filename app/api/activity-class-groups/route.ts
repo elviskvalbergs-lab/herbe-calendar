@@ -11,10 +11,15 @@ export async function GET() {
   }
   try {
     const raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100)
+    const toBool = (v: unknown) => v === true || v === 1 || v === '1' || v === 'true'
     const groups = (raw as Record<string, unknown>[]).map(g => ({
       code: String(g['Code'] ?? ''),
       name: String(g['Comment'] ?? g['Name'] ?? g['Code'] ?? ''),
       calColNr: g['CalColNr'] != null ? String(g['CalColNr']) : undefined,
+      forceProj: toBool(g['ForceProj']) || undefined,
+      forceCust: toBool(g['ForceCust']) || undefined,
+      forceItem: toBool(g['ForceItem']) || undefined,
+      forceTextInMatrix: toBool(g['ForceTextInMatrix']) || undefined,
     }))
     return NextResponse.json(groups, {
       headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },

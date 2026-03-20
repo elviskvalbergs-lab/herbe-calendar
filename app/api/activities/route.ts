@@ -25,6 +25,8 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     customerName: String(r['CUName'] ?? '') || undefined,
     projectCode: String(r['PRCode'] ?? '') || undefined,
     projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
+    itemCode: String(r['ItemCode'] ?? '') || undefined,
+    textInMatrix: String(r['TextInMatrix'] ?? '') || undefined,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
   }
 }
@@ -89,6 +91,11 @@ export async function POST(req: NextRequest) {
     })
     const data = await res.json().catch(() => null)
     if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
+    // Check for Herbe validation errors returned with HTTP 200
+    if (Array.isArray(data?.errors) && data.errors.length > 0) {
+      const msgs = (data.errors as Record<string, unknown>[]).map(e => String(e.message ?? e.text ?? e.msg ?? JSON.stringify(e)))
+      return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
+    }
     // Extract the created record so SerNr is at top level
     const created = (data?.data?.[REGISTERS.activities] as Record<string, unknown>[] | undefined)?.[0]
     return NextResponse.json(created ?? data ?? {}, { status: 201 })

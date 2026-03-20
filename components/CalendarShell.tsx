@@ -90,6 +90,12 @@ export default function CalendarShell({ userCode }: Props) {
     return classGroupToColor.get(grp) ?? ''
   }
 
+  function getTypeGroup(typeCode: string) {
+    const grp = typeToClassGroup.get(typeCode)
+    if (!grp) return undefined
+    return classGroups.find(g => g.code === grp)
+  }
+
   function reloadColorData(bust = false) {
     const opts: RequestInit = bust ? { cache: 'reload' } : {}
     Promise.all([
@@ -268,6 +274,7 @@ export default function CalendarShell({ userCode }: Props) {
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
           canEdit={formState.canEdit}
           getTypeColor={typeGroupColor}
+          getTypeGroup={getTypeGroup}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Activity, ActivityType, SearchResult, Person } from '@/types'
+import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
 import ErrorBanner from './ErrorBanner'
 import { format } from 'date-fns'
 
@@ -16,10 +16,11 @@ interface Props {
   onDuplicate: (initial: Partial<Activity>) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
   getTypeColor?: (typeCode: string) => string
+  getTypeGroup?: (typeCode: string) => ActivityClassGroup | undefined
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -45,6 +46,9 @@ export default function ActivityForm({
   const [customerCode, setCustomerCode] = useState(initial?.customerCode ?? '')
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '')
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
+  const [currentGroup, setCurrentGroup] = useState<ActivityClassGroup | undefined>()
+  const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
+  const [textInMatrix, setTextInMatrix] = useState(initial?.textInMatrix ?? '')
   const [projectResults, setProjectResults] = useState<SearchResult[]>([])
   const [customerResults, setCustomerResults] = useState<SearchResult[]>([])
   const [searchingProjects, setSearchingProjects] = useState(false)
@@ -69,10 +73,13 @@ export default function ActivityForm({
       .then(r => r.json())
       .then((types: ActivityType[]) => {
         setActivityTypes(types)
-        // Set display name for pre-selected type (edit mode)
+        // Set display name + group requirements for pre-selected type (edit mode)
         if (initial?.activityTypeCode) {
           const found = types.find(t => t.code === initial.activityTypeCode)
-          if (found) setActivityTypeName(found.name)
+          if (found) {
+            setActivityTypeName(found.name)
+            setCurrentGroup(getTypeGroup?.(initial.activityTypeCode))
+          }
         }
       })
       .catch(console.error)
@@ -151,6 +158,8 @@ export default function ActivityForm({
       ActType: activityTypeCode || undefined,
       PRCode: projectCode || undefined,
       CUCode: customerCode || undefined,
+      ItemCode: itemCode || undefined,
+      TextInMatrix: textInMatrix || undefined,
       MainPersons: selectedPersonCodes.join(','),
     }
   }
@@ -173,6 +182,10 @@ export default function ActivityForm({
     if (!timeFrom) errs.push('Start time is required')
     if (!timeTo) errs.push('End time is required')
     if (timeFrom && timeTo && timeFrom >= timeTo) errs.push('End time must be after start time')
+    if (source === 'herbe' && currentGroup?.forceProj && !projectCode) errs.push('Project is required for this activity type')
+    if (source === 'herbe' && currentGroup?.forceCust && !customerCode) errs.push('Customer is required for this activity type')
+    if (source === 'herbe' && currentGroup?.forceItem && !itemCode.trim()) errs.push('Item code is required for this activity type')
+    if (source === 'herbe' && currentGroup?.forceTextInMatrix && !textInMatrix.trim()) errs.push('Additional text is required for this activity type')
     if (errs.length) { setErrors(errs); return }
 
     setSaving(true)
@@ -262,17 +275,23 @@ export default function ActivityForm({
       setDescription(copy.description ?? '')
       setDate(copy.date ?? format(new Date(), 'yyyy-MM-dd'))
       setActivityTypeCode(copy.activityTypeCode ?? '')
+      setCurrentGroup(copy.activityTypeCode ? getTypeGroup?.(copy.activityTypeCode) : undefined)
       setProjectCode(copy.projectCode ?? '')
       setProjectName(copy.projectName ?? '')
       setCustomerCode(copy.customerCode ?? '')
       setCustomerName(copy.customerName ?? '')
+      setItemCode(copy.itemCode ?? '')
+      setTextInMatrix(copy.textInMatrix ?? '')
     } else {
       setDescription('')
       setActivityTypeCode('')
+      setCurrentGroup(undefined)
       setProjectCode('')
       setProjectName('')
       setCustomerCode('')
       setCustomerName('')
+      setItemCode('')
+      setTextInMatrix('')
     }
     if (copy) {
       setTimeFrom('')
@@ -502,6 +521,16 @@ export default function ActivityForm({
           {source === 'herbe' && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Activity Type</label>
+              {currentGroup && (currentGroup.forceProj || currentGroup.forceCust || currentGroup.forceItem || currentGroup.forceTextInMatrix) && (
+                <p className="text-[11px] text-amber-400 mb-1">
+                  Required: {[
+                    currentGroup.forceProj && 'project',
+                    currentGroup.forceCust && 'customer',
+                    currentGroup.forceItem && 'item code',
+                    currentGroup.forceTextInMatrix && 'additional text',
+                  ].filter(Boolean).join(', ')}
+                </p>
+              )}
               <input
                 value={activityTypeName}
                 onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); filterActivityTypes(e.target.value) }}
@@ -523,6 +552,7 @@ export default function ActivityForm({
                         setActivityTypeCode(t.code)
                         setActivityTypeName(t.name)
                         setActivityTypeResults([])
+                        setCurrentGroup(getTypeGroup?.(t.code))
                       }}
                       className="w-full text-left px-3 py-1.5 text-sm hover:bg-border flex items-center gap-2"
                     >
@@ -548,7 +578,9 @@ export default function ActivityForm({
           {/* Project (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Project</label>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
+                Project{currentGroup?.forceProj && <span className="text-red-400 ml-0.5">*</span>}
+              </label>
               <div className="relative">
                 <input
                   value={projectName}
@@ -596,7 +628,9 @@ export default function ActivityForm({
           {/* Customer (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Customer</label>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
+                Customer{currentGroup?.forceCust && <span className="text-red-400 ml-0.5">*</span>}
+              </label>
               <div className="relative">
                 <input
                   value={customerName}
@@ -629,6 +663,37 @@ export default function ActivityForm({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
+          {source === 'herbe' && (currentGroup?.forceItem || itemCode) && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
+                Item Code{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
+              </label>
+              <input
+                value={itemCode}
+                onChange={e => setItemCode(e.target.value)}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono"
+                placeholder="Item code"
+              />
+            </div>
+          )}
+
+          {/* Additional text (Herbe only, shown when ForceTextInMatrix or when value already set) */}
+          {source === 'herbe' && (currentGroup?.forceTextInMatrix || textInMatrix) && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
+                Additional Text{currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
+              </label>
+              <textarea
+                value={textInMatrix}
+                onChange={e => setTextInMatrix(e.target.value)}
+                rows={3}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
+                placeholder="Required additional description…"
+              />
             </div>
           )}
         </div>}

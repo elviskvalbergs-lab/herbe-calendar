@@ -20,6 +20,8 @@ export interface Activity {
   projectName?: string
   customerCode?: string
   customerName?: string
+  itemCode?: string
+  textInMatrix?: string   // Additional text required by ForceTextInMatrix
   mainPersons?: string[]  // Herbe: all persons on the activity
   accessGroup?: string    // comma-separated person codes (Herbe)
   isOrganizer?: boolean   // Outlook only
@@ -36,6 +38,10 @@ export interface ActivityClassGroup {
   code: string
   name: string
   calColNr?: string | number
+  forceProj?: boolean
+  forceCust?: boolean
+  forceItem?: boolean
+  forceTextInMatrix?: boolean
 }
 
 export interface SearchResult {

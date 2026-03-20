@@ -50,7 +50,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     })
     const data = await res.json().catch(() => null)
     console.log(`PATCH ActVc/${id} → ${res.status}`, JSON.stringify(data))
-    return NextResponse.json(data ?? {}, { status: res.ok ? 200 : res.status })
+    if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
+    if (Array.isArray(data?.errors) && data.errors.length > 0) {
+      const msgs = (data.errors as Record<string, unknown>[]).map(e => String(e.message ?? e.text ?? e.msg ?? JSON.stringify(e)))
+      return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
+    }
+    return NextResponse.json(data ?? {}, { status: 200 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
