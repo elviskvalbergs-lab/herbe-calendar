@@ -212,7 +212,7 @@ export default function CalendarShell({ userCode }: Props) {
         state={state}
         onStateChange={setState}
         people={people}
-        onNewActivity={() => setFormState({ open: true })}
+        onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
         onRefresh={fetchActivities}
         onColorSettings={() => setColorSettingsOpen(true)}
       />

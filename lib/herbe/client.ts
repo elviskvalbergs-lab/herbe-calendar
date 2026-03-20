@@ -1,4 +1,55 @@
+import { request as httpsRequest } from 'node:https'
+import { request as httpRequest } from 'node:http'
 import { getHerbeAccessToken } from './config'
+
+/**
+ * Custom fetch that uses Node.js http/https with insecureHTTPParser: true.
+ * Required for Herbe ERP servers that send both Content-Length and Transfer-Encoding
+ * headers (invalid per HTTP/1.1 but accepted by older clients).
+ */
+async function herbeFetchRaw(url: string, init: RequestInit = {}): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const makeRequest = parsed.protocol === 'https:' ? httpsRequest : httpRequest
+
+    const headers: Record<string, string> = {}
+    if (init.headers && typeof init.headers === 'object') {
+      for (const [k, v] of Object.entries(init.headers as Record<string, string>)) {
+        headers[k] = v
+      }
+    }
+
+    const req = makeRequest(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: (init.method ?? 'GET').toUpperCase(),
+        headers,
+        insecureHTTPParser: true,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
+        res.on('end', () => {
+          const body = Buffer.concat(chunks)
+          const responseHeaders = new Headers()
+          for (const [key, val] of Object.entries(res.headers)) {
+            if (val !== undefined) {
+              responseHeaders.set(key, Array.isArray(val) ? val.join(', ') : String(val))
+            }
+          }
+          resolve(new Response(body, { status: res.statusCode ?? 200, headers: responseHeaders }))
+        })
+        res.on('error', reject)
+      }
+    )
+
+    req.on('error', reject)
+    if (init.body) req.write(init.body)
+    req.end()
+  })
+}
 
 async function herbeAuthHeader(): Promise<string> {
   // Try OAuth tokens from DB first
@@ -38,7 +89,7 @@ export async function herbeFetch(
   options?: RequestInit
 ): Promise<Response> {
   const auth = await herbeAuthHeader()
-  return fetch(herbeUrl(register, query), {
+  return herbeFetchRaw(herbeUrl(register, query), {
     ...options,
     headers: {
       Authorization: auth,
@@ -56,7 +107,7 @@ export async function herbeFetchById(
   options?: RequestInit
 ): Promise<Response> {
   const auth = await herbeAuthHeader()
-  return fetch(herbeUrlById(register, id), {
+  return herbeFetchRaw(herbeUrlById(register, id), {
     ...options,
     headers: {
       Authorization: auth,

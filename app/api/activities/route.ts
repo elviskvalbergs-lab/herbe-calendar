@@ -67,10 +67,34 @@ export async function GET(req: Request) {
   }
 }
 
+function extractHerbeError(e: unknown): string {
+  if (!e) return ''
+  if (typeof e === 'string') return e
+  if (typeof e === 'object') {
+    const o = e as Record<string, unknown>
+    // Common Herbe error shapes
+    const msg = o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
+    if (msg) return String(msg)
+    // Include field/code context if available
+    const parts: string[] = []
+    if (o.field) parts.push(`field: ${o.field}`)
+    if (o.code) parts.push(`code: ${o.code}`)
+    if (o.vc) parts.push(`vc: ${o.vc}`)
+    return parts.length ? parts.join(', ') : JSON.stringify(e)
+  }
+  return String(e)
+}
+
+// Fields that live on row 0 of the activity record, not the header
+const ROW_FIELDS = new Set(['Text'])
+
 function toHerbeForm(body: Record<string, unknown>): string {
   return Object.entries(body)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `set_field.${k}=${encodeURIComponent(String(v))}`)
+    .map(([k, v]) => {
+      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
+      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
+    })
     .join('&')
 }
 
@@ -94,15 +118,16 @@ export async function POST(req: NextRequest) {
     if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
     // Check for Herbe validation errors returned with HTTP 200 (errors array)
     if (Array.isArray(data?.errors) && data.errors.length > 0) {
-      const msgs = (data.errors as Record<string, unknown>[]).map(e => String(e.message ?? e.text ?? e.msg ?? JSON.stringify(e)))
+      const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
     // Extract the created record so SerNr is at top level
     const created = (data?.data?.[REGISTERS.activities] as Record<string, unknown>[] | undefined)?.[0]
     // If Herbe returned an empty result (no record created), it likely rejected due to a validation rule
     if (!created?.['SerNr']) {
-      const fallbackErr = data?.error ?? data?.message ?? 'Activity was not saved — a required field may be missing or invalid'
-      return NextResponse.json({ error: String(fallbackErr) }, { status: 422 })
+      const rawErr = data?.error ?? data?.message
+      const fallbackErr = rawErr ? extractHerbeError(rawErr) : 'Activity was not saved — a required field may be missing or invalid'
+      return NextResponse.json({ error: fallbackErr }, { status: 422 })
     }
     return NextResponse.json(created, { status: 201 })
   } catch (e) {

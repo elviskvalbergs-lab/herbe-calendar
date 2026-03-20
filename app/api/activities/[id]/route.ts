@@ -3,10 +3,15 @@ import { herbeFetchById } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 
+const ROW_FIELDS = new Set(['Text'])
+
 function toHerbeForm(body: Record<string, unknown>): string {
   return Object.entries(body)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `set_field.${k}=${encodeURIComponent(String(v))}`)
+    .map(([k, v]) => {
+      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
+      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
+    })
     .join('&')
 }
 

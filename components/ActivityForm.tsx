@@ -208,7 +208,7 @@ export default function ActivityForm({
       if (!res.ok) {
         const apiErrors = Array.isArray(data?.errors)
           ? data.errors.map((e: { message?: string }) => e.message ?? String(e))
-          : [data?.error ?? `Server error (${res.status})`]
+          : [String(data?.error ?? `Server error (${res.status})`)]
         setErrors(apiErrors)
         setSaving(false)
         return
@@ -681,8 +681,8 @@ export default function ActivityForm({
             </div>
           )}
 
-          {/* Additional text (Herbe only, shown when ForceTextInMatrix or when value already set) */}
-          {source === 'herbe' && (currentGroup?.forceTextInMatrix || textInMatrix) && (
+          {/* Additional text (Herbe only) */}
+          {source === 'herbe' && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
                 Additional Text{currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
@@ -690,9 +690,9 @@ export default function ActivityForm({
               <textarea
                 value={textInMatrix}
                 onChange={e => setTextInMatrix(e.target.value)}
-                rows={3}
+                rows={2}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
-                placeholder="Required additional description…"
+                placeholder="Optional additional description…"
               />
             </div>
           )}
