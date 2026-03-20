@@ -26,6 +26,12 @@ export function herbeUrl(register: string, query?: string): string {
   return query ? `${url}?${query}` : url
 }
 
+export function herbeUrlById(register: string, id: string): string {
+  const base = (process.env.HERBE_API_BASE_URL ?? '').trim()
+  const company = (process.env.HERBE_COMPANY_CODE ?? '').trim()
+  return `${base}/${company}/${register}/${id}`
+}
+
 export async function herbeFetch(
   register: string,
   query?: string,
@@ -33,6 +39,24 @@ export async function herbeFetch(
 ): Promise<Response> {
   const auth = await herbeAuthHeader()
   return fetch(herbeUrl(register, query), {
+    ...options,
+    headers: {
+      Authorization: auth,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(options?.headers ?? {}),
+    },
+  })
+}
+
+/** Fetch a single record or mutate it using the path-based URL: /register/id */
+export async function herbeFetchById(
+  register: string,
+  id: string,
+  options?: RequestInit
+): Promise<Response> {
+  const auth = await herbeAuthHeader()
+  return fetch(herbeUrlById(register, id), {
     ...options,
     headers: {
       Authorization: auth,

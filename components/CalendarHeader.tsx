@@ -10,9 +10,10 @@ interface Props {
   onStateChange: (s: CalendarState) => void
   people: Person[]
   onNewActivity: () => void
+  onRefresh: () => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
 
   function navigate(delta: number) {
@@ -33,6 +34,13 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         {format(parseISO(state.date), 'd MMM yyyy')}
       </span>
       <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded hover:bg-border">›</button>
+      <button
+        onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
+        className="text-text-muted px-2 py-1 rounded hover:bg-border text-xs font-bold"
+        title="Go to today"
+      >
+        Today
+      </button>
 
       {/* View toggle */}
       <div className="flex rounded overflow-hidden border border-border text-xs font-bold">
@@ -50,17 +58,19 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* Person chips */}
       <div className="flex items-center gap-1 flex-wrap">
         {state.selectedPersons.map((p, i) => (
-          <span
+          <button
             key={p.code}
-            className="px-2 py-0.5 rounded-full text-xs font-bold border"
+            onClick={() => onStateChange({ ...state, selectedPersons: state.selectedPersons.filter(sp => sp.code !== p.code) })}
+            className="px-2 py-0.5 rounded-full text-xs font-bold border cursor-pointer hover:opacity-70"
             style={{
               color: personColor(i),
               borderColor: personColor(i) + '44',
               background: personColor(i) + '22',
             }}
+            title={`Remove ${p.code}`}
           >
-            {p.code}
-          </span>
+            {p.code} <span className="opacity-50">✕</span>
+          </button>
         ))}
         <button
           onClick={() => setSelectorOpen(true)}
@@ -68,6 +78,15 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           title="Add person"
         >+</button>
       </div>
+
+      {/* Refresh */}
+      <button
+        onClick={onRefresh}
+        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Refresh"
+      >
+        ↻
+      </button>
 
       {/* New activity */}
       <button

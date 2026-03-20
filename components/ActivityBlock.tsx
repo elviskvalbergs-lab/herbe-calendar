@@ -18,7 +18,7 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
 
   return (
     <div
-      className="absolute left-1 right-1 rounded overflow-hidden cursor-pointer select-none"
+      className="absolute left-1 right-1 rounded overflow-hidden cursor-pointer select-none pointer-events-auto"
       style={{
         top,
         height,
@@ -31,9 +31,24 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
       <div className="px-1.5 py-0.5">
-        <p className="text-[10px] font-bold truncate" style={{ color }}>
-          {isOutlook && '📅 '}{activity.description || '(no title)'}
-        </p>
+        <div className="flex items-start justify-between gap-1">
+          <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
+            {isOutlook && '📅 '}{activity.description || '(no title)'}
+          </p>
+          {activity.joinUrl && (
+            <a
+              href={activity.joinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+              className="shrink-0 text-[8px] font-bold px-1 py-0.5 rounded"
+              style={{ background: '#464EB8', color: '#fff', lineHeight: 1.2 }}
+            >
+              Join
+            </a>
+          )}
+        </div>
         <p className="text-[9px] text-text-muted truncate">
           {activity.timeFrom}–{activity.timeTo}
           {activity.customerName ? ` · ${activity.customerName}` : ''}

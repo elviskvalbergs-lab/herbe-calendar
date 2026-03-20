@@ -5,6 +5,7 @@ import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import { addDays, format, parseISO } from 'date-fns'
 import { minutesToPx, GRID_START_HOUR } from '@/lib/time'
+import { personColor } from '@/lib/colors'
 
 interface Props {
   state: CalendarState
@@ -28,7 +29,7 @@ export default function CalendarGrid({
     if (!scrollRef.current) return
     const HEADER_HEIGHT = 40
     const TARGET_HOUR = 8
-    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60) + HEADER_HEIGHT
+    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60)
   }, [])
 
   // Build date list for current view
@@ -56,35 +57,71 @@ export default function CalendarGrid({
       onTouchEnd={handleTouchEnd}
     >
       {loading && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary animate-pulse z-20" />
+        <div className="absolute inset-0 z-30 bg-black/40 flex items-center justify-center pointer-events-auto">
+          <div className="bg-surface border border-border rounded-xl px-5 py-3 text-sm font-bold text-text-muted animate-pulse">
+            Loading…
+          </div>
+        </div>
       )}
 
       <div className="flex min-w-0">
-        <TimeColumn />
+        <TimeColumn is3Day={state.view === '3day'} />
 
-        {/* For each date, render each person's column */}
-        {dates.map(date => (
-          <div key={date} className="flex flex-1 min-w-0">
-            {state.selectedPersons.map((person, personIdx) => {
-              const personActivities = activities.filter(
-                a => a.personCode === person.code && a.date === date
-              )
-              return (
-                <PersonColumn
-                  key={person.code}
-                  personCode={person.code}
-                  personIndex={personIdx}
-                  date={date}
-                  activities={personActivities}
-                  sessionUserCode={sessionUserCode}
-                  onSlotClick={onSlotClick}
-                  onActivityClick={onActivityClick}
-                  onActivityUpdate={onActivityUpdate}
-                />
-              )
-            })}
-          </div>
-        ))}
+        {/* For each date, a grouped column with shared header */}
+        {dates.map((date, dateIdx) => {
+          const is3Day = state.view === '3day'
+          // In 3-day view use narrower columns so they don't overflow portrait
+          const colMinW = is3Day ? 'min-w-[30vw] sm:min-w-0' : 'min-w-[44vw] sm:min-w-0'
+          return (
+            <div
+              key={date}
+              className={`flex-1 min-w-0 flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+            >
+              {/* Sticky two-row header for this day */}
+              <div className="sticky top-0 z-10 bg-surface">
+                {is3Day && (
+                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide">
+                    {format(parseISO(date), 'EEE dd/MM')}
+                  </div>
+                )}
+                <div className="flex border-b border-border h-10">
+                  {state.selectedPersons.map((person, personIdx) => (
+                    <div
+                      key={person.code}
+                      className={`flex-1 ${colMinW} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
+                      style={{ color: personColor(personIdx) }}
+                    >
+                      {person.code}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Person columns (body only, no header) */}
+              <div className="flex flex-1">
+                {state.selectedPersons.map((person, personIdx) => {
+                  const personActivities = activities.filter(
+                    a => a.personCode === person.code && a.date === date
+                  )
+                  return (
+                    <PersonColumn
+                      key={person.code}
+                      personCode={person.code}
+                      personIndex={personIdx}
+                      date={date}
+                      activities={personActivities}
+                      sessionUserCode={sessionUserCode}
+                      onSlotClick={onSlotClick}
+                      onActivityClick={onActivityClick}
+                      onActivityUpdate={onActivityUpdate}
+                      colMinW={colMinW}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

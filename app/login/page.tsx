@@ -12,7 +12,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await signIn('email', { email, redirect: false })
+    const res = await signIn('email', { email, redirect: false, callbackUrl: '/' })
     setLoading(false)
     if (res?.error === 'AccessDenied') {
       setError('This email is not registered in Herbe. Contact your administrator.')

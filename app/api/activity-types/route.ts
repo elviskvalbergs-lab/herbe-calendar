@@ -11,7 +11,9 @@ export async function GET() {
   }
   try {
     const types = await herbeFetchAll(REGISTERS.activityTypes, {}, 1000)
-    return NextResponse.json(types)
+    return NextResponse.json(types, {
+      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
+    })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

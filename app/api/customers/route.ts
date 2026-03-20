@@ -12,7 +12,14 @@ export async function GET(req: NextRequest) {
   const q = new URL(req.url).searchParams.get('q') ?? ''
   if (q.length < 2) return NextResponse.json([])
   try {
-    const results = await herbeFetchAll(REGISTERS.customers, { 'filter.Name': q }, 20)
+    const all = await herbeFetchAll(REGISTERS.customers, {}, 500)
+    const lower = q.toLowerCase()
+    const results = all.filter(c => {
+      const r = c as Record<string, unknown>
+      const name = String(r['Name'] ?? r['CUName'] ?? '')
+      const code = String(r['Code'] ?? r['CUCode'] ?? '')
+      return name.toLowerCase().includes(lower) || code.toLowerCase().includes(lower)
+    }).slice(0, 20)
     return NextResponse.json(results)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

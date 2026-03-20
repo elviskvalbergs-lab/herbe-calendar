@@ -20,8 +20,10 @@ export interface Activity {
   projectName?: string
   customerCode?: string
   customerName?: string
-  accessGroup?: string  // comma-separated person codes (Herbe)
-  isOrganizer?: boolean // Outlook only
+  mainPersons?: string[]  // Herbe: all persons on the activity
+  accessGroup?: string    // comma-separated person codes (Herbe)
+  isOrganizer?: boolean   // Outlook only
+  joinUrl?: string        // Outlook/Teams meeting join link
 }
 
 export interface ActivityType {
@@ -32,6 +34,8 @@ export interface ActivityType {
 export interface SearchResult {
   code: string
   name: string
+  customerCode?: string
+  customerName?: string
 }
 
 export interface CalendarState {

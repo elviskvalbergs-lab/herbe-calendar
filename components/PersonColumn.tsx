@@ -14,6 +14,7 @@ interface Props {
   onSlotClick: (personCode: string, time: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
+  colMinW?: string
 }
 
 interface DragState {
@@ -24,24 +25,26 @@ interface DragState {
   originalTo: string
   currentFrom: string
   currentTo: string
+  saving?: boolean
 }
 
 export default function PersonColumn({
   personCode, personIndex, date, activities, sessionUserCode,
-  onSlotClick, onActivityClick, onActivityUpdate
+  onSlotClick, onActivityClick, onActivityUpdate, colMinW = 'min-w-[44vw] sm:min-w-0'
 }: Props) {
   const color = personColor(personIndex)
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
+  const suppressClickRef = useRef(false)
 
   const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
 
   function canEdit(activity: Activity): boolean {
     if (activity.source === 'outlook') return !!activity.isOrganizer
-    if (!activity.accessGroup) return activity.personCode === sessionUserCode
-    return activity.personCode === sessionUserCode ||
-      activity.accessGroup.split(',').map(s => s.trim()).includes(sessionUserCode)
+    const inMainPersons = activity.mainPersons?.includes(sessionUserCode) ?? false
+    const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(sessionUserCode) ?? false
+    return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup
   }
 
   function handleSlotClick(hour: number, e: React.MouseEvent) {
@@ -85,19 +88,25 @@ export default function PersonColumn({
 
       if (dragState.currentFrom === dragState.originalFrom && dragState.currentTo === dragState.originalTo) {
         setDrag(null)
+        onActivityClick(activity)
         return
       }
 
-      setDrag(null)
+      // Real drag: suppress the click event that browsers fire after pointerup
+      suppressClickRef.current = true
+      setTimeout(() => { suppressClickRef.current = false }, 300)
+
+      // Keep activity at dragged position while saving (don't snap back)
+      setDrag({ ...dragState, saving: true })
       const source = activity.source
       const url = source === 'herbe'
         ? `/api/activities/${activity.id}`
         : `/api/outlook/${activity.id}`
       const body = source === 'herbe'
-        ? { TimeFrom: dragState.currentFrom, TimeTo: dragState.currentTo }
+        ? { StartTime: dragState.currentFrom, EndTime: dragState.currentTo }
         : {
-            start: { dateTime: `${date}T${dragState.currentFrom}:00` },
-            end: { dateTime: `${date}T${dragState.currentTo}:00` },
+            start: { dateTime: `${date}T${dragState.currentFrom}:00`, timeZone: 'Europe/Riga' },
+            end: { dateTime: `${date}T${dragState.currentTo}:00`, timeZone: 'Europe/Riga' },
           }
 
       const res = await fetch(url, {
@@ -110,6 +119,7 @@ export default function PersonColumn({
         setDragError(data.error ?? res.statusText ?? 'Could not save time change')
         setTimeout(() => setDragError(null), 4000)  // auto-dismiss after 4s
       }
+      setDrag(null)
       onActivityUpdate()
     }
 
@@ -131,16 +141,9 @@ export default function PersonColumn({
   }
 
   return (
-    <div ref={columnRef} className="flex-1 min-w-[44vw] sm:min-w-0 border-r border-border relative">
-      {/* Person header */}
-      <div
-        className="h-10 border-b border-border flex items-center justify-center text-xs font-bold sticky top-0 z-10 bg-surface"
-        style={{ color }}
-      >
-        {personCode}
-      </div>
+    <div ref={columnRef} className={`flex-1 ${colMinW} border-r border-border relative last:border-r-0`}>
       {dragError && (
-        <div className="absolute top-12 left-0 right-0 z-30 mx-2">
+        <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
             {dragError}
           </div>
@@ -163,13 +166,14 @@ export default function PersonColumn({
         {groups.map((col, colIdx) =>
           col.map(act => {
             const isDragging = drag?.activity.id === act.id
+            const isSaving = isDragging && drag!.saving
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
             return (
               <div
                 key={act.id}
-                className="absolute"
+                className="absolute pointer-events-none"
                 style={{
                   left: `${(colIdx / groups.length) * 100}%`,
                   right: `${((groups.length - colIdx - 1) / groups.length) * 100}%`,
@@ -180,17 +184,19 @@ export default function PersonColumn({
                 <ActivityBlock
                   activity={displayActivity}
                   color={color}
-                  onClick={onActivityClick}
+                  onClick={(act) => { if (!suppressClickRef.current) onActivityClick(act) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
-                  style={isDragging ? { opacity: 0.7, outline: `2px dashed ${color}` } : undefined}
+                  style={isDragging
+                    ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${color}` }
+                    : undefined}
                 />
                 {isDragging && (
                   <div
                     className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
                     style={{ top: timeToTopPx(drag!.currentFrom) - 14, color }}
                   >
-                    {drag!.currentFrom}–{drag!.currentTo}
+                    {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                   </div>
                 )}
               </div>

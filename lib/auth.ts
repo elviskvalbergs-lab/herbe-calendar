@@ -9,9 +9,18 @@ import { AccessDenied } from '@auth/core/errors'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
+// Cache email → userCode lookups for 1 hour to avoid fetching all users on every session callback
+const userCache = new Map<string, { userCode: string; expiresAt: number }>()
+const USER_CACHE_TTL_MS = 60 * 60 * 1000
+
 async function isEmailRegistered(email: string): Promise<{ registered: boolean; userCode: string }> {
-  const users = await herbeFetchAll(REGISTERS.users, {}, 500)
   const lower = email.toLowerCase()
+  const cached = userCache.get(lower)
+  if (cached && cached.expiresAt > Date.now()) {
+    return { registered: !!cached.userCode, userCode: cached.userCode }
+  }
+
+  const users = await herbeFetchAll(REGISTERS.users, {}, 500)
   const user = users.find((u) => {
     const r = u as Record<string, unknown>
     return (
@@ -19,8 +28,10 @@ async function isEmailRegistered(email: string): Promise<{ registered: boolean; 
       String(r['LoginEmailAddr'] ?? '').toLowerCase() === lower
     )
   }) as Record<string, unknown> | undefined
+  const userCode = user ? String(user['Code'] ?? '') : ''
+  userCache.set(lower, { userCode, expiresAt: Date.now() + USER_CACHE_TTL_MS })
   if (!user) return { registered: false, userCode: '' }
-  return { registered: true, userCode: String(user['Code'] ?? '') }
+  return { registered: true, userCode }
 }
 
 const emailProvider: EmailConfig = {

@@ -12,8 +12,8 @@ async function emailForCode(code: string): Promise<string | null> {
     const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
     userListCache = Object.fromEntries(
       (users as Record<string, unknown>[])
-        .filter(u => u['Code'] && u['Email'])
-        .map(u => [u['Code'] as string, u['Email'] as string])
+        .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
+        .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
     )
   }
   return userListCache[code] ?? null
@@ -41,19 +41,42 @@ export async function GET(req: NextRequest) {
       const email = await emailForCode(code)
       if (!email) return []
 
-      // Use calendarView for date-range queries; exclude recurring series masters
+      // calendarView expands recurring events automatically; no type filter needed
       const startDt = `${dateFrom}T00:00:00`
       const endDt = `${dateTo}T23:59:59`
       const res = await graphFetch(
-        `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$filter=type eq 'singleInstance'&$top=100`
+        `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
+        { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
       )
-      if (!res.ok) return []
+      if (!res.ok) {
+        const errText = await res.text()
+        console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
+        throw new Error(`Graph ${res.status}: ${errText}`)
+      }
       const data = await res.json()
-      return (data.value ?? []).map((ev: Record<string, unknown>) => ({
-        ...ev,
-        _personCode: code,
-        _source: 'outlook',
-      }))
+      return (data.value ?? []).map((ev: Record<string, unknown>) => {
+        const start = (ev['start'] as Record<string, string> | undefined)
+        const end = (ev['end'] as Record<string, string> | undefined)
+        const startDt = start?.dateTime ?? ''
+        const endDt = end?.dateTime ?? ''
+        const organizer = ev['organizer'] as Record<string, unknown> | undefined
+        const organizerEmail = (organizer?.['emailAddress'] as Record<string, string> | undefined)?.['address'] ?? ''
+        const onlineMeeting = ev['onlineMeeting'] as Record<string, string> | undefined
+        const joinUrl = onlineMeeting?.['joinUrl'] ?? (ev['onlineMeetingUrl'] as string | undefined) ?? undefined
+        return {
+          id: String(ev['id'] ?? ''),
+          source: 'outlook' as const,
+          personCode: code,
+          description: String(ev['subject'] ?? ''),
+          date: startDt.slice(0, 10),
+          timeFrom: startDt.slice(11, 16),
+          timeTo: endDt.slice(11, 16),
+          isOrganizer: organizerEmail.toLowerCase() === email.toLowerCase(),
+          location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
+          bodyPreview: String(ev['bodyPreview'] ?? ''),
+          joinUrl,
+        }
+      })
     }))
     return NextResponse.json(results.flat())
   } catch (e) {

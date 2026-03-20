@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { herbeFetch } from '@/lib/herbe/client'
+import { herbeFetchById } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 
+function toHerbeForm(body: Record<string, unknown>): string {
+  function escapeValue(v: string) {
+    return v.replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D').replace(/\+/g, '%2B')
+  }
+  return Object.entries(body)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `set_field.${k}=${escapeValue(String(v))}`)
+    .join('&')
+}
+
 async function fetchActivity(id: string) {
-  const res = await herbeFetch(REGISTERS.activities, `id=${id}`)
+  // Path-based URL (/ActVc/id) fetches one record — query ?id=X may scan all records
+  const res = await herbeFetchById(REGISTERS.activities, id)
   if (!res.ok) return null
   const json = await res.json()
-  const items = (json?.data?.[REGISTERS.activities] ?? []) as Record<string, unknown>[]
-  return items[0] ?? null
+  // Handle both wrapped { data: { ActVc: [...] } } and direct record responses
+  return (json?.data?.[REGISTERS.activities]?.[0] ?? json) as Record<string, unknown>
 }
 
 function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
-  const owner = activity['Person'] as string | undefined
+  const mainPersons = String(activity['MainPersons'] ?? '').split(',').map(s => s.trim())
+  if (mainPersons.includes(userCode)) return true
   const accessGroup = activity[ACTIVITY_ACCESS_GROUP_FIELD] as string | undefined
-  if (owner === userCode) return true
   if (accessGroup?.split(',').map(s => s.trim()).includes(userCode)) return true
   return false
 }
@@ -34,12 +45,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const body = await req.json()
-    const res = await herbeFetch(REGISTERS.activities, `id=${id}`, {
+    const formBody = toHerbeForm(body)
+    const res = await herbeFetchById(REGISTERS.activities, id, {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: formBody,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
-    const data = await res.json()
-    return NextResponse.json(data, { status: res.status })
+    const data = await res.json().catch(() => null)
+    console.log(`PATCH ActVc/${id} → ${res.status}`, JSON.stringify(data))
+    return NextResponse.json(data ?? {}, { status: res.ok ? 200 : res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
@@ -59,7 +73,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!canEdit(activity, session.userCode)) return forbidden()
 
   try {
-    const res = await herbeFetch(REGISTERS.activities, `id=${id}`, { method: 'DELETE' })
+    const res = await herbeFetchById(REGISTERS.activities, id, { method: 'DELETE' })
     return new NextResponse(null, { status: res.ok ? 204 : res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
