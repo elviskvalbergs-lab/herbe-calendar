@@ -10,14 +10,13 @@ export async function GET() {
     return unauthorized()
   }
   try {
-    const raw = await herbeFetchAll(REGISTERS.activityTypes, {}, 1000)
-    const types = (raw as Record<string, unknown>[]).map(t => ({
-      code: String(t['Code'] ?? ''),
-      name: String(t['Comment'] ?? t['Name'] ?? t['Code'] ?? ''),
-      // Try common field names for the class group reference
-      classGroupCode: String(t['ActClassGr'] ?? t['ClassGr'] ?? t['GrCode'] ?? t['ClassGroup'] ?? '') || undefined,
+    const raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100)
+    const groups = (raw as Record<string, unknown>[]).map(g => ({
+      code: String(g['Code'] ?? ''),
+      name: String(g['Comment'] ?? g['Name'] ?? g['Code'] ?? ''),
+      calColNr: g['CalColNr'] != null ? Number(g['CalColNr']) : undefined,
     }))
-    return NextResponse.json(types, {
+    return NextResponse.json(groups, {
       headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
     })
   } catch (e) {

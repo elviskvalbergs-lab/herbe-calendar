@@ -1,0 +1,7 @@
+[ 2866523ms] [WARNING] {msg: An error has occurred getting the experiment. Only the first occurrence of this error is logged., experimentName: confluence_enable_react-compiler-runtime-2, error: Error: Client must be initialized before using this method
+    at A.assertInitialized (https://cc-f…} @ https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:1
+[ 2866525ms] [WARNING] {msg: An error has occurred checking the feature gate. Only the first occurrence of this error is logged., gateName: shared-user-preferences, error: Error: Client must be initialized before using this method
+    at A.assertInitialized (https://cc-f…} @ https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:1
+[ 2867277ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://burti.atlassian.net/gateway/api/watermelon/organization/containsAnyWorkspace?cloudId=1d478924-cbd4-4dd0-93c9-5b2c26d600c8:0
+[ 2867278ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://burti.atlassian.net/gateway/api/townsquare/s/1d478924-cbd4-4dd0-93c9-5b2c26d600c8/workspace/existsWithWorkspaceType?cloudId=1d478924-cbd4-4dd0-93c9-5b2c26d600c8:0
+[ 2889141ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://herbe-calendar.vercel.app/seupt:0

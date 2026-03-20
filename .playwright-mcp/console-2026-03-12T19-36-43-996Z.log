@@ -1,0 +1,15 @@
+[    1355ms] [WARNING] {msg: An error has occurred getting the experiment. Only the first occurrence of this error is logged., experimentName: confluence_enable_react-compiler-runtime-2, error: Error: Client must be initialized before using this method
+    at A.assertInitialized (https://cc-f…} @ https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:1
+[    1356ms] [WARNING] {msg: An error has occurred checking the feature gate. Only the first occurrence of this error is logged., gateName: shared-user-preferences, error: Error: Client must be initialized before using this method
+    at A.assertInitialized (https://cc-f…} @ https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:1
+[    2076ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://burti.atlassian.net/gateway/api/watermelon/organization/containsAnyWorkspace?cloudId=1d478924-cbd4-4dd0-93c9-5b2c26d600c8:0
+[    2077ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://burti.atlassian.net/gateway/api/townsquare/s/1d478924-cbd4-4dd0-93c9-5b2c26d600c8/workspace/existsWithWorkspaceType?cloudId=1d478924-cbd4-4dd0-93c9-5b2c26d600c8:0
+[    2270ms] Error: Missing event.source
+    at s (https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:6:207536)
+    at f (https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:6:207955)
+    at rb.sendOperationalEvent (https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:6:135868)
+    at https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/dashboard-spa-container-jquery3.ff38b6cb.js:40:135788
+[    2313ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://burti.atlassian.net/gateway/api/townsquare/s/1d478924-cbd4-4dd0-93c9-5b2c26d600c8/workspace/existsWithWorkspaceType?cloudId=1d478924-cbd4-4dd0-93c9-5b2c26d600c8:0
+[    2794ms] [WARNING] Deprecated API for given entry type. @ https://cc-fe-bifrost.prod-east.frontend.public.atl-paas.net/assets/master/create-payload.253df637.js:0
+[    2859ms] [WARNING] Multiple versions of FeatureGateClients found on the current page.
+      The currently bound version is 0.0.0-use.local when module version 4.23.4 was loading. @ https://d2nbci9klnch1p.cloudfront.net/burti.atlassian.net/wiki/s/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855-CDN/1993547107/h/8d08f1289fd4a7ebfc3f1c1551e7eee0dc7fb5414bbef4c57311b6ab1fa1b7af/_/download/batch/com.atlassian.plugins.atlassian-connect-plugin:ap-core-v5/com.atlassian.plugins.atlassian-connect-plugin:ap-core-v5.js?assetVersion=1000.0.0-5a250a474c3719827&externals=__local-default__:14

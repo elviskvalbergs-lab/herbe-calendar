@@ -11,9 +11,10 @@ interface Props {
   people: Person[]
   onNewActivity: () => void
   onRefresh: () => void
+  onColorSettings: () => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
 
   function navigate(delta: number) {
@@ -86,6 +87,15 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         title="Refresh"
       >
         ↻
+      </button>
+
+      {/* Color settings */}
+      <button
+        onClick={onColorSettings}
+        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Activity colors"
+      >
+        🎨
       </button>
 
       {/* New activity */}

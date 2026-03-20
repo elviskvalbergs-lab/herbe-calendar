@@ -29,6 +29,13 @@ export interface Activity {
 export interface ActivityType {
   code: string
   name: string
+  classGroupCode?: string
+}
+
+export interface ActivityClassGroup {
+  code: string
+  name: string
+  calColNr?: number
 }
 
 export interface SearchResult {

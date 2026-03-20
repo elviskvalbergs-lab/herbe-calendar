@@ -2,15 +2,14 @@
 import { Activity } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx } from '@/lib/time'
 import ActivityBlock from './ActivityBlock'
-import { personColor } from '@/lib/colors'
 import { useRef, useState } from 'react'
 
 interface Props {
   personCode: string
-  personIndex: number
   date: string
   activities: Activity[]
   sessionUserCode: string
+  getActivityColor: (activity: Activity) => string
   onSlotClick: (personCode: string, time: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
@@ -29,10 +28,9 @@ interface DragState {
 }
 
 export default function PersonColumn({
-  personCode, personIndex, date, activities, sessionUserCode,
+  personCode, date, activities, sessionUserCode, getActivityColor,
   onSlotClick, onActivityClick, onActivityUpdate, colMinW = 'min-w-[44vw] sm:min-w-0'
 }: Props) {
-  const color = personColor(personIndex)
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
@@ -170,6 +168,7 @@ export default function PersonColumn({
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
+            const actColor = getActivityColor(act)
             return (
               <div
                 key={act.id}
@@ -183,18 +182,18 @@ export default function PersonColumn({
               >
                 <ActivityBlock
                   activity={displayActivity}
-                  color={color}
+                  color={actColor}
                   onClick={(act) => { if (!suppressClickRef.current) onActivityClick(act) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
                   style={isDragging
-                    ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${color}` }
+                    ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
                 />
                 {isDragging && (
                   <div
                     className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                    style={{ top: timeToTopPx(drag!.currentFrom) - 14, color }}
+                    style={{ top: timeToTopPx(drag!.currentFrom) - 14, color: actColor }}
                   >
                     {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                   </div>

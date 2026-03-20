@@ -12,6 +12,7 @@ interface Props {
   activities: Activity[]
   loading: boolean
   sessionUserCode?: string
+  getActivityColor: (activity: Activity) => string
   onRefresh: () => void
   onSlotClick: (personCode: string, time: string) => void
   onActivityClick: (activity: Activity) => void
@@ -19,7 +20,7 @@ interface Props {
 }
 
 export default function CalendarGrid({
-  state, activities, loading, sessionUserCode = '',
+  state, activities, loading, sessionUserCode = '', getActivityColor,
   onRefresh, onSlotClick, onActivityClick, onActivityUpdate
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -107,10 +108,10 @@ export default function CalendarGrid({
                     <PersonColumn
                       key={person.code}
                       personCode={person.code}
-                      personIndex={personIdx}
                       date={date}
                       activities={personActivities}
                       sessionUserCode={sessionUserCode}
+                      getActivityColor={getActivityColor}
                       onSlotClick={onSlotClick}
                       onActivityClick={onActivityClick}
                       onActivityUpdate={onActivityUpdate}

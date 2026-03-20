@@ -1,0 +1,94 @@
+'use client'
+import { ActivityClassGroup } from '@/types'
+import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR, saveColorOverride } from '@/lib/activityColors'
+
+interface Props {
+  classGroups: ActivityClassGroup[]
+  colorMap: Map<string, string>          // classGroupCode → current hex
+  onClose: () => void
+  onColorChange: (groupCode: string, color: string) => void
+}
+
+export default function ColorSettings({ classGroups, colorMap, onClose, onColorChange }: Props) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="font-bold">Activity Colors</h2>
+          <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-4 space-y-4">
+          {/* Fixed sources */}
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Source colors (fixed)</p>
+            <div className="flex gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: OUTLOOK_COLOR, background: OUTLOOK_COLOR + '33' }} />
+                <span className="text-sm">Outlook / Teams</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: FALLBACK_COLOR, background: FALLBACK_COLOR + '33' }} />
+                <span className="text-sm text-text-muted">No type assigned</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Class groups */}
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Herbe activity class groups</p>
+            {classGroups.length === 0 && (
+              <p className="text-sm text-text-muted">No class groups loaded yet.</p>
+            )}
+            <div className="space-y-3">
+              {classGroups.map(g => {
+                const current = colorMap.get(g.code) ?? FALLBACK_COLOR
+                return (
+                  <div key={g.code}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="w-3 h-3 rounded-full" style={{ background: current }} />
+                      <span className="text-sm font-medium">{g.name || g.code}</span>
+                      <span className="text-xs text-text-muted font-mono">{g.code}</span>
+                      {g.calColNr != null && (
+                        <span className="text-xs text-text-muted ml-auto">CalColNr: {g.calColNr}</span>
+                      )}
+                    </div>
+                    {/* 20-color swatch picker */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {BRAND_PALETTE.map(hex => (
+                        <button
+                          key={hex}
+                          title={hex}
+                          onClick={() => {
+                            saveColorOverride(g.code, hex)
+                            onColorChange(g.code, hex)
+                          }}
+                          className="w-6 h-6 rounded-full transition-transform hover:scale-110"
+                          style={{
+                            background: hex,
+                            outline: current === hex ? `2px solid white` : '2px solid transparent',
+                            outlineOffset: '1px',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-border">
+          <button onClick={onClose} className="w-full bg-primary text-white font-bold py-3 rounded-xl">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

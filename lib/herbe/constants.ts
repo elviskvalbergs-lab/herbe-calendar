@@ -3,9 +3,10 @@
 export const ACTIVITY_ACCESS_GROUP_FIELD = 'AccessGroup'
 
 export const REGISTERS = {
-  activities:      'ActVc',
-  users:           'UserVc',
-  activityTypes:   'ActTypeVc',
-  projects:        'PRVc',
-  customers:       'CUVc',
+  activities:           'ActVc',
+  users:                'UserVc',
+  activityTypes:        'ActTypeVc',
+  activityClassGroups:  'ActClassGrVc',
+  projects:             'PRVc',
+  customers:            'CUVc',
 } as const

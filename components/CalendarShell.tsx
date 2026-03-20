@@ -1,16 +1,24 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { format, addDays, parseISO } from 'date-fns'
-import { Person, Activity, CalendarState } from '@/types'
+import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
+import ColorSettings from './ColorSettings'
+import {
+  buildClassGroupColorMap, getActivityColor, loadColorOverrides,
+} from '@/lib/activityColors'
 
 interface Props { userCode: string }
 
 export default function CalendarShell({ userCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
+  const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
+  const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
+  const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
+  const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
   const [state, setState] = useState<CalendarState>(() => {
     try {
       const saved = localStorage.getItem('calendarState')
@@ -49,6 +57,43 @@ export default function CalendarShell({ userCode }: Props) {
       }))
     } catch {}
   }, [state.view, state.date, state.selectedPersons])
+
+  // Keyboard shortcut: Cmd+Ctrl+N (Mac) or Ctrl+Alt+N (Windows/Linux) → new activity
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'n' || e.key === 'N') {
+        const isMac = navigator.platform.toUpperCase().includes('MAC')
+        const trigger = isMac
+          ? e.metaKey && e.ctrlKey
+          : e.ctrlKey && e.altKey
+        if (trigger) {
+          e.preventDefault()
+          setFormState({ open: true })
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Derived color maps
+  const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
+  const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
+  function colorForActivity(activity: Activity): string {
+    return getActivityColor(activity, typeToClassGroup, classGroupToColor)
+  }
+
+  // Load activity types + class groups for color mapping
+  useEffect(() => {
+    setColorOverrides(loadColorOverrides())
+    Promise.all([
+      fetch('/api/activity-types').then(r => r.json()),
+      fetch('/api/activity-class-groups').then(r => r.json()),
+    ]).then(([types, groups]) => {
+      if (Array.isArray(types)) setActivityTypes(types as ActivityType[])
+      if (Array.isArray(groups)) setClassGroups(groups as ActivityClassGroup[])
+    }).catch(console.error)
+  }, [])
 
   // Load people list on mount
   useEffect(() => {
@@ -146,12 +191,14 @@ export default function CalendarShell({ userCode }: Props) {
         people={people}
         onNewActivity={() => setFormState({ open: true })}
         onRefresh={fetchActivities}
+        onColorSettings={() => setColorSettingsOpen(true)}
       />
       <CalendarGrid
         state={state}
         activities={activities}
         loading={loading}
         sessionUserCode={userCode}
+        getActivityColor={colorForActivity}
         onRefresh={fetchActivities}
         onSlotClick={(personCode, time) =>
           setFormState({ open: true, initial: { personCode, timeFrom: time, date: state.date } })
@@ -176,6 +223,17 @@ export default function CalendarShell({ userCode }: Props) {
         }`}>
           {status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}
         </div>
+      )}
+
+      {colorSettingsOpen && (
+        <ColorSettings
+          classGroups={classGroups}
+          colorMap={classGroupToColor}
+          onClose={() => setColorSettingsOpen(false)}
+          onColorChange={(groupCode, color) => {
+            setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
+          }}
+        />
       )}
 
       {formState.open && (
