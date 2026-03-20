@@ -14,10 +14,10 @@ export async function GET() {
     const groups = (raw as Record<string, unknown>[]).map(g => ({
       code: String(g['Code'] ?? ''),
       name: String(g['Comment'] ?? g['Name'] ?? g['Code'] ?? ''),
-      calColNr: g['CalColNr'] != null ? Number(g['CalColNr']) : undefined,
+      calColNr: g['CalColNr'] != null ? String(g['CalColNr']) : undefined,
     }))
     return NextResponse.json(groups, {
-      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
+      headers: { 'Cache-Control': 'no-store' },
     })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

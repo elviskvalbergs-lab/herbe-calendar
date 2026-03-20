@@ -35,7 +35,7 @@ export interface ActivityType {
 export interface ActivityClassGroup {
   code: string
   name: string
-  calColNr?: number
+  calColNr?: string | number
 }
 
 export interface SearchResult {

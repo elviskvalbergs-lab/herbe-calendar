@@ -43,15 +43,28 @@ export function saveColorOverride(classGroupCode: string, color: string) {
   localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides))
 }
 
-/** Map CalColNr (integer from Herbe) to a palette color. */
-export function calColNrToColor(calColNr: number | undefined): string | undefined {
-  if (calColNr == null || !Number.isFinite(calColNr)) return undefined
+/** Herbe CalColNr color name → brand palette hex */
+const HERBE_COLOR_NAMES: Record<string, string> = {
+  'Sky Blue':    '#00ABCE',
+  'Green':       '#22c55e',
+  'Red':         '#cd4c38',
+  'Grey':        '#6b7280',
+  'Deep Forest': '#4db89a',
+  'Desert Glow': '#e8923a',
+  'Coffee':      '#8b5cf6',
+}
+
+/** Map CalColNr (Herbe color name string or legacy integer) to a palette color. */
+export function calColNrToColor(calColNr: string | number | undefined): string | undefined {
+  if (calColNr == null) return undefined
+  if (typeof calColNr === 'string') return HERBE_COLOR_NAMES[calColNr]
+  if (!Number.isFinite(calColNr)) return undefined
   return BRAND_PALETTE[Math.abs(calColNr) % BRAND_PALETTE.length]
 }
 
 /** Build a classGroupCode → hex color map from class group data + overrides. */
 export function buildClassGroupColorMap(
-  classGroups: { code: string; calColNr?: number }[],
+  classGroups: { code: string; calColNr?: string | number }[],
   overrides: Record<string, string>
 ): Map<string, string> {
   const map = new Map<string, string>()

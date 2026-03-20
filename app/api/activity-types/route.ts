@@ -17,7 +17,7 @@ export async function GET() {
       classGroupCode: String(t['ActTypeGr'] ?? '') || undefined,
     }))
     return NextResponse.json(types, {
-      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
+      headers: { 'Cache-Control': 'no-store' },
     })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
