@@ -122,8 +122,12 @@ export default function CalendarShell({ userCode }: Props) {
   useEffect(() => {
     setStatus({ msg: 'Loading users from Herbe ERP…' })
     fetch('/api/users')
-      .then(r => r.json())
-      .then((users: Record<string, unknown>[]) => {
+      .then(async r => {
+        const data = await r.json()
+        if (!Array.isArray(data)) throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
+        return data as Record<string, unknown>[]
+      })
+      .then((users) => {
         const list: Person[] = users.map(u => ({
           code: u['Code'] as string,
           name: u['Name'] as string,
