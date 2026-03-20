@@ -1,5 +1,7 @@
 import { request as httpsRequest } from 'node:https'
 import { request as httpRequest } from 'node:http'
+import { createGunzip } from 'node:zlib'
+import { Readable } from 'node:stream'
 import { getHerbeAccessToken } from './config'
 
 /**
@@ -29,19 +31,27 @@ async function herbeFetchRaw(url: string, init: RequestInit = {}): Promise<Respo
         insecureHTTPParser: true,
       },
       (res) => {
-        const chunks: Buffer[] = []
-        res.on('data', (chunk: Buffer) => chunks.push(chunk))
-        res.on('end', () => {
-          const body = Buffer.concat(chunks)
-          const responseHeaders = new Headers()
-          for (const [key, val] of Object.entries(res.headers)) {
-            if (val !== undefined) {
-              responseHeaders.set(key, Array.isArray(val) ? val.join(', ') : String(val))
-            }
+        const responseHeaders = new Headers()
+        for (const [key, val] of Object.entries(res.headers)) {
+          if (val !== undefined) {
+            responseHeaders.set(key, Array.isArray(val) ? val.join(', ') : String(val))
           }
-          resolve(new Response(body, { status: res.statusCode ?? 200, headers: responseHeaders }))
+        }
+        const status = res.statusCode ?? 200
+
+        // Decompress gzip/deflate responses if needed
+        const encoding = res.headers['content-encoding']
+        const stream: Readable = encoding === 'gzip' ? res.pipe(createGunzip()) : res
+
+        const chunks: Buffer[] = []
+        stream.on('data', (chunk: Buffer) => chunks.push(chunk))
+        stream.on('end', () => {
+          const body = Buffer.concat(chunks)
+          // Remove content-encoding header since we've decoded it
+          responseHeaders.delete('content-encoding')
+          resolve(new Response(body, { status, headers: responseHeaders }))
         })
-        res.on('error', reject)
+        stream.on('error', reject)
       }
     )
 
