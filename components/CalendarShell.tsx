@@ -217,8 +217,8 @@ export default function CalendarShell({ userCode }: Props) {
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
         onRefresh={fetchActivities}
-        onSlotClick={(personCode, time) =>
-          setFormState({ open: true, initial: { personCode, timeFrom: time, date: state.date } })
+        onSlotClick={(personCode, time, date) =>
+          setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
         }
         onActivityClick={(activity) =>
           setFormState({

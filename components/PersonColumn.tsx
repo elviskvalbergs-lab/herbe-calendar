@@ -10,7 +10,7 @@ interface Props {
   activities: Activity[]
   sessionUserCode: string
   getActivityColor: (activity: Activity) => string
-  onSlotClick: (personCode: string, time: string) => void
+  onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
   colMinW?: string
@@ -51,7 +51,7 @@ export default function PersonColumn({
     const offsetY = e.clientY - rect.top
     const fraction = offsetY / rect.height
     const minute = snapToQuarter(hour * 60 + Math.round(fraction * 60))
-    onSlotClick(personCode, minutesToTime(minute))
+    onSlotClick(personCode, minutesToTime(minute), date)
   }
 
   function handleDragStart(e: React.PointerEvent<HTMLDivElement>, activity: Activity, type: 'move' | 'resize') {

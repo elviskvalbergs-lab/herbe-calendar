@@ -14,7 +14,7 @@ interface Props {
   sessionUserCode?: string
   getActivityColor: (activity: Activity) => string
   onRefresh: () => void
-  onSlotClick: (personCode: string, time: string) => void
+  onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
 }
