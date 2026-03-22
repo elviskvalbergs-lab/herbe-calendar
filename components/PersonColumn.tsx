@@ -1,6 +1,6 @@
 'use client'
 import { Activity } from '@/types'
-import { GRID_START_HOUR, GRID_END_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx } from '@/lib/time'
+import { GRID_START_HOUR, GRID_END_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import ActivityBlock from './ActivityBlock'
 import { useRef, useState } from 'react'
 
@@ -168,6 +168,7 @@ export default function PersonColumn({
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
+            const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo), 20)
             const actColor = getActivityColor(act)
             return (
               <div
@@ -183,6 +184,7 @@ export default function PersonColumn({
                 <ActivityBlock
                   activity={displayActivity}
                   color={actColor}
+                  height={actHeight}
                   onClick={(act) => { if (!suppressClickRef.current) onActivityClick(act) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
