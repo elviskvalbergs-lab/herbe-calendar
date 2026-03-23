@@ -81,6 +81,8 @@ export default function ActivityForm({
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
   const swipeX = useRef<number | null>(null)
+  const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
@@ -695,7 +697,11 @@ export default function ActivityForm({
                 <input
                   ref={projectInputRef}
                   value={projectName}
-                  onChange={e => { setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1); searchProjects(e.target.value) }}
+                  onChange={e => {
+                    setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1)
+                    if (projectSearchTimer.current) clearTimeout(projectSearchTimer.current)
+                    projectSearchTimer.current = setTimeout(() => searchProjects(e.target.value), 300)
+                  }}
                   onKeyDown={e => {
                     const n = projectResults.length
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedProjectIdx(i => Math.min(i + 1, n - 1)) }
@@ -762,7 +768,11 @@ export default function ActivityForm({
                 <input
                   ref={customerInputRef}
                   value={customerName}
-                  onChange={e => { setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1); searchCustomers(e.target.value) }}
+                  onChange={e => {
+                    setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1)
+                    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+                    customerSearchTimer.current = setTimeout(() => searchCustomers(e.target.value), 300)
+                  }}
                   onKeyDown={e => {
                     const n = customerResults.length
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedCustomerIdx(i => Math.min(i + 1, n - 1)) }

@@ -3,6 +3,18 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 
+// Module-level cache — survives across requests on the same serverless instance
+let customerCache: Record<string, unknown>[] | null = null
+let customerCacheExpiry = 0
+
+async function getAllCustomers(): Promise<Record<string, unknown>[]> {
+  if (customerCache && Date.now() < customerCacheExpiry) return customerCache
+  const all = await herbeFetchAll(REGISTERS.customers, {}, 200)
+  customerCache = all as Record<string, unknown>[]
+  customerCacheExpiry = Date.now() + 5 * 60 * 1000 // 5 min TTL
+  return customerCache
+}
+
 export async function GET(req: NextRequest) {
   try {
     await requireSession()
@@ -16,7 +28,7 @@ export async function GET(req: NextRequest) {
   if (!debug && q.length < 2) return NextResponse.json([])
 
   try {
-    const all = await herbeFetchAll(REGISTERS.customers, {}, 200)
+    const all = await getAllCustomers()
 
     // Debug mode: return first 3 raw records to inspect field names
     if (debug) return NextResponse.json((all as Record<string, unknown>[]).slice(0, 3))
