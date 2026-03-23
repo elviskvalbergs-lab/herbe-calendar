@@ -13,13 +13,13 @@ export async function GET(req: NextRequest) {
   const q = url.searchParams.get('q') ?? ''
   const debug = url.searchParams.get('debug')
 
+  if (!debug && q.length < 2) return NextResponse.json([])
+
   try {
-    const all = await herbeFetchAll(REGISTERS.customers, {}, 500)
+    const all = await herbeFetchAll(REGISTERS.customers, {}, 200)
 
     // Debug mode: return first 3 raw records to inspect field names
     if (debug) return NextResponse.json((all as Record<string, unknown>[]).slice(0, 3))
-
-    if (q.length < 2) return NextResponse.json([])
 
     const lower = q.toLowerCase()
     const results = (all as Record<string, unknown>[])

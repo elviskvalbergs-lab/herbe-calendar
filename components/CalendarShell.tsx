@@ -42,6 +42,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     canEdit?: boolean
   }>({ open: false })
 
+  // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('theme')
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light')
+      else if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark')
+      else if (!t && window.matchMedia('(prefers-color-scheme: light)').matches)
+        document.documentElement.setAttribute('data-theme', 'light')
+    } catch {}
+  }, [])
+
   function canEditActivity(activity: Activity): boolean {
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
@@ -292,13 +303,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
       />
       {status && (
-        <div className={`px-3 py-1 text-xs font-mono border-t shrink-0 ${
-          status.ok === false
-            ? 'bg-red-900/30 border-red-700/50 text-red-300'
+        <div
+          className="px-3 py-1 text-xs font-mono border-t shrink-0"
+          style={status.ok === false
+            ? { background: 'var(--status-err-bg)', borderColor: 'var(--status-err-border)', color: 'var(--status-err-text)' }
             : status.ok === true
-            ? 'bg-green-900/20 border-green-700/30 text-green-400'
-            : 'bg-surface border-border text-text-muted'
-        }`}>
+            ? { background: 'var(--status-ok-bg)', borderColor: 'var(--status-ok-border)', color: 'var(--status-ok-text)' }
+            : undefined
+          }
+        >
           {status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}
         </div>
       )}
