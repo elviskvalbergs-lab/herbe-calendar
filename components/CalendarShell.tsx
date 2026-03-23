@@ -61,16 +61,27 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     } catch {}
   }, [state.view, state.date, state.selectedPersons])
 
-  // Global keyboard shortcuts (N, T, ←, →, ?) — only when no modal/form open and no input focused
+  // Global keyboard shortcuts (N/⌘N, T, ←, →, ?, Esc)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Esc closes color settings (form/shortcuts handle their own Esc)
+      if (e.key === 'Escape' && colorSettingsOpen) {
+        setColorSettingsOpen(false); return
+      }
       // Skip if any modal/form is open
       if (formState.open || colorSettingsOpen || shortcutsOpen) return
-      // Skip if focused on an input/textarea/select
+
       const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return
-      // Skip if modifier keys held (except Shift for ?)
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const inInput = tag === 'input' || tag === 'textarea' || tag === 'select'
+
+      // ⌘N / ⌃N — New activity (works from anywhere when no modal open)
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault()
+        setFormState({ open: true, initial: { date: state.date } })
+        return
+      }
+      // Skip bare key shortcuts if modifier held or input focused
+      if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 
       const step = state.view === '3day' ? 3 : 1
       if (e.key === 'n' || e.key === 'N') {
@@ -111,6 +122,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     const grp = typeToClassGroup.get(typeCode)
     if (!grp) return undefined
     return classGroups.find(g => g.code === grp)
+  }
+
+  function getTypeName(typeCode: string): string {
+    return activityTypes.find(t => t.code === typeCode)?.name ?? ''
   }
 
   function reloadColorData(bust = false) {
@@ -244,6 +259,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         loading={loading}
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
+        getTypeName={getTypeName}
         onRefresh={fetchActivities}
         onNavigate={(dir) => {
           const step = state.view === '3day' ? 3 : 1

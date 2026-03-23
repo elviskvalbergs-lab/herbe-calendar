@@ -74,32 +74,38 @@ export default function ActivityForm({
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
-  const [showTabTip, setShowTabTip] = useState(false)
-
   const handleSaveRef = useRef<() => void>(() => {})
+  const handleDuplicateRef = useRef<() => void>(() => {})
   const descInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
-  const tabTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-  const saveShortcut = isMac ? '⌘S' : 'Ctrl+S'
+  const saveShortcut = isMac ? '⌘↩' : 'Ctrl+↩'
 
-  // Esc to close, Cmd/Ctrl+S to save
+  // Esc to close · ⌘↩ to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current()
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); handleSaveRef.current() }
+      if (e.key === 'Escape') { onCloseRef.current(); return }
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === 'Enter') {
+        e.preventDefault(); handleSaveRef.current(); return
+      }
+      if (e.metaKey && e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        if (isEdit && (canEdit ?? true)) handleDuplicateRef.current()
+        return
+      }
+      if (e.metaKey && e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault()
+        if (isEdit && editId) {
+          const link = serpLink('ActVc', editId, companyCode)
+          if (link) window.location.href = link
+        }
+        return
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
-  useEffect(() => () => { if (tabTipTimerRef.current) clearTimeout(tabTipTimerRef.current) }, [])
-
-  function showMouseTip() {
-    setShowTabTip(true)
-    if (tabTipTimerRef.current) clearTimeout(tabTipTimerRef.current)
-    tabTipTimerRef.current = setTimeout(() => setShowTabTip(false), 5000)
-  }
+  }, [isEdit, editId, companyCode, canEdit])
 
   // Load activity types on mount
   useEffect(() => {
@@ -268,6 +274,7 @@ export default function ActivityForm({
   }
 
   handleSaveRef.current = handleSave
+  handleDuplicateRef.current = handleDuplicate
 
   function handleDuplicate() {
     onClose()
@@ -337,14 +344,17 @@ export default function ActivityForm({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="font-bold flex items-center gap-2">
             {isEdit ? 'Edit Activity' : 'New Activity'}
-            {isEdit && editId && <span className="text-[11px] text-text-muted font-mono font-normal">#{editId}</span>}
             {isEdit && editId && (() => {
               const link = serpLink('ActVc', editId, companyCode)
+              const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors'
               return link ? (
-                <a href={link} title="Open in Standard ERP" className="text-text-muted hover:text-primary transition-colors">
-                  <SerpIcon />
+                <a href={link} title="Open in Standard ERP (⌃⌘O)" tabIndex={-1}
+                   className={cls + ' hover:border-primary hover:bg-primary/20'}>
+                  #{editId} <SerpIcon />
                 </a>
-              ) : null
+              ) : (
+                <span className={cls}>#{editId}</span>
+              )
             })()}
           </h2>
           <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
@@ -452,12 +462,14 @@ export default function ActivityForm({
 
           {/* Description */}
           <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Description</label>
+            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
+              Description
+              <span className="normal-case font-normal text-[9px] opacity-40 tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
+            </label>
             <input
               ref={descInputRef}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              onMouseDown={showMouseTip}
               autoFocus={!isEdit && !initial?.timeFrom}
               className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
               placeholder="What are you working on?"
@@ -499,27 +511,29 @@ export default function ActivityForm({
               />
             </div>
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
+                To
+                {source === 'herbe' && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setPlanned(p => !p)}
+                    className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+                      planned
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                    }`}
+                  >
+                    {planned ? '○ Planned' : '● Actual'}
+                  </button>
+                )}
+              </label>
               <input
                 type="time"
                 value={timeTo}
                 onChange={e => setTimeTo(e.target.value)}
                 className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
-              {source === 'herbe' && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setPlanned(p => !p)}
-                  className={`mt-1 w-full text-[10px] font-bold py-0.5 rounded border transition-colors ${
-                    planned
-                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-                      : 'border-border/50 text-text-muted hover:border-border'
-                  }`}
-                >
-                  {planned ? '○ Planned' : '● Actual'}
-                </button>
-              )}
             </div>
           </div>
 
@@ -575,7 +589,6 @@ export default function ActivityForm({
                 value={activityTypeName}
                 onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value) }}
                 onFocus={() => { if (!activityTypeResults.length) filterActivityTypes(activityTypeName) }}
-                onMouseDown={showMouseTip}
                 onKeyDown={e => {
                   const n = activityTypeResults.length
                   if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedTypeIdx(i => Math.min(i + 1, n - 1)); if (!n) filterActivityTypes(activityTypeName) }
@@ -636,7 +649,7 @@ export default function ActivityForm({
                 {projectCode && (() => {
                   const link = serpLink('PRVc', projectCode, companyCode)
                   return link ? (
-                    <a href={link} title="Open project in Standard ERP" className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                    <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
                     </a>
                   ) : null
@@ -648,7 +661,6 @@ export default function ActivityForm({
                   ref={projectInputRef}
                   value={projectName}
                   onChange={e => { setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1); searchProjects(e.target.value) }}
-                  onMouseDown={showMouseTip}
                   onKeyDown={e => {
                     const n = projectResults.length
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedProjectIdx(i => Math.min(i + 1, n - 1)) }
@@ -704,7 +716,7 @@ export default function ActivityForm({
                 {customerCode && (() => {
                   const link = serpLink('CUVc', customerCode, companyCode)
                   return link ? (
-                    <a href={link} title="Open customer in Standard ERP" className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                    <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
                     </a>
                   ) : null
@@ -716,7 +728,6 @@ export default function ActivityForm({
                   ref={customerInputRef}
                   value={customerName}
                   onChange={e => { setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1); searchCustomers(e.target.value) }}
-                  onMouseDown={showMouseTip}
                   onKeyDown={e => {
                     const n = customerResults.length
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedCustomerIdx(i => Math.min(i + 1, n - 1)) }
@@ -787,11 +798,6 @@ export default function ActivityForm({
 
         {/* Footer actions */}
         {!savedActivity && <div className="p-4 border-t border-border">
-          {showTabTip && (
-            <p className="text-[10px] text-text-muted text-center mb-2 opacity-70">
-              ↹ Tab moves between fields · {saveShortcut} saves
-            </p>
-          )}
           {/* If editing but canEdit is false, show close only */}
           {isEdit && !(canEdit ?? true) ? (
             <button onClick={onClose} className="w-full border border-border text-text-muted font-bold py-3 rounded-xl">
@@ -810,7 +816,7 @@ export default function ActivityForm({
               {isEdit && (canEdit ?? true) && (
                 <button
                   onClick={handleDuplicate}
-                  title="Duplicate activity"
+                  title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
                   className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
                 >
                   ⧉

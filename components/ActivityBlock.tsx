@@ -10,9 +10,10 @@ interface Props {
   onDragStart?: (e: React.PointerEvent<HTMLDivElement>, a: Activity, type: 'move' | 'resize') => void
   canEdit: boolean
   style?: React.CSSProperties
+  getTypeName?: (typeCode: string) => string
 }
 
-export default function ActivityBlock({ activity, color, onClick, onDragStart, canEdit, style }: Props) {
+export default function ActivityBlock({ activity, color, onClick, onDragStart, canEdit, style, getTypeName }: Props) {
   const top = timeToTopPx(activity.timeFrom)
   const height = Math.max(durationToPx(activity.timeFrom, activity.timeTo), 20)
   const isOutlook = activity.source === 'outlook'
@@ -76,11 +77,21 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
           style={{ top: '100%', borderColor: color + '88' }}
         >
           <p className="text-xs font-bold leading-snug mb-1.5" style={{ color }}>
-            {isOutlook && '📅 '}{isPlanned && '○ '}{activity.description || '(no title)'}
+            {isOutlook && '📅 '}{activity.description || '(no title)'}
           </p>
-          <p className="text-xs text-text-muted">{activity.timeFrom} – {activity.timeTo}</p>
+          <p className="text-xs text-text-muted">
+            {activity.timeFrom} – {activity.timeTo}
+            {isPlanned && <span className="ml-1 text-amber-400 text-[10px]">(planned)</span>}
+          </p>
           {activity.activityTypeCode && (
-            <p className="text-[10px] font-mono mt-1" style={{ color: color + 'cc' }}>{activity.activityTypeCode}</p>
+            <p className="text-[10px] mt-1" style={{ color: color + 'cc' }}>
+              <span className="font-mono">{activity.activityTypeCode}</span>
+              {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
+                <span className="ml-1 not-italic">
+                  {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
+                </span>
+              )}
+            </p>
           )}
           {activity.projectName && (
             <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
