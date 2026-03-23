@@ -261,8 +261,11 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
   // Preload search caches into server memory on mount
   useEffect(() => {
-    fetch('/api/customers?preload=1').catch(() => {})
-    fetch('/api/projects?preload=1').catch(() => {})
+    setStatus({ msg: 'Preloading customers & projects…' })
+    Promise.all([
+      fetch('/api/customers?preload=1').catch(() => {}),
+      fetch('/api/projects?preload=1').catch(() => {}),
+    ]).then(() => setStatus(s => s?.msg === 'Preloading customers & projects…' ? null : s))
   }, [])
 
   return (
