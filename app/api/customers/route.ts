@@ -25,6 +25,14 @@ export async function GET(req: NextRequest) {
   const q = url.searchParams.get('q') ?? ''
   const debug = url.searchParams.get('debug')
 
+  const preload = url.searchParams.has('preload')
+
+  // Warm the cache in the background without returning data
+  if (preload) {
+    getAllCustomers().catch(() => {}) // fire and forget
+    return NextResponse.json({ ok: true })
+  }
+
   if (!debug && q.length < 2) return NextResponse.json([])
 
   try {

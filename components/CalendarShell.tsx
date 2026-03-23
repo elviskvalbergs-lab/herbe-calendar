@@ -259,6 +259,11 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     fetchActivities()
   }, [fetchActivities])
 
+  // Preload customer list into server cache after activities load
+  useEffect(() => {
+    fetch('/api/customers?preload=1').catch(() => {})
+  }, [])
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       <CalendarHeader
