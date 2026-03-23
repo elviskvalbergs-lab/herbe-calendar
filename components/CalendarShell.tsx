@@ -80,6 +80,12 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         setFormState({ open: true, initial: { date: state.date } })
         return
       }
+      // ⌃⌘T — Jump to today
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 't' || e.key === 'T')) {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
+        return
+      }
       // Skip bare key shortcuts if modifier held or input focused
       if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 

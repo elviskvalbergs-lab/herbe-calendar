@@ -74,11 +74,13 @@ export default function ActivityForm({
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
+  const [personsExpanded, setPersonsExpanded] = useState(false)
   const handleSaveRef = useRef<() => void>(() => {})
   const handleDuplicateRef = useRef<() => void>(() => {})
   const descInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
+  const swipeX = useRef<number | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
@@ -334,7 +336,14 @@ export default function ActivityForm({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+        onTouchStart={e => { swipeX.current = e.touches[0].clientX }}
+        onTouchEnd={e => {
+          if (swipeX.current !== null && e.changedTouches[0].clientX - swipeX.current < -80) onCloseRef.current()
+          swipeX.current = null
+        }}
+      >
         {/* Drag handle (mobile) */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-border" />
@@ -438,9 +447,23 @@ export default function ActivityForm({
 
           {/* Person(s) */}
           <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
+            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              Person(s)
+              {!personsExpanded && people.some(p => !selectedPersonCodes.includes(p.code)) && (
+                <button type="button" tabIndex={-1} onClick={() => setPersonsExpanded(true)}
+                  className="ml-auto text-[10px] text-text-muted hover:text-text">
+                  +{people.filter(p => !selectedPersonCodes.includes(p.code)).length} more
+                </button>
+              )}
+              {personsExpanded && (
+                <button type="button" tabIndex={-1} onClick={() => setPersonsExpanded(false)}
+                  className="ml-auto text-[10px] text-text-muted hover:text-text">
+                  Collapse
+                </button>
+              )}
+            </label>
             <div className="flex flex-wrap gap-1">
-              {people.map(p => {
+              {(personsExpanded ? people : people.filter(p => selectedPersonCodes.includes(p.code))).map(p => {
                 const sel = selectedPersonCodes.includes(p.code)
                 return (
                   <button
@@ -477,7 +500,7 @@ export default function ActivityForm({
           </div>
 
           {/* Date + Time From + Time To */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1">
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Date</label>
               <input
@@ -485,7 +508,7 @@ export default function ActivityForm({
                 value={date}
                 onChange={e => setDate(e.target.value)}
                 tabIndex={-1}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1.5 sm:px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
             <div>
@@ -507,32 +530,16 @@ export default function ActivityForm({
                   }
                   setTimeFrom(newFrom)
                 }}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1.5 sm:px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
-                To
-                {source === 'herbe' && (
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setPlanned(p => !p)}
-                    className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
-                      planned
-                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
-                    }`}
-                  >
-                    {planned ? '○ Planned' : '● Actual'}
-                  </button>
-                )}
-              </label>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
               <input
                 type="time"
                 value={timeTo}
                 onChange={e => setTimeTo(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1.5 sm:px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
           </div>
@@ -554,7 +561,7 @@ export default function ActivityForm({
               ? (() => { const [th, tm] = timeTo.split(':').map(Number); return th * 60 + tm - fromMins })()
               : null
             return (
-              <div className="flex gap-1.5 flex-wrap -mt-1">
+              <div className="flex items-center gap-1.5 flex-wrap -mt-1">
                 {DURATIONS.map(({ label, mins }) => {
                   const active = currentDur === mins
                   const toMins = fromMins + mins
@@ -574,6 +581,20 @@ export default function ActivityForm({
                     </button>
                   )
                 })}
+                {source === 'herbe' && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setPlanned(p => !p)}
+                    className={`ml-auto text-[9px] font-bold px-1.5 py-1 rounded-lg border transition-colors ${
+                      planned
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                    }`}
+                  >
+                    {planned ? '○ Planned' : '● Actual'}
+                  </button>
+                )}
               </div>
             )
           })()}

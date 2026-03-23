@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 interface Props {
   onClose: () => void
@@ -12,9 +12,9 @@ const ctrl = isMac ? '⌃' : 'Ctrl'
 const SHORTCUTS = [
   { group: 'Navigation' },
   { key: '←  →', desc: 'Previous / next day (or 3 days in 3-day view)' },
-  { key: 'T', desc: 'Jump to today' },
+  { key: `T  or  ${ctrl}${cmd}T`, desc: 'Jump to today' },
   { group: 'Activities' },
-  { key: `N  or  ${ctrl}${cmd}N`, desc: 'New activity' },
+  { key: `${ctrl}${cmd}N`, desc: 'New activity' },
   { key: `${ctrl}${cmd}S`, desc: 'Save activity (in form)' },
   { key: `${ctrl}${cmd}Y`, desc: 'Duplicate / copy activity' },
   { key: `${ctrl}${cmd}O`, desc: 'Open activity in Standard ERP' },
@@ -28,6 +28,8 @@ const SHORTCUTS = [
 ]
 
 export default function KeyboardShortcutsModal({ onClose }: Props) {
+  const swipeX = useRef<number | null>(null)
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -37,7 +39,14 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+      <div
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col"
+        onTouchStart={e => { swipeX.current = e.touches[0].clientX }}
+        onTouchEnd={e => {
+          if (swipeX.current !== null && e.changedTouches[0].clientX - swipeX.current < -80) onClose()
+          swipeX.current = null
+        }}
+      >
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>

@@ -21,11 +21,11 @@ html, body {
 
 /* Light theme overrides */
 html[data-theme="light"] {
-  --color-bg: #f7f4f4;
-  --color-surface: #ffffff;
-  --color-border: #e0d9d9;
+  --color-bg: #ede8e9;
+  --color-surface: #f8f4f5;
+  --color-border: #c8bfc0;
   --color-text: #1a1718;
-  --color-text-muted: #8a8385;
+  --color-text-muted: #5c5759;
 }
 
 /* Prevent iOS Safari auto-zoom on input focus */
