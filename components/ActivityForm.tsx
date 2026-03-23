@@ -161,7 +161,6 @@ export default function ActivityForm({
       })).filter(r => r.code)
       setProjectResults(results)
       if (results.length === 0) setProjectSearchMsg('No results')
-      else (document.activeElement as HTMLElement)?.blur()
     } catch (e) {
       setProjectSearchMsg(String(e))
     } finally {
@@ -183,7 +182,6 @@ export default function ActivityForm({
       })).filter(r => r.code)
       setCustomerResults(results)
       if (results.length === 0) setCustomerSearchMsg('No results')
-      else (document.activeElement as HTMLElement)?.blur()
     } catch (e) {
       setCustomerSearchMsg(String(e))
     } finally {
