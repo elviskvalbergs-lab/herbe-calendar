@@ -446,42 +446,58 @@ export default function ActivityForm({
           <ErrorBanner errors={errors} />
 
           {/* Person(s) */}
-          <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
-              Person(s)
-              {!personsExpanded && people.some(p => !selectedPersonCodes.includes(p.code)) && (
-                <button type="button" tabIndex={-1} onClick={() => setPersonsExpanded(true)}
-                  className="ml-auto text-[10px] text-text-muted hover:text-text">
-                  +{people.filter(p => !selectedPersonCodes.includes(p.code)).length} more
-                </button>
-              )}
-              {personsExpanded && (
-                <button type="button" tabIndex={-1} onClick={() => setPersonsExpanded(false)}
-                  className="ml-auto text-[10px] text-text-muted hover:text-text">
-                  Collapse
-                </button>
-              )}
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {(personsExpanded ? people : people.filter(p => selectedPersonCodes.includes(p.code))).map(p => {
-                const sel = selectedPersonCodes.includes(p.code)
-                return (
-                  <button
-                    key={p.code}
-                    tabIndex={-1}
-                    onClick={() => setSelectedPersonCodes(prev =>
-                      sel ? prev.filter(c => c !== p.code) : [...prev, p.code]
-                    )}
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${
-                      sel ? 'bg-primary/20 border-primary text-primary' : 'border-border text-text-muted'
-                    }`}
-                  >
-                    {p.code}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          {(() => {
+            const unselected = people.filter(p => !selectedPersonCodes.includes(p.code))
+            const visibleUnselected = personsExpanded ? unselected : unselected.slice(0, 3)
+            const hiddenCount = personsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            return (
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
+                <div className="flex flex-wrap gap-1">
+                  {people.filter(p => selectedPersonCodes.includes(p.code)).map(p => (
+                    <button
+                      key={p.code}
+                      tabIndex={-1}
+                      onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary transition-colors"
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {visibleUnselected.map(p => (
+                    <button
+                      key={p.code}
+                      tabIndex={-1}
+                      onClick={() => setSelectedPersonCodes(prev => [...prev, p.code])}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted transition-colors"
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPersonsExpanded(true)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      +{hiddenCount} more
+                    </button>
+                  )}
+                  {personsExpanded && unselected.length > 3 && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPersonsExpanded(false)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      Collapse
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Description */}
           <div>
