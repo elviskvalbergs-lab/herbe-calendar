@@ -123,7 +123,11 @@ export default function CalendarShell({ userCode }: Props) {
     setStatus({ msg: 'Loading users from Herbe ERP…' })
     fetch('/api/users')
       .then(async r => {
-        const data = await r.json()
+        const text = await r.text()
+        let data: unknown
+        try { data = JSON.parse(text) } catch {
+          throw new Error(`Server error (${r.status}): ${text.slice(0, 120)}`)
+        }
         if (!Array.isArray(data)) throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
         return data as Record<string, unknown>[]
       })
