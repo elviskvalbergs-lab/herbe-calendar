@@ -259,9 +259,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     fetchActivities()
   }, [fetchActivities])
 
-  // Preload customer list into server cache after activities load
+  // Preload search caches into server memory on mount
   useEffect(() => {
     fetch('/api/customers?preload=1').catch(() => {})
+    fetch('/api/projects?preload=1').catch(() => {})
   }, [])
 
   return (

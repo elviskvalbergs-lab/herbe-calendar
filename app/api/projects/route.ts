@@ -3,16 +3,34 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 
+let projectCache: Record<string, unknown>[] | null = null
+let projectCacheExpiry = 0
+
+async function getAllProjects(): Promise<Record<string, unknown>[]> {
+  if (projectCache && Date.now() < projectCacheExpiry) return projectCache
+  const all = await herbeFetchAll(REGISTERS.projects, {}, 500)
+  projectCache = all as Record<string, unknown>[]
+  projectCacheExpiry = Date.now() + 5 * 60 * 1000
+  return projectCache
+}
+
 export async function GET(req: NextRequest) {
   try {
     await requireSession()
   } catch {
     return unauthorized()
   }
-  const q = new URL(req.url).searchParams.get('q') ?? ''
+  const url = new URL(req.url)
+  const q = url.searchParams.get('q') ?? ''
+
+  if (url.searchParams.has('preload')) {
+    getAllProjects().catch(() => {})
+    return NextResponse.json({ ok: true })
+  }
+
   if (q.length < 2) return NextResponse.json([])
   try {
-    const all = await herbeFetchAll(REGISTERS.projects, {}, 500)
+    const all = await getAllProjects()
     const lower = q.toLowerCase()
     const results = all
       .filter(p => {
