@@ -9,17 +9,35 @@ export async function GET(req: NextRequest) {
   } catch {
     return unauthorized()
   }
-  const q = new URL(req.url).searchParams.get('q') ?? ''
-  if (q.length < 2) return NextResponse.json([])
+  const url = new URL(req.url)
+  const q = url.searchParams.get('q') ?? ''
+  const debug = url.searchParams.get('debug')
+
   try {
     const all = await herbeFetchAll(REGISTERS.customers, {}, 500)
+
+    // Debug mode: return first 3 raw records to inspect field names
+    if (debug) return NextResponse.json((all as Record<string, unknown>[]).slice(0, 3))
+
+    if (q.length < 2) return NextResponse.json([])
+
     const lower = q.toLowerCase()
-    const results = all.filter(c => {
-      const r = c as Record<string, unknown>
-      const name = String(r['Name'] ?? r['CUName'] ?? '')
-      const code = String(r['Code'] ?? r['CUCode'] ?? '')
-      return name.toLowerCase().includes(lower) || code.toLowerCase().includes(lower)
-    }).slice(0, 20)
+    const results = (all as Record<string, unknown>[])
+      .filter(r => {
+        // Skip closed/inactive customers
+        if (String(r['Closed'] ?? r['Inactive'] ?? '0') === '1') return false
+        // Match against any plausible name/code field
+        const name = String(r['Name'] ?? r['CUName'] ?? r['CustomerName'] ?? r['Comment'] ?? '')
+        const code = String(r['Code'] ?? r['CUCode'] ?? r['CustomerCode'] ?? '')
+        return name.toLowerCase().includes(lower) || code.toLowerCase().includes(lower)
+      })
+      .slice(0, 20)
+      .map(r => ({
+        Code: String(r['Code'] ?? r['CUCode'] ?? r['CustomerCode'] ?? ''),
+        Name: String(r['Name'] ?? r['CUName'] ?? r['CustomerName'] ?? r['Comment'] ?? ''),
+      }))
+      .filter(r => r.Code)
+
     return NextResponse.json(results)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

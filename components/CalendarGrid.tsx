@@ -14,6 +14,7 @@ interface Props {
   sessionUserCode?: string
   getActivityColor: (activity: Activity) => string
   onRefresh: () => void
+  onNavigate: (dir: 'prev' | 'next') => void
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
@@ -21,7 +22,7 @@ interface Props {
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor,
-  onRefresh, onSlotClick, onActivityClick, onActivityUpdate
+  onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -40,14 +41,25 @@ export default function CalendarGrid({
         format(addDays(parseISO(state.date), i), 'yyyy-MM-dd')
       )
 
-  // Pull-to-refresh via touch
-  let touchStartY = 0
+  // Touch gesture: pull-down to refresh (when at top) or swipe left/right to navigate days
+  const touchStart = useRef({ x: 0, y: 0, atTop: false })
   function handleTouchStart(e: React.TouchEvent) {
-    if (scrollRef.current?.scrollTop === 0) touchStartY = e.touches[0].clientY
+    touchStart.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      atTop: (scrollRef.current?.scrollTop ?? 1) === 0,
+    }
   }
   function handleTouchEnd(e: React.TouchEvent) {
-    const delta = e.changedTouches[0].clientY - touchStartY
-    if (delta > 60 && scrollRef.current?.scrollTop === 0) onRefresh()
+    const dx = e.changedTouches[0].clientX - touchStart.current.x
+    const dy = e.changedTouches[0].clientY - touchStart.current.y
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+      // Horizontal swipe — navigate days
+      onNavigate(dx < 0 ? 'next' : 'prev')
+    } else if (dy > 60 && touchStart.current.atTop) {
+      // Pull down at top — refresh
+      onRefresh()
+    }
   }
 
   return (

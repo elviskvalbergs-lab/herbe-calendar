@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { format, addDays, parseISO } from 'date-fns'
+import { format, addDays, subDays, parseISO } from 'date-fns'
 import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
@@ -227,6 +227,16 @@ export default function CalendarShell({ userCode }: Props) {
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
         onRefresh={fetchActivities}
+        onNavigate={(dir) => {
+          const step = state.view === '3day' ? 3 : 1
+          setState(s => ({
+            ...s,
+            date: format(
+              dir === 'next' ? addDays(parseISO(s.date), step) : subDays(parseISO(s.date), step),
+              'yyyy-MM-dd'
+            ),
+          }))
+        }}
         onSlotClick={(personCode, time, date) =>
           setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
         }

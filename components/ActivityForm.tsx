@@ -47,6 +47,7 @@ export default function ActivityForm({
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '')
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [currentGroup, setCurrentGroup] = useState<ActivityClassGroup | undefined>()
+  const [planned, setPlanned] = useState(initial?.planned ?? false)
   const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
   const [textInMatrix, setTextInMatrix] = useState(initial?.textInMatrix ?? '')
   const [projectResults, setProjectResults] = useState<SearchResult[]>([])
@@ -58,7 +59,6 @@ export default function ActivityForm({
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [savedActivity, setSavedActivity] = useState<Partial<Activity> | null>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Esc to close
   useEffect(() => {
@@ -136,8 +136,8 @@ export default function ActivityForm({
       if (!res.ok) { setCustomerSearchMsg(`Search error (${res.status})`); return }
       const data = await res.json() as Record<string, unknown>[]
       const results = data.map(d => ({
-        code: String(d['Code'] ?? d['CUCode'] ?? ''),
-        name: String(d['Name'] ?? d['CUName'] ?? ''),
+        code: String(d['Code'] ?? ''),
+        name: String(d['Name'] ?? ''),
       })).filter(r => r.code)
       setCustomerResults(results)
       if (results.length === 0) setCustomerSearchMsg('No results')
@@ -161,6 +161,7 @@ export default function ActivityForm({
       ItemCode: itemCode || undefined,
       Text: textInMatrix || undefined,
       MainPersons: selectedPersonCodes.join(','),
+      CalTimeFlag: planned ? '2' : '1',
     }
   }
 
@@ -232,26 +233,6 @@ export default function ActivityForm({
     }
   }
 
-  async function handleDelete() {
-    if (!editId) return
-    setSaving(true)
-    try {
-      const url = source === 'herbe' ? `/api/activities/${editId}` : `/api/outlook/${editId}`
-      const res = await fetch(url, { method: 'DELETE' })
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setErrors([data?.error ?? `Delete failed (${res.status})`])
-        setSaving(false)
-        return
-      }
-      onSaved()
-      onClose()
-    } catch (e) {
-      setErrors([String(e)])
-      setSaving(false)
-    }
-  }
-
   function handleDuplicate() {
     onClose()
     onDuplicate({
@@ -264,6 +245,7 @@ export default function ActivityForm({
       projectName,
       customerCode,
       customerName,
+      planned,
       // timeFrom and timeTo intentionally omitted — user sets them on the new form
     })
   }
@@ -280,6 +262,7 @@ export default function ActivityForm({
       setProjectName(copy.projectName ?? '')
       setCustomerCode(copy.customerCode ?? '')
       setCustomerName(copy.customerName ?? '')
+      setPlanned(copy.planned ?? false)
       setItemCode(copy.itemCode ?? '')
       setTextInMatrix(copy.textInMatrix ?? '')
     } else {
@@ -290,6 +273,7 @@ export default function ActivityForm({
       setProjectName('')
       setCustomerCode('')
       setCustomerName('')
+      setPlanned(false)
       setItemCode('')
       setTextInMatrix('')
     }
@@ -314,12 +298,10 @@ export default function ActivityForm({
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div>
-            <h2 className="font-bold">{isEdit ? 'Edit Activity' : 'New Activity'}</h2>
-            {isEdit && editId && (
-              <p className="text-[11px] text-text-muted font-mono">#{editId}</p>
-            )}
-          </div>
+          <h2 className="font-bold flex items-center gap-2">
+            {isEdit ? 'Edit Activity' : 'New Activity'}
+            {isEdit && editId && <span className="text-[11px] text-text-muted font-mono font-normal">#{editId}</span>}
+          </h2>
           <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
         </div>
 
@@ -394,6 +376,24 @@ export default function ActivityForm({
                   {s === 'herbe' ? 'Herbe ERP' : 'Outlook'}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Planned / Actual toggle (Herbe only) */}
+          {source === 'herbe' && (
+            <div className="flex rounded overflow-hidden border border-border text-sm font-bold">
+              <button
+                onClick={() => setPlanned(false)}
+                className={`flex-1 py-2 ${!planned ? 'bg-primary text-white' : 'text-text-muted'}`}
+              >
+                Actual
+              </button>
+              <button
+                onClick={() => setPlanned(true)}
+                className={`flex-1 py-2 ${planned ? 'bg-amber-600 text-white' : 'text-text-muted'}`}
+              >
+                Planned
+              </button>
             </div>
           )}
 
@@ -520,17 +520,20 @@ export default function ActivityForm({
           {/* Activity type (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Activity Type</label>
-              {currentGroup && (currentGroup.forceProj || currentGroup.forceCust || currentGroup.forceItem || currentGroup.forceTextInMatrix) && (
-                <p className="text-[11px] text-amber-400 mb-1">
-                  Required: {[
-                    currentGroup.forceProj && 'project',
-                    currentGroup.forceCust && 'customer',
-                    currentGroup.forceItem && 'item code',
-                    currentGroup.forceTextInMatrix && 'additional text',
-                  ].filter(Boolean).join(', ')}
-                </p>
-              )}
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                Activity Type
+                {activityTypeCode && <span className="font-mono text-primary normal-case text-[11px]">{activityTypeCode}</span>}
+                {currentGroup && (currentGroup.forceProj || currentGroup.forceCust || currentGroup.forceItem || currentGroup.forceTextInMatrix) && (
+                  <span className="text-amber-400 normal-case font-normal ml-auto">
+                    req: {[
+                      currentGroup.forceProj && 'proj',
+                      currentGroup.forceCust && 'cust',
+                      currentGroup.forceItem && 'item',
+                      currentGroup.forceTextInMatrix && 'text',
+                    ].filter(Boolean).join(', ')}
+                  </span>
+                )}
+              </label>
               <input
                 value={activityTypeName}
                 onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); filterActivityTypes(e.target.value) }}
@@ -540,9 +543,6 @@ export default function ActivityForm({
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                 placeholder="Type code or name…"
               />
-              {activityTypeCode && (
-                <p className="text-[11px] text-text-muted mt-0.5">Code: <span className="font-mono text-primary">{activityTypeCode}</span></p>
-              )}
               {activityTypeResults.length > 0 && (
                 <div className="bg-bg border border-border rounded-lg mt-1 max-h-40 overflow-y-auto">
                   {activityTypeResults.map(t => (
@@ -578,8 +578,10 @@ export default function ActivityForm({
           {/* Project (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Project{currentGroup?.forceProj && <span className="text-red-400 ml-0.5">*</span>}
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                Project{currentGroup?.forceProj && <span className="text-red-400">*</span>}
+                {projectCode && <span className="font-mono text-primary normal-case text-[11px]">{projectCode}</span>}
+                {projectSearchMsg && !searchingProjects && <span className="normal-case font-normal text-text-muted ml-auto">{projectSearchMsg}</span>}
               </label>
               <div className="relative">
                 <input
@@ -594,12 +596,6 @@ export default function ActivityForm({
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-primary text-sm animate-spin inline-block">⟳</span>
                 )}
               </div>
-              {projectCode && (
-                <p className="text-[11px] text-text-muted mt-0.5">Code: <span className="font-mono text-primary">{projectCode}</span></p>
-              )}
-              {projectSearchMsg && !searchingProjects && (
-                <p className="text-[11px] text-text-muted mt-0.5">{projectSearchMsg}</p>
-              )}
               {projectResults.length > 0 && (
                 <div className="bg-bg border border-border rounded-lg mt-1 max-h-32 overflow-y-auto">
                   {projectResults.map(r => (
@@ -628,8 +624,10 @@ export default function ActivityForm({
           {/* Customer (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Customer{currentGroup?.forceCust && <span className="text-red-400 ml-0.5">*</span>}
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                Customer{currentGroup?.forceCust && <span className="text-red-400">*</span>}
+                {customerCode && <span className="font-mono text-primary normal-case text-[11px]">{customerCode}</span>}
+                {customerSearchMsg && !searchingCustomers && <span className="normal-case font-normal text-text-muted ml-auto">{customerSearchMsg}</span>}
               </label>
               <div className="relative">
                 <input
@@ -644,12 +642,6 @@ export default function ActivityForm({
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-primary text-sm animate-spin inline-block">⟳</span>
                 )}
               </div>
-              {customerCode && (
-                <p className="text-[11px] text-text-muted mt-0.5">Code: <span className="font-mono text-primary">{customerCode}</span></p>
-              )}
-              {customerSearchMsg && !searchingCustomers && (
-                <p className="text-[11px] text-text-muted mt-0.5">{customerSearchMsg}</p>
-              )}
               {customerResults.length > 0 && (
                 <div className="bg-bg border border-border rounded-lg mt-1 max-h-32 overflow-y-auto">
                   {customerResults.map(r => (
@@ -699,44 +691,28 @@ export default function ActivityForm({
         </div>}
 
         {/* Footer actions */}
-        {!savedActivity && <div className="p-4 border-t border-border space-y-2">
+        {!savedActivity && <div className="p-4 border-t border-border">
           {/* If editing but canEdit is false, show close only */}
           {isEdit && !(canEdit ?? true) ? (
             <button onClick={onClose} className="w-full border border-border text-text-muted font-bold py-3 rounded-xl">
               Close
             </button>
           ) : (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
-            </button>
-          )}
-
-          {isEdit && (canEdit ?? true) && (
             <div className="flex gap-2">
               <button
-                onClick={handleDuplicate}
-                className="flex-1 border border-border text-text-muted font-bold py-2 rounded-xl text-sm"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
               >
-                Duplicate
+                {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
               </button>
-              {!showDeleteConfirm ? (
+              {isEdit && (canEdit ?? true) && (
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex-1 border border-red-800 text-red-400 font-bold py-2 rounded-xl text-sm"
+                  onClick={handleDuplicate}
+                  title="Duplicate activity"
+                  className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
                 >
-                  Delete
-                </button>
-              ) : (
-                <button
-                  onClick={handleDelete}
-                  disabled={saving}
-                  className="flex-1 bg-red-800 text-white font-bold py-2 rounded-xl text-sm"
-                >
-                  Confirm delete
+                  ⧉
                 </button>
               )}
             </div>

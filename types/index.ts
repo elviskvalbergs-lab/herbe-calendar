@@ -24,6 +24,7 @@ export interface Activity {
   textInMatrix?: string   // Additional text required by ForceTextInMatrix
   mainPersons?: string[]  // Herbe: all persons on the activity
   accessGroup?: string    // comma-separated person codes (Herbe)
+  planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
   isOrganizer?: boolean   // Outlook only
   joinUrl?: string        // Outlook/Teams meeting join link
 }

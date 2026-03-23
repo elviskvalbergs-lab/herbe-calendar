@@ -15,6 +15,7 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
   const top = timeToTopPx(activity.timeFrom)
   const height = Math.max(durationToPx(activity.timeFrom, activity.timeTo), 20)
   const isOutlook = activity.source === 'outlook'
+  const isPlanned = activity.planned === true
 
   return (
     <div
@@ -22,8 +23,9 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
       style={{
         top,
         height,
-        background: color + '33',
+        background: isPlanned ? color + '1a' : color + '33',
         borderLeft: isOutlook ? `2px dashed ${color}` : `3px solid ${color}`,
+        borderRight: isPlanned ? `3px solid ${color}` : undefined,
         opacity: isOutlook ? 0.85 : 1,
         ...style,
       }}
@@ -33,7 +35,7 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
       <div className="px-1.5 py-0.5">
         <div className="flex items-start justify-between gap-1">
           <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
-            {isOutlook && '📅 '}{activity.description || '(no title)'}
+            {isOutlook && '📅 '}{isPlanned && '○ '}{activity.description || '(no title)'}
           </p>
           {activity.joinUrl && (
             <a

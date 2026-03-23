@@ -28,6 +28,7 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     itemCode: String(r['ItemCode'] ?? '') || undefined,
     textInMatrix: String(r['Text'] ?? '') || undefined,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
+    planned: String(r['CalTimeFlag'] ?? '1') === '2',
   }
 }
 
@@ -115,7 +116,10 @@ export async function POST(req: NextRequest) {
     })
     const data = await res.json().catch(() => null)
     console.log(`POST ActVc → ${res.status}`, JSON.stringify(data))
-    if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
+    if (!res.ok) {
+      const errMsg = data ? extractHerbeError(data) : `Herbe error ${res.status}`
+      return NextResponse.json({ error: errMsg }, { status: res.status })
+    }
     // Check for Herbe validation errors returned with HTTP 200 (errors array)
     if (Array.isArray(data?.errors) && data.errors.length > 0) {
       const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
@@ -125,9 +129,12 @@ export async function POST(req: NextRequest) {
     const created = (data?.data?.[REGISTERS.activities] as Record<string, unknown>[] | undefined)?.[0]
     // If Herbe returned an empty result (no record created), it likely rejected due to a validation rule
     if (!created?.['SerNr']) {
-      const rawErr = data?.error ?? data?.message
-      const fallbackErr = rawErr ? extractHerbeError(rawErr) : 'Activity was not saved — a required field may be missing or invalid'
-      return NextResponse.json({ error: fallbackErr }, { status: 422 })
+      // Build a helpful error from whatever Herbe returned
+      const rawErr = data?.error ?? data?.message ?? data?.errors
+      const hint = rawErr
+        ? extractHerbeError(rawErr)
+        : `Activity was not saved — Herbe response: ${JSON.stringify(data).slice(0, 300)}`
+      return NextResponse.json({ error: hint }, { status: 422 })
     }
     return NextResponse.json(created, { status: 201 })
   } catch (e) {
