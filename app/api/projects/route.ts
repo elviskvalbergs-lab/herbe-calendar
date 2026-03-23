@@ -28,6 +28,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // Return all active projects for client-side caching
+  if (url.searchParams.has('all')) {
+    const all = await getAllProjects()
+    const results = all
+      .filter(p => String((p as Record<string, unknown>)['Terminated'] ?? '0') === '0')
+      .map(p => {
+        const r = p as Record<string, unknown>
+        return {
+          Code: String(r['Code'] ?? r['PRCode'] ?? ''),
+          Name: String(r['Name'] ?? ''),
+          CUCode: String(r['CUCode'] ?? r['CustomerCode'] ?? r['CustCode'] ?? r['CU'] ?? '') || null,
+          CUName: String(r['CUName'] ?? r['CustomerName'] ?? r['CustName'] ?? r['CUComment'] ?? '') || null,
+        }
+      })
+      .filter(r => r.Code)
+    return NextResponse.json(results)
+  }
+
   if (q.length < 2) return NextResponse.json([])
   try {
     const all = await getAllProjects()

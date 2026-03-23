@@ -33,6 +33,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // Return all active customers for client-side caching
+  if (url.searchParams.has('all')) {
+    const all = await getAllCustomers()
+    const results = (all as Record<string, unknown>[])
+      .filter(r => String(r['Closed'] ?? r['Inactive'] ?? '0') !== '1')
+      .map(r => ({
+        Code: String(r['Code'] ?? r['CUCode'] ?? r['CustomerCode'] ?? ''),
+        Name: String(r['Name'] ?? r['CUName'] ?? r['CustomerName'] ?? r['Comment'] ?? ''),
+      }))
+      .filter(r => r.Code)
+    return NextResponse.json(results)
+  }
+
   if (!debug && q.length < 2) return NextResponse.json([])
 
   try {

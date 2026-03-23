@@ -19,6 +19,8 @@ interface Props {
   getTypeColor?: (typeCode: string) => string
   getTypeGroup?: (typeCode: string) => ActivityClassGroup | undefined
   companyCode?: string
+  allCustomers?: { Code: string; Name: string }[]
+  allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
 }
 
 function SerpIcon() {
@@ -32,7 +34,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1'
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -149,6 +151,17 @@ export default function ActivityForm({
 
   async function searchProjects(q: string) {
     if (q.length < 2) { setProjectResults([]); setProjectSearchMsg(null); return }
+    // Use client-side data if available
+    if (allProjects?.length) {
+      const lower = q.toLowerCase()
+      const results = allProjects
+        .filter(p => p.Name.toLowerCase().includes(lower) || p.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(p => ({ code: p.Code, name: p.Name, customerCode: p.CUCode || undefined, customerName: p.CUName || undefined }))
+      setProjectResults(results)
+      setProjectSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
     setSearchingProjects(true)
     setProjectSearchMsg(null)
     try {
@@ -172,6 +185,17 @@ export default function ActivityForm({
 
   async function searchCustomers(q: string) {
     if (q.length < 2) { setCustomerResults([]); setCustomerSearchMsg(null); return }
+    // Use client-side data if available
+    if (allCustomers?.length) {
+      const lower = q.toLowerCase()
+      const results = allCustomers
+        .filter(c => c.Name.toLowerCase().includes(lower) || c.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(c => ({ code: c.Code, name: c.Name }))
+      setCustomerResults(results)
+      setCustomerSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
     setSearchingCustomers(true)
     setCustomerSearchMsg(null)
     try {

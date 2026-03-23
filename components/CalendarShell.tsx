@@ -35,6 +35,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok?: boolean } | null>(null)
+  const [allCustomers, setAllCustomers] = useState<{ Code: string; Name: string }[]>([])
+  const [allProjects, setAllProjects] = useState<{ Code: string; Name: string; CUCode: string | null; CUName: string | null }[]>([])
   const [formState, setFormState] = useState<{
     open: boolean
     initial?: Partial<Activity>
@@ -259,13 +261,13 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     fetchActivities()
   }, [fetchActivities])
 
-  // Preload search caches into server memory on mount
+  // Fetch full customer + project lists into client state for instant search
   useEffect(() => {
-    setStatus({ msg: 'Preloading customers & projects…' })
+    setStatus({ msg: 'Loading customers & projects…' })
     Promise.all([
-      fetch('/api/customers?preload=1').catch(() => {}),
-      fetch('/api/projects?preload=1').catch(() => {}),
-    ]).then(() => setStatus(s => s?.msg === 'Preloading customers & projects…' ? null : s))
+      fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(setAllCustomers).catch(() => {}),
+      fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(setAllProjects).catch(() => {}),
+    ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
   }, [])
 
   return (
@@ -357,6 +359,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           getTypeColor={typeGroupColor}
           getTypeGroup={getTypeGroup}
           companyCode={companyCode}
+          allCustomers={allCustomers}
+          allProjects={allProjects}
         />
       )}
     </div>
