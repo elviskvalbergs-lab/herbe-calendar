@@ -1,0 +1,58 @@
+'use client'
+
+interface Props {
+  onClose: () => void
+}
+
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+const cmd = isMac ? '⌘' : 'Ctrl'
+
+const SHORTCUTS = [
+  { group: 'Navigation' },
+  { key: '←  →', desc: 'Previous / next day (or 3 days in 3-day view)' },
+  { key: 'T', desc: 'Jump to today' },
+  { group: 'Activities' },
+  { key: 'N', desc: 'New activity' },
+  { key: `${cmd}S`, desc: 'Save activity (in form)' },
+  { key: 'Esc', desc: 'Close form / modal' },
+  { group: 'In activity type / project / customer fields' },
+  { key: '↑  ↓', desc: 'Move through search results' },
+  { key: 'Enter / Tab', desc: 'Select focused result and advance' },
+  { key: 'Tab', desc: 'Move to next field (date is skipped)' },
+  { group: 'App' },
+  { key: '?', desc: 'Show this keyboard shortcuts panel' },
+]
+
+export default function KeyboardShortcutsModal({ onClose }: Props) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <h2 className="font-bold">Keyboard Shortcuts</h2>
+          <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4 space-y-1">
+          {SHORTCUTS.map((s, i) =>
+            'group' in s ? (
+              <p key={i} className="text-xs text-text-muted uppercase tracking-wide pt-3 pb-1 first:pt-0">{s.group}</p>
+            ) : (
+              <div key={i} className="flex items-center justify-between py-1.5">
+                <span className="text-sm text-text-muted">{s.desc}</span>
+                <kbd className="ml-4 shrink-0 font-mono text-xs bg-bg border border-border rounded px-2 py-0.5 text-text-muted">{s.key}</kbd>
+              </div>
+            )
+          )}
+        </div>
+        <div className="p-4 border-t border-border">
+          <button onClick={onClose} className="w-full bg-primary text-white font-bold py-3 rounded-xl">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

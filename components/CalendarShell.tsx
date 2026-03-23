@@ -6,19 +6,21 @@ import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
 import ColorSettings from './ColorSettings'
+import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
 } from '@/lib/activityColors'
 
-interface Props { userCode: string }
+interface Props { userCode: string; companyCode: string }
 
-export default function CalendarShell({ userCode }: Props) {
+export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
   const [state, setState] = useState<CalendarState>(() => {
     try {
@@ -59,23 +61,38 @@ export default function CalendarShell({ userCode }: Props) {
     } catch {}
   }, [state.view, state.date, state.selectedPersons])
 
-  // Keyboard shortcut: Cmd+Ctrl+N (Mac) or Ctrl+Alt+N (Windows/Linux) → new activity
+  // Global keyboard shortcuts (N, T, ←, →, ?) — only when no modal/form open and no input focused
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Skip if any modal/form is open
+      if (formState.open || colorSettingsOpen || shortcutsOpen) return
+      // Skip if focused on an input/textarea/select
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+      // Skip if modifier keys held (except Shift for ?)
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      const step = state.view === '3day' ? 3 : 1
       if (e.key === 'n' || e.key === 'N') {
-        const isMac = navigator.platform.toUpperCase().includes('MAC')
-        const trigger = isMac
-          ? e.metaKey && e.ctrlKey
-          : e.ctrlKey && e.altKey
-        if (trigger) {
-          e.preventDefault()
-          setFormState({ open: true })
-        }
+        e.preventDefault()
+        setFormState({ open: true, initial: { date: state.date } })
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(subDays(parseISO(s.date), step), 'yyyy-MM-dd') }))
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), step), 'yyyy-MM-dd') }))
+      } else if (e.key === '?') {
+        e.preventDefault()
+        setShortcutsOpen(true)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [formState.open, colorSettingsOpen, shortcutsOpen, state.view, state.date])
 
   // Derived color maps
   const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
@@ -219,6 +236,7 @@ export default function CalendarShell({ userCode }: Props) {
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
         onRefresh={fetchActivities}
         onColorSettings={() => setColorSettingsOpen(true)}
+        onShortcuts={() => setShortcutsOpen(true)}
       />
       <CalendarGrid
         state={state}
@@ -263,6 +281,10 @@ export default function CalendarShell({ userCode }: Props) {
         </div>
       )}
 
+      {shortcutsOpen && (
+        <KeyboardShortcutsModal onClose={() => setShortcutsOpen(false)} />
+      )}
+
       {colorSettingsOpen && (
         <ColorSettings
           classGroups={classGroups}
@@ -290,6 +312,7 @@ export default function CalendarShell({ userCode }: Props) {
           canEdit={formState.canEdit}
           getTypeColor={typeGroupColor}
           getTypeGroup={getTypeGroup}
+          companyCode={companyCode}
         />
       )}
     </div>

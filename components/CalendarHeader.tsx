@@ -12,9 +12,10 @@ interface Props {
   onNewActivity: () => void
   onRefresh: () => void
   onColorSettings: () => void
+  onShortcuts: () => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
 
   function navigate(delta: number) {
@@ -30,15 +31,15 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </span>
 
       {/* Date navigation */}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1 rounded hover:bg-border">‹</button>
+      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Previous (←)">‹</button>
       <span className="text-sm font-semibold whitespace-nowrap">
         {format(parseISO(state.date), 'd MMM yyyy')}
       </span>
-      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded hover:bg-border">›</button>
+      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Next (→)">›</button>
       <button
         onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
         className="text-text-muted px-2 py-1 rounded hover:bg-border text-xs font-bold"
-        title="Go to today"
+        title="Go to today (T)"
       >
         Today
       </button>
@@ -89,11 +90,20 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         ↻
       </button>
 
+      {/* Keyboard shortcuts */}
+      <button
+        onClick={onShortcuts}
+        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
+        title="Keyboard shortcuts (?)"
+      >
+        ?
+      </button>
+
       {/* Color settings */}
       <button
         onClick={onColorSettings}
         className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Activity colors"
+        title="Activity colors &amp; theme"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="13.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
@@ -108,6 +118,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       <button
         onClick={onNewActivity}
         className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+        title="New activity (N)"
       >
         + New
       </button>

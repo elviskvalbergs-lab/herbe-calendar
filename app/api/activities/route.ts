@@ -62,7 +62,7 @@ export async function GET(req: Request) {
         .filter(p => personSet.has(p))
         .map(p => mapActivity(rec, p))
     })
-    return NextResponse.json(result)
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
