@@ -19,6 +19,8 @@ interface Props {
   getTypeColor?: (typeCode: string) => string
   getTypeGroup?: (typeCode: string) => ActivityClassGroup | undefined
   companyCode?: string
+  allCustomers?: { Code: string; Name: string }[]
+  allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
 }
 
 function SerpIcon() {
@@ -32,7 +34,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1'
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -74,32 +76,42 @@ export default function ActivityForm({
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
-  const [showTabTip, setShowTabTip] = useState(false)
-
+  const [personsExpanded, setPersonsExpanded] = useState(false)
   const handleSaveRef = useRef<() => void>(() => {})
+  const handleDuplicateRef = useRef<() => void>(() => {})
   const descInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
-  const tabTipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const swipeX = useRef<number | null>(null)
+  const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-  const saveShortcut = isMac ? '⌘S' : 'Ctrl+S'
+  const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
-  // Esc to close, Cmd/Ctrl+S to save
+  // Esc to close · ⌃⌘S to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current()
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); handleSaveRef.current() }
+      if (e.key === 'Escape') { onCloseRef.current(); return }
+      if (e.metaKey && e.ctrlKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault(); handleSaveRef.current(); return
+      }
+      if (e.metaKey && e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        if (isEdit && (canEdit ?? true)) handleDuplicateRef.current()
+        return
+      }
+      if (e.metaKey && e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault()
+        if (isEdit && editId) {
+          const link = serpLink('ActVc', editId, companyCode)
+          if (link) window.location.href = link
+        }
+        return
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
-  useEffect(() => () => { if (tabTipTimerRef.current) clearTimeout(tabTipTimerRef.current) }, [])
-
-  function showMouseTip() {
-    setShowTabTip(true)
-    if (tabTipTimerRef.current) clearTimeout(tabTipTimerRef.current)
-    tabTipTimerRef.current = setTimeout(() => setShowTabTip(false), 5000)
-  }
+  }, [isEdit, editId, companyCode, canEdit])
 
   // Load activity types on mount
   useEffect(() => {
@@ -139,6 +151,17 @@ export default function ActivityForm({
 
   async function searchProjects(q: string) {
     if (q.length < 2) { setProjectResults([]); setProjectSearchMsg(null); return }
+    // Use client-side data if available
+    if (allProjects?.length) {
+      const lower = q.toLowerCase()
+      const results = allProjects
+        .filter(p => p.Name.toLowerCase().includes(lower) || p.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(p => ({ code: p.Code, name: p.Name, customerCode: p.CUCode || undefined, customerName: p.CUName || undefined }))
+      setProjectResults(results)
+      setProjectSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
     setSearchingProjects(true)
     setProjectSearchMsg(null)
     try {
@@ -153,7 +176,6 @@ export default function ActivityForm({
       })).filter(r => r.code)
       setProjectResults(results)
       if (results.length === 0) setProjectSearchMsg('No results')
-      else (document.activeElement as HTMLElement)?.blur()
     } catch (e) {
       setProjectSearchMsg(String(e))
     } finally {
@@ -163,6 +185,17 @@ export default function ActivityForm({
 
   async function searchCustomers(q: string) {
     if (q.length < 2) { setCustomerResults([]); setCustomerSearchMsg(null); return }
+    // Use client-side data if available
+    if (allCustomers?.length) {
+      const lower = q.toLowerCase()
+      const results = allCustomers
+        .filter(c => c.Name.toLowerCase().includes(lower) || c.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(c => ({ code: c.Code, name: c.Name }))
+      setCustomerResults(results)
+      setCustomerSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
     setSearchingCustomers(true)
     setCustomerSearchMsg(null)
     try {
@@ -175,7 +208,6 @@ export default function ActivityForm({
       })).filter(r => r.code)
       setCustomerResults(results)
       if (results.length === 0) setCustomerSearchMsg('No results')
-      else (document.activeElement as HTMLElement)?.blur()
     } catch (e) {
       setCustomerSearchMsg(String(e))
     } finally {
@@ -268,6 +300,7 @@ export default function ActivityForm({
   }
 
   handleSaveRef.current = handleSave
+  handleDuplicateRef.current = handleDuplicate
 
   function handleDuplicate() {
     onClose()
@@ -327,7 +360,14 @@ export default function ActivityForm({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+        onTouchStart={e => { swipeX.current = e.touches[0].clientX }}
+        onTouchEnd={e => {
+          if (swipeX.current !== null && e.changedTouches[0].clientX - swipeX.current < -80) onCloseRef.current()
+          swipeX.current = null
+        }}
+      >
         {/* Drag handle (mobile) */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-border" />
@@ -337,14 +377,17 @@ export default function ActivityForm({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="font-bold flex items-center gap-2">
             {isEdit ? 'Edit Activity' : 'New Activity'}
-            {isEdit && editId && <span className="text-[11px] text-text-muted font-mono font-normal">#{editId}</span>}
             {isEdit && editId && (() => {
               const link = serpLink('ActVc', editId, companyCode)
+              const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors'
               return link ? (
-                <a href={link} title="Open in Standard ERP" className="text-text-muted hover:text-primary transition-colors">
-                  <SerpIcon />
+                <a href={link} title="Open in Standard ERP (⌃⌘O)" tabIndex={-1}
+                   className={cls + ' hover:border-primary hover:bg-primary/20'}>
+                  #{editId} <SerpIcon />
                 </a>
-              ) : null
+              ) : (
+                <span className={cls}>#{editId}</span>
+              )
             })()}
           </h2>
           <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
@@ -427,37 +470,69 @@ export default function ActivityForm({
           <ErrorBanner errors={errors} />
 
           {/* Person(s) */}
-          <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
-            <div className="flex flex-wrap gap-1">
-              {people.map(p => {
-                const sel = selectedPersonCodes.includes(p.code)
-                return (
-                  <button
-                    key={p.code}
-                    tabIndex={-1}
-                    onClick={() => setSelectedPersonCodes(prev =>
-                      sel ? prev.filter(c => c !== p.code) : [...prev, p.code]
-                    )}
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${
-                      sel ? 'bg-primary/20 border-primary text-primary' : 'border-border text-text-muted'
-                    }`}
-                  >
-                    {p.code}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          {(() => {
+            const unselected = people.filter(p => !selectedPersonCodes.includes(p.code))
+            const visibleUnselected = personsExpanded ? unselected : unselected.slice(0, 3)
+            const hiddenCount = personsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            return (
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
+                <div className="flex flex-wrap gap-1">
+                  {people.filter(p => selectedPersonCodes.includes(p.code)).map(p => (
+                    <button
+                      key={p.code}
+                      tabIndex={-1}
+                      onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary transition-colors"
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {visibleUnselected.map(p => (
+                    <button
+                      key={p.code}
+                      tabIndex={-1}
+                      onClick={() => setSelectedPersonCodes(prev => [...prev, p.code])}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted transition-colors"
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPersonsExpanded(true)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      +{hiddenCount} more
+                    </button>
+                  )}
+                  {personsExpanded && unselected.length > 3 && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPersonsExpanded(false)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      Collapse
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Description */}
           <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Description</label>
+            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
+              Description
+              <span className="normal-case font-normal text-[9px] tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
+            </label>
             <input
               ref={descInputRef}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              onMouseDown={showMouseTip}
               autoFocus={!isEdit && !initial?.timeFrom}
               className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
               placeholder="What are you working on?"
@@ -465,7 +540,7 @@ export default function ActivityForm({
           </div>
 
           {/* Date + Time From + Time To */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1">
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Date</label>
               <input
@@ -473,7 +548,7 @@ export default function ActivityForm({
                 value={date}
                 onChange={e => setDate(e.target.value)}
                 tabIndex={-1}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1.5 sm:px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
             <div>
@@ -495,7 +570,7 @@ export default function ActivityForm({
                   }
                   setTimeFrom(newFrom)
                 }}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1.5 sm:px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
             </div>
             <div>
@@ -504,22 +579,8 @@ export default function ActivityForm({
                 type="time"
                 value={timeTo}
                 onChange={e => setTimeTo(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1.5 sm:px-2 py-2 text-sm focus:outline-none focus:border-primary"
               />
-              {source === 'herbe' && (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setPlanned(p => !p)}
-                  className={`mt-1 w-full text-[10px] font-bold py-0.5 rounded border transition-colors ${
-                    planned
-                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-                      : 'border-border/50 text-text-muted hover:border-border'
-                  }`}
-                >
-                  {planned ? '○ Planned' : '● Actual'}
-                </button>
-              )}
             </div>
           </div>
 
@@ -540,7 +601,7 @@ export default function ActivityForm({
               ? (() => { const [th, tm] = timeTo.split(':').map(Number); return th * 60 + tm - fromMins })()
               : null
             return (
-              <div className="flex gap-1.5 flex-wrap -mt-1">
+              <div className="flex items-center gap-1.5 flex-wrap -mt-1">
                 {DURATIONS.map(({ label, mins }) => {
                   const active = currentDur === mins
                   const toMins = fromMins + mins
@@ -560,6 +621,20 @@ export default function ActivityForm({
                     </button>
                   )
                 })}
+                {source === 'herbe' && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setPlanned(p => !p)}
+                    className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                      planned
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                    }`}
+                  >
+                    {planned ? '○ Planned' : '● Actual'}
+                  </button>
+                )}
               </div>
             )
           })()}
@@ -575,7 +650,6 @@ export default function ActivityForm({
                 value={activityTypeName}
                 onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value) }}
                 onFocus={() => { if (!activityTypeResults.length) filterActivityTypes(activityTypeName) }}
-                onMouseDown={showMouseTip}
                 onKeyDown={e => {
                   const n = activityTypeResults.length
                   if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedTypeIdx(i => Math.min(i + 1, n - 1)); if (!n) filterActivityTypes(activityTypeName) }
@@ -636,7 +710,7 @@ export default function ActivityForm({
                 {projectCode && (() => {
                   const link = serpLink('PRVc', projectCode, companyCode)
                   return link ? (
-                    <a href={link} title="Open project in Standard ERP" className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                    <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
                     </a>
                   ) : null
@@ -647,8 +721,11 @@ export default function ActivityForm({
                 <input
                   ref={projectInputRef}
                   value={projectName}
-                  onChange={e => { setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1); searchProjects(e.target.value) }}
-                  onMouseDown={showMouseTip}
+                  onChange={e => {
+                    setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1)
+                    if (projectSearchTimer.current) clearTimeout(projectSearchTimer.current)
+                    projectSearchTimer.current = setTimeout(() => searchProjects(e.target.value), 300)
+                  }}
                   onKeyDown={e => {
                     const n = projectResults.length
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedProjectIdx(i => Math.min(i + 1, n - 1)) }
@@ -704,7 +781,7 @@ export default function ActivityForm({
                 {customerCode && (() => {
                   const link = serpLink('CUVc', customerCode, companyCode)
                   return link ? (
-                    <a href={link} title="Open customer in Standard ERP" className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                    <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
                     </a>
                   ) : null
@@ -715,8 +792,11 @@ export default function ActivityForm({
                 <input
                   ref={customerInputRef}
                   value={customerName}
-                  onChange={e => { setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1); searchCustomers(e.target.value) }}
-                  onMouseDown={showMouseTip}
+                  onChange={e => {
+                    setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1)
+                    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+                    customerSearchTimer.current = setTimeout(() => searchCustomers(e.target.value), 300)
+                  }}
                   onKeyDown={e => {
                     const n = customerResults.length
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedCustomerIdx(i => Math.min(i + 1, n - 1)) }
@@ -787,11 +867,6 @@ export default function ActivityForm({
 
         {/* Footer actions */}
         {!savedActivity && <div className="p-4 border-t border-border">
-          {showTabTip && (
-            <p className="text-[10px] text-text-muted text-center mb-2 opacity-70">
-              ↹ Tab moves between fields · {saveShortcut} saves
-            </p>
-          )}
           {/* If editing but canEdit is false, show close only */}
           {isEdit && !(canEdit ?? true) ? (
             <button onClick={onClose} className="w-full border border-border text-text-muted font-bold py-3 rounded-xl">
@@ -810,7 +885,7 @@ export default function ActivityForm({
               {isEdit && (canEdit ?? true) && (
                 <button
                   onClick={handleDuplicate}
-                  title="Duplicate activity"
+                  title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
                   className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
                 >
                   ⧉

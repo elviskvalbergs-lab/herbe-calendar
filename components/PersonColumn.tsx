@@ -10,6 +10,7 @@ interface Props {
   activities: Activity[]
   sessionUserCode: string
   getActivityColor: (activity: Activity) => string
+  getTypeName?: (typeCode: string) => string
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
@@ -28,7 +29,7 @@ interface DragState {
 }
 
 export default function PersonColumn({
-  personCode, date, activities, sessionUserCode, getActivityColor,
+  personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, colMinW = 'min-w-[44vw] sm:min-w-0'
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
@@ -186,6 +187,7 @@ export default function PersonColumn({
                   onClick={(act) => { if (!suppressClickRef.current) onActivityClick(act) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
+                  getTypeName={getTypeName}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}

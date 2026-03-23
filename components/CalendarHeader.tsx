@@ -38,8 +38,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Next (→)">›</button>
       <button
         onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
-        className="text-text-muted px-2 py-1 rounded hover:bg-border text-xs font-bold"
-        title="Go to today (T)"
+        className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
+        title="Go to today (⌃⌘T)"
       >
         Today
       </button>
@@ -118,7 +118,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       <button
         onClick={onNewActivity}
         className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
-        title="New activity (N)"
+        title="New activity (⌃⌘N)"
       >
         + New
       </button>

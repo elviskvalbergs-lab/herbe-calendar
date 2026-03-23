@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ActivityClassGroup } from '@/types'
 import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR, saveColorOverride } from '@/lib/activityColors'
 
@@ -32,6 +32,7 @@ interface Props {
 
 export default function ColorSettings({ classGroups, colorMap, error, onClose, onColorChange, onReload }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
+  const swipeX = useRef<number | null>(null)
 
   useEffect(() => {
     try {
@@ -48,7 +49,14 @@ export default function ColorSettings({ classGroups, colorMap, error, onClose, o
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+      <div
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
+        onTouchStart={e => { swipeX.current = e.touches[0].clientX }}
+        onTouchEnd={e => {
+          if (swipeX.current !== null && e.changedTouches[0].clientX - swipeX.current < -80) onClose()
+          swipeX.current = null
+        }}
+      >
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
