@@ -74,8 +74,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
       const inInput = tag === 'input' || tag === 'textarea' || tag === 'select'
 
-      // ⌘N / ⌃N — New activity (works from anywhere when no modal open)
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'n' || e.key === 'N')) {
+      // ⌃⌘N — New activity (works from anywhere when no modal open)
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault()
         setFormState({ open: true, initial: { date: state.date } })
         return

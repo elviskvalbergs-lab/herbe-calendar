@@ -80,13 +80,13 @@ export default function ActivityForm({
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-  const saveShortcut = isMac ? '⌘↩' : 'Ctrl+↩'
+  const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
-  // Esc to close · ⌘↩ to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
+  // Esc to close · ⌃⌘S to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onCloseRef.current(); return }
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === 'Enter') {
+      if (e.metaKey && e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault(); handleSaveRef.current(); return
       }
       if (e.metaKey && e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
