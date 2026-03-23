@@ -249,6 +249,7 @@ export default function CalendarShell({ userCode }: Props) {
           })
         }
         onActivityUpdate={fetchActivities}
+        onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
       />
       {status && (
         <div className={`px-3 py-1 text-xs font-mono border-t shrink-0 ${

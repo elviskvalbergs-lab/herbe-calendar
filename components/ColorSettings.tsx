@@ -1,6 +1,25 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { ActivityClassGroup } from '@/types'
 import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR, saveColorOverride } from '@/lib/activityColors'
+
+type Theme = 'dark' | 'light' | 'system'
+
+function applyTheme(t: Theme) {
+  try {
+    if (t === 'system') {
+      localStorage.removeItem('theme')
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.documentElement.setAttribute('data-theme', 'light')
+      } else {
+        document.documentElement.removeAttribute('data-theme')
+      }
+    } else {
+      localStorage.setItem('theme', t)
+      document.documentElement.setAttribute('data-theme', t)
+    }
+  } catch {}
+}
 
 interface Props {
   classGroups: ActivityClassGroup[]
@@ -12,6 +31,20 @@ interface Props {
 }
 
 export default function ColorSettings({ classGroups, colorMap, error, onClose, onColorChange, onReload }: Props) {
+  const [theme, setTheme] = useState<Theme>('system')
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('theme')
+      setTheme(stored === 'light' ? 'light' : stored === 'dark' ? 'dark' : 'system')
+    } catch {}
+  }, [])
+
+  function handleTheme(t: Theme) {
+    setTheme(t)
+    applyTheme(t)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -32,6 +65,22 @@ export default function ColorSettings({ classGroups, colorMap, error, onClose, o
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
+          {/* Theme */}
+          <div>
+            <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Theme</p>
+            <div className="flex rounded overflow-hidden border border-border text-sm font-bold">
+              {(['dark', 'system', 'light'] as Theme[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => handleTheme(t)}
+                  className={`flex-1 py-2 capitalize ${theme === t ? 'bg-primary text-white' : 'text-text-muted'}`}
+                >
+                  {t === 'system' ? '⚙ System' : t === 'dark' ? '☾ Dark' : '☀ Light'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Fixed sources */}
           <div>
             <p className="text-xs text-text-muted uppercase tracking-wide mb-2">Source colors (fixed)</p>

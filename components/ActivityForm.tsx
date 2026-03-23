@@ -268,6 +268,7 @@ export default function ActivityForm({
     } else {
       setDescription('')
       setActivityTypeCode('')
+      setActivityTypeName('')
       setCurrentGroup(undefined)
       setProjectCode('')
       setProjectName('')

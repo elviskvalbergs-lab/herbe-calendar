@@ -8,14 +8,24 @@
   --color-person-1: #00ABCE;
   --color-person-2: #cd4c38;
   --color-person-3: #4db89a;
+  --color-text: #ffffff;
   --color-text-muted: #6b6467;
 }
 
 html, body {
-  background-color: #231f20;
-  color: #ffffff;
+  background-color: var(--color-bg);
+  color: var(--color-text);
   height: 100%;
   overscroll-behavior: none;
+}
+
+/* Light theme overrides */
+html[data-theme="light"] {
+  --color-bg: #f7f4f4;
+  --color-surface: #ffffff;
+  --color-border: #e0d9d9;
+  --color-text: #1a1718;
+  --color-text-muted: #8a8385;
 }
 
 /* Prevent iOS Safari auto-zoom on input focus */

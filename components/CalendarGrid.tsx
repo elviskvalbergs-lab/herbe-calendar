@@ -18,11 +18,12 @@ interface Props {
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
+  onNewForDate?: (date: string) => void
 }
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor,
-  onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate
+  onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -93,8 +94,13 @@ export default function CalendarGrid({
               {/* Sticky two-row header for this day */}
               <div className="sticky top-0 z-10 bg-surface">
                 {is3Day && (
-                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide">
+                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
                     {format(parseISO(date), 'EEE dd/MM')}
+                    <button
+                      onClick={() => onNewForDate?.(date)}
+                      className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
+                      title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
+                    >+</button>
                   </div>
                 )}
                 <div className="flex border-b border-border h-10">
