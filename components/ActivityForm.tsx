@@ -501,7 +501,7 @@ export default function ActivityForm({
           <div>
             <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
               Description
-              <span className="normal-case font-normal text-[9px] opacity-40 tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
+              <span className="normal-case font-normal text-[9px] tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
             </label>
             <input
               ref={descInputRef}
@@ -600,7 +600,7 @@ export default function ActivityForm({
                     type="button"
                     tabIndex={-1}
                     onClick={() => setPlanned(p => !p)}
-                    className={`ml-auto text-[9px] font-bold px-1.5 py-1 rounded-lg border transition-colors ${
+                    className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
                       planned
                         ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
                         : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
