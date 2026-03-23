@@ -14,9 +14,12 @@ Add `'5day'` to the `CalendarState['view']` union in `types/index.ts`.
 
 In `CalendarGrid`, extend the dates array: `'5day'` generates 5 consecutive dates from the anchor date (same pattern as `'3day'` which generates 3).
 
-In `CalendarHeader`, add a "5 Day" button to the existing view toggle group alongside "Day" and "3 Day".
+In `CalendarHeader`, extend the view toggle array from `(['day', '3day'] as const)` to `(['day', '3day', '5day'] as const)` and update the label expression:
+```ts
+v === 'day' ? 'Day' : v === '3day' ? '3 Day' : '5 Day'
+```
 
-In `CalendarShell`, wherever `state.view === '3day'` is used to calculate `step` or `dateTo`, also handle `'5day'` (step = 5, dateTo = anchor + 4 days).
+In `CalendarShell`, search for **all** occurrences of `=== '3day'` (there are three: the keyboard shortcut handler, the `fetchActivities` `dateTo` calculation, and the `onNavigate` prop inline handler) and update each to also handle `'5day'` (step = 5, dateTo = anchor + 4 days).
 
 ---
 
@@ -63,10 +66,14 @@ Fields covered:
 - **Activity Type** — clears `activityTypeName` + `activityTypeCode` + `currentGroup` + `activityTypeResults`
 - **Project** — clears `projectName` + `projectCode` + `projectResults`
 - **Customer** — clears `customerName` + `customerCode` + `customerResults`
-- **Item Code** — clears `itemCode`
+- **Item Code** — clears `itemCode`. Note: the Item Code field only renders when `currentGroup?.forceItem || itemCode`. Clearing via `×` when `!forceItem` will unmount the field immediately — this is acceptable; the field was optional and the user explicitly cleared it.
 - **Additional Text** — clears `textInMatrix`
 
-Implementation: wrap each input in `relative`, render a `×` button with `absolute right-2 top-1/2 -translate-y-1/2 text-text-muted text-xs`. For fields that already use `pr-8` (for the spinner), the `×` replaces/sits left of it, or conditionally appears only when not searching.
+Implementation: wrap each input in `relative`. For fields **without** a spinner (description, activity type, item code): render the `×` button as `absolute right-2 top-1/2 -translate-y-1/2 text-text-muted text-xs`, and add `pr-7` to the input.
+
+For fields **with** a spinner (project, customer): the `×` button is only shown when **not** actively searching (`!searchingProjects` / `!searchingCustomers`). When shown, it uses the same `absolute right-2 top-1/2 -translate-y-1/2` position — the spinner and the `×` are mutually exclusive so no padding change is needed beyond the existing `pr-8`.
+
+**Exception:** The Additional Text field uses a `<textarea>` (not `<input>`). For this field, position the `×` button `absolute right-2 top-2` (top-aligned, not vertically centred) to avoid it floating in the middle of a multi-line field.
 
 ---
 
@@ -76,15 +83,32 @@ Replace the current horizontal-only swipe tracking with a full drag-to-dismiss g
 
 **State:** Replace `swipeX` ref with `swipeStart = { x, y }` ref. Add a `dragY` state (number, 0 by default) that drives a CSS transform on the modal container.
 
+**State:** Add:
+- `dragY` React state (number, default 0) — drives the CSS transform for rendering
+- `dragYRef` ref (`useRef(0)`) — mirrors `dragY` and is updated synchronously in `onTouchMove` alongside the state setter. Read this ref (not the state) in `onTouchEnd` to avoid stale closure issues with React 18 batched state updates.
+- `dismissing` ref (`useRef(false)`) — set to `true` when the dismiss threshold is crossed, enables the slide-out transition.
+- `snappingBack` ref (`useRef(false)`) — set to `true` in `onTouchEnd` before calling `setDragY(0)`, enables the spring-back transition from the very first frame. Cleared in `onTransitionEnd`.
+
 **Interaction:**
-- `onTouchStart`: record `{ x: touches[0].clientX, y: touches[0].clientY }`
-- `onTouchMove`: compute `dy = currentY - startY`. If `dy > 0` (downward), set `dragY = dy`. Apply `transform: translateY(${dragY}px)` and `transition: none` to the modal div. Fade the backdrop opacity proportionally: `opacity = max(0, 0.6 - dy / 400)`.
+- `onTouchStart`: record `{ x: touches[0].clientX, y: touches[0].clientY }`. Reset `dismissing.current = false`.
+- `onTouchMove`: compute `dy = currentY - startY`. If `dy > 0` (downward), update both `dragYRef.current = dy` and `setDragY(dy)`. The backdrop uses `style={{ opacity: Math.max(0, 0.6 - dy / 400) }}` (inline style on the backdrop div, replacing the `bg-black/60` Tailwind class so the entire alpha is controlled — use `background: 'rgb(0 0 0 / ' + Math.max(0, 0.6 - dy / 400) + ')'`).
 - `onTouchEnd`:
-  - If `dy > 80`: set `dragY` to window height (slide out), then call `onClose` after 200ms.
-  - Otherwise: reset `dragY` to 0 with `transition: transform 0.25s` (spring back).
+  - Read `dragYRef.current` (not `dragY` state — avoid stale closure). If `dragYRef.current > 80`: set `dismissing.current = true`, call `setDragY(window.innerHeight)` (triggers slide-out transition), then call `onCloseRef.current()` after 220ms via `setTimeout`. Use `onCloseRef.current` (the existing stable ref), not the `onClose` prop directly, to avoid a stale closure in the timeout callback.
+  - Otherwise: set `snappingBack.current = true`, set `dragYRef.current = 0`, call `setDragY(0)`.
 - Horizontal left-swipe (existing behaviour) remains — if `|dx| > |dy|` and `dx < -80`, close.
 
-The modal div gets `style={{ transform: \`translateY(${dragY}px)\`, transition: dragY === 0 ? 'transform 0.25s' : 'none' }}`.
+Add a third boolean ref: `snappingBack = useRef(false)`. Do **not** infer the spring-back state from `dragY === 0` — that condition would be true one render too late, causing a visible jump on the first frame. Instead, set `snappingBack.current` explicitly in `onTouchEnd` before calling `setDragY(0)`.
+
+**Modal div style:**
+```ts
+style={{
+  transform: `translateY(${dragY}px)`,
+  transition: dismissing.current || snappingBack.current ? 'transform 0.22s' : 'none',
+  willChange: 'transform',
+}}
+onTransitionEnd={() => { snappingBack.current = false; dismissing.current = false }}
+```
+This ensures: (a) live drag has no transition (smooth tracking), (b) spring-back animates cleanly from the first frame, (c) dismiss slide-out animates. `willChange: 'transform'` promotes the element to its own compositor layer so drag remains smooth despite per-pixel React re-renders from `setDragY`.
 
 ---
 
@@ -105,7 +129,21 @@ function smartDefaultStart(hint?: string): string {
 }
 ```
 
-Pass `savedActivity?.timeTo` as `hint` inside `resetToCreate(null)` so "Create blank" picks up the just-saved activity's end time immediately, without waiting for the activities refetch to complete.
+Update `resetToCreate` to accept an optional second parameter `hint?: string`, and pass `savedActivity?.timeTo` from the "Create blank" button call site:
+
+```ts
+function resetToCreate(copy: Partial<Activity> | null, hint?: string) { ... }
+// in the success screen:
+onClick={() => resetToCreate(null, savedActivity?.timeTo ?? undefined)}
+```
+
+Inside `resetToCreate`, the `hint` is only used in the `else` branch (blank create). The `copy` branch always sets `setTimeFrom('')` and is unaffected. Concretely:
+```ts
+} else {
+  setTimeFrom(smartDefaultStart(hint))  // hint only here, not in the copy branch
+  setTimeTo('')
+}
+```
 
 ---
 
@@ -125,7 +163,7 @@ Tooltip: `"Set to end of last activity"`. Styling: `text-text-muted hover:text-p
 
 **Update on save:** In `handleSave`, before calling `onSaved()`, if `activityTypeCode` is non-empty, prepend it to the stored array, deduplicate, and slice to 6.
 
-**Display:** Below the "Activity Type" label, above the text input, render a row of chip buttons (same style as duration chips) for each recent code that exists in `activityTypes`. Show only when `activityTypeName` is empty (i.e. no type committed yet). Each chip shows the code, colored with `getTypeColor`, and on click sets `activityTypeCode`, `activityTypeName`, `currentGroup`, and clears results — identical to selecting from the dropdown.
+**Display:** This chip row is rendered inside the existing `source === 'herbe'` guard (activity types are Herbe-only). Place it below the "Activity Type" label, above the text input. Show chips for each recent code that exists in `activityTypes`. Show only when `activityTypeName` is empty **and** `activityTypeResults.length === 0` (i.e. no committed type and dropdown is not open). This prevents chips overlapping with the search dropdown during typing. Each chip shows the code, colored with `getTypeColor`, and on click sets `activityTypeCode`, `activityTypeName`, `currentGroup`, and clears results — identical to selecting from the dropdown.
 
 **Helper:** Extract `loadRecentActivityTypes(): string[]` and `saveRecentActivityTypes(codes: string[]): void` into `lib/recentItems.ts` (shared with Feature 10).
 
