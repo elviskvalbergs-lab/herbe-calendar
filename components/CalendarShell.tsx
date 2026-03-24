@@ -214,7 +214,27 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         if (me) setState(s => ({ ...s, selectedPersons: [me] }))
         else if (userCode) setStatus({ msg: `Loaded ${list.length} users — user "${userCode}" not found in list`, ok: false })
       })
-      .catch(e => setStatus({ msg: `Failed to load users: ${e}`, ok: false }))
+      .catch(e => {
+        // User list unavailable — restore saved person codes from localStorage so
+        // the calendar still works (activities will load, just no name/email lookup)
+        try {
+          const saved = localStorage.getItem('calendarState')
+          if (saved) {
+            const { personCodes } = JSON.parse(saved)
+            if (personCodes?.length) {
+              const fallback: Person[] = (personCodes as string[]).map(code => ({ code, name: code, email: '' }))
+              setState(s => ({ ...s, selectedPersons: fallback }))
+              setStatus({ msg: `User list unavailable (${e}) — restored saved selection`, ok: false })
+              return
+            }
+          }
+        } catch {}
+        // Last resort: use logged-in user code directly
+        if (userCode) {
+          setState(s => ({ ...s, selectedPersons: [{ code: userCode, name: userCode, email: '' }] }))
+        }
+        setStatus({ msg: `Failed to load users: ${e}`, ok: false })
+      })
   }, [userCode])
 
   const fetchActivities = useCallback(async () => {
