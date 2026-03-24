@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
 import { Person, CalendarState } from '@/types'
+import { signOut } from 'next-auth/react'
 import { personColor } from '@/lib/colors'
 import PersonSelector from './PersonSelector'
 
@@ -89,12 +90,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         >+</button>
       </div>
 
-      {/* Refresh */}
+      {/* Sign out */}
       <button
-        onClick={onRefresh}
+        onClick={() => signOut()}
         className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Refresh"
-      >↻</button>
+        title="Sign out"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
 
       {/* Hamburger — mobile only */}
       <div className="relative lg:hidden">
@@ -115,10 +122,25 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 onClick={() => { setHamburgerOpen(false); onShortcuts() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
               >⌨️ Keyboard shortcuts</button>
+              <button
+                onClick={() => { setHamburgerOpen(false); onRefresh() }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
+              >↻ Refresh</button>
+              <button
+                onClick={() => { setHamburgerOpen(false); signOut() }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
+              >Sign out</button>
             </div>
           </>
         )}
       </div>
+
+      {/* Refresh — desktop only */}
+      <button
+        onClick={onRefresh}
+        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Refresh"
+      >↻</button>
 
       {/* Keyboard shortcuts — desktop only */}
       <button
