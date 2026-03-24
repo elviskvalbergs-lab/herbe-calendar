@@ -30,11 +30,13 @@ async function fetchActivity(id: string) {
   return (json?.data?.[REGISTERS.activities]?.[0] ?? json) as Record<string, unknown>
 }
 
-function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
+export function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
   const mainPersons = String(activity['MainPersons'] ?? '').split(',').map(s => s.trim())
   if (mainPersons.includes(userCode)) return true
   const accessGroup = activity[ACTIVITY_ACCESS_GROUP_FIELD] as string | undefined
   if (accessGroup?.split(',').map(s => s.trim()).includes(userCode)) return true
+  const ccPersons = String(activity['CCPersons'] ?? '').split(',').map(s => s.trim())
+  if (ccPersons.includes(userCode)) return true
   return false
 }
 
@@ -53,7 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body)
+    const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetchById(REGISTERS.activities, id, {
       method: 'PATCH',
       body: formBody,

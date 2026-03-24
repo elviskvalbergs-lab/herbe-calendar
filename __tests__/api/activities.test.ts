@@ -1,4 +1,5 @@
 import { GET, POST, toHerbeForm } from '@/app/api/activities/route'
+import { canEdit as canEditActivity } from '@/app/api/activities/[id]/route'
 import { herbeFetchAll } from '@/lib/herbe/client'
 
 // Mock Herbe client
@@ -84,5 +85,17 @@ describe('GET /api/activities — CC persons', () => {
     const araRows = body.filter((a: { personCode: string }) => a.personCode === 'ARA')
     expect(araRows).toHaveLength(1)  // only the main row, not an additional CC row
     expect(araRows[0].mainPersons).toContain('ARA')
+  })
+})
+
+describe('canEdit — CC persons', () => {
+  it('returns true when userCode is in CCPersons', () => {
+    const activity = { MainPersons: 'EKS', CCPersons: 'ARA', AccessGroup: '' }
+    expect(canEditActivity(activity, 'ARA')).toBe(true)
+  })
+
+  it('returns false when userCode is absent from all lists', () => {
+    const activity = { MainPersons: 'EKS', CCPersons: 'ARA', AccessGroup: '' }
+    expect(canEditActivity(activity, 'UNKNOWN')).toBe(false)
   })
 })
