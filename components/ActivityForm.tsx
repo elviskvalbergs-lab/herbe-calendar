@@ -82,12 +82,29 @@ export default function ActivityForm({
   const [recentPersonCodes, setRecentPersonCodes] = useState<string[]>([])
   const handleSaveRef = useRef<() => void>(() => {})
   const handleDuplicateRef = useRef<() => void>(() => {})
+  const handleCloseRef = useRef<() => void>(() => {})
   const descInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
   const dragStartY = useRef<number | null>(null)
   const isDragging = useRef(false)
+  // Snapshot of values at form open / reset — used for dirty detection
+  const initialValuesRef = useRef({
+    description: initial?.description ?? '',
+    timeTo: initial?.timeTo ?? '',
+    activityTypeCode: initial?.activityTypeCode ?? '',
+    projectCode: initial?.projectCode ?? '',
+    customerCode: initial?.customerCode ?? '',
+    planned: initial?.planned ?? false,
+    itemCode: initial?.itemCode ?? '',
+    textInMatrix: initial?.textInMatrix ?? '',
+    selectedPersonCodes: (
+      isEdit && initial?.mainPersons?.length ? initial.mainPersons
+        : initial?.personCode ? [initial.personCode]
+        : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
+    ) as string[],
+  })
   const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
@@ -102,7 +119,7 @@ export default function ActivityForm({
   // Esc to close · ⌃⌘S to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onCloseRef.current(); return }
+      if (e.key === 'Escape') { handleCloseRef.current(); return }
       if (e.metaKey && e.ctrlKey && (e.key === 's' || e.key === 'S')) {
         e.preventDefault(); handleSaveRef.current(); return
       }
@@ -181,17 +198,24 @@ export default function ActivityForm({
     if (dragStartY.current === null) return
     const dy = e.changedTouches[0].clientY - dragStartY.current
     dragStartY.current = null
-    if (dy > 80 && isDragging.current) {
-      if (modalRef.current) {
-        modalRef.current.style.transition = 'transform 0.2s ease-out'
-        modalRef.current.style.transform = `translateY(100%)`
-      }
-      setTimeout(() => onCloseRef.current(), 200)
-    } else {
+    const springBack = () => {
       if (modalRef.current) {
         modalRef.current.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
         modalRef.current.style.transform = ''
       }
+    }
+    if (dy > 80 && isDragging.current) {
+      if (computeIsDirty() && !window.confirm('Discard unsaved changes?')) {
+        springBack()
+      } else {
+        if (modalRef.current) {
+          modalRef.current.style.transition = 'transform 0.2s ease-out'
+          modalRef.current.style.transform = `translateY(100%)`
+        }
+        setTimeout(() => onCloseRef.current(), 200)
+      }
+    } else {
+      springBack()
     }
     isDragging.current = false
   }
@@ -353,6 +377,27 @@ export default function ActivityForm({
   handleSaveRef.current = handleSave
   handleDuplicateRef.current = handleDuplicate
 
+  function computeIsDirty(): boolean {
+    if (savedActivity) return false
+    const iv = initialValuesRef.current
+    if (description !== iv.description) return true
+    if (timeTo !== iv.timeTo) return true
+    if (activityTypeCode !== iv.activityTypeCode) return true
+    if (projectCode !== iv.projectCode) return true
+    if (customerCode !== iv.customerCode) return true
+    if (planned !== iv.planned) return true
+    if (itemCode !== iv.itemCode) return true
+    if (textInMatrix !== iv.textInMatrix) return true
+    if (JSON.stringify([...selectedPersonCodes].sort()) !== JSON.stringify([...iv.selectedPersonCodes].sort())) return true
+    return false
+  }
+
+  function handleClose() {
+    if (computeIsDirty() && !window.confirm('Discard unsaved changes?')) return
+    onCloseRef.current()
+  }
+  handleCloseRef.current = handleClose
+
   function handleDuplicate() {
     onClose()
     onDuplicate({
@@ -406,11 +451,23 @@ export default function ActivityForm({
       setTimeFrom(smartDefaultStart(timeHint))
       setTimeTo('')
     }
+    // Reset dirty baseline so the new blank/copied form isn't considered dirty
+    initialValuesRef.current = {
+      description: copy?.description ?? '',
+      timeTo: copy?.timeTo ?? '',
+      activityTypeCode: copy?.activityTypeCode ?? '',
+      projectCode: copy?.projectCode ?? '',
+      customerCode: copy?.customerCode ?? '',
+      planned: copy?.planned ?? false,
+      itemCode: copy?.itemCode ?? '',
+      textInMatrix: copy?.textInMatrix ?? '',
+      selectedPersonCodes: [...selectedPersonCodes],
+    }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
       <div
         ref={modalRef}
         className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
@@ -442,7 +499,7 @@ export default function ActivityForm({
               )
             })()}
           </h2>
-          <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+          <button onClick={handleClose} className="text-text-muted text-xl leading-none">✕</button>
         </div>
 
         {/* Success state */}
@@ -544,7 +601,7 @@ export default function ActivityForm({
                       key={p.code}
                       tabIndex={-1}
                       onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary hover:bg-primary/30 transition-colors"
                     >
                       {p.code}
                     </button>
@@ -554,7 +611,7 @@ export default function ActivityForm({
                       key={p.code}
                       tabIndex={-1}
                       onClick={() => setSelectedPersonCodes(prev => [...prev, p.code])}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
                     >
                       {p.code}
                     </button>
@@ -696,7 +753,7 @@ export default function ActivityForm({
                       tabIndex={-1}
                       onClick={() => setTimeTo(`${hh}:${mm}`)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                        active ? 'bg-primary/20 border-primary text-primary' : 'border-border text-text-muted hover:border-primary/50'
+                        active ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30' : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
                       }`}
                     >
                       {label}
