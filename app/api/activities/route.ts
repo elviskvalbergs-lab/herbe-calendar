@@ -71,15 +71,17 @@ export async function GET(req: Request) {
 function extractHerbeError(e: unknown): string {
   if (!e) return ''
   if (typeof e === 'string') return e
+  if (Array.isArray(e)) return e.map(extractHerbeError).filter(Boolean).join('; ')
   if (typeof e === 'object') {
     const o = e as Record<string, unknown>
-    // Common Herbe error shapes
-    const msg = o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
-    if (msg) return String(msg)
+    // Standard ERP uses @-prefixed keys; also check plain keys
+    const msg = o['@description'] ?? o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
+    const field = o['@field'] ?? o.field
+    if (msg) return field ? `${field}: ${String(msg).trim()}` : String(msg).trim()
     // Include field/code context if available
     const parts: string[] = []
-    if (o.field) parts.push(`field: ${o.field}`)
-    if (o.code) parts.push(`code: ${o.code}`)
+    if (field) parts.push(`field: ${field}`)
+    if (o['@code'] ?? o.code) parts.push(`code: ${o['@code'] ?? o.code}`)
     if (o.vc) parts.push(`vc: ${o.vc}`)
     return parts.length ? parts.join(', ') : JSON.stringify(e)
   }
