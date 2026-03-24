@@ -360,7 +360,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           people={people}
           defaultPersonCode={userCode}
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
-          todayActivities={activities.filter(a => a.date === state.date)}
+          todayActivities={activities.filter(a => a.date === (formState.initial?.date ?? state.date))}
           onClose={() => setFormState({ open: false })}
           onSaved={fetchActivities}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
