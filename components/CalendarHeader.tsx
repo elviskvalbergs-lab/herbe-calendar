@@ -27,6 +27,45 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
 
   return (
     <header className="flex items-center gap-2 px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
+      {/* Hamburger — mobile only, LEFT */}
+      <div className="relative sm:hidden">
+        <button
+          onClick={() => setHamburgerOpen(o => !o)}
+          className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-base leading-none"
+          title="More options"
+        >
+          ☰
+        </button>
+        {hamburgerOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
+            <div className="absolute left-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[160px]">
+              <button
+                onClick={() => { setHamburgerOpen(false); onColorSettings() }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-border"
+              >
+                🎨 Color settings
+              </button>
+              <button
+                onClick={() => { setHamburgerOpen(false); onShortcuts() }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-border"
+              >
+                ⌨️ Keyboard shortcuts
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Refresh — LEFT */}
+      <button
+        onClick={onRefresh}
+        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Refresh"
+      >
+        ↻
+      </button>
+
       {/* Title */}
       <span className="font-bold text-base mr-auto">
         herbe<span className="text-primary">.</span>calendar
@@ -89,16 +128,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         >+</button>
       </div>
 
-      {/* Refresh */}
-      <button
-        onClick={onRefresh}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Refresh"
-      >
-        ↻
-      </button>
-
-      {/* Keyboard shortcuts — hidden on mobile (in hamburger) */}
+      {/* Keyboard shortcuts — desktop only */}
       <button
         onClick={onShortcuts}
         className="hidden sm:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
@@ -107,7 +137,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         ?
       </button>
 
-      {/* Color settings — hidden on mobile (in hamburger) */}
+      {/* Color settings — desktop only */}
       <button
         onClick={onColorSettings}
         className="hidden sm:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
@@ -122,40 +152,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </svg>
       </button>
 
-      {/* Hamburger menu — mobile only */}
-      <div className="relative sm:hidden">
-        <button
-          onClick={() => setHamburgerOpen(o => !o)}
-          className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-base leading-none"
-          title="More options"
-        >
-          ☰
-        </button>
-        {hamburgerOpen && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[160px]">
-              <button
-                onClick={() => { setHamburgerOpen(false); onColorSettings() }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-border"
-              >
-                🎨 Color settings
-              </button>
-              <button
-                onClick={() => { setHamburgerOpen(false); onShortcuts() }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-border"
-              >
-                ⌨️ Keyboard shortcuts
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* New activity */}
+      {/* New activity — hidden on mobile (FAB is used instead) */}
       <button
         onClick={onNewActivity}
-        className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+        className="hidden sm:flex bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
         title="New activity (⌃⌘N)"
       >
         + New

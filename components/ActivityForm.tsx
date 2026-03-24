@@ -78,6 +78,7 @@ export default function ActivityForm({
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
   const [personsExpanded, setPersonsExpanded] = useState(false)
+  const [erpLinkCopied, setErpLinkCopied] = useState(false)
   const [recentTypes, setRecentTypes] = useState<string[]>([])
   const [recentPersonCodes, setRecentPersonCodes] = useState<string[]>([])
   const handleSaveRef = useRef<() => void>(() => {})
@@ -482,18 +483,44 @@ export default function ActivityForm({
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        {/* Header — also responds to swipe-down to dismiss on mobile */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b border-border sm:touch-auto touch-none"
+          onTouchStart={handleDragHandleTouchStart}
+          onTouchMove={handleDragHandleTouchMove}
+          onTouchEnd={handleDragHandleTouchEnd}
+        >
           <h2 className="font-bold flex items-center gap-2">
             {isEdit ? 'Edit Activity' : 'New Activity'}
             {isEdit && editId && (() => {
               const link = serpLink('ActVc', editId, companyCode)
               const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors'
               return link ? (
-                <a href={link} title="Open in Standard ERP (⌃⌘O)" tabIndex={-1}
-                   className={cls + ' hover:border-primary hover:bg-primary/20'}>
-                  #{editId} <SerpIcon />
-                </a>
+                <span className="flex items-center gap-1">
+                  <a href={link} title="Open in Standard ERP (⌃⌘O)" tabIndex={-1}
+                     className={cls + ' hover:border-primary hover:bg-primary/20'}>
+                    #{editId} <SerpIcon />
+                  </a>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    title={erpLinkCopied ? 'Copied!' : 'Copy ERP link'}
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      await navigator.clipboard.writeText(link)
+                      setErpLinkCopied(true)
+                      setTimeout(() => setErpLinkCopied(false), 1500)
+                    }}
+                    className={`font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border transition-colors ${erpLinkCopied ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20'}`}
+                  >
+                    {erpLinkCopied ? '✓' : (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                    )}
+                  </button>
+                </span>
               ) : (
                 <span className={cls}>#{editId}</span>
               )
@@ -668,8 +695,8 @@ export default function ActivityForm({
           </div>
 
           {/* Date + Time From + Time To */}
-          <div className="grid grid-cols-3 gap-1">
-            <div>
+          <div className="flex gap-1 items-start">
+            <div className="flex-1 min-w-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Date</label>
               <input
                 type="date"
@@ -679,7 +706,7 @@ export default function ActivityForm({
                 className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
-            <div>
+            <div className="w-[5.5rem] shrink-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
                 From
                 <button
@@ -712,7 +739,7 @@ export default function ActivityForm({
                 className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
-            <div>
+            <div className="w-[5.5rem] shrink-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
               <input
                 type="time"

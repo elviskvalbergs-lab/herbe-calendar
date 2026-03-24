@@ -373,15 +373,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         />
       )}
 
-      {/* FAB — mobile only */}
-      <button
-        onClick={() => setFormState({ open: true, initial: { date: state.date } })}
-        className="fixed bottom-5 right-5 z-50 sm:hidden bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
-        title="New activity"
-        aria-label="New activity"
-      >
-        +
-      </button>
+      {/* FAB — mobile only, hidden when form is open */}
+      {!formState.open && (
+        <button
+          onClick={() => setFormState({ open: true, initial: { date: state.date } })}
+          className="fixed bottom-5 right-5 z-50 sm:hidden bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
+          title="New activity"
+          aria-label="New activity"
+        >
+          +
+        </button>
+      )}
     </div>
   )
 }
