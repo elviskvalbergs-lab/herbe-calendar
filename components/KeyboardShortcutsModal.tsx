@@ -11,7 +11,8 @@ const ctrl = isMac ? '⌃' : 'Ctrl'
 
 const SHORTCUTS = [
   { group: 'Navigation' },
-  { key: '←  →', desc: 'Previous / next day (or 3 days in 3-day view)' },
+  { key: '←  →', desc: 'Previous / next day' },
+  { key: `${ctrl}${cmd}←  ${ctrl}${cmd}→`, desc: 'Jump by view period (1 / 3 / 5 days)' },
   { key: `T  or  ${ctrl}${cmd}T`, desc: 'Jump to today' },
   { group: 'Activities' },
   { key: `${ctrl}${cmd}N`, desc: 'New activity' },

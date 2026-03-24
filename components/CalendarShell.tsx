@@ -99,10 +99,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
         return
       }
+      // ⌃⌘← / ⌃⌘→ — Jump by view step (1 / 3 / 5 days)
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault()
+        const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+        const dir = e.key === 'ArrowLeft' ? -step : step
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), dir), 'yyyy-MM-dd') }))
+        return
+      }
       // Skip bare key shortcuts if modifier held or input focused
       if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 
-      const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setFormState({ open: true, initial: { date: state.date } })
@@ -111,10 +118,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        setState(s => ({ ...s, date: format(subDays(parseISO(s.date), step), 'yyyy-MM-dd') }))
+        setState(s => ({ ...s, date: format(subDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), step), 'yyyy-MM-dd') }))
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
