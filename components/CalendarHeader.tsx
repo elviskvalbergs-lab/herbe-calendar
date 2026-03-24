@@ -90,10 +90,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         >+</button>
       </div>
 
-      {/* Sign out */}
+      {/* Sign out — desktop only (mobile: in hamburger menu) */}
       <button
         onClick={() => signOut()}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title="Sign out"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -103,8 +103,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </svg>
       </button>
 
-      {/* Hamburger — mobile only */}
-      <div className="relative lg:hidden">
+      {/* Hamburger — mobile only; ml-auto keeps it right-aligned even when wrapping to new line */}
+      <div className="relative lg:hidden ml-auto">
         <button
           onClick={() => setHamburgerOpen(o => !o)}
           className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
@@ -113,6 +113,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         {hamburgerOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
+            {/* right-0 ensures popup stays on screen regardless of where the hamburger is positioned */}
             <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
               <button
                 onClick={() => { setHamburgerOpen(false); onColorSettings() }}

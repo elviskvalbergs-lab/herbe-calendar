@@ -508,24 +508,36 @@ export default function ActivityForm({
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
         >
-          <h2 className="font-bold flex items-center gap-2">
+          <h2 className="font-bold flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
+            {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
             {isEdit && editId && (() => {
-              const link = serpLink('ActVc', editId, companyCode)
-              const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors'
-              return link ? (
+              const herbeLink = source === 'herbe' ? serpLink('ActVc', editId, companyCode) : null
+              // Outlook web calendar: open the event in OWA
+              const outlookLink = source === 'outlook'
+                ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`
+                : null
+              const openLink = herbeLink ?? outlookLink
+              const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors hover:border-primary hover:bg-primary/20'
+              return openLink ? (
                 <span className="flex items-center gap-1">
-                  <a href={link} title="Open in Standard ERP (⌃⌘O)" tabIndex={-1}
-                     className={cls + ' hover:border-primary hover:bg-primary/20'}>
-                    #{editId} <SerpIcon />
+                  <a href={openLink} title={source === 'outlook' ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'} tabIndex={-1} className={cls}>
+                    {source === 'outlook' ? (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
+                        <span>Calendar</span>
+                      </>
+                    ) : (
+                      <>#{editId} <SerpIcon /></>
+                    )}
                   </a>
                   <button
                     type="button"
                     tabIndex={-1}
-                    title={erpLinkCopied ? 'Copied!' : 'Copy ERP link'}
+                    title={erpLinkCopied ? 'Copied!' : (source === 'outlook' ? 'Copy Outlook link' : 'Copy ERP link')}
                     onClick={async (e) => {
                       e.stopPropagation()
-                      await navigator.clipboard.writeText(link)
+                      await navigator.clipboard.writeText(openLink)
                       setErpLinkCopied(true)
                       setTimeout(() => setErpLinkCopied(false), 1500)
                     }}
@@ -539,12 +551,16 @@ export default function ActivityForm({
                     )}
                   </button>
                 </span>
-              ) : (
-                <span className={cls}>#{editId}</span>
-              )
+              ) : source === 'herbe' ? (
+                <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{editId}</span>
+              ) : null
             })()}
+            {/* View-only badge in header */}
+            {canEdit === false && (
+              <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400">View only</span>
+            )}
           </h2>
-          <button onClick={handleClose} className="text-text-muted text-xl leading-none">✕</button>
+          <button onClick={handleClose} className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
         </div>
 
         {/* Success state */}
@@ -594,7 +610,7 @@ export default function ActivityForm({
 
         {/* Scrollable body */}
         {!savedActivity && <div className="overflow-y-auto flex-1 p-4 space-y-3">
-          {/* Teams join button (Outlook meetings only) */}
+          {/* Teams join button (Outlook meetings only) — original Join Teams call button */}
           {initial?.joinUrl && (
             <a
               href={initial.joinUrl}
@@ -603,7 +619,7 @@ export default function ActivityForm({
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
-              Open in Teams
+              Join Teams call
             </a>
           )}
 
@@ -613,10 +629,28 @@ export default function ActivityForm({
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
               <div className="flex gap-2">
                 {([
-                  { action: 'accept', label: '✓ Accept', activeStatus: 'accepted', activeClass: 'border-green-600 bg-green-900/20 text-green-400' },
-                  { action: 'decline', label: '✗ Decline', activeStatus: 'declined', activeClass: 'border-red-600 bg-red-900/20 text-red-400' },
-                  { action: 'tentativelyAccept', label: '? Tentative', activeStatus: 'tentativelyAccepted', activeClass: 'border-purple-500 bg-purple-900/20 text-purple-400' },
-                ] as const).map(({ action, label, activeStatus, activeClass }) => (
+                  {
+                    action: 'accept' as const,
+                    label: 'Accept',
+                    activeStatus: 'accepted' as const,
+                    activeClass: 'border-green-600 bg-green-900/20 text-green-400',
+                    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" className="stroke-green-500"/><polyline points="8 12 11 15 16 9" className="stroke-green-400"/></svg>,
+                  },
+                  {
+                    action: 'decline' as const,
+                    label: 'Decline',
+                    activeStatus: 'declined' as const,
+                    activeClass: 'border-red-600 bg-red-900/20 text-red-400',
+                    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" className="stroke-red-500"/><line x1="15" y1="9" x2="9" y2="15" className="stroke-red-400"/><line x1="9" y1="9" x2="15" y2="15" className="stroke-red-400"/></svg>,
+                  },
+                  {
+                    action: 'tentativelyAccept' as const,
+                    label: 'Tentative',
+                    activeStatus: 'tentativelyAccepted' as const,
+                    activeClass: 'border-amber-500 bg-amber-900/20 text-amber-400',
+                    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" className="stroke-amber-500"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" className="stroke-amber-400"/><line x1="12" y1="17" x2="12.01" y2="17" className="stroke-amber-400"/></svg>,
+                  },
+                ]).map(({ action, label, activeStatus, activeClass, icon }) => (
                   <button
                     key={action}
                     type="button"
@@ -636,13 +670,13 @@ export default function ActivityForm({
                         setRsvpLoading(false)
                       }
                     }}
-                    className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-colors ${
+                    className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
                       rsvpStatus === activeStatus
                         ? activeClass
                         : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
                     }`}
                   >
-                    {label}
+                    {icon}{label}
                   </button>
                 ))}
               </div>
@@ -785,14 +819,8 @@ export default function ActivityForm({
             )
           })()}
 
-          {/* View-only banner */}
-          {canEdit === false && (
-            <div className="text-xs text-text-muted bg-surface border border-border rounded-lg px-3 py-2">
-              View only — you are not a participant in this activity
-            </div>
-          )}
-
-          {/* Description */}
+          {/* Description — and all editable fields below are wrapped in fieldset for read-only enforcement */}
+          <fieldset disabled={canEdit === false} className="contents">
           <div>
             <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
               Description
@@ -1194,6 +1222,7 @@ export default function ActivityForm({
               />
             </div>
           )}
+          </fieldset>
         </div>}
 
         {/* Footer actions */}
