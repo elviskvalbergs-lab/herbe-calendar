@@ -70,7 +70,9 @@ export async function GET(req: NextRequest) {
         const onlineMeeting = ev['onlineMeeting'] as Record<string, string> | undefined
         const joinUrl = onlineMeeting?.['joinUrl'] ?? (ev['onlineMeetingUrl'] as string | undefined) ?? undefined
         const responseStatus = ev['responseStatus'] as Record<string, string> | undefined
-        const rsvpStatus = responseStatus?.['response'] as Activity['rsvpStatus'] | undefined
+        const rawRsvp = responseStatus?.['response']
+        // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
+        const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
         return {
           id: String(ev['id'] ?? ''),
           source: 'outlook' as const,

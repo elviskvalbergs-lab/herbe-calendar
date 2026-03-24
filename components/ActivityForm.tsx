@@ -513,15 +513,26 @@ export default function ActivityForm({
             {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
             {isEdit && editId && (() => {
               const herbeLink = source === 'herbe' ? serpLink('ActVc', editId, companyCode) : null
-              // Outlook web calendar: open the event in OWA
-              const outlookLink = source === 'outlook'
+              // Outlook: open in Outlook web calendar in a new tab
+              const outlookCalLink = source === 'outlook'
                 ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`
                 : null
-              const openLink = herbeLink ?? outlookLink
+              const openLink = herbeLink ?? outlookCalLink
+              // For Outlook copy: prefer joinUrl (Teams link) so recipient can join; fall back to calendar web URL
+              const copyText = source === 'outlook'
+                ? (initial?.joinUrl ?? outlookCalLink ?? '')
+                : (herbeLink ?? '')
               const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors hover:border-primary hover:bg-primary/20'
               return openLink ? (
-                <span className="flex items-center gap-1">
-                  <a href={openLink} title={source === 'outlook' ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'} tabIndex={-1} className={cls}>
+                <span className="flex items-stretch gap-1">
+                  <a
+                    href={openLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={source === 'outlook' ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
+                    tabIndex={-1}
+                    className={cls}
+                  >
                     {source === 'outlook' ? (
                       <>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
@@ -531,25 +542,27 @@ export default function ActivityForm({
                       <>#{editId} <SerpIcon /></>
                     )}
                   </a>
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    title={erpLinkCopied ? 'Copied!' : (source === 'outlook' ? 'Copy Outlook link' : 'Copy ERP link')}
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      await navigator.clipboard.writeText(openLink)
-                      setErpLinkCopied(true)
-                      setTimeout(() => setErpLinkCopied(false), 1500)
-                    }}
-                    className={`inline-flex items-center font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border transition-colors ${erpLinkCopied ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20'}`}
-                  >
-                    {erpLinkCopied ? '✓' : (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                      </svg>
-                    )}
-                  </button>
+                  {copyText && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      title={erpLinkCopied ? 'Copied!' : (source === 'outlook' ? 'Copy Teams/meeting link' : 'Copy ERP link')}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        await navigator.clipboard.writeText(copyText)
+                        setErpLinkCopied(true)
+                        setTimeout(() => setErpLinkCopied(false), 1500)
+                      }}
+                      className={`inline-flex items-center justify-center font-mono text-[11px] font-normal px-2 rounded-lg border transition-colors ${erpLinkCopied ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20'}`}
+                    >
+                      {erpLinkCopied ? '✓' : (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </span>
               ) : source === 'herbe' ? (
                 <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{editId}</span>
@@ -819,8 +832,11 @@ export default function ActivityForm({
             )
           })()}
 
-          {/* Description — and all editable fields below are wrapped in fieldset for read-only enforcement */}
-          <fieldset disabled={canEdit === false} className="contents">
+          {/* Description — and all editable fields below; disabled visually when canEdit is false */}
+          <div
+            className={canEdit === false ? 'contents pointer-events-none select-none opacity-50' : 'contents'}
+            aria-disabled={canEdit === false}
+          >
           <div>
             <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
               Description
@@ -1222,7 +1238,7 @@ export default function ActivityForm({
               />
             </div>
           )}
-          </fieldset>
+          </div>
         </div>}
 
         {/* Footer actions */}
