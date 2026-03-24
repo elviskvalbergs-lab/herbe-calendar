@@ -258,6 +258,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         fetch(`/api/outlook?persons=${codes}&${dateParam}`),
       ])
       const herbe: Activity[] = herbeRes.ok ? await herbeRes.json() : []
+      let herbeErrMsg = ''
+      if (!herbeRes.ok) {
+        try {
+          const e = await herbeRes.json()
+          herbeErrMsg = String(e.error ?? JSON.stringify(e))
+        } catch {
+          herbeErrMsg = String(herbeRes.status)
+        }
+      }
       let outlook: Activity[] = []
       let outlookErrMsg = ''
       if (outlookRes.ok) {
@@ -272,7 +281,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       }
       setActivities([...herbe, ...outlook])
 
-      const herbeErr = !herbeRes.ok ? ` | Herbe error ${herbeRes.status}` : ''
+      const herbeErr = !herbeRes.ok ? ` | Herbe: ${herbeErrMsg}` : ''
       const outlookErr = !outlookRes.ok ? ` | Outlook: ${outlookErrMsg}` : ''
       setStatus({
         msg: `${herbe.length} Herbe + ${outlook.length} Outlook activities${herbeErr}${outlookErr}`,

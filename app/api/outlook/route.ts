@@ -9,12 +9,17 @@ let userListCache: Record<string, string> | null = null  // code → email
 
 async function emailForCode(code: string): Promise<string | null> {
   if (!userListCache) {
-    const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-    userListCache = Object.fromEntries(
-      (users as Record<string, unknown>[])
-        .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
-        .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
-    )
+    try {
+      const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
+      userListCache = Object.fromEntries(
+        (users as Record<string, unknown>[])
+          .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
+          .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
+      )
+    } catch (e) {
+      console.warn('[outlook] UserVc unavailable, skipping Outlook calendar:', String(e))
+      userListCache = {}
+    }
   }
   return userListCache[code] ?? null
 }
