@@ -81,13 +81,13 @@ export default function CalendarGrid({
       )}
 
       <div className="flex min-w-0">
-        <TimeColumn is3Day={state.view === '3day'} />
+        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} />
 
         {/* For each date, a grouped column with shared header */}
         {dates.map((date, dateIdx) => {
-          const is3Day = state.view === '3day'
-          // In 3-day view use narrower columns so they don't overflow portrait
-          const colMinW = is3Day ? 'min-w-[30vw] sm:min-w-0' : 'min-w-[44vw] sm:min-w-0'
+          const isMultiDay = state.view === '3day' || state.view === '5day'
+          // In multi-day views use narrower columns so they don't overflow portrait
+          const colMinW = state.view === '5day' ? 'min-w-[22vw] sm:min-w-0' : state.view === '3day' ? 'min-w-[30vw] sm:min-w-0' : 'min-w-[44vw] sm:min-w-0'
           return (
             <div
               key={date}
@@ -95,7 +95,7 @@ export default function CalendarGrid({
             >
               {/* Sticky two-row header for this day */}
               <div className="sticky top-0 z-10 bg-surface">
-                {is3Day && (
+                {isMultiDay && (
                   <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
                     {format(parseISO(date), 'EEE dd/MM')}
                     <button
@@ -109,7 +109,7 @@ export default function CalendarGrid({
                   {state.selectedPersons.map((person, personIdx) => (
                     <div
                       key={person.code}
-                      className={`flex-1 ${colMinW} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
+                      className={`flex-1 ${isMultiDay ? colMinW : ''} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
                       style={{ color: personColor(personIdx) }}
                     >
                       {person.code}
