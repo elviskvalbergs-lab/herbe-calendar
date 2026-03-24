@@ -4,7 +4,7 @@ import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from
 import ErrorBanner from './ErrorBanner'
 import { format } from 'date-fns'
 import { serpLink } from '@/lib/serpLink'
-import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons } from '@/lib/recentItems'
+import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons, getRecentCCPersons, saveRecentCCPersons } from '@/lib/recentItems'
 
 interface Props {
   initial?: Partial<Activity>
@@ -81,6 +81,13 @@ export default function ActivityForm({
   const [erpLinkCopied, setErpLinkCopied] = useState(false)
   const [recentTypes, setRecentTypes] = useState<string[]>([])
   const [recentPersonCodes, setRecentPersonCodes] = useState<string[]>([])
+  const [selectedCCPersonCodes, setSelectedCCPersonCodes] = useState<string[]>(
+    initial?.ccPersons ?? []
+  )
+  const [ccPersonsExpanded, setCCPersonsExpanded] = useState(false)
+  const [recentCCPersonCodes, setRecentCCPersonCodes] = useState<string[]>([])
+  const [rsvpStatus, setRsvpStatus] = useState<Activity['rsvpStatus']>(initial?.rsvpStatus)
+  const [rsvpLoading, setRsvpLoading] = useState(false)
   const handleSaveRef = useRef<() => void>(() => {})
   const handleDuplicateRef = useRef<() => void>(() => {})
   const handleCloseRef = useRef<() => void>(() => {})
@@ -105,6 +112,7 @@ export default function ActivityForm({
         : initial?.personCode ? [initial.personCode]
         : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
     ) as string[],
+    selectedCCPersonCodes: [...(initial?.ccPersons ?? [])] as string[],
   })
   const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -115,6 +123,7 @@ export default function ActivityForm({
   useEffect(() => {
     setRecentTypes(getRecentTypes())
     setRecentPersonCodes(getRecentPersons())
+    setRecentCCPersonCodes(getRecentCCPersons())
   }, [])
 
   // Esc to close · ⌃⌘S to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
@@ -299,6 +308,7 @@ export default function ActivityForm({
       ItemCode: itemCode || undefined,
       Text: textInMatrix || undefined,
       MainPersons: selectedPersonCodes.join(','),
+      CCPersons: selectedCCPersonCodes.join(','),
       CalTimeFlag: planned ? '2' : '1',
     }
   }
@@ -361,8 +371,10 @@ export default function ActivityForm({
       onSaved()
       if (activityTypeCode) saveRecentType(activityTypeCode)
       saveRecentPersons(selectedPersonCodes)
+      saveRecentCCPersons(selectedCCPersonCodes)
       setRecentTypes(getRecentTypes())
       setRecentPersonCodes(getRecentPersons())
+      setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
         id: createdId,
         source, personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
@@ -390,6 +402,9 @@ export default function ActivityForm({
     if (itemCode !== iv.itemCode) return true
     if (textInMatrix !== iv.textInMatrix) return true
     if (JSON.stringify([...selectedPersonCodes].sort()) !== JSON.stringify([...iv.selectedPersonCodes].sort())) return true
+    const sortedCC = [...selectedCCPersonCodes].sort()
+    const sortedInitCC = [...(iv.selectedCCPersonCodes ?? [])].sort()
+    if (JSON.stringify(sortedCC) !== JSON.stringify(sortedInitCC)) return true
     return false
   }
 
@@ -463,7 +478,10 @@ export default function ActivityForm({
       itemCode: copy?.itemCode ?? '',
       textInMatrix: copy?.textInMatrix ?? '',
       selectedPersonCodes: [...selectedPersonCodes],
+      selectedCCPersonCodes: [...(copy?.ccPersons ?? [])],
     }
+    setSelectedCCPersonCodes(copy?.ccPersons ?? [])
+    setCCPersonsExpanded(false)
   }
 
   return (
@@ -511,12 +529,12 @@ export default function ActivityForm({
                       setErpLinkCopied(true)
                       setTimeout(() => setErpLinkCopied(false), 1500)
                     }}
-                    className={`font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border transition-colors ${erpLinkCopied ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20'}`}
+                    className={`inline-flex items-center font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border transition-colors ${erpLinkCopied ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20'}`}
                   >
                     {erpLinkCopied ? '✓' : (
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                       </svg>
                     )}
                   </button>
@@ -584,8 +602,51 @@ export default function ActivityForm({
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
             >
-              Join Teams call
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
+              Open in Teams
             </a>
+          )}
+
+          {/* RSVP buttons (Outlook only, non-organizer) */}
+          {source === 'outlook' && rsvpStatus !== 'organizer' && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
+              <div className="flex gap-2">
+                {([
+                  { action: 'accept', label: '✓ Accept', activeStatus: 'accepted', activeClass: 'border-green-600 bg-green-900/20 text-green-400' },
+                  { action: 'decline', label: '✗ Decline', activeStatus: 'declined', activeClass: 'border-red-600 bg-red-900/20 text-red-400' },
+                  { action: 'tentativelyAccept', label: '? Tentative', activeStatus: 'tentativelyAccepted', activeClass: 'border-purple-500 bg-purple-900/20 text-purple-400' },
+                ] as const).map(({ action, label, activeStatus, activeClass }) => (
+                  <button
+                    key={action}
+                    type="button"
+                    tabIndex={-1}
+                    disabled={rsvpLoading}
+                    onClick={async () => {
+                      if (!editId || rsvpLoading) return
+                      setRsvpLoading(true)
+                      try {
+                        const res = await fetch(`/api/outlook/${editId}/rsvp`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action }),
+                        })
+                        if (res.ok) setRsvpStatus(action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'tentativelyAccepted')
+                      } finally {
+                        setRsvpLoading(false)
+                      }
+                    }}
+                    className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-colors ${
+                      rsvpStatus === activeStatus
+                        ? activeClass
+                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Source toggle (create only) */}
@@ -668,6 +729,69 @@ export default function ActivityForm({
             )
           })()}
 
+          {/* CC Person(s) — Herbe only */}
+          {source === 'herbe' && (() => {
+            const unselected = people
+              .filter(p => !selectedCCPersonCodes.includes(p.code))
+              .sort((a, b) => {
+                const ai = recentCCPersonCodes.indexOf(a.code)
+                const bi = recentCCPersonCodes.indexOf(b.code)
+                if (ai !== -1 && bi !== -1) return ai - bi
+                if (ai !== -1) return -1
+                if (bi !== -1) return 1
+                return 0
+              })
+            const visibleUnselected = ccPersonsExpanded ? unselected : unselected.slice(0, 3)
+            const hiddenCount = ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            return (
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">CC Person(s)</label>
+                <div className="flex flex-wrap gap-1">
+                  {people.filter(p => selectedCCPersonCodes.includes(p.code)).map(p => (
+                    <button key={p.code} tabIndex={-1}
+                      onClick={() => setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code))}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border transition-colors"
+                      style={{ borderStyle: 'dashed', borderColor: 'var(--color-primary)', background: 'rgba(var(--color-primary-rgb, 205 76 56) / 0.1)', color: 'var(--color-primary)', opacity: 0.8 }}
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {visibleUnselected.map(p => (
+                    <button key={p.code} tabIndex={-1}
+                      onClick={() => setSelectedCCPersonCodes(prev => [...prev, p.code])}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {hiddenCount > 0 && (
+                    <button type="button" tabIndex={-1}
+                      onClick={() => setCCPersonsExpanded(true)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      +{hiddenCount} more
+                    </button>
+                  )}
+                  {ccPersonsExpanded && unselected.length > 3 && (
+                    <button type="button" tabIndex={-1}
+                      onClick={() => setCCPersonsExpanded(false)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      Collapse
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* View-only banner */}
+          {canEdit === false && (
+            <div className="text-xs text-text-muted bg-surface border border-border rounded-lg px-3 py-2">
+              View only — you are not a participant in this activity
+            </div>
+          )}
+
           {/* Description */}
           <div>
             <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
@@ -695,8 +819,8 @@ export default function ActivityForm({
           </div>
 
           {/* Date + Time From + Time To */}
-          <div className="flex gap-1 items-start">
-            <div className="flex-1 min-w-0">
+          <div className="grid grid-cols-[4fr_3fr_3fr] gap-3 items-start">
+            <div className="min-w-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Date</label>
               <input
                 type="date"
@@ -706,7 +830,7 @@ export default function ActivityForm({
                 className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
-            <div className="w-[5.5rem] shrink-0">
+            <div className="min-w-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
                 From
                 <button
@@ -739,7 +863,7 @@ export default function ActivityForm({
                 className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
-            <div className="w-[5.5rem] shrink-0">
+            <div className="min-w-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
               <input
                 type="time"
