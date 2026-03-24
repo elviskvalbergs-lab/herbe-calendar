@@ -17,9 +17,11 @@ interface Props {
 
 export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
+  const [hamburgerOpen, setHamburgerOpen] = useState(false)
 
   function navigate(delta: number) {
-    const d = addDays(parseISO(state.date), delta)
+    const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+    const d = addDays(parseISO(state.date), delta * step)
     onStateChange({ ...state, date: format(d, 'yyyy-MM-dd') })
   }
 
@@ -90,19 +92,19 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         ↻
       </button>
 
-      {/* Keyboard shortcuts */}
+      {/* Keyboard shortcuts — hidden on mobile (in hamburger) */}
       <button
         onClick={onShortcuts}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
+        className="hidden sm:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
         title="Keyboard shortcuts (?)"
       >
         ?
       </button>
 
-      {/* Color settings */}
+      {/* Color settings — hidden on mobile (in hamburger) */}
       <button
         onClick={onColorSettings}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        className="hidden sm:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title="Activity colors &amp; theme"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -113,6 +115,36 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
         </svg>
       </button>
+
+      {/* Hamburger menu — mobile only */}
+      <div className="relative sm:hidden">
+        <button
+          onClick={() => setHamburgerOpen(o => !o)}
+          className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-base leading-none"
+          title="More options"
+        >
+          ☰
+        </button>
+        {hamburgerOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
+            <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[160px]">
+              <button
+                onClick={() => { setHamburgerOpen(false); onColorSettings() }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-border"
+              >
+                🎨 Color settings
+              </button>
+              <button
+                onClick={() => { setHamburgerOpen(false); onShortcuts() }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-border"
+              >
+                ⌨️ Keyboard shortcuts
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* New activity */}
       <button
