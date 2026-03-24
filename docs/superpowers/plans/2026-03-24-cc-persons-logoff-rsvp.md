@@ -22,6 +22,7 @@
 | `app/api/outlook/[id]/rsvp/route.ts` | **New** — POST handler for Accept/Decline/Tentative |
 | `components/ActivityBlock.tsx` | CC visual style; persons row (main + CC pips); "Open in Teams" button in hover card |
 | `components/PersonColumn.tsx` | `canEdit` includes `ccPersons`; derive `isCC` per activity; pass to `ActivityBlock` |
+| `components/CalendarShell.tsx` | `canEditActivity` includes `ccPersons` (second client-side call site) |
 | `components/ActivityForm.tsx` | CC persons section; RSVP buttons; "Open in Teams" button; read-only lock |
 | `components/CalendarHeader.tsx` | Logoff button replaces refresh; mobile hamburger gets Sign out |
 | `__tests__/api/activities.test.ts` | Tests for CC row emission, `toHerbeForm` empty-field passthrough |
@@ -392,7 +393,29 @@ function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
 }
 ```
 
-- [ ] **Step 2: Update PUT handler to pass `allowEmptyFields`**
+- [ ] **Step 2: Add tests for `canEdit` extension**
+
+Add to `__tests__/api/activities.test.ts`:
+
+```ts
+describe('PUT /api/activities/[id] — canEdit with CC persons', () => {
+  it('allows edit when user is a CC person', async () => {
+    // Mock Herbe API to return an activity where CCPersons includes the session user
+    // and MainPersons does not — verify the PUT returns 200 not 403
+    // (Use the existing auth mock to set session user code)
+    // This test structure mirrors existing canEdit tests in the file
+  })
+
+  it('denies edit when user is neither main, access, nor CC', async () => {
+    // Mock Herbe API to return activity where user is absent from all lists
+    // Verify PUT returns 403
+  })
+})
+```
+
+Adapt to match the existing mock/helper patterns already in the test file. The key assertions are: `canEdit(activityWithUserInCC, userCode)` returns `true`, and `canEdit(activityWithUserAbsent, userCode)` returns `false`.
+
+- [ ] **Step 3: Update PUT handler to pass `allowEmptyFields`**
 
 In the PUT handler, find the `toHerbeForm(body)` call and change to:
 
@@ -400,16 +423,16 @@ In the PUT handler, find the `toHerbeForm(body)` call and change to:
 const encodedBody = toHerbeForm(body, new Set(['CCPersons']))
 ```
 
-- [ ] **Step 3: Verify TypeScript**
+- [ ] **Step 4: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app/api/activities/[id]/route.ts
+git add app/api/activities/[id]/route.ts __tests__/api/activities.test.ts
 git commit -m "feat: include CC persons in server-side canEdit check"
 ```
 
@@ -461,6 +484,16 @@ describe('POST /api/outlook/[id]/rsvp', () => {
       body: JSON.stringify({ action: 'hack/../../other' }),
     })
     const res = await POST(req, { params })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for id with path traversal', async () => {
+    const badParams = Promise.resolve({ id: '../../other/resource' })
+    const req = new Request('http://localhost/api/outlook/bad/rsvp', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'accept' }),
+    })
+    const res = await POST(req, { params: badParams })
     expect(res.status).toBe(400)
   })
 
@@ -544,6 +577,11 @@ export async function POST(
   const { id } = await params
   const { action } = await req.json()
 
+  // Validate id: must not contain path traversal characters
+  if (!id || id.includes('/') || id.includes('..') || id.includes('\\')) {
+    return NextResponse.json({ error: 'invalid id' }, { status: 400 })
+  }
+
   if (!VALID_ACTIONS.has(action)) {
     return NextResponse.json({ error: 'invalid action' }, { status: 400 })
   }
@@ -563,12 +601,12 @@ export async function POST(
 }
 ```
 
-- [ ] **Step 2: Write failing RSVP route tests**
+- [ ] **Step 5: Run tests to confirm they pass**
 
 ```bash
 npx jest __tests__/api/outlook-rsvp.test.ts --no-coverage
 ```
-Expected: PASS (6 tests — 4 action tests + 401 test + rsvpStatus mapping test)
+Expected: PASS (7 tests — 4 action tests + 401 test + id traversal test + rsvpStatus mapping test)
 
 - [ ] **Step 6: Verify TypeScript**
 
@@ -585,12 +623,15 @@ git commit -m "feat: map rsvpStatus from Outlook events and add RSVP API route"
 
 ---
 
-## Task 7: `PersonColumn.tsx` — extend client-side `canEdit` to include CC persons
+## Task 7: `PersonColumn.tsx` + `CalendarShell.tsx` — extend client-side `canEdit` to include CC persons
 
 **Files:**
 - Modify: `components/PersonColumn.tsx` (lines 42–47)
+- Modify: `components/CalendarShell.tsx` (lines 58–63)
 
-- [ ] **Step 1: Update `canEdit` function**
+Both files have their own `canEdit`/`canEditActivity` function. Both must be updated — the spec explicitly calls out both call sites.
+
+- [ ] **Step 1: Update `canEdit` in `PersonColumn.tsx`**
 
 The existing `canEdit` already has a guard `if (activity.source === 'outlook') return !!activity.isOrganizer` — retain it unchanged. Only add the `inCCPersons` line to the Herbe branch:
 
@@ -604,17 +645,33 @@ function canEdit(activity: Activity): boolean {
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript**
+- [ ] **Step 2: Update `canEditActivity` in `CalendarShell.tsx`**
+
+`CalendarShell.tsx` has a parallel function `canEditActivity` (line 58) that drives `canEdit` passed to `ActivityForm`. Apply the same change:
+
+```ts
+function canEditActivity(activity: Activity): boolean {
+  if (activity.source === 'outlook') return !!activity.isOrganizer  // ← existing
+  const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
+  const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
+  const inCCPersons = activity.ccPersons?.includes(userCode) ?? false  // ← new
+  return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
+}
+```
+
+Note: `CalendarShell` uses `userCode` (not `sessionUserCode`) — use the variable already in scope.
+
+- [ ] **Step 3: Verify TypeScript**
 
 ```bash
 npx tsc --noEmit
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add components/PersonColumn.tsx
-git commit -m "feat: include CC persons in client-side canEdit check"
+git add components/PersonColumn.tsx components/CalendarShell.tsx
+git commit -m "feat: include CC persons in client-side canEdit checks (PersonColumn + CalendarShell)"
 ```
 
 ---
@@ -632,6 +689,8 @@ In the props interface (around line 6), add:
 ```ts
 isCC?: boolean
 ```
+
+**Note on prefix symbol:** The spec says CC blocks have no prefix symbol (actual uses `●`, planned uses `○`, CC has none). Check the existing block rendering — if the prefix symbol is rendered conditionally based on existing flags, add `&& !isCC` to suppress it when `isCC` is true.
 
 In the style object (around lines 24–31), add CC branch:
 ```ts
