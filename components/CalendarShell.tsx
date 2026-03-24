@@ -59,7 +59,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
-    return activity.personCode === userCode || inMainPersons || inAccessGroup
+    const inCCPersons = activity.ccPersons?.includes(userCode) ?? false
+    return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
   // Persist state to localStorage (only after people have loaded, to avoid overwriting saved person codes on mount)
