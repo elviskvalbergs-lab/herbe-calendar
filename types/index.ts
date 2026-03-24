@@ -27,6 +27,8 @@ export interface Activity {
   planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
   isOrganizer?: boolean   // Outlook only
   joinUrl?: string        // Outlook/Teams meeting join link
+  ccPersons?: string[]    // Herbe CCPersons field — comma-split
+  rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
 }
 
 export interface ActivityType {
