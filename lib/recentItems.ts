@@ -26,11 +26,12 @@ export function saveRecentPersons(codes: string[]) {
 const RECENT_CC_PERSONS_KEY = 'recentCCPersons'
 
 export function getRecentCCPersons(): string[] {
+  if (typeof window === 'undefined') return []
   try { return JSON.parse(localStorage.getItem(RECENT_CC_PERSONS_KEY) ?? '[]') } catch { return [] }
 }
 
 export function saveRecentCCPersons(codes: string[]): void {
-  if (codes.length === 0) return
+  if (typeof window === 'undefined' || codes.length === 0) return
   const existing = getRecentCCPersons()
   const merged = [...codes, ...existing.filter(c => !codes.includes(c))].slice(0, MAX_RECENT)
   localStorage.setItem(RECENT_CC_PERSONS_KEY, JSON.stringify(merged))
