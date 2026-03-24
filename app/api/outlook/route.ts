@@ -3,6 +3,7 @@ import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
+import type { Activity } from '@/types'
 
 // Cache the full user list for the lifetime of the server process (small list, rarely changes)
 let userListCache: Record<string, string> | null = null  // code → email
@@ -68,6 +69,8 @@ export async function GET(req: NextRequest) {
         const organizerEmail = (organizer?.['emailAddress'] as Record<string, string> | undefined)?.['address'] ?? ''
         const onlineMeeting = ev['onlineMeeting'] as Record<string, string> | undefined
         const joinUrl = onlineMeeting?.['joinUrl'] ?? (ev['onlineMeetingUrl'] as string | undefined) ?? undefined
+        const responseStatus = ev['responseStatus'] as Record<string, string> | undefined
+        const rsvpStatus = responseStatus?.['response'] as Activity['rsvpStatus'] | undefined
         return {
           id: String(ev['id'] ?? ''),
           source: 'outlook' as const,
@@ -80,6 +83,7 @@ export async function GET(req: NextRequest) {
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
           joinUrl,
+          rsvpStatus,
         }
       })
     }))
