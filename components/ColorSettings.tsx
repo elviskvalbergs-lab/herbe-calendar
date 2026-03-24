@@ -32,7 +32,7 @@ interface Props {
 
 export default function ColorSettings({ classGroups, colorMap, error, onClose, onColorChange, onReload }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
-  const swipeX = useRef<number | null>(null)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     try {
@@ -51,10 +51,15 @@ export default function ColorSettings({ classGroups, colorMap, error, onClose, o
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
-        onTouchStart={e => { swipeX.current = e.touches[0].clientX }}
+        onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
-          if (swipeX.current !== null && e.changedTouches[0].clientX - swipeX.current < -80) onClose()
-          swipeX.current = null
+          if (swipeStart.current !== null) {
+            const dx = e.changedTouches[0].clientX - swipeStart.current.x
+            const dy = e.changedTouches[0].clientY - swipeStart.current.y
+            if (dy > 80 && dy > Math.abs(dx)) onClose()
+            else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) onClose()
+          }
+          swipeStart.current = null
         }}
       >
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
