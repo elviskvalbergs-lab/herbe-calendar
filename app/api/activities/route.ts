@@ -11,11 +11,13 @@ function toTime(raw: string): string {
 
 function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
   const mainPersonsRaw = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  const ccPersonsRaw = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
   return {
     id: String(r['SerNr'] ?? ''),
     source: 'herbe',
     personCode,
     mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
+    ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
     description: String(r['Comment'] ?? ''),
     date: String(r['TransDate'] ?? ''),
     timeFrom: toTime(String(r['StartTime'] ?? '')),
@@ -55,14 +57,27 @@ export async function GET(req: Request) {
       sort: 'TransDate',
       range: `${dateFrom}:${dateTo}`,
     })
-    const result = raw.flatMap(r => {
+    const results: Activity[] = raw.flatMap(r => {
       const rec = r as Record<string, unknown>
       const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
       return mainPersons
         .filter(p => personSet.has(p))
         .map(p => mapActivity(rec, p))
     })
-    return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+
+    // Emit CC rows for persons in CCPersons but NOT already in MainPersons
+    for (const record of raw) {
+      const r = record as Record<string, unknown>
+      const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      for (const ccCode of ccPersonsArr) {
+        if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
+          results.push(mapActivity(r, ccCode))
+        }
+      }
+    }
+
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
@@ -121,7 +136,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body)
+    const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetch(REGISTERS.activities, undefined, {
       method: 'POST',
       body: formBody,
