@@ -94,7 +94,7 @@ export default function CalendarGrid({
               className={`flex-1 min-w-0 flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
             >
               {/* Sticky two-row header for this day */}
-              <div className="sticky top-0 z-10 bg-surface">
+              <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (
                   <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
                     {format(parseISO(date), 'EEE dd/MM')}

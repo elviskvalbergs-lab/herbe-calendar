@@ -97,7 +97,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       >↻</button>
 
       {/* Hamburger — mobile only */}
-      <div className="relative sm:hidden">
+      <div className="relative md:hidden">
         <button
           onClick={() => setHamburgerOpen(o => !o)}
           className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
@@ -123,7 +123,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* Keyboard shortcuts — desktop only */}
       <button
         onClick={onShortcuts}
-        className="hidden sm:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
+        className="hidden md:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
         title="Keyboard shortcuts (?)"
       >
         ?
@@ -132,7 +132,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* Color settings — desktop only */}
       <button
         onClick={onColorSettings}
-        className="hidden sm:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        className="hidden md:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title="Activity colors &amp; theme"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -147,7 +147,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* New activity — hidden on mobile (FAB is used instead) */}
       <button
         onClick={onNewActivity}
-        className="hidden sm:flex bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+        className="hidden md:flex bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
         title="New activity (⌃⌘N)"
       >
         + New
