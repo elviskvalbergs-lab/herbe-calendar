@@ -46,13 +46,13 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
 
       {/* View toggle */}
       <div className="flex rounded overflow-hidden border border-border text-xs font-bold">
-        {(['day', '3day'] as const).map(v => (
+        {(['day', '3day', '5day'] as const).map(v => (
           <button
             key={v}
             onClick={() => onStateChange({ ...state, view: v })}
             className={`px-3 py-1 ${state.view === v ? 'bg-primary text-white' : 'text-text-muted'}`}
           >
-            {v === 'day' ? 'Day' : '3 Day'}
+            {v === 'day' ? 'Day' : v === '3day' ? '3 Day' : '5 Day'}
           </button>
         ))}
       </div>

@@ -53,7 +53,7 @@ export interface SearchResult {
 }
 
 export interface CalendarState {
-  view: 'day' | '3day'
+  view: 'day' | '3day' | '5day'
   date: string           // "YYYY-MM-DD" — anchor date
   selectedPersons: Person[]
 }

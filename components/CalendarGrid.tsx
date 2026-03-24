@@ -37,9 +37,10 @@ export default function CalendarGrid({
   }, [])
 
   // Build date list for current view
-  const dates = state.view === 'day'
+  const viewDays = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+  const dates = viewDays === 1
     ? [state.date]
-    : Array.from({ length: 3 }, (_, i) =>
+    : Array.from({ length: viewDays }, (_, i) =>
         format(addDays(parseISO(state.date), i), 'yyyy-MM-dd')
       )
 

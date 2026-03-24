@@ -102,7 +102,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       // Skip bare key shortcuts if modifier held or input focused
       if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 
-      const step = state.view === '3day' ? 3 : 1
+      const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setFormState({ open: true, initial: { date: state.date } })
@@ -215,7 +215,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     setLoading(true)
     const codes = state.selectedPersons.map(p => p.code).join(',')
     const dateFrom = state.date
-    const dateTo = state.view === '3day'
+    const dateTo = state.view === '5day'
+      ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
+      : state.view === '3day'
       ? format(addDays(parseISO(state.date), 2), 'yyyy-MM-dd')
       : state.date
     const dateParam = dateFrom === dateTo
@@ -290,7 +292,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         getTypeName={getTypeName}
         onRefresh={fetchActivities}
         onNavigate={(dir) => {
-          const step = state.view === '3day' ? 3 : 1
+          const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
           setState(s => ({
             ...s,
             date: format(
