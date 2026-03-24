@@ -1,4 +1,4 @@
-import { GET, POST } from '@/app/api/activities/route'
+import { GET, POST, toHerbeForm } from '@/app/api/activities/route'
 
 // Mock Herbe client
 jest.mock('@/lib/herbe/client', () => ({
@@ -9,6 +9,19 @@ jest.mock('@/lib/herbe/client', () => ({
 jest.mock('@/lib/herbe/auth-guard', () => ({
   requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com' }),
 }))
+
+describe('toHerbeForm', () => {
+  it('omits empty strings by default', () => {
+    const result = toHerbeForm({ Comment: '', ActType: 'DESK' })
+    expect(result).not.toContain('Comment')
+    expect(result).toContain('ActType')
+  })
+
+  it('passes through empty string when field is in allowEmptyFields', () => {
+    const result = toHerbeForm({ CCPersons: '' }, new Set(['CCPersons']))
+    expect(result).toContain('CCPersons')
+  })
+})
 
 describe('GET /api/activities', () => {
   it('returns 400 if persons param is missing', async () => {

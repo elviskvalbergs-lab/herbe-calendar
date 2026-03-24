@@ -99,12 +99,15 @@ function extractHerbeError(e: unknown): string {
 // Fields that live on row 0 of the activity record, not the header
 const ROW_FIELDS = new Set(['Text'])
 
-function toHerbeForm(body: Record<string, unknown>): string {
-  return Object.entries(body)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+export function toHerbeForm(
+  data: Record<string, unknown>,
+  allowEmptyFields: Set<string> = new Set()
+): string {
+  return Object.entries(data)
+    .filter(([k, v]) => v !== undefined && v !== null && (v !== '' || allowEmptyFields.has(k)))
     .map(([k, v]) => {
-      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
-      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
+      if (k === 'Text') return `set_row_field.0.Text=${encodeURIComponent(String(v))}`
+      return `set_field.${k}=${encodeURIComponent(String(v))}`
     })
     .join('&')
 }

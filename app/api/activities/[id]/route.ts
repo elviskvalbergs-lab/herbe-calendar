@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchById } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
+import { toHerbeForm } from '../route'
 
 function extractHerbeError(e: unknown): string {
   if (!e) return ''
@@ -19,17 +20,6 @@ function extractHerbeError(e: unknown): string {
   return String(e)
 }
 
-const ROW_FIELDS = new Set(['Text'])
-
-function toHerbeForm(body: Record<string, unknown>): string {
-  return Object.entries(body)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => {
-      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
-      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
-    })
-    .join('&')
-}
 
 async function fetchActivity(id: string) {
   // Path-based URL (/ActVc/id) fetches one record — query ?id=X may scan all records
