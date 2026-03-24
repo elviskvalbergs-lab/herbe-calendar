@@ -19,10 +19,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
 
-  function navigate(delta: number) {
-    const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
-    const d = addDays(parseISO(state.date), delta * step)
-    onStateChange({ ...state, date: format(d, 'yyyy-MM-dd') })
+  const viewStep = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+
+  function navigate(days: number) {
+    onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
   }
 
   return (
@@ -33,11 +33,17 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </span>
 
       {/* Date navigation */}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Previous (←)">‹</button>
+      {viewStep > 1 && (
+        <button onClick={() => navigate(-viewStep)} className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold" title={`Back ${viewStep} days`}>«</button>
+      )}
+      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-sm font-bold" title="Previous day (←)">‹</button>
       <span className="text-sm font-semibold whitespace-nowrap">
         {format(parseISO(state.date), 'd MMM yyyy')}
       </span>
-      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Next (→)">›</button>
+      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-sm font-bold" title="Next day (→)">›</button>
+      {viewStep > 1 && (
+        <button onClick={() => navigate(viewStep)} className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold" title={`Forward ${viewStep} days`}>»</button>
+      )}
       <button
         onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
         className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
@@ -47,7 +53,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </button>
 
       {/* View toggle */}
-      <div className="flex rounded overflow-hidden border border-border text-xs font-bold">
+      <div className="flex rounded overflow-hidden border border-border text-xs font-bold divide-x divide-border">
         {(['day', '3day', '5day'] as const).map(v => (
           <button
             key={v}
