@@ -935,7 +935,7 @@ export default function ActivityForm({
               ? (() => { const [th, tm] = timeTo.split(':').map(Number); return th * 60 + tm - fromMins })()
               : null
             return (
-              <div className="flex items-center gap-1.5 flex-wrap -mt-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {DURATIONS.map(({ label, mins }) => {
                   const active = currentDur === mins
                   const toMins = fromMins + mins
