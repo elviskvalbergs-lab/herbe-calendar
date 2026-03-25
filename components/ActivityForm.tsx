@@ -839,7 +839,7 @@ export default function ActivityForm({
 
           {/* Description — and all editable fields below; disabled visually when canEdit is false */}
           <div
-            className={canEdit === false ? 'contents pointer-events-none select-none opacity-50' : 'contents'}
+            className={`space-y-3${canEdit === false ? ' pointer-events-none select-none opacity-50' : ''}`}
             aria-disabled={canEdit === false}
           >
           <div>
