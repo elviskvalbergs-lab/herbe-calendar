@@ -59,7 +59,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
-    return activity.personCode === userCode || inMainPersons || inAccessGroup
+    const inCCPersons = activity.ccPersons?.includes(userCode) ?? false
+    return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
   // Persist state to localStorage (only after people have loaded, to avoid overwriting saved person codes on mount)
@@ -99,10 +100,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
         return
       }
+      // ⌃⌘← / ⌃⌘→ — Jump by view step (1 / 3 / 5 days)
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault()
+        const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+        const dir = e.key === 'ArrowLeft' ? -step : step
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), dir), 'yyyy-MM-dd') }))
+        return
+      }
       // Skip bare key shortcuts if modifier held or input focused
       if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 
-      const step = state.view === '3day' ? 3 : 1
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setFormState({ open: true, initial: { date: state.date } })
@@ -111,10 +119,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault()
-        setState(s => ({ ...s, date: format(subDays(parseISO(s.date), step), 'yyyy-MM-dd') }))
+        setState(s => ({ ...s, date: format(subDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
-        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), step), 'yyyy-MM-dd') }))
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
@@ -207,7 +215,27 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         if (me) setState(s => ({ ...s, selectedPersons: [me] }))
         else if (userCode) setStatus({ msg: `Loaded ${list.length} users — user "${userCode}" not found in list`, ok: false })
       })
-      .catch(e => setStatus({ msg: `Failed to load users: ${e}`, ok: false }))
+      .catch(e => {
+        // User list unavailable — restore saved person codes from localStorage so
+        // the calendar still works (activities will load, just no name/email lookup)
+        try {
+          const saved = localStorage.getItem('calendarState')
+          if (saved) {
+            const { personCodes } = JSON.parse(saved)
+            if (personCodes?.length) {
+              const fallback: Person[] = (personCodes as string[]).map(code => ({ code, name: code, email: '' }))
+              setState(s => ({ ...s, selectedPersons: fallback }))
+              setStatus({ msg: `User list unavailable (${e}) — restored saved selection`, ok: false })
+              return
+            }
+          }
+        } catch {}
+        // Last resort: use logged-in user code directly
+        if (userCode) {
+          setState(s => ({ ...s, selectedPersons: [{ code: userCode, name: userCode, email: '' }] }))
+        }
+        setStatus({ msg: `Failed to load users: ${e}`, ok: false })
+      })
   }, [userCode])
 
   const fetchActivities = useCallback(async () => {
@@ -215,7 +243,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     setLoading(true)
     const codes = state.selectedPersons.map(p => p.code).join(',')
     const dateFrom = state.date
-    const dateTo = state.view === '3day'
+    const dateTo = state.view === '5day'
+      ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
+      : state.view === '3day'
       ? format(addDays(parseISO(state.date), 2), 'yyyy-MM-dd')
       : state.date
     const dateParam = dateFrom === dateTo
@@ -229,6 +259,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         fetch(`/api/outlook?persons=${codes}&${dateParam}`),
       ])
       const herbe: Activity[] = herbeRes.ok ? await herbeRes.json() : []
+      let herbeErrMsg = ''
+      if (!herbeRes.ok) {
+        try {
+          const e = await herbeRes.json()
+          herbeErrMsg = String(e.error ?? JSON.stringify(e))
+        } catch {
+          herbeErrMsg = String(herbeRes.status)
+        }
+      }
       let outlook: Activity[] = []
       let outlookErrMsg = ''
       if (outlookRes.ok) {
@@ -243,7 +282,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       }
       setActivities([...herbe, ...outlook])
 
-      const herbeErr = !herbeRes.ok ? ` | Herbe error ${herbeRes.status}` : ''
+      const herbeErr = !herbeRes.ok ? ` | Herbe: ${herbeErrMsg}` : ''
       const outlookErr = !outlookRes.ok ? ` | Outlook: ${outlookErrMsg}` : ''
       setStatus({
         msg: `${herbe.length} Herbe + ${outlook.length} Outlook activities${herbeErr}${outlookErr}`,
@@ -290,7 +329,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         getTypeName={getTypeName}
         onRefresh={fetchActivities}
         onNavigate={(dir) => {
-          const step = state.view === '3day' ? 3 : 1
+          const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
           setState(s => ({
             ...s,
             date: format(
@@ -351,10 +390,20 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           people={people}
           defaultPersonCode={userCode}
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
-          todayActivities={activities.filter(a => a.date === state.date)}
+          todayActivities={activities.filter(a => a.date === (formState.initial?.date ?? state.date))}
           onClose={() => setFormState({ open: false })}
           onSaved={fetchActivities}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
+          onRsvp={(newStatus) => {
+            // Update the activity in-state so re-opening the form shows the correct RSVP
+            setActivities(prev => prev.map(a =>
+              a.id === formState.editId ? { ...a, rsvpStatus: newStatus } : a
+            ))
+            setFormState(prev => ({
+              ...prev,
+              initial: prev.initial ? { ...prev.initial, rsvpStatus: newStatus } : prev.initial
+            }))
+          }}
           canEdit={formState.canEdit}
           getTypeColor={typeGroupColor}
           getTypeGroup={getTypeGroup}
@@ -362,6 +411,18 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           allCustomers={allCustomers}
           allProjects={allProjects}
         />
+      )}
+
+      {/* FAB — mobile only, hidden when form is open */}
+      {!formState.open && (
+        <button
+          onClick={() => setFormState({ open: true, initial: { date: state.date } })}
+          className="fixed bottom-5 right-5 z-50 lg:hidden bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
+          title="New activity"
+          aria-label="New activity"
+        >
+          +
+        </button>
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchById } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
+import { toHerbeForm } from '../route'
 
 function extractHerbeError(e: unknown): string {
   if (!e) return ''
@@ -19,17 +20,6 @@ function extractHerbeError(e: unknown): string {
   return String(e)
 }
 
-const ROW_FIELDS = new Set(['Text'])
-
-function toHerbeForm(body: Record<string, unknown>): string {
-  return Object.entries(body)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => {
-      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
-      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
-    })
-    .join('&')
-}
 
 async function fetchActivity(id: string) {
   // Path-based URL (/ActVc/id) fetches one record — query ?id=X may scan all records
@@ -40,11 +30,13 @@ async function fetchActivity(id: string) {
   return (json?.data?.[REGISTERS.activities]?.[0] ?? json) as Record<string, unknown>
 }
 
-function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
+export function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
   const mainPersons = String(activity['MainPersons'] ?? '').split(',').map(s => s.trim())
   if (mainPersons.includes(userCode)) return true
   const accessGroup = activity[ACTIVITY_ACCESS_GROUP_FIELD] as string | undefined
   if (accessGroup?.split(',').map(s => s.trim()).includes(userCode)) return true
+  const ccPersons = String(activity['CCPersons'] ?? '').split(',').map(s => s.trim())
+  if (ccPersons.includes(userCode)) return true
   return false
 }
 
@@ -63,7 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body)
+    const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetchById(REGISTERS.activities, id, {
       method: 'PATCH',
       body: formBody,

@@ -3,18 +3,24 @@ import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
+import type { Activity } from '@/types'
 
 // Cache the full user list for the lifetime of the server process (small list, rarely changes)
 let userListCache: Record<string, string> | null = null  // code → email
 
 async function emailForCode(code: string): Promise<string | null> {
   if (!userListCache) {
-    const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-    userListCache = Object.fromEntries(
-      (users as Record<string, unknown>[])
-        .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
-        .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
-    )
+    try {
+      const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
+      userListCache = Object.fromEntries(
+        (users as Record<string, unknown>[])
+          .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
+          .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
+      )
+    } catch (e) {
+      console.warn('[outlook] UserVc unavailable, skipping Outlook calendar:', String(e))
+      userListCache = {}
+    }
   }
   return userListCache[code] ?? null
 }
@@ -63,6 +69,10 @@ export async function GET(req: NextRequest) {
         const organizerEmail = (organizer?.['emailAddress'] as Record<string, string> | undefined)?.['address'] ?? ''
         const onlineMeeting = ev['onlineMeeting'] as Record<string, string> | undefined
         const joinUrl = onlineMeeting?.['joinUrl'] ?? (ev['onlineMeetingUrl'] as string | undefined) ?? undefined
+        const responseStatus = ev['responseStatus'] as Record<string, string> | undefined
+        const rawRsvp = responseStatus?.['response']
+        // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
+        const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
         return {
           id: String(ev['id'] ?? ''),
           source: 'outlook' as const,
@@ -75,6 +85,7 @@ export async function GET(req: NextRequest) {
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
           joinUrl,
+          rsvpStatus,
         }
       })
     }))

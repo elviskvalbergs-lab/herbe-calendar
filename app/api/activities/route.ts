@@ -11,11 +11,17 @@ function toTime(raw: string): string {
 
 function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
   const mainPersonsRaw = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  const ccPersonsRaw = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  // Text lives in row 0 of the Herbe record — may come back flat as r['Text']
+  // or nested under r['rows']?.[0]?.['Text'] depending on the API endpoint
+  const rows = r['rows'] as Record<string, unknown>[] | undefined
+  const textValue = String(r['Text'] ?? rows?.[0]?.['Text'] ?? '') || undefined
   return {
     id: String(r['SerNr'] ?? ''),
     source: 'herbe',
     personCode,
     mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
+    ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
     description: String(r['Comment'] ?? ''),
     date: String(r['TransDate'] ?? ''),
     timeFrom: toTime(String(r['StartTime'] ?? '')),
@@ -26,7 +32,7 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     projectCode: String(r['PRCode'] ?? '') || undefined,
     projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
     itemCode: String(r['ItemCode'] ?? '') || undefined,
-    textInMatrix: String(r['Text'] ?? '') || undefined,
+    textInMatrix: textValue,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
     planned: String(r['CalTimeFlag'] ?? '1') === '2',
   }
@@ -55,31 +61,54 @@ export async function GET(req: Request) {
       sort: 'TransDate',
       range: `${dateFrom}:${dateTo}`,
     })
-    const result = raw.flatMap(r => {
+    const results: Activity[] = raw.flatMap(r => {
       const rec = r as Record<string, unknown>
       const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
       return mainPersons
         .filter(p => personSet.has(p))
         .map(p => mapActivity(rec, p))
     })
-    return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+
+    // Emit CC rows for persons in CCPersons but NOT already in MainPersons
+    for (const record of raw) {
+      const r = record as Record<string, unknown>
+      const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      for (const ccCode of ccPersonsArr) {
+        if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
+          results.push(mapActivity(r, ccCode))
+        }
+      }
+    }
+
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
 
+const HERBE_ERROR_CODES: Record<string, string> = {
+  '1058': 'Mandatory field missing',
+  '1547': 'Time conflict — an activity already exists at this time for this person',
+}
+
 function extractHerbeError(e: unknown): string {
   if (!e) return ''
   if (typeof e === 'string') return e
+  if (Array.isArray(e)) return e.map(extractHerbeError).filter(Boolean).join('; ')
   if (typeof e === 'object') {
     const o = e as Record<string, unknown>
-    // Common Herbe error shapes
-    const msg = o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
-    if (msg) return String(msg)
+    // Standard ERP uses @-prefixed keys; also check plain keys
+    const code = String(o['@code'] ?? o.code ?? '')
+    const mapped = code ? HERBE_ERROR_CODES[code] : undefined
+    const rawMsg = o['@description'] ?? o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
+    const msg = mapped ?? (rawMsg ? String(rawMsg).trim() : undefined)
+    const field = o['@field'] ?? o.field
+    if (msg) return field ? `${field}: ${msg}` : msg
     // Include field/code context if available
     const parts: string[] = []
-    if (o.field) parts.push(`field: ${o.field}`)
-    if (o.code) parts.push(`code: ${o.code}`)
+    if (field) parts.push(`field: ${field}`)
+    if (code) parts.push(`code: ${code}`)
     if (o.vc) parts.push(`vc: ${o.vc}`)
     return parts.length ? parts.join(', ') : JSON.stringify(e)
   }
@@ -89,12 +118,15 @@ function extractHerbeError(e: unknown): string {
 // Fields that live on row 0 of the activity record, not the header
 const ROW_FIELDS = new Set(['Text'])
 
-function toHerbeForm(body: Record<string, unknown>): string {
-  return Object.entries(body)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+export function toHerbeForm(
+  data: Record<string, unknown>,
+  allowEmptyFields: Set<string> = new Set()
+): string {
+  return Object.entries(data)
+    .filter(([k, v]) => v !== undefined && v !== null && (v !== '' || allowEmptyFields.has(k)))
     .map(([k, v]) => {
-      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
-      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
+      if (k === 'Text') return `set_row_field.0.Text=${encodeURIComponent(String(v))}`
+      return `set_field.${k}=${encodeURIComponent(String(v))}`
     })
     .join('&')
 }
@@ -108,7 +140,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body)
+    const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetch(REGISTERS.activities, undefined, {
       method: 'POST',
       body: formBody,

@@ -11,7 +11,8 @@ const ctrl = isMac ? '⌃' : 'Ctrl'
 
 const SHORTCUTS = [
   { group: 'Navigation' },
-  { key: '←  →', desc: 'Previous / next day (or 3 days in 3-day view)' },
+  { key: '←  →', desc: 'Previous / next day' },
+  { key: `${ctrl}${cmd}←  ${ctrl}${cmd}→`, desc: 'Jump by view period (1 / 3 / 5 days)' },
   { key: `T  or  ${ctrl}${cmd}T`, desc: 'Jump to today' },
   { group: 'Activities' },
   { key: `${ctrl}${cmd}N`, desc: 'New activity' },
@@ -28,7 +29,7 @@ const SHORTCUTS = [
 ]
 
 export default function KeyboardShortcutsModal({ onClose }: Props) {
-  const swipeX = useRef<number | null>(null)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -41,10 +42,15 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col"
-        onTouchStart={e => { swipeX.current = e.touches[0].clientX }}
+        onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
-          if (swipeX.current !== null && e.changedTouches[0].clientX - swipeX.current < -80) onClose()
-          swipeX.current = null
+          if (swipeStart.current !== null) {
+            const dx = e.changedTouches[0].clientX - swipeStart.current.x
+            const dy = e.changedTouches[0].clientY - swipeStart.current.y
+            if (dy > 80 && dy > Math.abs(dx)) onClose()
+            else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) onClose()
+          }
+          swipeStart.current = null
         }}
       >
         <div className="flex justify-center pt-3 pb-1 sm:hidden">

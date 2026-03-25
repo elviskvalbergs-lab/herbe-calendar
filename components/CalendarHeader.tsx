@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
 import { Person, CalendarState } from '@/types'
+import { signOut } from 'next-auth/react'
 import { personColor } from '@/lib/colors'
 import PersonSelector from './PersonSelector'
 
@@ -17,10 +18,12 @@ interface Props {
 
 export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
+  const [hamburgerOpen, setHamburgerOpen] = useState(false)
 
-  function navigate(delta: number) {
-    const d = addDays(parseISO(state.date), delta)
-    onStateChange({ ...state, date: format(d, 'yyyy-MM-dd') })
+  const viewStep = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+
+  function navigate(days: number) {
+    onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
   }
 
   return (
@@ -31,11 +34,17 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </span>
 
       {/* Date navigation */}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Previous (←)">‹</button>
+      {viewStep > 1 && (
+        <button onClick={() => navigate(-viewStep)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
+      )}
+      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
       <span className="text-sm font-semibold whitespace-nowrap">
         {format(parseISO(state.date), 'd MMM yyyy')}
       </span>
-      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1 rounded hover:bg-border" title="Next (→)">›</button>
+      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
+      {viewStep > 1 && (
+        <button onClick={() => navigate(viewStep)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
+      )}
       <button
         onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
         className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
@@ -45,14 +54,14 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </button>
 
       {/* View toggle */}
-      <div className="flex rounded overflow-hidden border border-border text-xs font-bold">
-        {(['day', '3day'] as const).map(v => (
+      <div className="flex rounded overflow-hidden border border-border text-xs font-bold divide-x divide-border">
+        {(['day', '3day', '5day'] as const).map(v => (
           <button
             key={v}
             onClick={() => onStateChange({ ...state, view: v })}
             className={`px-3 py-1 ${state.view === v ? 'bg-primary text-white' : 'text-text-muted'}`}
           >
-            {v === 'day' ? 'Day' : '3 Day'}
+            {v === 'day' ? 'Day' : v === '3day' ? '3 Day' : '5 Day'}
           </button>
         ))}
       </div>
@@ -81,28 +90,72 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         >+</button>
       </div>
 
-      {/* Refresh */}
+      {/* Sign out — desktop only (mobile: in hamburger menu) */}
       <button
-        onClick={onRefresh}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Refresh"
+        onClick={() => signOut()}
+        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Sign out"
       >
-        ↻
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
       </button>
 
-      {/* Keyboard shortcuts */}
+      {/* Hamburger — mobile only; ml-auto keeps it right-aligned even when wrapping to new line */}
+      <div className="relative lg:hidden ml-auto">
+        <button
+          onClick={() => setHamburgerOpen(o => !o)}
+          className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+          title="Menu"
+        >☰</button>
+        {hamburgerOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
+            {/* right-0 ensures popup stays on screen regardless of where the hamburger is positioned */}
+            <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
+              <button
+                onClick={() => { setHamburgerOpen(false); onColorSettings() }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
+              >🎨 Color settings</button>
+              <button
+                onClick={() => { setHamburgerOpen(false); onShortcuts() }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
+              >⌨️ Keyboard shortcuts</button>
+              <button
+                onClick={() => { setHamburgerOpen(false); onRefresh() }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
+              >↻ Refresh</button>
+              <button
+                onClick={() => { setHamburgerOpen(false); signOut() }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
+              >Sign out</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Refresh — desktop only */}
+      <button
+        onClick={onRefresh}
+        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Refresh"
+      >↻</button>
+
+      {/* Keyboard shortcuts — desktop only */}
       <button
         onClick={onShortcuts}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
+        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
         title="Keyboard shortcuts (?)"
       >
         ?
       </button>
 
-      {/* Color settings */}
+      {/* Color settings — desktop only */}
       <button
         onClick={onColorSettings}
-        className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title="Activity colors &amp; theme"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -114,10 +167,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </svg>
       </button>
 
-      {/* New activity */}
+      {/* New activity — hidden on mobile (FAB is used instead) */}
       <button
         onClick={onNewActivity}
-        className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+        className="hidden lg:flex bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
         title="New activity (⌃⌘N)"
       >
         + New

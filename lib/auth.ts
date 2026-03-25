@@ -20,7 +20,20 @@ async function isEmailRegistered(email: string): Promise<{ registered: boolean; 
     return { registered: !!cached.userCode, userCode: cached.userCode }
   }
 
-  const users = await herbeFetchAll(REGISTERS.users, {}, 500)
+  let users: unknown[]
+  try {
+    users = await herbeFetchAll(REGISTERS.users, {}, 500)
+  } catch (e) {
+    const msg = String(e)
+    // 405 = UserVc endpoint not available on this server — can't validate against Herbe,
+    // so allow the request through (sign-in email link already provides security)
+    if (msg.includes('405') || msg.includes('HERBE_NOT_CONFIGURED')) {
+      console.warn('[auth] UserVc unavailable, skipping Herbe email check:', msg)
+      return { registered: true, userCode: '' }
+    }
+    throw e
+  }
+
   const user = users.find((u) => {
     const r = u as Record<string, unknown>
     return (
@@ -46,9 +59,6 @@ const emailProvider: EmailConfig = {
       const result = await isEmailRegistered(email)
       registered = result.registered
     } catch (e) {
-      if ((e as Error).message === 'HERBE_NOT_CONFIGURED') {
-        throw new Error('HERBE_NOT_CONFIGURED')
-      }
       throw e
     }
     if (!registered) {

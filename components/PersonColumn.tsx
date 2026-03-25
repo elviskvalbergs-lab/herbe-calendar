@@ -43,7 +43,8 @@ export default function PersonColumn({
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(sessionUserCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(sessionUserCode) ?? false
-    return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup
+    const inCCPersons = activity.ccPersons?.includes(sessionUserCode) ?? false
+    return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
   function handleSlotClick(hour: number, e: React.MouseEvent) {
@@ -187,6 +188,10 @@ export default function PersonColumn({
                   onClick={(act) => { if (!suppressClickRef.current) onActivityClick(act) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
+                  isCC={
+                    (act.ccPersons?.includes(personCode) ?? false) &&
+                    !(act.mainPersons?.includes(personCode) ?? false)
+                  }
                   getTypeName={getTypeName}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
