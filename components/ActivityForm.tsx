@@ -319,10 +319,12 @@ export default function ActivityForm({
       subject: description,
       start: { dateTime: `${date}T${timeFrom}:00`, timeZone: 'Europe/Riga' },
       end: { dateTime: `${date}T${timeTo}:00`, timeZone: 'Europe/Riga' },
+      isOnlineMeeting: true,
+      onlineMeetingProvider: 'teamsForBusiness',
       attendees: selectedPersonCodes
         .map(code => people.find(p => p.code === code))
-        .filter((p): p is Person => !!p)
-        .map(p => ({ emailAddress: { address: p.email, name: p.name }, type: 'required' })),
+        .filter((p): p is Person => !!p && !!p.email)
+        .map(p => ({ emailAddress: { address: p.email }, type: 'required' })),
     }
   }
 

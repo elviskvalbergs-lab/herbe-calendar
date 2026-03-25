@@ -15,7 +15,14 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
   // Text lives in row 0 of the Herbe record — may come back flat as r['Text']
   // or nested under r['rows']?.[0]?.['Text'] depending on the API endpoint
   const rows = r['rows'] as Record<string, unknown>[] | undefined
-  const textValue = String(r['Text'] ?? rows?.[0]?.['Text'] ?? '') || undefined
+  let textValue = String(r['Text'] ?? '')
+  if (!textValue && rows && rows.length > 0) {
+    textValue = rows
+      .map(row => String(row['Text'] ?? ''))
+      .filter(s => s !== '')
+      .join('\n')
+  }
+  const finalTextValue = textValue || undefined
   return {
     id: String(r['SerNr'] ?? ''),
     source: 'herbe',
@@ -32,7 +39,7 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     projectCode: String(r['PRCode'] ?? '') || undefined,
     projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
     itemCode: String(r['ItemCode'] ?? '') || undefined,
-    textInMatrix: textValue,
+    textInMatrix: finalTextValue,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
     planned: String(r['CalTimeFlag'] ?? '1') === '2',
   }
@@ -122,13 +129,58 @@ export function toHerbeForm(
   data: Record<string, unknown>,
   allowEmptyFields: Set<string> = new Set()
 ): string {
-  return Object.entries(data)
-    .filter(([k, v]) => v !== undefined && v !== null && (v !== '' || allowEmptyFields.has(k)))
-    .map(([k, v]) => {
-      if (k === 'Text') return `set_row_field.0.Text=${encodeURIComponent(String(v))}`
-      return `set_field.${k}=${encodeURIComponent(String(v))}`
-    })
-    .join('&')
+  const parts: string[] = []
+  
+  for (const [k, v] of Object.entries(data)) {
+    if (v === undefined || v === null) continue
+    if (v === '' && !allowEmptyFields.has(k)) continue
+
+    if (k === 'Text') {
+      const text = String(v)
+      if (!text) {
+        parts.push(`set_row_field.0.Text=`)
+      } else {
+        const lines = text.split('\n')
+        const chunks: string[] = []
+        for (const line of lines) {
+          if (line.length === 0) {
+            chunks.push('')
+            continue
+          }
+          const words = line.split(' ')
+          let currentChunk = ''
+          for (const word of words) {
+            if (!currentChunk) {
+              currentChunk = word
+            } else if (currentChunk.length + 1 + word.length <= 100) {
+              currentChunk += ' ' + word
+            } else {
+              chunks.push(currentChunk)
+              currentChunk = word
+            }
+            while (currentChunk.length > 100) {
+              chunks.push(currentChunk.slice(0, 100))
+              currentChunk = currentChunk.slice(100)
+            }
+          }
+          if (currentChunk) chunks.push(currentChunk)
+        }
+        
+        chunks.forEach((chunk, i) => {
+          parts.push(`set_row_field.${i}.Text=${encodeURIComponent(chunk)}`)
+        })
+        // Clear up to 10 subsequent rows to avoid leftover text if the new text is shorter
+        for (let i = chunks.length; i < chunks.length + 10; i++) {
+          parts.push(`set_row_field.${i}.Text=`)
+        }
+      }
+      continue
+    }
+    
+    parts.push(`set_field.${k}=${encodeURIComponent(String(v))}`)
+  }
+  
+  return parts.join('&')
 }
 
 export async function POST(req: NextRequest) {
