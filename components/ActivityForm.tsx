@@ -390,6 +390,30 @@ export default function ActivityForm({
     }
   }
 
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm(source === 'outlook' ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
+
+    setSaving(true)
+    setErrors([])
+    try {
+      const url = source === 'herbe' ? `/api/activities/${editId}` : `/api/outlook/${editId}`
+      const res = await fetch(url, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const errMsg = body?.error || body?.errors?.[0]?.message || res.statusText || 'Deletion failed'
+        setErrors([`Failed to delete: ${errMsg}`])
+        setSaving(false)
+        return
+      }
+      onSaved()
+      onClose()
+    } catch (err) {
+      setErrors([String(err)])
+      setSaving(false)
+    }
+  }
+
   handleSaveRef.current = handleSave
   handleDuplicateRef.current = handleDuplicate
 
@@ -518,7 +542,7 @@ export default function ActivityForm({
               const herbeLink = source === 'herbe' ? serpLink('ActVc', editId, companyCode) : null
               // Outlook: open in Outlook web calendar in a new tab
               const outlookCalLink = source === 'outlook'
-                ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`
+                ? (initial?.webLink || `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`)
                 : null
               const openLink = herbeLink ?? outlookCalLink
               // For Outlook copy: prefer joinUrl (Teams link) so recipient can join; fall back to calendar web URL
@@ -564,6 +588,21 @@ export default function ActivityForm({
                           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                         </svg>
                       )}
+                    </button>
+                  )}
+                  {canEdit !== false && source === 'outlook' && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      title="Delete from Outlook"
+                      onClick={handleDelete}
+                      disabled={saving}
+                      className="inline-flex items-center justify-center px-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:border-red-500/50 transition-colors disabled:opacity-50"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
                     </button>
                   )}
                 </span>

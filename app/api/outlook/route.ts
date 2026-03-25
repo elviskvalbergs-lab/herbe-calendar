@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
           joinUrl,
+          webLink: String(ev['webLink'] ?? ''),
           rsvpStatus,
         }
       })
