@@ -16,6 +16,7 @@ interface Props {
   onClose: () => void
   onSaved: () => void
   onDuplicate: (initial: Partial<Activity>) => void
+  onRsvp?: (status: Activity['rsvpStatus']) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
   getTypeColor?: (typeCode: string) => string
   getTypeGroup?: (typeCode: string) => ActivityClassGroup | undefined
@@ -35,7 +36,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -678,7 +679,11 @@ export default function ActivityForm({
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ action }),
                         })
-                        if (res.ok) setRsvpStatus(action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'tentativelyAccepted')
+                        if (res.ok) {
+                          const newStatus = action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'tentativelyAccepted'
+                          setRsvpStatus(newStatus)
+                          onRsvp?.(newStatus)
+                        }
                       } finally {
                         setRsvpLoading(false)
                       }

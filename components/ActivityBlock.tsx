@@ -41,8 +41,9 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
         boxShadow: hovered ? `0 2px 14px ${color}55` : undefined,
         ...style,
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true) }}
+      onPointerLeave={() => setHovered(false)}
+      onTouchStart={() => setHovered(false)}
       onClick={() => onClick(activity)}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >

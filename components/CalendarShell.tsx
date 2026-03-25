@@ -394,6 +394,16 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           onClose={() => setFormState({ open: false })}
           onSaved={fetchActivities}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
+          onRsvp={(newStatus) => {
+            // Update the activity in-state so re-opening the form shows the correct RSVP
+            setActivities(prev => prev.map(a =>
+              a.id === formState.editId ? { ...a, rsvpStatus: newStatus } : a
+            ))
+            setFormState(prev => ({
+              ...prev,
+              initial: prev.initial ? { ...prev.initial, rsvpStatus: newStatus } : prev.initial
+            }))
+          }}
           canEdit={formState.canEdit}
           getTypeColor={typeGroupColor}
           getTypeGroup={getTypeGroup}

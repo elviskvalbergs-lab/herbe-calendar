@@ -12,6 +12,10 @@ function toTime(raw: string): string {
 function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
   const mainPersonsRaw = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
   const ccPersonsRaw = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  // Text lives in row 0 of the Herbe record — may come back flat as r['Text']
+  // or nested under r['rows']?.[0]?.['Text'] depending on the API endpoint
+  const rows = r['rows'] as Record<string, unknown>[] | undefined
+  const textValue = String(r['Text'] ?? rows?.[0]?.['Text'] ?? '') || undefined
   return {
     id: String(r['SerNr'] ?? ''),
     source: 'herbe',
@@ -28,7 +32,7 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     projectCode: String(r['PRCode'] ?? '') || undefined,
     projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
     itemCode: String(r['ItemCode'] ?? '') || undefined,
-    textInMatrix: String(r['Text'] ?? '') || undefined,
+    textInMatrix: textValue,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
     planned: String(r['CalTimeFlag'] ?? '1') === '2',
   }
