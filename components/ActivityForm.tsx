@@ -12,7 +12,7 @@ interface Props {
   people: Person[]
   defaultPersonCode: string
   defaultPersonCodes?: string[]
-  todayActivities: Activity[]
+  allActivities: Activity[]
   onClose: () => void
   onSaved: () => void
   onDuplicate: (initial: Partial<Activity>) => void
@@ -36,7 +36,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -183,8 +183,8 @@ export default function ActivityForm({
 
   function smartDefaultStart(hint?: string): string {
     if (hint) return hint
-    const todayForPerson = todayActivities
-      .filter(a => !a.planned && a.source !== 'outlook' && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
+    const todayForPerson = allActivities
+      .filter(a => a.date === date && !a.planned && a.source !== 'outlook' && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
       .sort((a, b) => b.timeTo.localeCompare(a.timeTo))
     return todayForPerson[0]?.timeTo ?? '09:00'
   }
@@ -783,6 +783,7 @@ export default function ActivityForm({
                       tabIndex={-1}
                       onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
                       className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary hover:bg-primary/30 transition-colors"
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
                     </button>
@@ -793,6 +794,7 @@ export default function ActivityForm({
                       tabIndex={-1}
                       onClick={() => setSelectedPersonCodes(prev => [...prev, p.code])}
                       className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
                     </button>
@@ -845,6 +847,7 @@ export default function ActivityForm({
                       onClick={() => setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code))}
                       className="px-2 py-0.5 rounded-full text-xs font-bold border transition-colors"
                       style={{ borderStyle: 'dashed', borderColor: 'var(--color-primary)', background: 'rgba(var(--color-primary-rgb, 205 76 56) / 0.1)', color: 'var(--color-primary)', opacity: 0.8 }}
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
                     </button>
@@ -853,6 +856,7 @@ export default function ActivityForm({
                     <button key={p.code} tabIndex={-1}
                       onClick={() => setSelectedCCPersonCodes(prev => [...prev, p.code])}
                       className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
                     </button>

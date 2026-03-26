@@ -66,6 +66,7 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
                 key={p.code}
                 onClick={() => toggle(p)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-border text-left"
+                title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
               >
                 <span
                   className="text-xs font-bold px-2 py-0.5 rounded-full border"

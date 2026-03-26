@@ -78,7 +78,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               borderColor: personColor(i) + '44',
               background: personColor(i) + '22',
             }}
-            title={`Remove ${p.code}`}
+            title={`${p.name}${p.email ? ` <${p.email}>` : ''} (Click to remove)`}
           >
             {p.code} <span className="opacity-50">✕</span>
           </button>
