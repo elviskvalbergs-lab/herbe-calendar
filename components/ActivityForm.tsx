@@ -136,7 +136,7 @@ export default function ActivityForm({
       }
       if (e.metaKey && e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
         e.preventDefault()
-        if (isEdit && (canEdit ?? true)) handleDuplicateRef.current()
+        if (isEdit) handleDuplicateRef.current()
         return
       }
       if (e.metaKey && e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
@@ -1291,9 +1291,18 @@ export default function ActivityForm({
         {!savedActivity && <div className="p-4 border-t border-border">
           {/* If editing but canEdit is false, show close only */}
           {isEdit && !(canEdit ?? true) ? (
-            <button onClick={onClose} className="w-full border border-border text-text-muted font-bold py-3 rounded-xl">
-              Close
-            </button>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 border border-border text-text-muted font-bold py-3 rounded-xl hover:bg-border transition-colors">
+                Close
+              </button>
+              <button
+                onClick={handleDuplicate}
+                title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
+                className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
+              >
+                ⧉
+              </button>
+            </div>
           ) : (
             <div className="flex gap-2">
               <button
@@ -1304,7 +1313,7 @@ export default function ActivityForm({
                 {saving ? 'Saving…' : isEdit ? `Save changes` : `Create activity`}
                 {!saving && <span className="ml-2 opacity-60 text-xs font-normal">{saveShortcut}</span>}
               </button>
-              {isEdit && (canEdit ?? true) && (
+              {isEdit && (
                 <button
                   onClick={handleDuplicate}
                   title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
