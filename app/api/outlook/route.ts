@@ -26,8 +26,9 @@ async function emailForCode(code: string): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
   if (!persons || !dateFrom) return NextResponse.json({ error: 'persons and date required' }, { status: 400 })
 
   const personList = persons.split(',').map(p => p.trim())
+  const sessionEmail = session.email
 
   try {
     const results = await Promise.all(personList.map(async code => {
@@ -61,8 +63,6 @@ export async function GET(req: NextRequest) {
         // Fallback: If 404, this user isn't in the tenant. 
         // Search the logged-in user's own shared calendars list for a match.
         try {
-          const session = await requireSession()
-          const sessionEmail = session?.email
           if (sessionEmail) {
             const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`)
             if (listRes.ok) {
@@ -81,6 +81,9 @@ export async function GET(req: NextRequest) {
               } else {
                 console.log(`[outlook] Fallback: No calendar owned by ${email} found in ${sessionEmail}'s list`)
               }
+            } else {
+              const listErr = await listRes.text()
+              console.warn(`[outlook] Fallback lookup failed for ${sessionEmail}: ${listRes.status} ${listErr}`)
             }
           }
         } catch (e) {
