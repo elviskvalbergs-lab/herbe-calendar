@@ -67,14 +67,19 @@ export async function GET(req: NextRequest) {
             const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`)
             if (listRes.ok) {
               const listData = await listRes.json()
-              const sharedCal = (listData.value as any[])?.find(c => 
+              const cals = listData.value as any[]
+              console.log(`[outlook] Fallback for ${email}: searching ${cals?.length ?? 0} calendars of ${sessionEmail}`)
+              const sharedCal = cals?.find(c => 
                 c.owner?.address?.toLowerCase() === email.toLowerCase()
               )
               if (sharedCal) {
+                console.log(`[outlook] Fallback found calendar ID ${sharedCal.id} for ${email}`)
                 res = await graphFetch(
                   `/users/${sessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
                   { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
                 )
+              } else {
+                console.log(`[outlook] Fallback: No calendar owned by ${email} found in ${sessionEmail}'s list`)
               }
             }
           }
