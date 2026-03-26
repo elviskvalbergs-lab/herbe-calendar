@@ -50,10 +50,39 @@ export async function GET(req: NextRequest) {
       // calendarView expands recurring events automatically; no type filter needed
       const startDt = `${dateFrom}T00:00:00`
       const endDt = `${dateTo}T23:59:59`
-      const res = await graphFetch(
-        `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
+      const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=100`
+      
+      let res = await graphFetch(
+        `/users/${email}/calendarView?${calendarViewParams}`,
         { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
       )
+
+      if (!res.ok && res.status === 404) {
+        // Fallback: If 404, this user isn't in the tenant. 
+        // Search the logged-in user's own shared calendars list for a match.
+        try {
+          const session = await requireSession()
+          const sessionEmail = session?.email
+          if (sessionEmail) {
+            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`)
+            if (listRes.ok) {
+              const listData = await listRes.json()
+              const sharedCal = (listData.value as any[])?.find(c => 
+                c.owner?.address?.toLowerCase() === email.toLowerCase()
+              )
+              if (sharedCal) {
+                res = await graphFetch(
+                  `/users/${sessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
+                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+                )
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[outlook] Fallback shared calendar search failed:', String(e))
+        }
+      }
+
       if (!res.ok) {
         const errText = await res.text()
         console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
