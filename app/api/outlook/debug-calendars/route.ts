@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { graphFetch } from '@/lib/graph/client'
-import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await requireSession()
-    const email = session.email
-    if (!email) return NextResponse.json({ error: 'No email in session' }, { status: 400 })
+    const session = await auth()
+    const email = session?.user?.email
+    const host = req.headers.get('host')
+
+    if (!email) {
+      return NextResponse.json({ 
+        error: 'Unauthorized', 
+        message: 'No session found. Please sign in first.',
+        host,
+        hint: 'Make sure you are signed in on this same domain.'
+      }, { status: 401 })
+    }
 
     const res = await graphFetch(`/users/${email}/calendars?$select=id,name,owner,canEdit,canViewStatus`)
     if (!res.ok) {
@@ -19,7 +28,6 @@ export async function GET(req: NextRequest) {
         calendars: data.value ?? []
     })
   } catch (e) {
-    if (e instanceof Response) return e
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
