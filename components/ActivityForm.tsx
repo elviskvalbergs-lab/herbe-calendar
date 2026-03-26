@@ -184,7 +184,7 @@ export default function ActivityForm({
   function smartDefaultStart(hint?: string): string {
     if (hint) return hint
     const todayForPerson = todayActivities
-      .filter(a => !a.planned && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
+      .filter(a => !a.planned && a.source !== 'outlook' && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
       .sort((a, b) => b.timeTo.localeCompare(a.timeTo))
     return todayForPerson[0]?.timeTo ?? '09:00'
   }
@@ -1026,6 +1026,35 @@ export default function ActivityForm({
                 Activity Type
                 {activityTypeCode && <span className="font-mono text-primary normal-case text-[11px]">{activityTypeCode}</span>}
               </label>
+              {recentTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {recentTypes.map(code => {
+                    const type = activityTypes.find(t => t.code === code)
+                    if (!type) return null
+                    const isSelected = activityTypeCode === code
+                    const c = getTypeColor?.(code)
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => {
+                          setActivityTypeCode(type.code)
+                          setActivityTypeName(type.name)
+                          setActivityTypeResults([])
+                          setCurrentGroup(getTypeGroup?.(type.code))
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
+                          isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-border text-text-muted hover:border-primary/50'
+                        }`}
+                        style={!isSelected && c ? { borderColor: c + '44', color: c, background: c + '11' } : undefined}
+                      >
+                        {code}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               <div className="relative">
                 <input
                   value={activityTypeName}
@@ -1086,35 +1115,6 @@ export default function ActivityForm({
                       <span>{t.name}</span>
                     </button>
                   ))}
-                </div>
-              )}
-              {recentTypes.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {recentTypes.map(code => {
-                    const type = activityTypes.find(t => t.code === code)
-                    if (!type) return null
-                    const isSelected = activityTypeCode === code
-                    const c = getTypeColor?.(code)
-                    return (
-                      <button
-                        key={code}
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() => {
-                          setActivityTypeCode(type.code)
-                          setActivityTypeName(type.name)
-                          setActivityTypeResults([])
-                          setCurrentGroup(getTypeGroup?.(type.code))
-                        }}
-                        className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
-                          isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-border text-text-muted hover:border-primary/50'
-                        }`}
-                        style={!isSelected && c ? { borderColor: c + '44', color: c, background: c + '11' } : undefined}
-                      >
-                        {code}
-                      </button>
-                    )
-                  })}
                 </div>
               )}
             </div>

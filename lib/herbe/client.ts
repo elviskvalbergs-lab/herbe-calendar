@@ -128,6 +128,45 @@ export async function herbeFetchById(
   })
 }
 
+/** Function to delete records using the specialized WebExcellentAPI.hal action endpoint */
+export async function herbeWebExcellentDelete(
+  register: string,
+  id: string,
+  userCode: string
+): Promise<Response> {
+  const auth = await herbeAuthHeader()
+  const base = (process.env.HERBE_API_BASE_URL ?? '').trim()
+  const company = (process.env.HERBE_COMPANY_CODE ?? '').trim()
+
+  let baseUrlFn = base
+  try {
+    const parsed = new URL(base)
+    // Build /WebExcellentAPI.hal at the origin root since endpoints usually live there
+    baseUrlFn = parsed.origin
+  } catch {
+    // fallback if unparseable
+  }
+
+  const query = new URLSearchParams({
+    compno: company,
+    usercode: userCode,
+    action: 'delete',
+    register: register,
+    id: id
+  })
+
+  // Per user snippet: WebExcellentAPI.hal?compno=3&usercode=EKS&action=delete&register=ActVc&id=12345
+  const url = `${baseUrlFn}/WebExcellentAPI.hal?${query.toString()}`
+
+  return herbeFetchRaw(url, {
+    method: 'GET',
+    headers: {
+      Authorization: auth,
+      Accept: '*/*',
+    },
+  })
+}
+
 /**
  * Parse a Herbe response, sanitizing any unescaped control characters
  * that some ERP servers embed in string values (tab, newline, etc.).

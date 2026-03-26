@@ -92,6 +92,15 @@ export default function PersonColumn({
         return
       }
 
+      const action = type === 'move' ? 'move' : 'resize'
+      const msg = `Are you sure you want to ${action} this activity to ${dragState.currentFrom}-${dragState.currentTo}?`
+      if (!window.confirm(msg)) {
+        setDrag(null)
+        suppressClickRef.current = true
+        setTimeout(() => { suppressClickRef.current = false }, 300)
+        return
+      }
+
       // Real drag: suppress the click event that browsers fire after pointerup
       suppressClickRef.current = true
       setTimeout(() => { suppressClickRef.current = false }, 300)

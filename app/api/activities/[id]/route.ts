@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { herbeFetchById } from '@/lib/herbe/client'
+import { herbeFetchById, herbeWebExcellentDelete } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { toHerbeForm } from '../route'
@@ -91,8 +91,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!canEdit(activity, session.userCode)) return forbidden()
 
   try {
-    const res = await herbeFetchById(REGISTERS.activities, id, { method: 'DELETE' })
-    return new NextResponse(null, { status: res.ok ? 204 : res.status })
+    const res = await herbeWebExcellentDelete(REGISTERS.activities, id, session.userCode)
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return NextResponse.json({ error: text || `Herbe error ${res.status}` }, { status: res.status })
+    }
+    return new NextResponse(null, { status: 204 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

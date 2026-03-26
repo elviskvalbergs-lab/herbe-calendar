@@ -1,6 +1,7 @@
 const RECENT_TYPES_KEY = 'recentActivityTypes'
 const RECENT_PERSONS_KEY = 'recentPersons'
 const MAX_RECENT = 6
+const MAX_RECENT_TYPES = 10
 
 export function getRecentTypes(): string[] {
   if (typeof window === 'undefined') return []
@@ -8,7 +9,7 @@ export function getRecentTypes(): string[] {
 }
 
 export function saveRecentType(code: string) {
-  const list = [code, ...getRecentTypes().filter(c => c !== code)].slice(0, MAX_RECENT)
+  const list = [code, ...getRecentTypes().filter(c => c !== code)].slice(0, MAX_RECENT_TYPES)
   localStorage.setItem(RECENT_TYPES_KEY, JSON.stringify(list))
 }
 
