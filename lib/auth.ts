@@ -53,7 +53,27 @@ const emailProvider: EmailConfig = {
   name: 'Email',
   from: process.env.AZURE_SENDER_EMAIL!,
   maxAge: 24 * 60 * 60,
-  async sendVerificationRequest({ identifier: email, url }) {
+  async sendVerificationRequest({ identifier: email, url: rawUrl }) {
+    let url = rawUrl
+    try {
+      // Dynamic host fix: if we're on a test alias, NextAuth might still use production domain.
+      // We can detect the intended host from headers if available (or just recommend the manual fix).
+      // Since we don't have easy access to 'req' here in Auth.js v5 sendVerificationRequest,
+      // we'll advise the user to check their domain in the browser or we can try to guess.
+      // Actually, we'll try to find if we can get headers.
+      const { headers } = await import('next/headers')
+      const host = (await headers()).get('x-forwarded-host') || (await headers()).get('host')
+      if (host && !url.includes(host)) {
+        const u = new URL(url)
+        u.host = host
+        u.protocol = 'https:' // Ensure https for dynamic links
+        url = u.toString()
+        console.log(`[auth] Adjusted verification URL for host ${host}: ${url}`)
+      }
+    } catch (e) {
+      console.warn('[auth] Failed to detect host for URL adjustment:', e)
+    }
+
     let registered: boolean
     try {
       const result = await isEmailRegistered(email)
@@ -69,7 +89,8 @@ const emailProvider: EmailConfig = {
       'Your Herbe Calendar sign-in link',
       `<p>Click the link below to sign in to Herbe Calendar. The link expires in 24 hours.</p>
        <p><a href="${url}" style="background:#cd4c38;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;">Sign in</a></p>
-       <p>If you did not request this, you can safely ignore this email.</p>`
+       <p>If you did not request this, you can safely ignore this email.</p>
+       <p style="font-size: 11px; color: #666;">Target environment: ${url}</p>`
     )
   },
 }
