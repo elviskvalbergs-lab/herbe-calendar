@@ -23,7 +23,7 @@ import { request as httpRequest } from 'node:http'
 import { createGunzip } from 'node:zlib'
 import type { Readable } from 'node:stream'
 import { readFileSync, existsSync } from 'node:fs'
-import { Pool } from 'pg'
+import { Pool } from '@neondatabase/serverless'
 
 // ─── Configuration (overridable via CLI args) ──────────────────────────────────
 // Usage: npx tsx scripts/seed-test-from-prod.ts [dateFrom] [dateTo] [personCode]

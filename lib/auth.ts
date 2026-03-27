@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth'
 import PostgresAdapter from '@auth/pg-adapter'
-import { Pool } from 'pg'
+import { Pool } from '@neondatabase/serverless'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { sendMail } from '@/lib/graph/client'
