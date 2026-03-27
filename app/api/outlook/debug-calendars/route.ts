@@ -31,33 +31,48 @@ export async function GET(req: NextRequest) {
 
     // 2. Identification Logic for null owners
     const identifiedCals = await Promise.all(calendars.map(async (cal: any) => {
-        if (cal.owner) return cal
+        const debugLogs: string[] = []
+        if (cal.owner) return { ...cal, _identifiedBy: 'existing_metadata' }
 
-        // Strategy 1: Explicit select (sometimes Graph returns owner if explicitly asked by ID)
-        const explicitRes = await graphFetch(`/users/${email}/calendars/${cal.id}?$select=name,owner`)
-        if (explicitRes.ok) {
-            const explicitData = await explicitRes.json()
-            if (explicitData.owner) {
-                return { ...cal, owner: explicitData.owner, _identifiedBy: 'explicit_select' }
-            }
-        }
-
-        // Strategy 2: Event Hack (fetch top organizer)
-        const eventRes = await graphFetch(`/users/${email}/calendars/${cal.id}/events?$top=1&$select=organizer`)
-        if (eventRes.ok) {
-            const eventData = await eventRes.json()
-            const topEvent = eventData.value?.[0]
-            if (topEvent?.organizer?.emailAddress) {
-                return { 
-                    ...cal, 
-                    owner: topEvent.organizer.emailAddress, 
-                    _identifiedBy: 'event_organizer',
-                    _sampleEventOrganizer: topEvent.organizer.emailAddress 
+        // Strategy 1: Explicit select
+        try {
+            const explicitRes = await graphFetch(`/users/${email}/calendars/${cal.id}?$select=name,owner`)
+            if (explicitRes.ok) {
+                const explicitData = await explicitRes.json()
+                if (explicitData.owner) {
+                    return { ...cal, owner: explicitData.owner, _identifiedBy: 'explicit_select' }
                 }
+                debugLogs.push('Explicit select returned ok but owner was null')
+            } else {
+                debugLogs.push(`Explicit select failed: ${explicitRes.status} ${await explicitRes.text().catch(() => '')}`)
             }
+        } catch (err) {
+            debugLogs.push(`Explicit select exception: ${err}`)
         }
 
-        return cal
+        // Strategy 2: Event Hack
+        try {
+            const eventRes = await graphFetch(`/users/${email}/calendars/${cal.id}/events?$top=1&$select=organizer`)
+            if (eventRes.ok) {
+                const eventData = await eventRes.json()
+                const topEvent = eventData.value?.[0]
+                if (topEvent?.organizer?.emailAddress) {
+                    return { 
+                        ...cal, 
+                        owner: topEvent.organizer.emailAddress, 
+                        _identifiedBy: 'event_organizer',
+                        _sampleEventOrganizer: topEvent.organizer.emailAddress 
+                    }
+                }
+                debugLogs.push('Event hack returned ok but no events found')
+            } else {
+                debugLogs.push(`Event hack failed: ${eventRes.status} ${await eventRes.text().catch(() => '')}`)
+            }
+        } catch (err) {
+            debugLogs.push(`Event hack exception: ${err}`)
+        }
+
+        return { ...cal, _identifiedBy: 'failed', _debugLogs: debugLogs }
     }))
 
     // 3. Calendar Groups
