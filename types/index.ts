@@ -30,6 +30,7 @@ export interface Activity {
   webLink?: string        // Outlook web UI link that opens this specific event
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
+  isExternal?: boolean   // ICS-backed external calendar
 }
 
 export interface ActivityType {

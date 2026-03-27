@@ -3,7 +3,8 @@ import { useRef, useEffect } from 'react'
 import { Activity, CalendarState } from '@/types'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
-import { addDays, format, parseISO } from 'date-fns'
+import CurrentTimeIndicator from './CurrentTimeIndicator'
+import { addDays, format, parseISO, isToday } from 'date-fns'
 import { minutesToPx, GRID_START_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
 
@@ -91,25 +92,25 @@ export default function CalendarGrid({
           return (
             <div
               key={date}
-              className={`flex-1 min-w-0 flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+              className={`flex-1 min-w-0 flex flex-col${dateIdx > 0 ? ' border-l-[1.5px] border-white/10' : ''}`}
             >
-              {/* Sticky two-row header for this day */}
-              <div className="sticky top-0 z-20 bg-surface">
+              {/* Sticky header for this day */}
+              <div className="sticky top-0 z-20 glass shadow-premium">
                 {isMultiDay && (
-                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
+                  <div className="h-6 flex items-center justify-center border-b border-white/5 text-[9px] font-black uppercase tracking-widest text-text-muted relative">
                     {format(parseISO(date), 'EEE dd/MM')}
                     <button
                       onClick={() => onNewForDate?.(date)}
-                      className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
+                      className="absolute right-2 text-primary font-black text-xs leading-none hover:scale-125 transition-transform"
                       title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
                     >+</button>
                   </div>
                 )}
-                <div className="flex border-b border-border h-10">
+                <div className="flex border-b border-white/5 h-10">
                   {state.selectedPersons.map((person, personIdx) => (
                     <div
                       key={person.code}
-                      className={`flex-1 ${isMultiDay ? colMinW : ''} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
+                      className={`flex-1 ${isMultiDay ? colMinW : ''} flex items-center justify-center text-[10px] font-black tracking-tight border-r border-white/5 last:border-r-0`}
                       style={{ color: personColor(personIdx) }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
@@ -118,9 +119,14 @@ export default function CalendarGrid({
                   ))}
                 </div>
               </div>
-
               {/* Person columns (body only, no header) */}
-              <div className="flex flex-1">
+              <div className="flex flex-1 relative">
+                {isToday(parseISO(date)) && <CurrentTimeIndicator />}
+                {activities.filter(a => a.date === date).length === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] -rotate-90 sm:rotate-0">No Activities</p>
+                  </div>
+                )}
                 {state.selectedPersons.map((person, personIdx) => {
                   const personActivities = activities.filter(
                     a => a.personCode === person.code && a.date === date

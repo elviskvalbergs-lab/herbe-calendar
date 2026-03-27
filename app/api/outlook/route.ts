@@ -4,6 +4,60 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import type { Activity } from '@/types'
+import { getIcsUrlByEmail } from '@/lib/outlook/ics-mapping'
+import ical from 'node-ical'
+import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
+import { Pool } from 'pg'
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+
+async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
+  try {
+    const data = await ical.async.fromURL(url)
+    const rangeStart = startOfDay(parseISO(dateFrom))
+    const rangeEnd = endOfDay(parseISO(dateTo))
+
+    const events: any[] = []
+    for (const k in data) {
+      const ev = data[k]
+      if (!ev || ev.type !== 'VEVENT') continue
+
+      const vevent = ev as ical.VEvent
+      const start = vevent.start
+      const end = vevent.end
+      if (!start || !end) continue
+
+      // Simple overlap check
+      if (isWithinInterval(start, { start: rangeStart, end: rangeEnd }) || 
+          isWithinInterval(end, { start: rangeStart, end: rangeEnd }) ||
+          (start < rangeStart && end > rangeEnd)) {
+        
+        const dtStr = start.toISOString()
+        const endDtStr = end.toISOString()
+
+        events.push({
+          id: `ics-${vevent.uid || k}`,
+          source: 'outlook',
+          isExternal: true,
+          personCode: code,
+          description: vevent.summary || '',
+          date: dtStr.slice(0, 10),
+          timeFrom: dtStr.slice(11, 16),
+          timeTo: endDtStr.slice(11, 16),
+          isOrganizer: false,
+          location: typeof vevent.location === 'string' ? vevent.location : undefined,
+          bodyPreview: vevent.description || '',
+          webLink: '',
+          rsvpStatus: undefined,
+        })
+      }
+    }
+    return events
+  } catch (e) {
+    console.error(`[outlook] ICS fetch failed for ${url}:`, e)
+    return []
+  }
+}
 
 // Cache the full user list for the lifetime of the server process (small list, rarely changes)
 let userListCache: Record<string, string> | null = null  // code → email
@@ -36,10 +90,11 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const persons = searchParams.get('persons')
   const date = searchParams.get('date')
-  const dateFrom = searchParams.get('dateFrom') ?? date
-  const dateTo = searchParams.get('dateTo') ?? date
+  const dateStr = searchParams.get('date')
+  const dateFrom = searchParams.get('dateFrom') ?? dateStr
+  const dateTo = searchParams.get('dateTo') ?? dateStr
 
-  if (!persons || !dateFrom) return NextResponse.json({ error: 'persons and date required' }, { status: 400 })
+  if (!persons || !dateFrom || !dateTo) return NextResponse.json({ error: 'persons and dates required' }, { status: 400 })
 
   const personList = persons.split(',').map(p => p.trim())
   const sessionEmail = session.email
@@ -48,6 +103,20 @@ export async function GET(req: NextRequest) {
     const results = await Promise.all(personList.map(async code => {
       const email = await emailForCode(code)
       if (!email) return []
+
+      // --- ICS FALLBACK CHECK (DB-backed) ---
+      try {
+        const { rows: icsRows } = await pool.query(
+          'SELECT ics_url FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 LIMIT 1',
+          [session.email, code]
+        )
+        if (icsRows.length > 0) {
+          console.log(`[outlook] Using DB ICS fallback for ${code} (${icsRows[0].ics_url})`)
+          return fetchIcsEvents(icsRows[0].ics_url, code, dateFrom, dateTo)
+        }
+      } catch (e) {
+        console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
+      }
 
       // calendarView expands recurring events automatically; no type filter needed
       const startDt = `${dateFrom}T00:00:00`
@@ -94,7 +163,8 @@ export async function GET(req: NextRequest) {
       if (!res.ok) {
         const errText = await res.text()
         console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
-        throw new Error(`Graph ${res.status}: ${errText}`)
+        // Don't throw if one fails, just return empty so others can load
+        return []
       }
       const data = await res.json()
       return (data.value ?? []).map((ev: Record<string, unknown>) => {

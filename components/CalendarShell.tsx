@@ -5,7 +5,7 @@ import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState } fro
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
-import ColorSettings from './ColorSettings'
+import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
@@ -463,9 +463,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       )}
 
       {colorSettingsOpen && (
-        <ColorSettings
+        <SettingsModal
           classGroups={classGroups}
           colorMap={classGroupToColor}
+          persons={people}
           error={classGroupsError}
           onClose={() => setColorSettingsOpen(false)}
           onColorChange={(groupCode, color) => {
