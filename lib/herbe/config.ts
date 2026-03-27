@@ -1,6 +1,4 @@
-import { Pool } from '@neondatabase/serverless'
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+import { pool } from '@/lib/db'
 
 const HERBE_TOKEN_KEY = 'herbe_access_token'
 const HERBE_REFRESH_KEY = 'herbe_refresh_token'

@@ -1,13 +1,11 @@
 import NextAuth from 'next-auth'
 import PostgresAdapter from '@auth/pg-adapter'
-import { Pool } from '@neondatabase/serverless'
+import { pool } from '@/lib/db'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { sendMail } from '@/lib/graph/client'
 import type { EmailConfig } from 'next-auth/providers/email'
 import { AccessDenied } from '@auth/core/errors'
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 // Cache email → userCode lookups for 1 hour to avoid fetching all users on every session callback
 const userCache = new Map<string, { userCode: string; expiresAt: number }>()

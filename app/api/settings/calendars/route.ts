@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from '@neondatabase/serverless'
 import { auth } from '@/lib/auth'
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+import { pool } from '@/lib/db'
 
 // Simple auto-migration helper
 let tableChecked = false
@@ -16,10 +14,9 @@ async function ensureTable() {
       name TEXT NOT NULL,
       ics_url TEXT NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE INDEX IF NOT EXISTS idx_user_calendars_user_email ON user_calendars(user_email);
-    CREATE INDEX IF NOT EXISTS idx_user_calendars_target_person_code ON user_calendars(target_person_code);
-  `)
+    )`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_user_email ON user_calendars(user_email)`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_target_person_code ON user_calendars(target_person_code)`)
   tableChecked = true
 }
 

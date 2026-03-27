@@ -6,9 +6,7 @@ import { REGISTERS } from '@/lib/herbe/constants'
 import type { Activity } from '@/types'
 import ICAL from 'ical.js'
 import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
-import { Pool } from '@neondatabase/serverless'
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+import { pool } from '@/lib/db'
 
 async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
   try {
