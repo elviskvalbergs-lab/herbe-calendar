@@ -186,17 +186,28 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
             <button onClick={() => setDebugCalsOpen(false)} className="text-text-muted hover:text-white">✕</button>
           </div>
           <div className="p-4 overflow-auto space-y-6">
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase text-text-muted">Guest User Verification</h4>
-              {debugGuests.map(g => (
-                <div key={g.email} className={`p-2 rounded text-xs border ${g.userFound ? 'bg-green-500/10 border-green-500/50' : 'bg-red-500/10 border-red-500/50'}`}>
-                  <div className="font-bold flex justify-between">
-                    <span>{g.email}</span>
-                    <span className={g.userFound ? 'text-green-400' : 'text-red-400'}>{g.userFound ? 'FOUND' : 'MISSING'} (HTTP {g.userStatus})</span>
-                  </div>
-                  <div className="mt-1 opacity-70">
-                    Calendar Status: <span className={g.calendarFound ? 'text-green-400' : 'text-red-400'}>{g.calendarFound ? 'ACCESSIBLE' : 'LOCKED/MISSING'} (HTTP {g.calendarStatus})</span>
-                  </div>
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Guest User Verification (Search)</h4>
+              {debugGuests.map(search => (
+                <div key={search.prefix} className="space-y-2">
+                  <div className="text-[10px] font-bold text-text-muted">Prefix: {search.prefix} ({search.foundCount || 0} found)</div>
+                  {search.matches?.map((m: any) => (
+                    <div key={m.id} className="p-2 rounded text-xs border bg-surface border-border">
+                      <div className="font-bold flex justify-between">
+                        <span>{m.displayName}</span>
+                        <span className={m.calendarStatus === 200 ? 'text-green-400' : 'text-orange-400'}>
+                          Calendar: {m.calendarStatus === 200 ? 'ACCESSIBLE' : `HTTP ${m.calendarStatus}`}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[10px] space-y-1">
+                        <div><span className="opacity-50">UPN:</span> {m.upn}</div>
+                        <div><span className="opacity-50">Mail:</span> {m.mail || 'n/a'}</div>
+                        <div><span className="opacity-50">ID:</span> {m.id}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {search.error && <div className="text-red-400 text-[10px]">{search.error}</div>}
+                  {!search.error && (!search.matches || search.matches.length === 0) && <div className="text-red-400 text-[10px]">No users found for "{search.prefix}"</div>}
                 </div>
               ))}
             </div>

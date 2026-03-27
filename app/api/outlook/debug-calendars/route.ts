@@ -20,22 +20,33 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const full = searchParams.get('full') === '1'
     
-    // 0. Guest User Verification
-    const guests = ['elvis@excellent.lv', 'barba@excellent.lv']
-    const guestStatus = await Promise.all(guests.map(async (g) => {
+    // 0. Guest User Verification (Search-based)
+    const guestSearches = ['elvis', 'barba']
+    const guestStatus = await Promise.all(guestSearches.map(async (prefix) => {
         try {
-            const uRes = await graphFetch(`/users/${g}`)
-            const calRes = await graphFetch(`/users/${g}/calendar`)
+            // Search by prefix in mail or userPrincipalName
+            const searchRes = await graphFetch(`/users?$filter=startsWith(mail, '${prefix}') or startsWith(userPrincipalName, '${prefix}')`)
+            if (!searchRes.ok) return { prefix, error: `Search failed: ${searchRes.status}` }
+            
+            const searchData = await searchRes.json()
+            const found = searchData.value ?? []
+            
             return {
-                email: g,
-                userFound: uRes.status === 200,
-                userStatus: uRes.status,
-                calendarFound: calRes.status === 200,
-                calendarStatus: calRes.status,
-                ...(uRes.status === 200 ? { details: await uRes.json() } : {})
+                prefix,
+                foundCount: found.length,
+                matches: await Promise.all(found.map(async (u: any) => {
+                    const calRes = await graphFetch(`/users/${u.id}/calendar`)
+                    return {
+                        displayName: u.displayName,
+                        mail: u.mail,
+                        upn: u.userPrincipalName,
+                        id: u.id,
+                        calendarStatus: calRes.status
+                    }
+                }))
             }
         } catch (e) {
-            return { email: g, error: String(e) }
+            return { prefix, error: String(e) }
         }
     }))
 
