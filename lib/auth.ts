@@ -97,6 +97,7 @@ const emailProvider: EmailConfig = {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  secret: process.env.NEXTAUTH_SECRET,
   adapter: PostgresAdapter(pool),
   providers: [emailProvider],
   callbacks: {
