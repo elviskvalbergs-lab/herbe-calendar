@@ -1,63 +1,42 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { auth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { graphFetch } from '@/lib/graph/client'
 import Link from 'next/link'
 
-export default function DebugCalendarsPage() {
-  const { data: session, status } = useSession()
-  const [calendars, setCalendars] = useState<any[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+export default async function DebugCalendarsPage() {
+  const session = await auth()
+  if (!session) redirect('/login')
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      loadCalendars()
+  const email = session.user.email
+  let calendars: any[] = []
+  let error: string | null = null
+
+  try {
+    const res = await graphFetch(`/users/${email}/calendars?$select=id,name,owner,canEdit`)
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Graph failed: ${res.status} ${err}`)
     }
-  }, [status])
-
-  async function loadCalendars() {
-    setLoading(true)
-    setError(null)
-    try {
-      // Use the existing API route or a modified one
-      const res = await fetch('/api/outlook/debug-calendars')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message || data.error || 'Failed to fetch')
-      setCalendars(data.calendars || [])
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (status === 'loading') return <div className="p-8">Verifying session...</div>
-  
-  if (status === 'unauthenticated') {
-    return (
-      <div className="p-8 space-y-4">
-        <h1 className="text-2xl font-bold text-red-500">Not Signed In</h1>
-        <p>You must be signed in to view your calendars.</p>
-        <Link href="/login" className="px-4 py-2 bg-primary text-white rounded-lg inline-block">Sign In</Link>
-      </div>
-    )
+    const data = await res.json()
+    calendars = data.value ?? []
+  } catch (e) {
+    error = String(e)
   }
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Outlook Calendars Debug</h1>
-        <button 
-          onClick={loadCalendars} 
-          disabled={loading}
+        <h1 className="text-2xl font-bold">Outlook Calendars Debug (Server)</h1>
+        <Link 
+          href="/debug-calendars"
           className="px-4 py-2 border border-border rounded-lg hover:bg-border text-sm font-bold"
         >
-          {loading ? 'Refreshing...' : '↻ Refresh'}
-        </button>
+          ↻ Refresh
+        </Link>
       </div>
 
       <div className="p-4 rounded-xl border border-border bg-surface">
-        <p className="text-sm text-text-muted">Signed in as: <strong>{session?.user?.email}</strong></p>
+        <p className="text-sm text-text-muted">Signed in as: <strong>{email}</strong></p>
       </div>
 
       {error && (
@@ -81,7 +60,7 @@ export default function DebugCalendarsPage() {
             </div>
           ))}
         </div>
-      ) : !loading && (
+      ) : !error && (
         <p className="text-text-muted text-center py-12">No calendars found.</p>
       )}
 
