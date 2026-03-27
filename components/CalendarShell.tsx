@@ -43,6 +43,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     editId?: string
     canEdit?: boolean
   }>({ open: false })
+  const [debugCalsOpen, setDebugCalsOpen] = useState(false)
+  const [debugCals, setDebugCals] = useState<any[]>([])
+  const [debugLoading, setDebugLoading] = useState(false)
 
   // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
   useEffect(() => {
@@ -153,6 +156,50 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
   function getTypeName(typeCode: string): string {
     return activityTypes.find(t => t.code === typeCode)?.name ?? ''
+  }
+
+  async function loadDebugCals() {
+    setDebugLoading(true)
+    try {
+      const res = await fetch('/api/outlook/debug-calendars')
+      const data = await res.json()
+      setDebugCals(data.calendars || [])
+      setDebugCalsOpen(true)
+    } catch (e) {
+      setStatus({ msg: `Debug fetch failed: ${e}`, ok: false })
+    } finally {
+      setDebugLoading(false)
+    }
+  }
+
+  function renderDebugModal() {
+    if (!debugCalsOpen) return null
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-2xl bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-bold">Outlook Shared Calendars Debug</h3>
+            <button onClick={() => setDebugCalsOpen(false)} className="text-text-muted hover:text-white">✕</button>
+          </div>
+          <div className="p-4 overflow-auto space-y-3">
+            {debugCals.map(cal => (
+              <div key={cal.id} className="p-3 border border-border rounded-lg bg-bg text-sm">
+                <div className="font-bold">{cal.name}</div>
+                <div className="text-text-muted text-xs truncate">{cal.id}</div>
+                <div className="mt-1 flex gap-4 text-xs italic">
+                  <span>Owner: {cal.owner?.address}</span>
+                  <span>Can Edit: {cal.canEdit ? 'Yes' : 'No'}</span>
+                </div>
+              </div>
+            ))}
+            {debugCals.length === 0 && <div className="text-center py-8 text-text-muted">No calendars found (check App-only token scope)</div>}
+          </div>
+          <div className="p-4 bg-bg text-[10px] text-text-muted font-mono break-all line-clamp-1">
+            Perspectives of the server-side App Token for your mailbox.
+          </div>
+        </div>
+      </div>
+    )
   }
 
   function reloadColorData(bust = false) {
@@ -354,7 +401,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       />
       {status && (
         <div
-          className="px-3 py-1 text-xs font-mono border-t shrink-0"
+          className="px-3 py-1 text-xs font-mono border-t shrink-0 flex items-center justify-between"
           style={status.ok === false
             ? { background: 'var(--status-err-bg)', borderColor: 'var(--status-err-border)', color: 'var(--status-err-text)' }
             : status.ok === true
@@ -362,7 +409,14 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
             : undefined
           }
         >
-          {status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}
+          <div>{status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}</div>
+          <button 
+            onClick={loadDebugCals} 
+            className="ml-4 underline hover:text-white opacity-50 hover:opacity-100"
+            disabled={debugLoading}
+          >
+            {debugLoading ? 'Loading...' : 'Debug Calendars'}
+          </button>
         </div>
       )}
 
@@ -424,6 +478,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           +
         </button>
       )}
+
+      {renderDebugModal()}
     </div>
   )
 }
