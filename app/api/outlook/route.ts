@@ -4,27 +4,28 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import type { Activity } from '@/types'
-import { getIcsUrlByEmail } from '@/lib/outlook/ics-mapping'
-import ical from 'node-ical'
+import ICAL from 'ical.js'
 import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
-import { Pool } from 'pg'
+import { Pool } from '@neondatabase/serverless'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
 async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
   try {
-    const data = await ical.async.fromURL(url)
+    const res = await fetch(url)
+    const icsText = await res.text()
+    const jcalData = ICAL.parse(icsText)
+    const vcalendar = new ICAL.Component(jcalData)
+    const vevents = vcalendar.getAllSubcomponents('vevent')
+
     const rangeStart = startOfDay(parseISO(dateFrom))
     const rangeEnd = endOfDay(parseISO(dateTo))
 
     const events: any[] = []
-    for (const k in data) {
-      const ev = data[k]
-      if (!ev || ev.type !== 'VEVENT') continue
-
-      const vevent = ev as ical.VEvent
-      const start = vevent.start
-      const end = vevent.end
+    for (const comp of vevents) {
+      const event = new ICAL.Event(comp)
+      const start = event.startDate.toJSDate()
+      const end = event.endDate.toJSDate()
       if (!start || !end) continue
 
       // Simple overlap check
@@ -36,17 +37,17 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
         const endDtStr = end.toISOString()
 
         events.push({
-          id: `ics-${vevent.uid || k}`,
-          source: 'outlook',
+          id: `ics-${event.uid}`,
+          source: 'outlook' as const,
           isExternal: true,
           personCode: code,
-          description: vevent.summary || '',
+          description: event.summary || '',
           date: dtStr.slice(0, 10),
           timeFrom: dtStr.slice(11, 16),
           timeTo: endDtStr.slice(11, 16),
           isOrganizer: false,
-          location: typeof vevent.location === 'string' ? vevent.location : undefined,
-          bodyPreview: vevent.description || '',
+          location: event.location || undefined,
+          bodyPreview: event.description || '',
           webLink: '',
           rsvpStatus: undefined,
         })
@@ -54,7 +55,7 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
     }
     return events
   } catch (e) {
-    console.error(`[outlook] ICS fetch failed for ${url}:`, e)
+    console.error(`[outlook] ICS fetch/parse failed for ${url}:`, e)
     return []
   }
 }
@@ -89,7 +90,6 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const persons = searchParams.get('persons')
-  const date = searchParams.get('date')
   const dateStr = searchParams.get('date')
   const dateFrom = searchParams.get('dateFrom') ?? dateStr
   const dateTo = searchParams.get('dateTo') ?? dateStr

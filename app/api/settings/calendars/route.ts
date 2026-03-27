@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Pool } from 'pg'
+import { Pool } from '@neondatabase/serverless'
 import { auth } from '@/lib/auth'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
