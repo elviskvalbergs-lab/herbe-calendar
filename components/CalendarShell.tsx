@@ -46,6 +46,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [debugCalsOpen, setDebugCalsOpen] = useState(false)
   const [debugCals, setDebugCals] = useState<any[]>([])
   const [debugGroups, setDebugGroups] = useState<any[]>([])
+  const [debugGuests, setDebugGuests] = useState<any[]>([])
   const [debugLoading, setDebugLoading] = useState(false)
 
   // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
@@ -166,6 +167,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       const data = await res.json()
       setDebugCals(data.calendars || [])
       setDebugGroups(data.calendarGroups || [])
+      setDebugGuests(data.guestStatus || [])
       setDebugCalsOpen(true)
     } catch (e) {
       setStatus({ msg: `Debug fetch failed: ${e}`, ok: false })
@@ -184,6 +186,21 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
             <button onClick={() => setDebugCalsOpen(false)} className="text-text-muted hover:text-white">✕</button>
           </div>
           <div className="p-4 overflow-auto space-y-6">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Guest User Verification</h4>
+              {debugGuests.map(g => (
+                <div key={g.email} className={`p-2 rounded text-xs border ${g.userFound ? 'bg-green-500/10 border-green-500/50' : 'bg-red-500/10 border-red-500/50'}`}>
+                  <div className="font-bold flex justify-between">
+                    <span>{g.email}</span>
+                    <span className={g.userFound ? 'text-green-400' : 'text-red-400'}>{g.userFound ? 'FOUND' : 'MISSING'} (HTTP {g.userStatus})</span>
+                  </div>
+                  <div className="mt-1 opacity-70">
+                    Calendar Status: <span className={g.calendarFound ? 'text-green-400' : 'text-red-400'}>{g.calendarFound ? 'ACCESSIBLE' : 'LOCKED/MISSING'} (HTTP {g.calendarStatus})</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="space-y-2">
               <h4 className="text-xs font-bold uppercase text-text-muted">Calendars</h4>
               {debugCals.map(cal => (

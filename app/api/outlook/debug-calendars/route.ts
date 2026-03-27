@@ -20,6 +20,25 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const full = searchParams.get('full') === '1'
     
+    // 0. Guest User Verification
+    const guests = ['elvis@excellent.lv', 'barba@excellent.lv']
+    const guestStatus = await Promise.all(guests.map(async (g) => {
+        try {
+            const uRes = await graphFetch(`/users/${g}`)
+            const calRes = await graphFetch(`/users/${g}/calendar`)
+            return {
+                email: g,
+                userFound: uRes.status === 200,
+                userStatus: uRes.status,
+                calendarFound: calRes.status === 200,
+                calendarStatus: calRes.status,
+                ...(uRes.status === 200 ? { details: await uRes.json() } : {})
+            }
+        } catch (e) {
+            return { email: g, error: String(e) }
+        }
+    }))
+
     // 1. List all calendars
     const res = await graphFetch(`/users/${email}/calendars${full ? '' : '?$select=id,name,owner,canEdit'}`)
     if (!res.ok) {
@@ -86,6 +105,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
         user: email,
+        guestStatus,
         calendars: identifiedCals,
         calendarGroups: groupsData.value ?? []
     })
