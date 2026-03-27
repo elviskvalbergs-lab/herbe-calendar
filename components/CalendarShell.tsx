@@ -45,6 +45,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   }>({ open: false })
   const [debugCalsOpen, setDebugCalsOpen] = useState(false)
   const [debugCals, setDebugCals] = useState<any[]>([])
+  const [debugGroups, setDebugGroups] = useState<any[]>([])
   const [debugLoading, setDebugLoading] = useState(false)
 
   // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
@@ -164,6 +165,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       const res = await fetch('/api/outlook/debug-calendars?full=1')
       const data = await res.json()
       setDebugCals(data.calendars || [])
+      setDebugGroups(data.calendarGroups || [])
       setDebugCalsOpen(true)
     } catch (e) {
       setStatus({ msg: `Debug fetch failed: ${e}`, ok: false })
@@ -181,13 +183,26 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
             <h3 className="font-bold">Outlook Shared Calendars Debug</h3>
             <button onClick={() => setDebugCalsOpen(false)} className="text-text-muted hover:text-white">✕</button>
           </div>
-          <div className="p-4 overflow-auto space-y-3">
-            {debugCals.map(cal => (
-                <pre className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
-                  {JSON.stringify(cal, null, 2)}
-                </pre>
-            ))}
-            {debugCals.length === 0 && <div className="text-center py-8 text-text-muted">No calendars found (check App-only token scope)</div>}
+          <div className="p-4 overflow-auto space-y-6">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Calendars</h4>
+              {debugCals.map(cal => (
+                  <pre key={cal.id} className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
+                    {JSON.stringify(cal, null, 2)}
+                  </pre>
+              ))}
+              {debugCals.length === 0 && <div className="text-center py-4 text-text-muted">No calendars found</div>}
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Calendar Groups</h4>
+              {debugGroups.map(grp => (
+                  <pre key={grp.id} className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
+                    {JSON.stringify(grp, null, 2)}
+                  </pre>
+              ))}
+              {debugGroups.length === 0 && <div className="text-center py-4 text-text-muted">No groups found</div>}
+            </div>
           </div>
           <div className="p-4 bg-bg text-[10px] text-text-muted font-mono break-all line-clamp-1">
             Perspectives of the server-side App Token for your mailbox.
