@@ -50,9 +50,14 @@ export async function GET(req: NextRequest) {
             debugLogs.push(`Explicit select exception: ${err}`)
         }
 
-        // Strategy 2: Event Hack
+        // Strategy 2: Event Hack (Aggressive)
         try {
-            const eventRes = await graphFetch(`/users/${email}/calendars/${cal.id}/events?$top=1&$select=organizer`)
+            const start = new Date()
+            start.setFullYear(start.getFullYear() - 1)
+            const end = new Date()
+            end.setFullYear(end.getFullYear() + 1)
+            const viewQuery = `?startDateTime=${start.toISOString()}&endDateTime=${end.toISOString()}&$top=1&$select=organizer`
+            const eventRes = await graphFetch(`/users/${email}/calendars/${cal.id}/calendarView${viewQuery}`)
             if (eventRes.ok) {
                 const eventData = await eventRes.json()
                 const topEvent = eventData.value?.[0]
@@ -60,16 +65,16 @@ export async function GET(req: NextRequest) {
                     return { 
                         ...cal, 
                         owner: topEvent.organizer.emailAddress, 
-                        _identifiedBy: 'event_organizer',
+                        _identifiedBy: 'event_organizer_view',
                         _sampleEventOrganizer: topEvent.organizer.emailAddress 
                     }
                 }
-                debugLogs.push('Event hack returned ok but no events found')
+                debugLogs.push('Event hack (view) returned ok but still no events found in 2-year window')
             } else {
-                debugLogs.push(`Event hack failed: ${eventRes.status} ${await eventRes.text().catch(() => '')}`)
+                debugLogs.push(`Event hack (view) failed: ${eventRes.status} ${await eventRes.text().catch(() => '')}`)
             }
         } catch (err) {
-            debugLogs.push(`Event hack exception: ${err}`)
+            debugLogs.push(`Event hack (view) exception: ${err}`)
         }
 
         return { ...cal, _identifiedBy: 'failed', _debugLogs: debugLogs }
