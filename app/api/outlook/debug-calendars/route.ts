@@ -17,7 +17,11 @@ export async function GET(req: NextRequest) {
       }, { status: 401 })
     }
 
-    const res = await graphFetch(`/users/${email}/calendars?$select=id,name,owner,canEdit`)
+    const { searchParams } = new URL(req.url)
+    const full = searchParams.get('full') === '1'
+    const query = full ? '' : '?$select=id,name,owner,canEdit'
+
+    const res = await graphFetch(`/users/${email}/calendars${query}`)
     if (!res.ok) {
         const err = await res.text()
         return NextResponse.json({ error: `Graph failed: ${res.status}`, detail: err }, { status: res.status })

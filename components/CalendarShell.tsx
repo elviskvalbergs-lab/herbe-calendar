@@ -161,7 +161,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   async function loadDebugCals() {
     setDebugLoading(true)
     try {
-      const res = await fetch('/api/outlook/debug-calendars')
+      const res = await fetch('/api/outlook/debug-calendars?full=1')
       const data = await res.json()
       setDebugCals(data.calendars || [])
       setDebugCalsOpen(true)
@@ -183,14 +183,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           </div>
           <div className="p-4 overflow-auto space-y-3">
             {debugCals.map(cal => (
-              <div key={cal.id} className="p-3 border border-border rounded-lg bg-bg text-sm">
-                <div className="font-bold">{cal.name}</div>
-                <div className="text-text-muted text-xs truncate">{cal.id}</div>
-                <div className="mt-1 flex gap-4 text-xs italic">
-                  <span>Owner: {JSON.stringify(cal.owner)}</span>
-                  <span>Can Edit: {cal.canEdit ? 'Yes' : 'No'}</span>
-                </div>
-              </div>
+                <pre className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
+                  {JSON.stringify(cal, null, 2)}
+                </pre>
             ))}
             {debugCals.length === 0 && <div className="text-center py-8 text-text-muted">No calendars found (check App-only token scope)</div>}
           </div>
