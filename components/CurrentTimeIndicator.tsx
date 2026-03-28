@@ -13,12 +13,12 @@ export default function CurrentTimeIndicator() {
   const top = timeToTopPx(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`)
 
   return (
-    <div 
+    <div
       className="absolute left-0 right-0 z-10 pointer-events-none flex items-center"
       style={{ top }}
     >
-      <div className="w-2 h-2 rounded-full bg-primary shadow-glow-primary ml-[-4px]" />
-      <div className="flex-1 h-[1.5px] bg-primary/40 shadow-glow-primary" />
+      <div className="w-2 h-2 rounded-full bg-primary ml-[-4px]" />
+      <div className="flex-1 h-[1.5px] bg-primary/40" />
     </div>
   )
 }
