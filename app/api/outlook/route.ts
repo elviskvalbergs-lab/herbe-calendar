@@ -222,7 +222,10 @@ export async function GET(req: NextRequest) {
           rsvpStatus,
         }
       })
-      return [...graphEvents, ...icsEvents]
+      // Deduplicate: if an ICS event matches a Graph event by date+time+subject, skip it
+      const graphKeys = new Set(graphEvents.map((e: any) => `${e.date}|${e.timeFrom}|${e.timeTo}|${e.description.toLowerCase()}`))
+      const uniqueIcs = icsEvents.filter((e: any) => !graphKeys.has(`${e.date}|${e.timeFrom}|${e.timeTo}|${e.description.toLowerCase()}`))
+      return [...graphEvents, ...uniqueIcs]
     }))
     return NextResponse.json(results.flat())
   } catch (e) {
