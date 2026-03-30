@@ -92,7 +92,6 @@ export default function CalendarGrid({
   // --- Edge navigation buttons (visible on mobile when scrolled to edge) ---
   const [atLeft, setAtLeft] = useState(true)
   const [atRight, setAtRight] = useState(false)
-  const [atTop, setAtTop] = useState(false)
   const needsHScroll = totalColumns > maxVisibleCols
 
   const updateEdges = useCallback(() => {
@@ -100,7 +99,6 @@ export default function CalendarGrid({
     if (!el) return
     setAtLeft(el.scrollLeft <= 1)
     setAtRight(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1)
-    setAtTop(el.scrollTop <= 1)
   }, [])
 
   useEffect(() => {
@@ -157,20 +155,6 @@ export default function CalendarGrid({
             <span className="text-[8px]">+{viewDays}d</span>
           </span>
         </button>
-      )}
-
-      {/* Pull-to-refresh: simple button at top when scrolled to top */}
-      {atTop && (
-        <div className="sticky top-0 left-0 right-0 z-30 flex justify-center pointer-events-none">
-          <button
-            onClick={onRefresh}
-            className="pointer-events-auto mt-1 px-3 py-1 text-[10px] font-bold
-              text-text-muted bg-surface/90 border border-border rounded-full shadow
-              active:bg-primary active:text-white active:border-primary transition-colors"
-          >
-            ↻ Refresh
-          </button>
-        </div>
       )}
 
       <div className="flex">
