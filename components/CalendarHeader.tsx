@@ -5,6 +5,7 @@ import { Person, CalendarState } from '@/types'
 import { signOut } from 'next-auth/react'
 import { personColor } from '@/lib/colors'
 import PersonSelector from './PersonSelector'
+import FavoritesDropdown from './FavoritesDropdown'
 
 interface Props {
   state: CalendarState
@@ -14,11 +15,13 @@ interface Props {
   onRefresh: () => void
   onColorSettings: () => void
   onShortcuts: () => void
+  onApplyFavorite: (view: CalendarState['view'], personCodes: string[]) => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, onApplyFavorite }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
+  const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
 
   const viewStep = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
@@ -88,6 +91,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           className="text-text-muted text-xl leading-none px-1"
           title="Add person"
         >+</button>
+        <span className="hidden lg:inline-flex">
+          <FavoritesDropdown state={state} onApply={onApplyFavorite} />
+        </span>
       </div>
 
       {/* Sign out — desktop only (mobile: in hamburger menu) */}
@@ -115,6 +121,15 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
             <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
             {/* right-0 ensures popup stays on screen regardless of where the hamburger is positioned */}
             <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
+              <button
+                onClick={() => { setHamburgerOpen(false); setMobileFavsOpen(true) }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                Favorites
+              </button>
               <button
                 onClick={() => { setHamburgerOpen(false); onColorSettings() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
@@ -183,6 +198,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       >
         + New
       </button>
+
+      {mobileFavsOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:hidden" onClick={() => setMobileFavsOpen(false)}>
+          <div className="w-full max-w-md bg-surface border-t border-border rounded-t-2xl shadow-2xl p-4 pb-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm">Favorites</h3>
+              <button onClick={() => setMobileFavsOpen(false)} className="text-text-muted text-lg">✕</button>
+            </div>
+            <FavoritesDropdown state={state} onApply={(view, codes) => { setMobileFavsOpen(false); onApplyFavorite(view, codes) }} inline />
+          </div>
+        </div>
+      )}
 
       {selectorOpen && (
         <PersonSelector

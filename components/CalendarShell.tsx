@@ -404,6 +404,11 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onRefresh={fetchActivities}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
+        onApplyFavorite={(view, personCodes) => {
+          const resolved = personCodes
+            .map(code => people.find(p => p.code === code) ?? { code, name: code, email: '' })
+          setState(s => ({ ...s, view, selectedPersons: resolved }))
+        }}
       />
       <CalendarGrid
         state={state}

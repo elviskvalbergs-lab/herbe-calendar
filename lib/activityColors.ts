@@ -82,6 +82,7 @@ export function getActivityColor(
   typeToClassGroup: Map<string, string>,
   classGroupToColor: Map<string, string>
 ): string {
+  if (activity.icsColor) return activity.icsColor
   if (activity.source === 'outlook') return OUTLOOK_COLOR
   if (!activity.activityTypeCode) return FALLBACK_COLOR
   const grp = typeToClassGroup.get(activity.activityTypeCode)

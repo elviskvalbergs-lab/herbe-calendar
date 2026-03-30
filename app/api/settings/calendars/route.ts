@@ -13,10 +13,13 @@ async function ensureTable() {
       target_person_code TEXT NOT NULL,
       name TEXT NOT NULL,
       ics_url TEXT NOT NULL,
+      color TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )`)
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_user_email ON user_calendars(user_email)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_target_person_code ON user_calendars(target_person_code)`)
+  // Add color column if missing (existing tables)
+  await pool.query(`ALTER TABLE user_calendars ADD COLUMN IF NOT EXISTS color TEXT`)
   tableChecked = true
 }
 
@@ -27,7 +30,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureTable()
     const { rows } = await pool.query(
-      'SELECT id, target_person_code as "personCode", name, ics_url as "icsUrl" FROM user_calendars WHERE user_email = $1 ORDER BY created_at DESC',
+      'SELECT id, target_person_code as "personCode", name, ics_url as "icsUrl", color FROM user_calendars WHERE user_email = $1 ORDER BY created_at DESC',
       [session.user.email]
     )
     return NextResponse.json(rows)
@@ -48,10 +51,40 @@ export async function POST(req: NextRequest) {
     }
 
     const { rows } = await pool.query(
-      'INSERT INTO user_calendars (user_email, target_person_code, name, ics_url) VALUES ($1, $2, $3, $4) RETURNING id',
-      [session.user.email, personCode, name, icsUrl]
+      'INSERT INTO user_calendars (user_email, target_person_code, name, ics_url, color) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [session.user.email, personCode, name, icsUrl, null]
     )
     return NextResponse.json(rows[0], { status: 201 })
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await auth()
+  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    await ensureTable()
+    const { id, name, icsUrl, personCode, color } = await req.json()
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+    const sets: string[] = []
+    const vals: any[] = []
+    let idx = 1
+    if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name) }
+    if (icsUrl !== undefined) { sets.push(`ics_url = $${idx++}`); vals.push(icsUrl) }
+    if (personCode !== undefined) { sets.push(`target_person_code = $${idx++}`); vals.push(personCode) }
+    if (color !== undefined) { sets.push(`color = $${idx++}`); vals.push(color || null) }
+
+    if (sets.length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+
+    vals.push(id, session.user.email)
+    await pool.query(
+      `UPDATE user_calendars SET ${sets.join(', ')} WHERE id = $${idx++} AND user_email = $${idx}`,
+      vals
+    )
+    return NextResponse.json({ success: true })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

@@ -39,6 +39,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
   const [customCals, setCustomCals] = useState<any[]>([])
   const [calLoading, setCalLoading] = useState(false)
   const [newCal, setNewCal] = useState({ personCode: '', name: '', icsUrl: '' })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', icsUrl: '', personCode: '', color: '' })
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
@@ -95,6 +97,41 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
       if (res.ok) fetchCustomCals()
     } catch (e) {
       console.error('Failed to delete calendar:', e)
+    }
+  }
+
+  function startEdit(cal: any) {
+    setEditingId(cal.id)
+    setEditForm({ name: cal.name, icsUrl: cal.icsUrl, personCode: cal.personCode, color: cal.color || '' })
+  }
+
+  async function handleSaveEdit() {
+    if (!editingId) return
+    try {
+      const res = await fetch('/api/settings/calendars', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, ...editForm })
+      })
+      if (res.ok) {
+        setEditingId(null)
+        fetchCustomCals()
+      }
+    } catch (e) {
+      console.error('Failed to update calendar:', e)
+    }
+  }
+
+  async function handleColorChange(id: string, color: string) {
+    try {
+      await fetch('/api/settings/calendars', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, color })
+      })
+      fetchCustomCals()
+    } catch (e) {
+      console.error('Failed to update color:', e)
     }
   }
 
@@ -287,22 +324,87 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                 ) : (
                   <div className="space-y-2">
                     {customCals.map(c => (
-                      <div key={c.id} className="flex items-center justify-between p-3 bg-bg border border-border rounded-lg group hover:border-text-muted">
-                        <div>
-                          <div className="text-xs font-bold flex items-center gap-2">
-                            <span>{c.name}</span>
-                            <span className="text-[10px] text-primary">ICS</span>
+                      <div key={c.id} className="p-3 bg-bg border border-border rounded-lg">
+                        {editingId === c.id ? (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <select
+                                className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                                value={editForm.personCode}
+                                onChange={e => setEditForm(f => ({ ...f, personCode: e.target.value }))}
+                              >
+                                {persons.map(p => (
+                                  <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
+                                ))}
+                              </select>
+                              <input
+                                className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                                value={editForm.name}
+                                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                                placeholder="Calendar Name"
+                              />
+                            </div>
+                            <input
+                              className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                              value={editForm.icsUrl}
+                              onChange={e => setEditForm(f => ({ ...f, icsUrl: e.target.value }))}
+                              placeholder="ICS URL"
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={handleSaveEdit} className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90">Save</button>
+                              <button onClick={() => setEditingId(null)} className="text-text-muted text-xs px-3 py-1.5 rounded-lg hover:bg-border">Cancel</button>
+                            </div>
                           </div>
-                          <div className="text-[10px] text-text-muted mt-0.5">
-                            Assigned to: <span className="text-text font-bold">{persons.find(p => p.code === c.personCode)?.name || c.personCode}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteCal(c.id)}
-                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-500 p-2 text-xs"
-                        >
-                          Remove
-                        </button>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-xs font-bold flex items-center gap-2">
+                                  <div className="w-2.5 h-2.5 rounded-full border" style={{ background: c.color || OUTLOOK_COLOR, borderColor: (c.color || OUTLOOK_COLOR) + '88' }} />
+                                  <span>{c.name}</span>
+                                  <span className="text-[10px] text-primary">ICS</span>
+                                </div>
+                                <div className="text-[10px] text-text-muted mt-0.5">
+                                  Assigned to: <span className="text-text font-bold">{persons.find(p => p.code === c.personCode)?.name || c.personCode}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => startEdit(c)}
+                                  className="text-text-muted hover:text-text p-1.5 text-xs"
+                                  title="Edit"
+                                >✎</button>
+                                <button
+                                  onClick={() => handleDeleteCal(c.id)}
+                                  className="text-text-muted hover:text-red-400 p-1.5 text-xs"
+                                  title="Remove"
+                                >✕</button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50">
+                              {BRAND_PALETTE.slice(0, 12).map(hex => (
+                                <button
+                                  key={hex}
+                                  title={hex}
+                                  onClick={() => handleColorChange(c.id, hex)}
+                                  className="w-4 h-4 rounded hover:scale-125"
+                                  style={{
+                                    background: hex,
+                                    border: (c.color || '') === hex ? '2px solid white' : 'none',
+                                    opacity: (c.color || '') === hex ? 1 : 0.7,
+                                  }}
+                                />
+                              ))}
+                              {c.color && (
+                                <button
+                                  onClick={() => handleColorChange(c.id, '')}
+                                  className="text-[9px] text-text-muted hover:text-text px-1"
+                                  title="Reset to default"
+                                >reset</button>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

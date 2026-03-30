@@ -34,6 +34,22 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
         const dtStr = start.toISOString()
         const endDtStr = end.toISOString()
 
+        // Extract Teams join URL from ICS properties
+        let joinUrl: string | undefined
+        const skypeData = comp.getFirstPropertyValue('x-microsoft-skypeteamsdata')
+        if (skypeData) {
+          try {
+            const parsed = JSON.parse(String(skypeData))
+            if (parsed.joinUrl) joinUrl = parsed.joinUrl
+          } catch {}
+        }
+        if (!joinUrl) {
+          // Fallback: scan DESCRIPTION for Teams meeting link
+          const desc = event.description || ''
+          const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<"]+/)
+          if (teamsMatch) joinUrl = teamsMatch[0]
+        }
+
         events.push({
           id: `ics-${event.uid}`,
           source: 'outlook' as const,
@@ -46,6 +62,7 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
           isOrganizer: false,
           location: event.location || undefined,
           bodyPreview: event.description || '',
+          joinUrl,
           webLink: '',
           rsvpStatus: undefined,
         })
@@ -102,15 +119,24 @@ export async function GET(req: NextRequest) {
       const email = await emailForCode(code)
       if (!email) return []
 
-      // --- ICS FALLBACK CHECK (DB-backed) ---
+      // --- ICS feeds (DB-backed) — fetched in parallel with Graph ---
+      let icsEventsPromise: Promise<any[]> = Promise.resolve([])
       try {
         const { rows: icsRows } = await pool.query(
-          'SELECT ics_url FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 LIMIT 1',
+          'SELECT ics_url, color FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
           [session.email, code]
         )
         if (icsRows.length > 0) {
-          console.log(`[outlook] Using DB ICS fallback for ${code} (${icsRows[0].ics_url})`)
-          return fetchIcsEvents(icsRows[0].ics_url, code, dateFrom, dateTo)
+          console.log(`[outlook] Found ${icsRows.length} ICS feed(s) for ${code}`)
+          icsEventsPromise = Promise.all(
+            icsRows.map(async row => {
+              const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
+              if (row.color) {
+                return events.map(ev => ({ ...ev, icsColor: row.color }))
+              }
+              return events
+            })
+          ).then(results => results.flat())
         }
       } catch (e) {
         console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
@@ -161,11 +187,12 @@ export async function GET(req: NextRequest) {
       if (!res.ok) {
         const errText = await res.text()
         console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
-        // Don't throw if one fails, just return empty so others can load
-        return []
+        // Graph failed — still return any ICS events for this person
+        return icsEventsPromise
       }
       const data = await res.json()
-      return (data.value ?? []).map((ev: Record<string, unknown>) => {
+      const icsEvents = await icsEventsPromise
+      const graphEvents = (data.value ?? []).map((ev: Record<string, unknown>) => {
         const start = (ev['start'] as Record<string, string> | undefined)
         const end = (ev['end'] as Record<string, string> | undefined)
         const startDt = start?.dateTime ?? ''
@@ -194,6 +221,7 @@ export async function GET(req: NextRequest) {
           rsvpStatus,
         }
       })
+      return [...graphEvents, ...icsEvents]
     }))
     return NextResponse.json(results.flat())
   } catch (e) {

@@ -31,6 +31,7 @@ export interface Activity {
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
   isExternal?: boolean   // ICS-backed external calendar
+  icsColor?: string      // Custom color from ICS calendar settings
 }
 
 export interface ActivityType {
@@ -60,4 +61,11 @@ export interface CalendarState {
   view: 'day' | '3day' | '5day'
   date: string           // "YYYY-MM-DD" — anchor date
   selectedPersons: Person[]
+}
+
+export interface Favorite {
+  id: string
+  name: string
+  view: CalendarState['view']
+  personCodes: string[]
 }
