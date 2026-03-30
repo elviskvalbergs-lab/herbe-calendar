@@ -3,13 +3,21 @@ import { useState } from 'react'
 import { Activity } from '@/types'
 import { timeToTopPx } from '@/lib/time'
 
-function MsOfficeIcon({ size = 10 }: { size?: number }) {
+function OutlookIcon({ size = 11 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" className="inline-block shrink-0" style={{ verticalAlign: 'middle' }}>
-      <path d="M22 4.5L14 2v20l8-2.5V4.5z" fill="#D94F00"/>
-      <path d="M14 2L2 4.5v15L14 22V2z" fill="#E7620A"/>
-      <path d="M14 6.5V2L2 4.5v15L14 22v-4.5" fill="none" stroke="#fff" strokeWidth="0.3"/>
-      <path d="M10.5 8.5L8 17h-2l2.5-8.5h2z" fill="#fff"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 opacity-60" style={{ verticalAlign: 'middle' }}>
+      <rect x="2" y="3" width="13" height="18" rx="1.5"/>
+      <circle cx="8.5" cy="12" r="3.5"/>
+      <path d="M15 7h6a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-6"/>
+      <path d="M15 10h5M15 14h5"/>
+    </svg>
+  )
+}
+
+function TeamsIcon({ size = 11 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="inline-block shrink-0 opacity-70" style={{ verticalAlign: 'middle' }}>
+      <path d="M20.5 6.5h-3V5a2 2 0 1 0-4 0v1.5h-3A1.5 1.5 0 0 0 9 8v7a4 4 0 0 0 4 4h1a4 4 0 0 0 4-4V8a1.5 1.5 0 0 0-1.5-1.5zm-5-2a1 1 0 1 1 2 0v1.5h-2V4.5zM16 15a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2V9h5v6z"/>
     </svg>
   )
 }
@@ -69,7 +77,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       {isCompact ? (
         <div className="px-1.5 flex items-center gap-1 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
           <p className="text-[9px] font-bold truncate flex-1" style={{ color }}>
-            {activity.icsCalendarName ? '📅 ' : isOutlook ? <MsOfficeIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
+            {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
           <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
         </div>
@@ -77,7 +85,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         <div className="px-1.5 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
           <div className="flex items-start justify-between gap-1">
             <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
-              {activity.icsCalendarName ? '📅 ' : isOutlook ? <MsOfficeIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
+              {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
             </p>
             <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
           </div>
@@ -127,7 +135,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           style={{ top: '100%', borderColor: color + '88' }}
         >
           <p className="text-xs font-bold leading-snug mb-1.5" style={{ color }}>
-            {activity.icsCalendarName ? '📅 ' : isOutlook ? <><MsOfficeIcon /> </> : null}{activity.description || '(no title)'}
+            {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
           </p>
           <p className="text-xs text-text-muted">
             {activity.timeFrom} – {activity.timeTo}
@@ -154,7 +162,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
             <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
           )}
           {isOutlook && !activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate"><MsOfficeIcon /> Outlook Calendar</p>
+            <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
           )}
           {!isOutlook && activity.source === 'herbe' && (
             <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
@@ -173,7 +181,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
             >
               {activity.icsCalendarName
                 ? <>🔗 Join meeting</>
-                : <><MsOfficeIcon size={12} /> Join in Teams</>
+                : <><TeamsIcon size={12} /> Join in Teams</>
               }
             </a>
           )}

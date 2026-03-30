@@ -84,14 +84,16 @@ export default function CalendarGrid({
   const personCount = state.selectedPersons.length
   const totalColumns = personCount * dates.length
   const availableVw = 90
+  const fitsOnScreen = totalColumns <= maxVisibleCols
+  // Only set min-width when horizontal scroll needed; otherwise flex handles it
   let colMinVw: number
-  if (totalColumns <= maxVisibleCols) {
-    colMinVw = availableVw / totalColumns
+  if (fitsOnScreen) {
+    colMinVw = 0
   } else {
     colMinVw = availableVw / (maxVisibleCols + 0.3)
+    colMinVw = Math.max(colMinVw, 12)
+    colMinVw = Math.min(colMinVw, 80)
   }
-  colMinVw = Math.max(colMinVw, 12)
-  colMinVw = Math.min(colMinVw, 80)
 
   // --- Edge navigation buttons (visible on mobile when scrolled to edge) ---
   const [atLeft, setAtLeft] = useState(true)
@@ -170,8 +172,8 @@ export default function CalendarGrid({
           return (
             <div
               key={date}
-              className={`flex-1 shrink-0 sm:shrink flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
-              style={{ minWidth: `${dateGroupMinW}vw` }}
+              className={`flex-1 ${fitsOnScreen ? '' : 'shrink-0 sm:shrink'} flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+              style={fitsOnScreen ? undefined : { minWidth: `${dateGroupMinW}vw` }}
             >
               <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (
@@ -195,7 +197,7 @@ export default function CalendarGrid({
                     <div
                       key={person.code}
                       className="flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0"
-                      style={{ color: personColor(personIdx), minWidth: `${colMinVw}vw` }}
+                      style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
                       {personCount > 1 ? (

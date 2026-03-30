@@ -230,7 +230,7 @@ export default function PersonColumn({
         {hasBoth && (
           <div
             className="relative border-l border-border/40"
-            style={{ width: '40%', pointerEvents: 'none' }}
+            style={{ width: '40%' }}
           >
             {hours.map(h => (
               <div key={h} className="border-b border-border/30" style={{ height: rowHeight }} />
