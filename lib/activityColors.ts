@@ -7,10 +7,10 @@ export const FALLBACK_COLOR = '#6b7280' // gray — activity with no type or unk
 export const BRAND_PALETTE = [
   '#00ABCE', // 0  cyan — brand primary
   '#cd4c38', // 1  red — brand accent
-  '#4db89a', // 2  teal — brand secondary
+  '#22c55e', // 2  green
   '#e8923a', // 3  orange
   '#a855f7', // 4  violet
-  '#22c55e', // 5  green
+  '#4db89a', // 5  teal
   '#f59e0b', // 6  amber
   '#3b82f6', // 7  blue
   '#ec4899', // 8  pink
@@ -44,12 +44,12 @@ export function saveColorOverride(classGroupCode: string, color: string) {
 }
 
 /** Herbe CalColNr color name → brand palette hex */
-const HERBE_COLOR_NAMES: Record<string, string> = {
+export const HERBE_COLOR_NAMES: Record<string, string> = {
   'Sky Blue':    '#00ABCE',
   'Green':       '#22c55e',
   'Red':         '#cd4c38',
   'Grey':        '#6b7280',
-  'Deep Forest': '#4db89a',
+  'Deep Forest': '#22c55e',
   'Desert Glow': '#e8923a',
   'Coffee':      '#8b5cf6',
 }

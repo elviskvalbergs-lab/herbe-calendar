@@ -1,25 +1,33 @@
 'use client'
 import { useState } from 'react'
 import { Activity } from '@/types'
-import { timeToTopPx, durationToPx } from '@/lib/time'
+import { timeToTopPx } from '@/lib/time'
 
 interface Props {
   activity: Activity
   color: string
+  height: number
   onClick: (a: Activity) => void
   onDragStart?: (e: React.PointerEvent<HTMLDivElement>, a: Activity, type: 'move' | 'resize') => void
   canEdit: boolean
   isCC?: boolean
+  scale?: number
   style?: React.CSSProperties
   getTypeName?: (typeCode: string) => string
 }
 
-export default function ActivityBlock({ activity, color, onClick, onDragStart, canEdit, isCC = false, style, getTypeName }: Props) {
-  const top = timeToTopPx(activity.timeFrom)
-  const height = Math.max(durationToPx(activity.timeFrom, activity.timeTo), 20)
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, scale = 1, style, getTypeName }: Props) {
+  const top = timeToTopPx(activity.timeFrom, scale)
+  const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
+
+  // Light mode contrast: stronger opacity fills
+  const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
+  const fillNormal = isLight ? '55' : '33'
+  const fillPlanned = isLight ? '33' : '1a'
+  const fillCC = isLight ? '1a' : '0a'
 
   return (
     <div
@@ -28,8 +36,8 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
         top,
         height,
         background: isCC
-          ? `repeating-linear-gradient(135deg, ${color}0a, ${color}0a 4px, transparent 4px, transparent 8px)`
-          : isPlanned ? color + '1a' : color + '33',
+          ? `repeating-linear-gradient(135deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
+          : isPlanned ? color + fillPlanned : color + fillNormal,
         borderLeft: isOutlook
           ? `2px dashed ${color}`
           : isCC
@@ -47,60 +55,57 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
       onClick={() => onClick(activity)}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
-      <div className="px-1.5 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
-        <div className="flex items-start justify-between gap-1">
-          <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
+      {isCompact ? (
+        <div className="px-1.5 flex items-center gap-1 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
+          <p className="text-[9px] font-bold truncate flex-1" style={{ color }}>
             {activity.isExternal && '🌐 '}{isOutlook && '📅 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
-          {activity.joinUrl && (
-            <a
-              href={activity.joinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              onPointerDown={e => e.stopPropagation()}
-              className="shrink-0 text-[8px] font-bold px-1 py-0.5 rounded"
-              style={{ background: '#464EB8', color: '#fff', lineHeight: 1.2 }}
-            >
-              Join
-            </a>
+          <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
+        </div>
+      ) : (
+        <div className="px-1.5 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
+          <div className="flex items-start justify-between gap-1">
+            <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
+              {activity.isExternal && '🌐 '}{isOutlook && '📅 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
+            </p>
+            <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
+          </div>
+          <p className="text-[9px] text-text-muted truncate">
+            {activity.timeFrom}–{activity.timeTo}
+            {activity.customerName ? ` · ${activity.customerName}` : ''}
+          </p>
+          {/* Persons pips */}
+          {(activity.mainPersons?.length || activity.ccPersons?.length) && (
+            <div className="flex gap-0.5 flex-wrap mt-0.5">
+              {(() => {
+                const mainPips = (activity.mainPersons ?? []).slice(0, 3)
+                const ccPips = (activity.ccPersons ?? []).slice(0, Math.max(0, 3 - mainPips.length))
+                const totalShown = mainPips.length + ccPips.length
+                const totalAll = (activity.mainPersons?.length ?? 0) + (activity.ccPersons?.length ?? 0)
+                return (
+                  <>
+                    {mainPips.map(code => (
+                      <span key={code} className="text-[9px] rounded px-0.5 leading-4"
+                        style={{ background: color + '33', color: '#fff' }}>{code}</span>
+                    ))}
+                    {ccPips.map(code => (
+                      <span key={code} className="text-[9px] rounded px-0.5 leading-[14px]"
+                        style={{ border: `1px dashed ${color}99`, color: color + 'cc', fontStyle: 'italic' }}>{code}</span>
+                    ))}
+                    {totalAll > totalShown && (
+                      <span className="text-[9px]" style={{ color: color + '99' }}>+{totalAll - totalShown}</span>
+                    )}
+                  </>
+                )
+              })()}
+            </div>
           )}
         </div>
-        <p className="text-[9px] text-text-muted truncate">
-          {activity.timeFrom}–{activity.timeTo}
-          {activity.customerName ? ` · ${activity.customerName}` : ''}
-        </p>
-        {/* Persons pips */}
-        {(activity.mainPersons?.length || activity.ccPersons?.length) && (
-          <div className="flex gap-0.5 flex-wrap mt-0.5">
-            {(() => {
-              const mainPips = (activity.mainPersons ?? []).slice(0, 3)
-              const ccPips = (activity.ccPersons ?? []).slice(0, Math.max(0, 3 - mainPips.length))
-              const totalShown = mainPips.length + ccPips.length
-              const totalAll = (activity.mainPersons?.length ?? 0) + (activity.ccPersons?.length ?? 0)
-              return (
-                <>
-                  {mainPips.map(code => (
-                    <span key={code} className="text-[9px] rounded px-0.5 leading-4"
-                      style={{ background: color + '33', color: '#fff' }}>{code}</span>
-                  ))}
-                  {ccPips.map(code => (
-                    <span key={code} className="text-[9px] rounded px-0.5 leading-[14px]"
-                      style={{ border: `1px dashed ${color}99`, color: color + 'cc', fontStyle: 'italic' }}>{code}</span>
-                  ))}
-                  {totalAll > totalShown && (
-                    <span className="text-[9px]" style={{ color: color + '99' }}>+{totalAll - totalShown}</span>
-                  )}
-                </>
-              )
-            })()}
-          </div>
-        )}
-      </div>
+      )}
       {/* Resize handle */}
       {canEdit && (
         <div
-          className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize"
+          className={`absolute bottom-0 left-0 right-0 cursor-s-resize ${isCompact ? 'h-1' : 'h-2'}`}
           onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(e, activity, 'resize') }}
         />
       )}

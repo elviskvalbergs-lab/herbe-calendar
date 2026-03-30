@@ -25,6 +25,7 @@ const SHORTCUTS = [
   { key: 'Enter / Tab', desc: 'Select focused result and advance' },
   { key: 'Tab', desc: 'Move to next field (date is skipped)' },
   { group: 'App' },
+  { key: 'Z', desc: 'Toggle zoom (1× / 2×)' },
   { key: '?', desc: 'Show this keyboard shortcuts panel' },
 ]
 

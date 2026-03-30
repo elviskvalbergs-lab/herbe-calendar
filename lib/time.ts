@@ -11,17 +11,16 @@ export function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-const PX_PER_HOUR = 56
-const PX_PER_MINUTE = PX_PER_HOUR / 60
+export const PX_PER_HOUR = 56
 
 /** Convert minutes to pixel offset in the time grid */
-export function minutesToPx(minutes: number): number {
-  return minutes * PX_PER_MINUTE
+export function minutesToPx(minutes: number, scale: number = 1): number {
+  return minutes * (PX_PER_HOUR * scale) / 60
 }
 
 /** Convert pixel offset to minutes */
-export function pxToMinutes(px: number): number {
-  return px / PX_PER_MINUTE
+export function pxToMinutes(px: number, scale: number = 1): number {
+  return px / ((PX_PER_HOUR * scale) / 60)
 }
 
 /** Snap minutes to nearest 15-minute boundary */
@@ -35,11 +34,11 @@ export const GRID_END_HOUR = 22
 export const GRID_TOTAL_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60
 
 /** Offset in px from top of grid for a given "HH:mm" time */
-export function timeToTopPx(time: string): number {
-  return minutesToPx(timeToMinutes(time) - GRID_START_HOUR * 60)
+export function timeToTopPx(time: string, scale: number = 1): number {
+  return minutesToPx(timeToMinutes(time) - GRID_START_HOUR * 60, scale)
 }
 
 /** Height in px for a duration from timeFrom to timeTo */
-export function durationToPx(timeFrom: string, timeTo: string): number {
-  return minutesToPx(timeToMinutes(timeTo) - timeToMinutes(timeFrom))
+export function durationToPx(timeFrom: string, timeTo: string, scale: number = 1): number {
+  return minutesToPx(timeToMinutes(timeTo) - timeToMinutes(timeFrom), scale)
 }

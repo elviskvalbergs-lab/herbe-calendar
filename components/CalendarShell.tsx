@@ -49,6 +49,23 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [debugGuests, setDebugGuests] = useState<any[]>([])
   const [debugLoading, setDebugLoading] = useState(false)
 
+  // Zoom state: 1 = normal (56px/hour), 2 = zoomed (112px/hour)
+  const [zoom, setZoom] = useState<1 | 2>(() => {
+    try {
+      const saved = localStorage.getItem('calendarZoom')
+      if (saved === '2') return 2
+    } catch {}
+    return 1
+  })
+
+  function toggleZoom() {
+    setZoom(prev => {
+      const next = prev === 1 ? 2 : 1
+      try { localStorage.setItem('calendarZoom', String(next)) } catch {}
+      return next
+    })
+  }
+
   // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
   useEffect(() => {
     try {
@@ -68,16 +85,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
-  // Persist state to localStorage (only after people have loaded, to avoid overwriting saved person codes on mount)
+  // Persist state to localStorage + keep current history entry in sync
   useEffect(() => {
     if (!peopleLoadedRef.current) return
-    try {
-      localStorage.setItem('calendarState', JSON.stringify({
-        view: state.view,
-        date: state.date,
-        personCodes: state.selectedPersons.map(p => p.code),
-      }))
-    } catch {}
+    const stateSnapshot = {
+      view: state.view,
+      date: state.date,
+      personCodes: state.selectedPersons.map(p => p.code),
+    }
+    try { localStorage.setItem('calendarState', JSON.stringify(stateSnapshot)) } catch {}
+    // Replace (not push) so browser back always returns to the exact pre-drill state
+    history.replaceState(stateSnapshot, '')
   }, [state.view, state.date, state.selectedPersons])
 
   // Global keyboard shortcuts (N/⌘N, T, ←, →, ?, Esc)
@@ -116,7 +134,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       // Skip bare key shortcuts if modifier held or input focused
       if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 
-      if (e.key === 'n' || e.key === 'N') {
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault()
+        toggleZoom()
+      } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setFormState({ open: true, initial: { date: state.date } })
       } else if (e.key === 't' || e.key === 'T') {
@@ -136,6 +157,39 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [formState.open, colorSettingsOpen, shortcutsOpen, state.view, state.date])
+
+  // Drill-down: push current state to browser history, then change view
+  function drillToDate(date: string) {
+    // Save current state so browser back restores it
+    history.pushState(
+      { view: state.view, date: state.date, personCodes: state.selectedPersons.map(p => p.code) },
+      ''
+    )
+    setState(s => ({ ...s, view: 'day', date }))
+  }
+
+  function drillToPerson(personCode: string) {
+    history.pushState(
+      { view: state.view, date: state.date, personCodes: state.selectedPersons.map(p => p.code) },
+      ''
+    )
+    const person = state.selectedPersons.find(p => p.code === personCode)
+    if (person) setState(s => ({ ...s, selectedPersons: [person] }))
+  }
+
+  // Restore state on browser back
+  useEffect(() => {
+    function onPopState(e: PopStateEvent) {
+      if (e.state?.view && e.state?.date && e.state?.personCodes) {
+        const { view, date, personCodes } = e.state
+        const resolved = (personCodes as string[])
+          .map(code => people.find(p => p.code === code) ?? { code, name: code, email: '' })
+        setState({ view, date, selectedPersons: resolved })
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [people])
 
   // Derived color maps
   const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
@@ -267,7 +321,11 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     setStatus({ msg: 'Loading users from Herbe ERP…' })
     fetch('/api/users')
       .then(async r => {
-        const data = await r.json()
+        const text = await r.text()
+        let data: unknown
+        try { data = JSON.parse(text) } catch {
+          throw new Error(`Server error (${r.status}): ${text.slice(0, 120)}`)
+        }
         if (!Array.isArray(data)) throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
         return data as Record<string, unknown>[]
       })
@@ -409,6 +467,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
             .map(code => people.find(p => p.code === code) ?? { code, name: code, email: '' })
           setState(s => ({ ...s, view, selectedPersons: resolved }))
         }}
+        zoom={zoom}
+        onToggleZoom={toggleZoom}
       />
       <CalendarGrid
         state={state}
@@ -417,6 +477,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
         getTypeName={getTypeName}
+        scale={zoom}
         onRefresh={fetchActivities}
         onNavigate={(dir) => {
           const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
@@ -441,6 +502,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         }
         onActivityUpdate={fetchActivities}
         onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
+        onDrillDate={drillToDate}
+        onDrillPerson={drillToPerson}
       />
       {status && (
         <div
@@ -513,14 +576,29 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
       {/* FAB — mobile only, hidden when form is open */}
       {!formState.open && (
-        <button
-          onClick={() => setFormState({ open: true, initial: { date: state.date } })}
-          className="fixed bottom-5 right-5 z-50 lg:hidden bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
-          title="New activity"
-          aria-label="New activity"
-        >
-          +
-        </button>
+        <div className="fixed bottom-5 right-5 z-50 lg:hidden flex items-center shadow-lg rounded-full overflow-hidden">
+          <button
+            onClick={toggleZoom}
+            className="bg-primary/80 text-white w-11 h-11 flex items-center justify-center border-r border-white/20"
+            title={zoom === 1 ? 'Zoom in (2x)' : 'Zoom out (1x)'}
+            aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              {zoom === 1
+                ? <><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></>
+                : <line x1="8" y1="11" x2="14" y2="11"/>}
+            </svg>
+          </button>
+          <button
+            onClick={() => setFormState({ open: true, initial: { date: state.date } })}
+            className="bg-primary text-white text-xl font-bold w-11 h-11 flex items-center justify-center"
+            title="New activity"
+            aria-label="New activity"
+          >
+            +
+          </button>
+        </div>
       )}
 
       {renderDebugModal()}

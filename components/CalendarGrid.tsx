@@ -1,11 +1,11 @@
 'use client'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { Activity, CalendarState } from '@/types'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
 import { addDays, format, parseISO, isToday } from 'date-fns'
-import { minutesToPx, GRID_START_HOUR } from '@/lib/time'
+import { minutesToPx, GRID_START_HOUR, PX_PER_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
 
 interface Props {
@@ -15,27 +15,61 @@ interface Props {
   sessionUserCode?: string
   getActivityColor: (activity: Activity) => string
   getTypeName?: (typeCode: string) => string
+  scale?: number
   onRefresh: () => void
   onNavigate: (dir: 'prev' | 'next') => void
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
   onNewForDate?: (date: string) => void
+  onDrillDate?: (date: string) => void
+  onDrillPerson?: (personCode: string) => void
 }
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
-  onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate
+  scale = 1, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
+  onDrillDate, onDrillPerson
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const prevScaleRef = useRef(scale)
+
+  // Responsive max visible columns
+  const [maxVisibleCols, setMaxVisibleCols] = useState(2)
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      if (w >= 640) setMaxVisibleCols(8)
+      else if (w > h) setMaxVisibleCols(5)
+      else setMaxVisibleCols(2)
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+    }
+  }, [])
 
   // Auto-scroll to 08:00 on mount
   useEffect(() => {
     if (!scrollRef.current) return
-    const HEADER_HEIGHT = 40
     const TARGET_HOUR = 8
-    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60)
-  }, [])
+    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60, scale)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Preserve scroll position proportionally when zoom changes
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const prev = prevScaleRef.current
+    if (prev !== scale) {
+      const ratio = scale / prev
+      scrollRef.current.scrollTop = scrollRef.current.scrollTop * ratio
+      prevScaleRef.current = scale
+    }
+  }, [scale])
 
   // Build date list for current view
   const viewDays = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
@@ -45,60 +79,109 @@ export default function CalendarGrid({
         format(addDays(parseISO(state.date), i), 'yyyy-MM-dd')
       )
 
-  // Touch gesture: pull-down to refresh (when at top) or swipe left/right to navigate days
-  const touchStart = useRef({ x: 0, y: 0, atTop: false })
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStart.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      atTop: (scrollRef.current?.scrollTop ?? 1) === 0,
-    }
+  // --- Column sizing ---
+  const personCount = state.selectedPersons.length
+  const totalColumns = personCount * dates.length
+  const availableVw = 90
+  let colMinVw: number
+  if (totalColumns <= maxVisibleCols) {
+    colMinVw = availableVw / totalColumns
+  } else {
+    colMinVw = availableVw / (maxVisibleCols + 0.3)
   }
-  function handleTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - touchStart.current.x
-    const dy = e.changedTouches[0].clientY - touchStart.current.y
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-      // Horizontal swipe — navigate days
-      onNavigate(dx < 0 ? 'next' : 'prev')
-    } else if (dy > 60 && touchStart.current.atTop) {
-      // Pull down at top — refresh
-      onRefresh()
-    }
-  }
+  colMinVw = Math.max(colMinVw, 12)
+  colMinVw = Math.min(colMinVw, 80)
+
+  // --- Edge navigation buttons (visible on mobile when scrolled to edge) ---
+  const [atLeft, setAtLeft] = useState(true)
+  const [atRight, setAtRight] = useState(false)
+  const needsHScroll = totalColumns > maxVisibleCols
+
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setAtLeft(el.scrollLeft <= 1)
+    setAtRight(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', updateEdges, { passive: true })
+    updateEdges()
+    return () => el.removeEventListener('scroll', updateEdges)
+  }, [updateEdges])
 
   return (
     <div
       ref={scrollRef}
       className="flex-1 overflow-auto relative"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
     >
+      {/* Loading overlay */}
       {loading && (
-        <div className="absolute inset-0 z-30 bg-black/40 flex items-center justify-center pointer-events-auto">
+        <div className="fixed inset-0 z-30 bg-black/40 flex items-center justify-center pointer-events-auto">
           <div className="bg-surface border border-border rounded-xl px-5 py-3 text-sm font-bold text-text-muted animate-pulse">
             Loading…
           </div>
         </div>
       )}
 
-      <div className="flex min-w-0">
-        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} />
+      {/* Edge navigation: prev button (left edge) */}
+      {atLeft && needsHScroll && (
+        <button
+          onClick={() => onNavigate('prev')}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-40 lg:hidden
+            w-8 h-20 flex items-center justify-center
+            bg-primary/80 text-white rounded-r-xl shadow-lg
+            active:bg-primary transition-opacity"
+          aria-label={`Previous ${viewDays} days`}
+        >
+          <span className="flex flex-col items-center gap-0.5">
+            <span className="text-lg leading-none">‹</span>
+            <span className="text-[8px]">−{viewDays}d</span>
+          </span>
+        </button>
+      )}
 
-        {/* For each date, a grouped column with shared header */}
+      {/* Edge navigation: next button (right edge) */}
+      {atRight && needsHScroll && (
+        <button
+          onClick={() => onNavigate('next')}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 lg:hidden
+            w-8 h-20 flex items-center justify-center
+            bg-primary/80 text-white rounded-l-xl shadow-lg
+            active:bg-primary transition-opacity"
+          aria-label={`Next ${viewDays} days`}
+        >
+          <span className="flex flex-col items-center gap-0.5">
+            <span className="text-lg leading-none">›</span>
+            <span className="text-[8px]">+{viewDays}d</span>
+          </span>
+        </button>
+      )}
+
+      <div className="flex">
+        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} scale={scale} />
+
         {dates.map((date, dateIdx) => {
           const isMultiDay = state.view === '3day' || state.view === '5day'
-          // In multi-day views use narrower columns so they don't overflow portrait
-          const colMinW = state.view === '5day' ? 'min-w-[22vw] sm:min-w-0' : state.view === '3day' ? 'min-w-[30vw] sm:min-w-0' : 'min-w-[44vw] sm:min-w-0'
+          const dateGroupMinW = personCount * colMinVw
           return (
             <div
               key={date}
-              className={`flex-1 min-w-0 flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+              className={`flex-1 shrink-0 sm:shrink flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+              style={{ minWidth: `${dateGroupMinW}vw` }}
             >
-              {/* Sticky two-row header for this day */}
               <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (
-                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
-                    {format(parseISO(date), 'EEE dd/MM')}
+                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative">
+                    <button
+                      onClick={() => onDrillDate?.(date)}
+                      className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
+                      title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
+                    >
+                      {format(parseISO(date), 'EEE dd/MM')}
+                    </button>
                     <button
                       onClick={() => onNewForDate?.(date)}
                       className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
@@ -110,19 +193,25 @@ export default function CalendarGrid({
                   {state.selectedPersons.map((person, personIdx) => (
                     <div
                       key={person.code}
-                      className={`flex-1 ${isMultiDay ? colMinW : ''} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
-                      style={{ color: personColor(personIdx) }}
+                      className="flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0"
+                      style={{ color: personColor(personIdx), minWidth: `${colMinVw}vw` }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
-                      {person.code}
+                      {personCount > 1 ? (
+                        <button
+                          onClick={() => onDrillPerson?.(person.code)}
+                          className="underline decoration-border hover:decoration-current active:opacity-70"
+                        >
+                          {person.code}
+                        </button>
+                      ) : person.code}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Person columns (body only, no header) */}
               <div className="flex flex-1 relative">
-                {isToday(parseISO(date)) && <CurrentTimeIndicator />}
+                {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} />}
                 {state.selectedPersons.map((person, personIdx) => {
                   const personActivities = activities.filter(
                     a => a.personCode === person.code && a.date === date
@@ -136,10 +225,11 @@ export default function CalendarGrid({
                       sessionUserCode={sessionUserCode}
                       getActivityColor={getActivityColor}
                       getTypeName={getTypeName}
+                      scale={scale}
                       onSlotClick={onSlotClick}
                       onActivityClick={onActivityClick}
                       onActivityUpdate={onActivityUpdate}
-                      colMinW={colMinW}
+                      colMinVw={colMinVw}
                     />
                   )
                 })}

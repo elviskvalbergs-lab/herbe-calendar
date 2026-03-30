@@ -1,6 +1,7 @@
 'use client'
 import { Activity } from '@/types'
-import { GRID_START_HOUR, GRID_END_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx } from '@/lib/time'
+import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
+import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
 import { useRef, useState } from 'react'
 
@@ -14,7 +15,8 @@ interface Props {
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
-  colMinW?: string
+  scale?: number
+  colMinVw?: number
 }
 
 interface DragState {
@@ -30,7 +32,7 @@ interface DragState {
 
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
-  onSlotClick, onActivityClick, onActivityUpdate, colMinW = 'min-w-[44vw] sm:min-w-0'
+  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, colMinVw = 44
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -47,6 +49,8 @@ export default function PersonColumn({
     return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
+  const rowHeight = PX_PER_HOUR * scale
+
   function handleSlotClick(hour: number, e: React.MouseEvent) {
     if (drag) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -57,6 +61,8 @@ export default function PersonColumn({
   }
 
   function handleDragStart(e: React.PointerEvent<HTMLDivElement>, activity: Activity, type: 'move' | 'resize') {
+    // Disable drag on touch devices — too finicky, conflicts with scrolling
+    if (e.pointerType === 'touch') return
     e.preventDefault()
     const dragState: DragState = {
       activity, type, startY: e.clientY,
@@ -67,7 +73,7 @@ export default function PersonColumn({
 
     function onMove(me: PointerEvent) {
       const deltaY = me.clientY - dragState.startY
-      const rawDeltaMins = Math.round(pxToMinutes(deltaY) / 15) * 15
+      const rawDeltaMins = Math.round(pxToMinutes(deltaY, scale) / 15) * 15
       if (type === 'move') {
         const fromMins = timeToMinutes(dragState.originalFrom) + rawDeltaMins
         const toMins = timeToMinutes(dragState.originalTo) + rawDeltaMins
@@ -101,11 +107,9 @@ export default function PersonColumn({
         return
       }
 
-      // Real drag: suppress the click event that browsers fire after pointerup
       suppressClickRef.current = true
       setTimeout(() => { suppressClickRef.current = false }, 300)
 
-      // Keep activity at dragged position while saving (don't snap back)
       setDrag({ ...dragState, saving: true })
       const source = activity.source
       const url = source === 'herbe'
@@ -126,7 +130,7 @@ export default function PersonColumn({
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: res.statusText }))
         setDragError(data.error ?? res.statusText ?? 'Could not save time change')
-        setTimeout(() => setDragError(null), 4000)  // auto-dismiss after 4s
+        setTimeout(() => setDragError(null), 4000)
       }
       setDrag(null)
       onActivityUpdate()
@@ -136,21 +140,15 @@ export default function PersonColumn({
     window.addEventListener('pointerup', onUp)
   }
 
-  // Group overlapping activities into sub-columns
-  const sorted = [...activities].sort((a, b) => a.timeFrom.localeCompare(b.timeFrom))
-  const groups: Activity[][] = []
-  for (const act of sorted) {
-    // Find a sub-column where all activities end at or before act.timeFrom
-    const col = groups.find(g => {
-      const maxEndMins = Math.max(...g.map(a => timeToMinutes(a.timeTo)))
-      return maxEndMins <= timeToMinutes(act.timeFrom)
-    })
-    if (col) col.push(act)
-    else groups.push([act])
-  }
+  const herbeActivities = activities.filter(a => a.source !== 'outlook')
+  const outlookActivities = activities.filter(a => a.source === 'outlook')
+  const hasBoth = herbeActivities.length > 0 && outlookActivities.length > 0
+
+  const herbeLaned = buildLanedActivities(herbeActivities)
+  const outlookLaned = buildLanedActivities(outlookActivities)
 
   return (
-    <div ref={columnRef} className={`flex-1 ${colMinW} border-r border-border relative last:border-r-0`}>
+    <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
@@ -159,34 +157,38 @@ export default function PersonColumn({
         </div>
       )}
 
-      {/* Hour rows */}
-      <div className="relative">
-        {hours.map(h => (
-          <div
-            key={h}
-            className="h-14 border-b border-border/30 hover:bg-white/5 cursor-pointer relative"
-            onClick={(e) => handleSlotClick(h, e)}
-          >
-            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
-          </div>
-        ))}
+      <div className="relative flex">
+        {/* Herbe sub-column (or full column when no Outlook) — hosts the hour grid */}
+        <div
+          className="relative"
+          style={{ width: hasBoth ? '60%' : '100%' }}
+        >
+          {hours.map(h => (
+            <div
+              key={h}
+              className="border-b border-border/30 hover:bg-white/5 cursor-pointer relative"
+              style={{ height: rowHeight }}
+              onClick={(e) => handleSlotClick(h, e)}
+            >
+              <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
+            </div>
+          ))}
 
-        {/* Activity blocks */}
-        {groups.map((col, colIdx) =>
-          col.map(act => {
+          {herbeLaned.map(({ activity: act, laneIndex, laneCount }) => {
             const isDragging = drag?.activity.id === act.id
             const isSaving = isDragging && drag!.saving
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
+            const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
             const actColor = getActivityColor(act)
             return (
               <div
                 key={act.id}
                 className="absolute pointer-events-none"
                 style={{
-                  left: `${(colIdx / groups.length) * 100}%`,
-                  right: `${((groups.length - colIdx - 1) / groups.length) * 100}%`,
+                  left: `${(laneIndex / laneCount) * 100}%`,
+                  right: `${((laneCount - laneIndex - 1) / laneCount) * 100}%`,
                   top: 0,
                   bottom: 0,
                 }}
@@ -194,7 +196,8 @@ export default function PersonColumn({
                 <ActivityBlock
                   activity={displayActivity}
                   color={actColor}
-                  onClick={(act) => { if (!suppressClickRef.current) onActivityClick(act) }}
+                  height={actHeight}
+                  onClick={(a) => { if (!suppressClickRef.current) onActivityClick(a) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
                   isCC={
@@ -202,6 +205,7 @@ export default function PersonColumn({
                     !(act.mainPersons?.includes(personCode) ?? false)
                   }
                   getTypeName={getTypeName}
+                  scale={scale}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
@@ -209,14 +213,68 @@ export default function PersonColumn({
                 {isDragging && (
                   <div
                     className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                    style={{ top: timeToTopPx(drag!.currentFrom) - 14, color: actColor }}
+                    style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
                   >
                     {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                   </div>
                 )}
               </div>
             )
-          })
+          })}
+        </div>
+
+        {hasBoth && (
+          <div
+            className="relative border-l border-border/40"
+            style={{ width: '40%', pointerEvents: 'none' }}
+          >
+            {hours.map(h => (
+              <div key={h} className="border-b border-border/30" style={{ height: rowHeight }} />
+            ))}
+
+            {outlookLaned.map(({ activity: act, laneIndex, laneCount }) => {
+              const isDragging = drag?.activity.id === act.id
+              const isSaving = isDragging && drag!.saving
+              const displayActivity = isDragging
+                ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
+                : act
+              const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
+              const actColor = getActivityColor(act)
+              return (
+                <div
+                  key={act.id}
+                  className="absolute pointer-events-auto"
+                  style={{
+                    left: `${(laneIndex / laneCount) * 100}%`,
+                    right: `${((laneCount - laneIndex - 1) / laneCount) * 100}%`,
+                    top: 0,
+                    bottom: 0,
+                  }}
+                >
+                  <ActivityBlock
+                    activity={displayActivity}
+                    color={actColor}
+                    height={actHeight}
+                    onClick={(a) => { if (!suppressClickRef.current) onActivityClick(a) }}
+                    onDragStart={handleDragStart}
+                    canEdit={canEdit(act)}
+                    scale={scale}
+                    style={isDragging
+                      ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
+                      : undefined}
+                  />
+                  {isDragging && (
+                    <div
+                      className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
+                      style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
+                    >
+                      {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </div>
