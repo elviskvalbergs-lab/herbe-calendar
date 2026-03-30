@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Activity } from '@/types'
 import { timeToTopPx } from '@/lib/time'
 
@@ -34,14 +34,18 @@ interface Props {
   scale?: number
   style?: React.CSSProperties
   getTypeName?: (typeCode: string) => string
+  mobileSelected?: boolean
+  onMobileTap?: (id: string) => void
+  onMobileClose?: () => void
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName }: Props) {
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose }: Props) {
   const top = timeToTopPx(activity.timeFrom, scale)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
+  const isTouchRef = useRef(false)
 
   const isLight = isLightMode
   const fillNormal = isLight ? '55' : '33'
@@ -70,8 +74,15 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       }}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
-      onTouchStart={() => setHovered(false)}
-      onClick={() => onClick(activity)}
+      onTouchStart={() => { isTouchRef.current = true; setHovered(false) }}
+      onClick={() => {
+        if (isTouchRef.current) {
+          isTouchRef.current = false
+          onMobileTap?.(activity.id)
+        } else {
+          onClick(activity)
+        }
+      }}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
       {isCompact ? (
@@ -128,13 +139,22 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(e, activity, 'resize') }}
         />
       )}
-      {/* Hover detail card */}
-      {hovered && (
+      {/* Detail card — hover on desktop, tap on mobile */}
+      {(hovered || mobileSelected) && (
         <div
-          className="absolute left-0 z-50 mt-1 bg-surface border rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-none"
+          className={`absolute left-0 z-50 mt-1 bg-surface border rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] ${mobileSelected ? 'pointer-events-auto' : 'pointer-events-none'}`}
           style={{ top: '100%', borderColor: color + '88' }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <p className="text-xs font-bold leading-snug mb-1.5" style={{ color }}>
+          {mobileSelected && (
+            <button
+              className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-full text-text-muted hover:text-white hover:bg-white/10 text-xs"
+              onClick={(e) => { e.stopPropagation(); onMobileClose?.() }}
+            >
+              ✕
+            </button>
+          )}
+          <p className="text-xs font-bold leading-snug mb-1.5 pr-5" style={{ color }}>
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
           </p>
           <p className="text-xs text-text-muted">
@@ -157,7 +177,6 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           {activity.customerName && (
             <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
           )}
-          {/* Source calendar */}
           {activity.icsCalendarName && (
             <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
           )}
@@ -185,7 +204,17 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               }
             </a>
           )}
-          <p className="text-[10px] text-text-muted mt-2 opacity-60">Click to {canEdit ? 'edit' : 'view'}</p>
+          {mobileSelected ? (
+            <button
+              className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+              style={{ background: color }}
+              onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
+            >
+              {canEdit ? 'Edit' : 'View details'}
+            </button>
+          ) : (
+            <p className="text-[10px] text-text-muted mt-2 opacity-60">Click to {canEdit ? 'edit' : 'view'}</p>
+          )}
         </div>
       )}
     </div>

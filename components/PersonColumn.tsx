@@ -39,6 +39,7 @@ export default function PersonColumn({
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
   const suppressClickRef = useRef(false)
+  const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
 
   const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
 
@@ -54,6 +55,7 @@ export default function PersonColumn({
 
   function handleSlotClick(hour: number, e: React.MouseEvent) {
     if (drag) return
+    if (mobileSelectedId) { setMobileSelectedId(null); return }
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     const offsetY = e.clientY - rect.top
     const fraction = offsetY / rect.height
@@ -210,6 +212,9 @@ export default function PersonColumn({
                   isLightMode={isLightMode}
                   getTypeName={getTypeName}
                   scale={scale}
+                  mobileSelected={mobileSelectedId === act.id}
+                  onMobileTap={(id) => setMobileSelectedId(prev => prev === id ? null : id)}
+                  onMobileClose={() => setMobileSelectedId(null)}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
@@ -264,6 +269,9 @@ export default function PersonColumn({
                     canEdit={canEdit(act)}
                     isLightMode={isLightMode}
                     scale={scale}
+                    mobileSelected={mobileSelectedId === act.id}
+                    onMobileTap={(id) => setMobileSelectedId(prev => prev === id ? null : id)}
+                    onMobileClose={() => setMobileSelectedId(null)}
                     style={isDragging
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                       : undefined}
