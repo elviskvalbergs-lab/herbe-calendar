@@ -32,6 +32,7 @@ export interface Activity {
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
   isExternal?: boolean   // ICS-backed external calendar
   icsColor?: string      // Custom color from ICS calendar settings
+  icsCalendarName?: string  // Name of the ICS calendar this event came from
 }
 
 export interface ActivityType {

@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
       let icsEventsPromise: Promise<any[]> = Promise.resolve([])
       try {
         const { rows: icsRows } = await pool.query(
-          'SELECT ics_url, color FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
+          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
           [session.email, code]
         )
         if (icsRows.length > 0) {
@@ -131,10 +131,11 @@ export async function GET(req: NextRequest) {
           icsEventsPromise = Promise.all(
             icsRows.map(async row => {
               const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
-              if (row.color) {
-                return events.map(ev => ({ ...ev, icsColor: row.color }))
-              }
-              return events
+              return events.map(ev => ({
+                ...ev,
+                ...(row.color ? { icsColor: row.color } : {}),
+                icsCalendarName: row.name,
+              }))
             })
           ).then(results => results.flat())
         }

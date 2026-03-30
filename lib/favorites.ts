@@ -1,28 +1,28 @@
 import type { Favorite } from '@/types'
 
-const STORAGE_KEY = 'calendarFavorites'
-
-export function loadFavorites(): Favorite[] {
+export async function loadFavorites(): Promise<Favorite[]> {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    const res = await fetch('/api/settings/favorites')
+    if (!res.ok) return []
+    return res.json()
   } catch {
     return []
   }
 }
 
-export function saveFavorites(favs: Favorite[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(favs))
+export async function addFavorite(fav: Omit<Favorite, 'id'>): Promise<Favorite> {
+  const res = await fetch('/api/settings/favorites', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fav),
+  })
+  return res.json()
 }
 
-export function addFavorite(fav: Favorite) {
-  const favs = loadFavorites()
-  favs.push(fav)
-  saveFavorites(favs)
-  return favs
-}
-
-export function removeFavorite(id: string) {
-  const favs = loadFavorites().filter(f => f.id !== id)
-  saveFavorites(favs)
-  return favs
+export async function removeFavorite(id: string): Promise<void> {
+  await fetch('/api/settings/favorites', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
 }

@@ -618,6 +618,13 @@ export default function ActivityForm({
           <button onClick={handleClose} className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
         </div>
 
+        {/* ICS calendar source label */}
+        {initial?.icsCalendarName && (
+          <div className="px-4 py-1.5 border-b border-border bg-primary/5">
+            <p className="text-[11px] text-text-muted">📂 {initial.icsCalendarName}</p>
+          </div>
+        )}
+
         {/* Success state */}
         {savedActivity && (
           <div className="flex-1 flex flex-col items-center justify-center p-8 gap-4 text-center">

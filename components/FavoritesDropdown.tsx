@@ -15,32 +15,33 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
+  const [loading, setLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setFavorites(loadFavorites())
+    loadFavorites().then(favs => { setFavorites(favs); setLoading(false) })
   }, [])
 
   useEffect(() => {
     if (naming) inputRef.current?.focus()
   }, [naming])
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) return
-    const fav: Favorite = {
-      id: crypto.randomUUID(),
+    const fav = await addFavorite({
       name: name.trim(),
       view: state.view,
       personCodes: state.selectedPersons.map(p => p.code),
-    }
-    setFavorites(addFavorite(fav))
+    })
+    setFavorites(prev => [...prev, fav])
     setName('')
     setNaming(false)
   }
 
-  function handleDelete(e: React.MouseEvent, id: string) {
+  async function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation()
-    setFavorites(removeFavorite(id))
+    setFavorites(prev => prev.filter(f => f.id !== id))
+    await removeFavorite(id)
   }
 
   function handleApply(fav: Favorite) {
@@ -57,6 +58,7 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
 
   const list = (
     <>
+      {loading && <p className="px-3 py-2 text-xs text-text-muted">Loading…</p>}
       {favorites.map(fav => (
         <button
           key={fav.id}
@@ -113,7 +115,7 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
         </button>
       )}
 
-      {favorites.length === 0 && !naming && (
+      {!loading && favorites.length === 0 && !naming && (
         <p className="px-3 py-1 text-xs text-text-muted">No favorites yet</p>
       )}
     </>

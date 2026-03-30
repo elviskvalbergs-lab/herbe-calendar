@@ -133,6 +133,9 @@ export default function ActivityBlock({ activity, color, onClick, onDragStart, c
           {activity.customerName && (
             <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
           )}
+          {activity.icsCalendarName && (
+            <p className="text-[10px] mt-1 text-text-muted truncate">📂 {activity.icsCalendarName}</p>
+          )}
           {isCC && (
             <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
           )}
