@@ -41,7 +41,7 @@ export default function CalendarGrid({
     function update() {
       const w = window.innerWidth
       const h = window.innerHeight
-      if (w >= 640) setMaxVisibleCols(8)
+      if (w >= 640) setMaxVisibleCols(12)
       else if (w > h) setMaxVisibleCols(5)
       else setMaxVisibleCols(2)
     }
