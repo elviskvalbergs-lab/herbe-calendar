@@ -85,16 +85,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
-  // Persist state to localStorage (only after people have loaded, to avoid overwriting saved person codes on mount)
+  // Persist state to localStorage + keep current history entry in sync
   useEffect(() => {
     if (!peopleLoadedRef.current) return
-    try {
-      localStorage.setItem('calendarState', JSON.stringify({
-        view: state.view,
-        date: state.date,
-        personCodes: state.selectedPersons.map(p => p.code),
-      }))
-    } catch {}
+    const stateSnapshot = {
+      view: state.view,
+      date: state.date,
+      personCodes: state.selectedPersons.map(p => p.code),
+    }
+    try { localStorage.setItem('calendarState', JSON.stringify(stateSnapshot)) } catch {}
+    // Replace (not push) so browser back always returns to the exact pre-drill state
+    history.replaceState(stateSnapshot, '')
   }, [state.view, state.date, state.selectedPersons])
 
   // Global keyboard shortcuts (N/⌘N, T, ←, →, ?, Esc)

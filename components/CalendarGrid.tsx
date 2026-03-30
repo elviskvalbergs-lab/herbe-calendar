@@ -177,7 +177,7 @@ export default function CalendarGrid({
                   <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative">
                     <button
                       onClick={() => onDrillDate?.(date)}
-                      className="text-text-muted hover:text-text active:text-primary transition-colors"
+                      className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
                       title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
                     >
                       {format(parseISO(date), 'EEE dd/MM')}
@@ -200,7 +200,7 @@ export default function CalendarGrid({
                       {personCount > 1 ? (
                         <button
                           onClick={() => onDrillPerson?.(person.code)}
-                          className="hover:underline active:opacity-70"
+                          className="underline decoration-border hover:decoration-current active:opacity-70"
                         >
                           {person.code}
                         </button>
