@@ -16,7 +16,7 @@ interface Props {
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
   scale?: number
-  colMinW?: string
+  colMinVw?: number
 }
 
 interface DragState {
@@ -32,7 +32,7 @@ interface DragState {
 
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
-  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, colMinW = 'min-w-[44vw] sm:min-w-0'
+  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, colMinVw = 44
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -146,7 +146,7 @@ export default function PersonColumn({
   const outlookLaned = buildLanedActivities(outlookActivities)
 
   return (
-    <div ref={columnRef} className={`flex-1 ${colMinW} border-r border-border relative last:border-r-0`}>
+    <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">

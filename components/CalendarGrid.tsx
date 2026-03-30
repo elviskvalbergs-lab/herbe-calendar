@@ -94,18 +94,21 @@ export default function CalendarGrid({
         </div>
       )}
 
-      <div className="flex min-w-0">
+      <div className="flex">
         <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} scale={scale} />
 
         {/* For each date, a grouped column with shared header */}
         {dates.map((date, dateIdx) => {
           const isMultiDay = state.view === '3day' || state.view === '5day'
-          // In multi-day views use narrower columns so they don't overflow portrait
-          const colMinW = state.view === '5day' ? 'min-w-[22vw] sm:min-w-0' : state.view === '3day' ? 'min-w-[30vw] sm:min-w-0' : 'min-w-[44vw] sm:min-w-0'
+          // Per-person min column width (vw) — narrower in multi-day views
+          const colMinVw = state.view === '5day' ? 22 : state.view === '3day' ? 30 : 44
+          // Date group min-width: all person columns must fit
+          const dateGroupMinW = state.selectedPersons.length * colMinVw
           return (
             <div
               key={date}
-              className={`flex-1 min-w-0 flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+              className={`flex-1 shrink-0 sm:shrink flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
+              style={{ minWidth: `${dateGroupMinW}vw` }}
             >
               {/* Sticky two-row header for this day */}
               <div className="sticky top-0 z-20 bg-surface">
@@ -123,8 +126,8 @@ export default function CalendarGrid({
                   {state.selectedPersons.map((person, personIdx) => (
                     <div
                       key={person.code}
-                      className={`flex-1 ${colMinW} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
-                      style={{ color: personColor(personIdx) }}
+                      className="flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0"
+                      style={{ color: personColor(personIdx), minWidth: `${colMinVw}vw` }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
                       {person.code}
@@ -153,7 +156,7 @@ export default function CalendarGrid({
                       onSlotClick={onSlotClick}
                       onActivityClick={onActivityClick}
                       onActivityUpdate={onActivityUpdate}
-                      colMinW={colMinW}
+                      colMinVw={colMinVw}
                     />
                   )
                 })}
