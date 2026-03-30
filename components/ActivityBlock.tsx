@@ -142,27 +142,27 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       {/* Detail card — hover on desktop, tap on mobile */}
       {(hovered || mobileSelected) && (
         <div
-          className={`absolute left-0 z-50 mt-1 bg-surface border rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] ${mobileSelected ? 'pointer-events-auto' : 'pointer-events-none'}`}
-          style={{ top: '100%', borderColor: color + '88' }}
+          className={`absolute left-0 z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] ${mobileSelected ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          style={{ top: '100%', borderColor: color + '88', border: `1px solid ${color}88`, background: '#fff', color: '#1a1a1a' }}
           onClick={(e) => e.stopPropagation()}
         >
           {mobileSelected && (
             <button
-              className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-full text-text-muted hover:text-white hover:bg-white/10 text-xs"
+              className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-200 text-base font-bold"
               onClick={(e) => { e.stopPropagation(); onMobileClose?.() }}
             >
               ✕
             </button>
           )}
-          <p className="text-xs font-bold leading-snug mb-1.5 pr-5" style={{ color }}>
+          <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
           </p>
-          <p className="text-xs text-text-muted">
+          <p className="text-xs text-gray-500">
             {activity.timeFrom} – {activity.timeTo}
-            {isPlanned && <span className="ml-1 text-amber-400 text-[10px]">(planned)</span>}
+            {isPlanned && <span className="ml-1 text-amber-600 text-[10px]">(planned)</span>}
           </p>
           {activity.activityTypeCode && (
-            <p className="text-[10px] mt-1" style={{ color: color + 'cc' }}>
+            <p className="text-[10px] mt-1" style={{ color }}>
               <span className="font-mono">{activity.activityTypeCode}</span>
               {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
                 <span className="ml-1 not-italic">
@@ -172,19 +172,19 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
             </p>
           )}
           {activity.projectName && (
-            <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
+            <p className="text-xs text-gray-500 mt-1 truncate">{activity.projectName}</p>
           )}
           {activity.customerName && (
-            <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
+            <p className="text-xs text-gray-500 truncate">{activity.customerName}</p>
           )}
           {activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
+            <p className="text-[10px] mt-1 text-gray-400 truncate">📅 {activity.icsCalendarName}</p>
           )}
           {isOutlook && !activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
+            <p className="text-[10px] mt-1 text-gray-400 truncate"><OutlookIcon /> Outlook Calendar</p>
           )}
           {!isOutlook && activity.source === 'herbe' && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+            <p className="text-[10px] mt-1 text-gray-400 truncate">Herbe ERP</p>
           )}
           {isCC && (
             <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
@@ -195,7 +195,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="inline-flex items-center gap-1.5 mt-2 px-2 py-1 rounded text-[10px] font-bold text-white"
+              className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
               style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
             >
               {activity.icsCalendarName
@@ -213,7 +213,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               {canEdit ? 'Edit' : 'View details'}
             </button>
           ) : (
-            <p className="text-[10px] text-text-muted mt-2 opacity-60">Click to {canEdit ? 'edit' : 'view'}</p>
+            <p className="text-[10px] text-gray-400 mt-2 opacity-60">Click to {canEdit ? 'edit' : 'view'}</p>
           )}
         </div>
       )}
