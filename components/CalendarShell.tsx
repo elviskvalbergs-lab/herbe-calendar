@@ -533,16 +533,16 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         />
       )}
 
-      {/* FABs — mobile only, hidden when form is open */}
+      {/* FAB — mobile only, hidden when form is open */}
       {!formState.open && (
-        <div className="fixed bottom-5 right-5 z-50 lg:hidden flex flex-col gap-3 items-center">
+        <div className="fixed bottom-5 right-5 z-50 lg:hidden flex items-center shadow-lg rounded-full overflow-hidden">
           <button
             onClick={toggleZoom}
-            className="bg-surface border border-border text-text-muted text-sm font-bold w-10 h-10 rounded-full shadow-lg flex items-center justify-center"
+            className="bg-primary/80 text-white w-11 h-11 flex items-center justify-center border-r border-white/20"
             title={zoom === 1 ? 'Zoom in (2x)' : 'Zoom out (1x)'}
             aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
               {zoom === 1
                 ? <><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></>
@@ -551,7 +551,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           </button>
           <button
             onClick={() => setFormState({ open: true, initial: { date: state.date } })}
-            className="bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
+            className="bg-primary text-white text-xl font-bold w-11 h-11 flex items-center justify-center"
             title="New activity"
             aria-label="New activity"
           >
