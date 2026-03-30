@@ -157,6 +157,39 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [formState.open, colorSettingsOpen, shortcutsOpen, state.view, state.date])
 
+  // Drill-down: push current state to browser history, then change view
+  function drillToDate(date: string) {
+    // Save current state so browser back restores it
+    history.pushState(
+      { view: state.view, date: state.date, personCodes: state.selectedPersons.map(p => p.code) },
+      ''
+    )
+    setState(s => ({ ...s, view: 'day', date }))
+  }
+
+  function drillToPerson(personCode: string) {
+    history.pushState(
+      { view: state.view, date: state.date, personCodes: state.selectedPersons.map(p => p.code) },
+      ''
+    )
+    const person = state.selectedPersons.find(p => p.code === personCode)
+    if (person) setState(s => ({ ...s, selectedPersons: [person] }))
+  }
+
+  // Restore state on browser back
+  useEffect(() => {
+    function onPopState(e: PopStateEvent) {
+      if (e.state?.view && e.state?.date && e.state?.personCodes) {
+        const { view, date, personCodes } = e.state
+        const resolved = (personCodes as string[])
+          .map(code => people.find(p => p.code === code) ?? { code, name: code, email: '' })
+        setState({ view, date, selectedPersons: resolved })
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [people])
+
   // Derived color maps
   const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
   const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
@@ -463,6 +496,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         }
         onActivityUpdate={fetchActivities}
         onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
+        onDrillDate={drillToDate}
+        onDrillPerson={drillToPerson}
       />
       {status && (
         <div

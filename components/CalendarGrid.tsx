@@ -22,11 +22,14 @@ interface Props {
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
   onNewForDate?: (date: string) => void
+  onDrillDate?: (date: string) => void
+  onDrillPerson?: (personCode: string) => void
 }
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
-  scale = 1, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate
+  scale = 1, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
+  onDrillDate, onDrillPerson
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
@@ -171,8 +174,14 @@ export default function CalendarGrid({
             >
               <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (
-                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
-                    {format(parseISO(date), 'EEE dd/MM')}
+                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative">
+                    <button
+                      onClick={() => onDrillDate?.(date)}
+                      className="text-text-muted hover:text-text active:text-primary transition-colors"
+                      title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
+                    >
+                      {format(parseISO(date), 'EEE dd/MM')}
+                    </button>
                     <button
                       onClick={() => onNewForDate?.(date)}
                       className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
@@ -188,7 +197,14 @@ export default function CalendarGrid({
                       style={{ color: personColor(personIdx), minWidth: `${colMinVw}vw` }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
-                      {person.code}
+                      {personCount > 1 ? (
+                        <button
+                          onClick={() => onDrillPerson?.(person.code)}
+                          className="hover:underline active:opacity-70"
+                        >
+                          {person.code}
+                        </button>
+                      ) : person.code}
                     </div>
                   ))}
                 </div>
