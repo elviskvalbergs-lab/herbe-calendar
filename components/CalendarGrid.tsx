@@ -123,7 +123,7 @@ export default function CalendarGrid({
                   {state.selectedPersons.map((person, personIdx) => (
                     <div
                       key={person.code}
-                      className={`flex-1 ${isMultiDay ? colMinW : ''} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
+                      className={`flex-1 ${colMinW} flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0`}
                       style={{ color: personColor(personIdx) }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
