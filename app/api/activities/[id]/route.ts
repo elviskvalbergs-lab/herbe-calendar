@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { herbeFetchById } from '@/lib/herbe/client'
+import { herbeFetchById, herbeWebExcellentDelete } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
+import { toHerbeForm } from '../route'
 
-const ROW_FIELDS = new Set(['Text'])
-
-function toHerbeForm(body: Record<string, unknown>): string {
-  return Object.entries(body)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => {
-      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
-      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
-    })
-    .join('&')
+function extractHerbeError(e: unknown): string {
+  if (!e) return ''
+  if (typeof e === 'string') return e
+  if (typeof e === 'object') {
+    const o = e as Record<string, unknown>
+    const msg = o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
+    if (msg) return String(msg)
+    const parts: string[] = []
+    if (o.field) parts.push(`field: ${o.field}`)
+    if (o.code) parts.push(`code: ${o.code}`)
+    if (o.vc) parts.push(`vc: ${o.vc}`)
+    return parts.length ? parts.join(', ') : JSON.stringify(e).slice(0, 300)
+  }
+  return String(e)
 }
+
 
 async function fetchActivity(id: string) {
   // Path-based URL (/ActVc/id) fetches one record — query ?id=X may scan all records
@@ -24,11 +30,13 @@ async function fetchActivity(id: string) {
   return (json?.data?.[REGISTERS.activities]?.[0] ?? json) as Record<string, unknown>
 }
 
-function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
+export function canEdit(activity: Record<string, unknown>, userCode: string): boolean {
   const mainPersons = String(activity['MainPersons'] ?? '').split(',').map(s => s.trim())
   if (mainPersons.includes(userCode)) return true
   const accessGroup = activity[ACTIVITY_ACCESS_GROUP_FIELD] as string | undefined
   if (accessGroup?.split(',').map(s => s.trim()).includes(userCode)) return true
+  const ccPersons = String(activity['CCPersons'] ?? '').split(',').map(s => s.trim())
+  if (ccPersons.includes(userCode)) return true
   return false
 }
 
@@ -47,7 +55,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body)
+    const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetchById(REGISTERS.activities, id, {
       method: 'PATCH',
       body: formBody,
@@ -55,9 +63,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     })
     const data = await res.json().catch(() => null)
     console.log(`PATCH ActVc/${id} → ${res.status}`, JSON.stringify(data))
-    if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
+    if (!res.ok) {
+      const errMsg = data ? extractHerbeError(data) : `Herbe error ${res.status}`
+      return NextResponse.json({ error: errMsg }, { status: res.status })
+    }
     if (Array.isArray(data?.errors) && data.errors.length > 0) {
-      const msgs = (data.errors as Record<string, unknown>[]).map(e => String(e.message ?? e.text ?? e.msg ?? JSON.stringify(e)))
+      const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
     return NextResponse.json(data ?? {}, { status: 200 })
@@ -80,8 +91,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!canEdit(activity, session.userCode)) return forbidden()
 
   try {
-    const res = await herbeFetchById(REGISTERS.activities, id, { method: 'DELETE' })
-    return new NextResponse(null, { status: res.ok ? 204 : res.status })
+    const res = await herbeWebExcellentDelete(REGISTERS.activities, id, session.userCode)
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return NextResponse.json({ error: text || `Herbe error ${res.status}` }, { status: res.status })
+    }
+    return new NextResponse(null, { status: 204 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

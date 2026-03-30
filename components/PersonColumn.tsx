@@ -11,6 +11,7 @@ interface Props {
   activities: Activity[]
   sessionUserCode: string
   getActivityColor: (activity: Activity) => string
+  getTypeName?: (typeCode: string) => string
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
@@ -29,7 +30,7 @@ interface DragState {
 }
 
 export default function PersonColumn({
-  personCode, date, activities, sessionUserCode, getActivityColor,
+  personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, colMinW = 'min-w-[44vw] sm:min-w-0'
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
@@ -43,7 +44,8 @@ export default function PersonColumn({
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(sessionUserCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(sessionUserCode) ?? false
-    return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup
+    const inCCPersons = activity.ccPersons?.includes(sessionUserCode) ?? false
+    return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
   function handleSlotClick(hour: number, e: React.MouseEvent) {
@@ -88,6 +90,15 @@ export default function PersonColumn({
       if (dragState.currentFrom === dragState.originalFrom && dragState.currentTo === dragState.originalTo) {
         setDrag(null)
         onActivityClick(activity)
+        return
+      }
+
+      const action = type === 'move' ? 'move' : 'resize'
+      const msg = `Are you sure you want to ${action} this activity to ${dragState.currentFrom}-${dragState.currentTo}?`
+      if (!window.confirm(msg)) {
+        setDrag(null)
+        suppressClickRef.current = true
+        setTimeout(() => { suppressClickRef.current = false }, 300)
         return
       }
 
@@ -183,6 +194,11 @@ export default function PersonColumn({
                   onClick={(a) => { if (!suppressClickRef.current) onActivityClick(a) }}
                   onDragStart={handleDragStart}
                   canEdit={canEdit(act)}
+                  isCC={
+                    (act.ccPersons?.includes(personCode) ?? false) &&
+                    !(act.mainPersons?.includes(personCode) ?? false)
+                  }
+                  getTypeName={getTypeName}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}

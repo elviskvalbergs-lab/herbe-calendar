@@ -5,5 +5,5 @@ import CalendarShell from '@/components/CalendarShell'
 export default async function HomePage() {
   const session = await auth()
   if (!session) redirect('/login')
-  return <CalendarShell userCode={session.user.userCode ?? ''} />
+  return <CalendarShell userCode={session.user.userCode ?? ''} companyCode={process.env.HERBE_COMPANY_CODE ?? '1'} />
 }

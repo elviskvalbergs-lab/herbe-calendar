@@ -11,11 +11,24 @@ function toTime(raw: string): string {
 
 function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
   const mainPersonsRaw = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  const ccPersonsRaw = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  // Text lives in row 0 of the Herbe record — may come back flat as r['Text']
+  // or nested under r['rows']?.[0]?.['Text'] depending on the API endpoint
+  const rows = r['rows'] as Record<string, unknown>[] | undefined
+  let textValue = String(r['Text'] ?? '')
+  if (!textValue && rows && rows.length > 0) {
+    textValue = rows
+      .map(row => String(row['Text'] ?? ''))
+      .filter(s => s !== '')
+      .join('\n')
+  }
+  const finalTextValue = textValue || undefined
   return {
     id: String(r['SerNr'] ?? ''),
     source: 'herbe',
     personCode,
     mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
+    ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
     description: String(r['Comment'] ?? ''),
     date: String(r['TransDate'] ?? ''),
     timeFrom: toTime(String(r['StartTime'] ?? '')),
@@ -26,8 +39,9 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     projectCode: String(r['PRCode'] ?? '') || undefined,
     projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
     itemCode: String(r['ItemCode'] ?? '') || undefined,
-    textInMatrix: String(r['Text'] ?? '') || undefined,
+    textInMatrix: finalTextValue,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
+    planned: String(r['CalTimeFlag'] ?? '1') === '2',
   }
 }
 
@@ -54,31 +68,54 @@ export async function GET(req: Request) {
       sort: 'TransDate',
       range: `${dateFrom}:${dateTo}`,
     })
-    const result = raw.flatMap(r => {
+    const results: Activity[] = raw.flatMap(r => {
       const rec = r as Record<string, unknown>
       const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
       return mainPersons
         .filter(p => personSet.has(p))
         .map(p => mapActivity(rec, p))
     })
-    return NextResponse.json(result)
+
+    // Emit CC rows for persons in CCPersons but NOT already in MainPersons
+    for (const record of raw) {
+      const r = record as Record<string, unknown>
+      const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+      for (const ccCode of ccPersonsArr) {
+        if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
+          results.push(mapActivity(r, ccCode))
+        }
+      }
+    }
+
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
 
+const HERBE_ERROR_CODES: Record<string, string> = {
+  '1058': 'Mandatory field missing',
+  '1547': 'Time conflict — an activity already exists at this time for this person',
+}
+
 function extractHerbeError(e: unknown): string {
   if (!e) return ''
   if (typeof e === 'string') return e
+  if (Array.isArray(e)) return e.map(extractHerbeError).filter(Boolean).join('; ')
   if (typeof e === 'object') {
     const o = e as Record<string, unknown>
-    // Common Herbe error shapes
-    const msg = o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
-    if (msg) return String(msg)
+    // Standard ERP uses @-prefixed keys; also check plain keys
+    const code = String(o['@code'] ?? o.code ?? '')
+    const mapped = code ? HERBE_ERROR_CODES[code] : undefined
+    const rawMsg = o['@description'] ?? o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
+    const msg = mapped ?? (rawMsg ? String(rawMsg).trim() : undefined)
+    const field = o['@field'] ?? o.field
+    if (msg) return field ? `${field}: ${msg}` : msg
     // Include field/code context if available
     const parts: string[] = []
-    if (o.field) parts.push(`field: ${o.field}`)
-    if (o.code) parts.push(`code: ${o.code}`)
+    if (field) parts.push(`field: ${field}`)
+    if (code) parts.push(`code: ${code}`)
     if (o.vc) parts.push(`vc: ${o.vc}`)
     return parts.length ? parts.join(', ') : JSON.stringify(e)
   }
@@ -88,14 +125,62 @@ function extractHerbeError(e: unknown): string {
 // Fields that live on row 0 of the activity record, not the header
 const ROW_FIELDS = new Set(['Text'])
 
-function toHerbeForm(body: Record<string, unknown>): string {
-  return Object.entries(body)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => {
-      const prefix = ROW_FIELDS.has(k) ? 'set_row_field.0' : 'set_field'
-      return `${prefix}.${k}=${encodeURIComponent(String(v))}`
-    })
-    .join('&')
+export function toHerbeForm(
+  data: Record<string, unknown>,
+  allowEmptyFields: Set<string> = new Set()
+): string {
+  const parts: string[] = []
+  
+  for (const [k, v] of Object.entries(data)) {
+    if (v === undefined || v === null) continue
+    if (v === '' && !allowEmptyFields.has(k)) continue
+
+    if (k === 'Text') {
+      const text = String(v)
+      if (!text) {
+        parts.push(`set_row_field.0.Text=`)
+      } else {
+        const lines = text.split('\n')
+        const chunks: string[] = []
+        for (const line of lines) {
+          if (line.length === 0) {
+            chunks.push('')
+            continue
+          }
+          const words = line.split(' ')
+          let currentChunk = ''
+          for (const word of words) {
+            if (!currentChunk) {
+              currentChunk = word
+            } else if (currentChunk.length + 1 + word.length <= 100) {
+              currentChunk += ' ' + word
+            } else {
+              chunks.push(currentChunk)
+              currentChunk = word
+            }
+            while (currentChunk.length > 100) {
+              chunks.push(currentChunk.slice(0, 100))
+              currentChunk = currentChunk.slice(100)
+            }
+          }
+          if (currentChunk) chunks.push(currentChunk)
+        }
+        
+        chunks.forEach((chunk, i) => {
+          parts.push(`set_row_field.${i}.Text=${encodeURIComponent(chunk)}`)
+        })
+        // Clear up to 10 subsequent rows to avoid leftover text if the new text is shorter
+        for (let i = chunks.length; i < chunks.length + 10; i++) {
+          parts.push(`set_row_field.${i}.Text=`)
+        }
+      }
+      continue
+    }
+    
+    parts.push(`set_field.${k}=${encodeURIComponent(String(v))}`)
+  }
+  
+  return parts.join('&')
 }
 
 export async function POST(req: NextRequest) {
@@ -107,7 +192,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body)
+    const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetch(REGISTERS.activities, undefined, {
       method: 'POST',
       body: formBody,
@@ -115,7 +200,10 @@ export async function POST(req: NextRequest) {
     })
     const data = await res.json().catch(() => null)
     console.log(`POST ActVc → ${res.status}`, JSON.stringify(data))
-    if (!res.ok) return NextResponse.json(data ?? { error: `Herbe error ${res.status}` }, { status: res.status })
+    if (!res.ok) {
+      const errMsg = data ? extractHerbeError(data) : `Herbe error ${res.status}`
+      return NextResponse.json({ error: errMsg }, { status: res.status })
+    }
     // Check for Herbe validation errors returned with HTTP 200 (errors array)
     if (Array.isArray(data?.errors) && data.errors.length > 0) {
       const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
@@ -125,9 +213,12 @@ export async function POST(req: NextRequest) {
     const created = (data?.data?.[REGISTERS.activities] as Record<string, unknown>[] | undefined)?.[0]
     // If Herbe returned an empty result (no record created), it likely rejected due to a validation rule
     if (!created?.['SerNr']) {
-      const rawErr = data?.error ?? data?.message
-      const fallbackErr = rawErr ? extractHerbeError(rawErr) : 'Activity was not saved — a required field may be missing or invalid'
-      return NextResponse.json({ error: fallbackErr }, { status: 422 })
+      // Build a helpful error from whatever Herbe returned
+      const rawErr = data?.error ?? data?.message ?? data?.errors
+      const hint = rawErr
+        ? extractHerbeError(rawErr)
+        : `Activity was not saved — Herbe response: ${JSON.stringify(data).slice(0, 300)}`
+      return NextResponse.json({ error: hint }, { status: 422 })
     }
     return NextResponse.json(created, { status: 201 })
   } catch (e) {

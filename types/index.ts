@@ -24,8 +24,13 @@ export interface Activity {
   textInMatrix?: string   // Additional text required by ForceTextInMatrix
   mainPersons?: string[]  // Herbe: all persons on the activity
   accessGroup?: string    // comma-separated person codes (Herbe)
+  planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
   isOrganizer?: boolean   // Outlook only
   joinUrl?: string        // Outlook/Teams meeting join link
+  webLink?: string        // Outlook web UI link that opens this specific event
+  ccPersons?: string[]    // Herbe CCPersons field — comma-split
+  rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
+  isExternal?: boolean   // ICS-backed external calendar
 }
 
 export interface ActivityType {
@@ -52,7 +57,7 @@ export interface SearchResult {
 }
 
 export interface CalendarState {
-  view: 'day' | '3day'
+  view: 'day' | '3day' | '5day'
   date: string           // "YYYY-MM-DD" — anchor date
   selectedPersons: Person[]
 }

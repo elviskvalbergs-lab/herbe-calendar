@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
 import ErrorBanner from './ErrorBanner'
 import { format } from 'date-fns'
+import { serpLink } from '@/lib/serpLink'
+import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons, getRecentCCPersons, saveRecentCCPersons } from '@/lib/recentItems'
 
 interface Props {
   initial?: Partial<Activity>
@@ -10,17 +12,31 @@ interface Props {
   people: Person[]
   defaultPersonCode: string
   defaultPersonCodes?: string[]
-  todayActivities: Activity[]
+  allActivities: Activity[]
   onClose: () => void
   onSaved: () => void
   onDuplicate: (initial: Partial<Activity>) => void
+  onRsvp?: (status: Activity['rsvpStatus']) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
   getTypeColor?: (typeCode: string) => string
   getTypeGroup?: (typeCode: string) => ActivityClassGroup | undefined
+  companyCode?: string
+  allCustomers?: { Code: string; Name: string }[]
+  allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
+}
+
+function SerpIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  )
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, todayActivities, onClose, onSaved, onDuplicate, canEdit = true, getTypeColor, getTypeGroup
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -47,6 +63,7 @@ export default function ActivityForm({
   const [customerName, setCustomerName] = useState(initial?.customerName ?? '')
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [currentGroup, setCurrentGroup] = useState<ActivityClassGroup | undefined>()
+  const [planned, setPlanned] = useState(initial?.planned ?? false)
   const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
   const [textInMatrix, setTextInMatrix] = useState(initial?.textInMatrix ?? '')
   const [projectResults, setProjectResults] = useState<SearchResult[]>([])
@@ -58,14 +75,82 @@ export default function ActivityForm({
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [savedActivity, setSavedActivity] = useState<Partial<Activity> | null>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
+  const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
+  const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
+  const [personsExpanded, setPersonsExpanded] = useState(false)
+  const [erpLinkCopied, setErpLinkCopied] = useState(false)
+  const [recentTypes, setRecentTypes] = useState<string[]>([])
+  const [recentPersonCodes, setRecentPersonCodes] = useState<string[]>([])
+  const [selectedCCPersonCodes, setSelectedCCPersonCodes] = useState<string[]>(
+    initial?.ccPersons ?? []
+  )
+  const [ccPersonsExpanded, setCCPersonsExpanded] = useState(false)
+  const [recentCCPersonCodes, setRecentCCPersonCodes] = useState<string[]>([])
+  const [rsvpStatus, setRsvpStatus] = useState<Activity['rsvpStatus']>(initial?.rsvpStatus)
+  const [rsvpLoading, setRsvpLoading] = useState(false)
+  const handleSaveRef = useRef<() => void>(() => {})
+  const handleDuplicateRef = useRef<() => void>(() => {})
+  const handleCloseRef = useRef<() => void>(() => {})
+  const descInputRef = useRef<HTMLInputElement>(null)
+  const projectInputRef = useRef<HTMLInputElement>(null)
+  const customerInputRef = useRef<HTMLInputElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+  const dragStartY = useRef<number | null>(null)
+  const isDragging = useRef(false)
+  // Snapshot of values at form open / reset — used for dirty detection
+  const initialValuesRef = useRef({
+    description: initial?.description ?? '',
+    timeTo: initial?.timeTo ?? '',
+    activityTypeCode: initial?.activityTypeCode ?? '',
+    projectCode: initial?.projectCode ?? '',
+    customerCode: initial?.customerCode ?? '',
+    planned: initial?.planned ?? false,
+    itemCode: initial?.itemCode ?? '',
+    textInMatrix: initial?.textInMatrix ?? '',
+    selectedPersonCodes: (
+      isEdit && initial?.mainPersons?.length ? initial.mainPersons
+        : initial?.personCode ? [initial.personCode]
+        : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
+    ) as string[],
+    selectedCCPersonCodes: [...(initial?.ccPersons ?? [])] as string[],
+  })
+  const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+  const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
-  // Esc to close
+  // Load recent items from localStorage
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
+    setRecentTypes(getRecentTypes())
+    setRecentPersonCodes(getRecentPersons())
+    setRecentCCPersonCodes(getRecentCCPersons())
+  }, [])
+
+  // Esc to close · ⌃⌘S to save · ⌃⌘Y to duplicate · ⌃⌘O to open in ERP
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { handleCloseRef.current(); return }
+      if (e.metaKey && e.ctrlKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault(); handleSaveRef.current(); return
+      }
+      if (e.metaKey && e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        if (isEdit) handleDuplicateRef.current()
+        return
+      }
+      if (e.metaKey && e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault()
+        if (isEdit && editId) {
+          const link = serpLink('ActVc', editId, companyCode)
+          if (link) window.location.href = link
+        }
+        return
+      }
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [isEdit, editId, companyCode, canEdit])
 
   // Load activity types on mount
   useEffect(() => {
@@ -96,15 +181,69 @@ export default function ActivityForm({
     )
   }
 
-  function smartDefaultStart(): string {
-    const todayForPerson = todayActivities
-      .filter(a => a.personCode === defaultPersonCode)
+  function smartDefaultStart(hint?: string): string {
+    if (hint) return hint
+    const todayForPerson = allActivities
+      .filter(a => a.date === date && !a.planned && a.source !== 'outlook' && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
       .sort((a, b) => b.timeTo.localeCompare(a.timeTo))
     return todayForPerson[0]?.timeTo ?? '09:00'
   }
 
+  function handleDragHandleTouchStart(e: React.TouchEvent) {
+    dragStartY.current = e.touches[0].clientY
+    isDragging.current = false
+  }
+
+  function handleDragHandleTouchMove(e: React.TouchEvent) {
+    if (dragStartY.current === null) return
+    const dy = e.touches[0].clientY - dragStartY.current
+    if (dy <= 0) return
+    isDragging.current = true
+    if (modalRef.current) {
+      modalRef.current.style.transform = `translateY(${dy}px)`
+      modalRef.current.style.transition = 'none'
+    }
+  }
+
+  function handleDragHandleTouchEnd(e: React.TouchEvent) {
+    if (dragStartY.current === null) return
+    const dy = e.changedTouches[0].clientY - dragStartY.current
+    dragStartY.current = null
+    const springBack = () => {
+      if (modalRef.current) {
+        modalRef.current.style.transition = 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+        modalRef.current.style.transform = ''
+      }
+    }
+    if (dy > 80 && isDragging.current) {
+      if (computeIsDirty() && !window.confirm('Discard unsaved changes?')) {
+        springBack()
+      } else {
+        if (modalRef.current) {
+          modalRef.current.style.transition = 'transform 0.2s ease-out'
+          modalRef.current.style.transform = `translateY(100%)`
+        }
+        setTimeout(() => onCloseRef.current(), 200)
+      }
+    } else {
+      springBack()
+    }
+    isDragging.current = false
+  }
+
   async function searchProjects(q: string) {
     if (q.length < 2) { setProjectResults([]); setProjectSearchMsg(null); return }
+    // Use client-side data if available
+    if (allProjects?.length) {
+      const lower = q.toLowerCase()
+      const results = allProjects
+        .filter(p => p.Name.toLowerCase().includes(lower) || p.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(p => ({ code: p.Code, name: p.Name, customerCode: p.CUCode || undefined, customerName: p.CUName || undefined }))
+      setProjectResults(results)
+      setProjectSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
     setSearchingProjects(true)
     setProjectSearchMsg(null)
     try {
@@ -119,7 +258,6 @@ export default function ActivityForm({
       })).filter(r => r.code)
       setProjectResults(results)
       if (results.length === 0) setProjectSearchMsg('No results')
-      else (document.activeElement as HTMLElement)?.blur()
     } catch (e) {
       setProjectSearchMsg(String(e))
     } finally {
@@ -129,6 +267,17 @@ export default function ActivityForm({
 
   async function searchCustomers(q: string) {
     if (q.length < 2) { setCustomerResults([]); setCustomerSearchMsg(null); return }
+    // Use client-side data if available
+    if (allCustomers?.length) {
+      const lower = q.toLowerCase()
+      const results = allCustomers
+        .filter(c => c.Name.toLowerCase().includes(lower) || c.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(c => ({ code: c.Code, name: c.Name }))
+      setCustomerResults(results)
+      setCustomerSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
     setSearchingCustomers(true)
     setCustomerSearchMsg(null)
     try {
@@ -136,12 +285,11 @@ export default function ActivityForm({
       if (!res.ok) { setCustomerSearchMsg(`Search error (${res.status})`); return }
       const data = await res.json() as Record<string, unknown>[]
       const results = data.map(d => ({
-        code: String(d['Code'] ?? d['CUCode'] ?? ''),
-        name: String(d['Name'] ?? d['CUName'] ?? ''),
+        code: String(d['Code'] ?? ''),
+        name: String(d['Name'] ?? ''),
       })).filter(r => r.code)
       setCustomerResults(results)
       if (results.length === 0) setCustomerSearchMsg('No results')
-      else (document.activeElement as HTMLElement)?.blur()
     } catch (e) {
       setCustomerSearchMsg(String(e))
     } finally {
@@ -161,6 +309,8 @@ export default function ActivityForm({
       ItemCode: itemCode || undefined,
       Text: textInMatrix || undefined,
       MainPersons: selectedPersonCodes.join(','),
+      CCPersons: selectedCCPersonCodes.join(','),
+      CalTimeFlag: planned ? '2' : '1',
     }
   }
 
@@ -169,10 +319,12 @@ export default function ActivityForm({
       subject: description,
       start: { dateTime: `${date}T${timeFrom}:00`, timeZone: 'Europe/Riga' },
       end: { dateTime: `${date}T${timeTo}:00`, timeZone: 'Europe/Riga' },
+      isOnlineMeeting: true,
+      onlineMeetingProvider: 'teamsForBusiness',
       attendees: selectedPersonCodes
         .map(code => people.find(p => p.code === code))
-        .filter((p): p is Person => !!p)
-        .map(p => ({ emailAddress: { address: p.email, name: p.name }, type: 'required' })),
+        .filter((p): p is Person => !!p && !!p.email)
+        .map(p => ({ emailAddress: { address: p.email }, type: 'required' })),
     }
   }
 
@@ -220,6 +372,12 @@ export default function ActivityForm({
         : ''
 
       onSaved()
+      if (activityTypeCode) saveRecentType(activityTypeCode)
+      saveRecentPersons(selectedPersonCodes)
+      saveRecentCCPersons(selectedCCPersonCodes)
+      setRecentTypes(getRecentTypes())
+      setRecentPersonCodes(getRecentPersons())
+      setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
         id: createdId,
         source, personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
@@ -232,25 +390,56 @@ export default function ActivityForm({
     }
   }
 
-  async function handleDelete() {
-    if (!editId) return
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm(source === 'outlook' ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
+
     setSaving(true)
+    setErrors([])
     try {
       const url = source === 'herbe' ? `/api/activities/${editId}` : `/api/outlook/${editId}`
       const res = await fetch(url, { method: 'DELETE' })
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setErrors([data?.error ?? `Delete failed (${res.status})`])
+        const body = await res.json().catch(() => null)
+        const errMsg = body?.error || body?.errors?.[0]?.message || res.statusText || 'Deletion failed'
+        setErrors([`Failed to delete: ${errMsg}`])
         setSaving(false)
         return
       }
       onSaved()
       onClose()
-    } catch (e) {
-      setErrors([String(e)])
+    } catch (err) {
+      setErrors([String(err)])
       setSaving(false)
     }
   }
+
+  handleSaveRef.current = handleSave
+  handleDuplicateRef.current = handleDuplicate
+
+  function computeIsDirty(): boolean {
+    if (savedActivity) return false
+    const iv = initialValuesRef.current
+    if (description !== iv.description) return true
+    if (timeTo !== iv.timeTo) return true
+    if (activityTypeCode !== iv.activityTypeCode) return true
+    if (projectCode !== iv.projectCode) return true
+    if (customerCode !== iv.customerCode) return true
+    if (planned !== iv.planned) return true
+    if (itemCode !== iv.itemCode) return true
+    if (textInMatrix !== iv.textInMatrix) return true
+    if (JSON.stringify([...selectedPersonCodes].sort()) !== JSON.stringify([...iv.selectedPersonCodes].sort())) return true
+    const sortedCC = [...selectedCCPersonCodes].sort()
+    const sortedInitCC = [...(iv.selectedCCPersonCodes ?? [])].sort()
+    if (JSON.stringify(sortedCC) !== JSON.stringify(sortedInitCC)) return true
+    return false
+  }
+
+  function handleClose() {
+    if (computeIsDirty() && !window.confirm('Discard unsaved changes?')) return
+    onCloseRef.current()
+  }
+  handleCloseRef.current = handleClose
 
   function handleDuplicate() {
     onClose()
@@ -264,11 +453,12 @@ export default function ActivityForm({
       projectName,
       customerCode,
       customerName,
+      planned,
       // timeFrom and timeTo intentionally omitted — user sets them on the new form
     })
   }
 
-  function resetToCreate(copy: Partial<Activity> | null) {
+  function resetToCreate(copy: Partial<Activity> | null, timeHint?: string) {
     setSavedActivity(null)
     setErrors([])
     if (copy) {
@@ -280,16 +470,19 @@ export default function ActivityForm({
       setProjectName(copy.projectName ?? '')
       setCustomerCode(copy.customerCode ?? '')
       setCustomerName(copy.customerName ?? '')
+      setPlanned(copy.planned ?? false)
       setItemCode(copy.itemCode ?? '')
       setTextInMatrix(copy.textInMatrix ?? '')
     } else {
       setDescription('')
       setActivityTypeCode('')
+      setActivityTypeName('')
       setCurrentGroup(undefined)
       setProjectCode('')
       setProjectName('')
       setCustomerCode('')
       setCustomerName('')
+      setPlanned(false)
       setItemCode('')
       setTextInMatrix('')
     }
@@ -297,30 +490,132 @@ export default function ActivityForm({
       setTimeFrom('')
       setTimeTo('')
     } else {
-      // Same smart default as initial New Activity open
-      setTimeFrom(smartDefaultStart())
+      // Same smart default as initial New Activity open, using saved timeTo as hint
+      setTimeFrom(smartDefaultStart(timeHint))
       setTimeTo('')
     }
+    // Reset dirty baseline so the new blank/copied form isn't considered dirty
+    initialValuesRef.current = {
+      description: copy?.description ?? '',
+      timeTo: copy?.timeTo ?? '',
+      activityTypeCode: copy?.activityTypeCode ?? '',
+      projectCode: copy?.projectCode ?? '',
+      customerCode: copy?.customerCode ?? '',
+      planned: copy?.planned ?? false,
+      itemCode: copy?.itemCode ?? '',
+      textInMatrix: copy?.textInMatrix ?? '',
+      selectedPersonCodes: [...selectedPersonCodes],
+      selectedCCPersonCodes: [...(copy?.ccPersons ?? [])],
+    }
+    setSelectedCCPersonCodes(copy?.ccPersons ?? [])
+    setCCPersonsExpanded(false)
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        {/* Drag handle (mobile) */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
+      <div
+        ref={modalRef}
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+      >
+        {/* Drag handle (mobile) — touch here to drag-dismiss */}
+        <div
+          className="flex justify-center pt-3 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none"
+          onTouchStart={handleDragHandleTouchStart}
+          onTouchMove={handleDragHandleTouchMove}
+          onTouchEnd={handleDragHandleTouchEnd}
+        >
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div>
-            <h2 className="font-bold">{isEdit ? 'Edit Activity' : 'New Activity'}</h2>
-            {isEdit && editId && (
-              <p className="text-[11px] text-text-muted font-mono">#{editId}</p>
+        {/* Header — also responds to swipe-down to dismiss on mobile */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b border-border sm:touch-auto touch-none"
+          onTouchStart={handleDragHandleTouchStart}
+          onTouchMove={handleDragHandleTouchMove}
+          onTouchEnd={handleDragHandleTouchEnd}
+        >
+          <h2 className="font-bold flex items-center gap-2 flex-wrap">
+            {isEdit ? 'Edit Activity' : 'New Activity'}
+            {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
+            {isEdit && editId && (() => {
+              const herbeLink = source === 'herbe' ? serpLink('ActVc', editId, companyCode) : null
+              // Outlook: open in Outlook web calendar in a new tab
+              const outlookCalLink = source === 'outlook'
+                ? (initial?.webLink || `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`)
+                : null
+              const openLink = herbeLink ?? outlookCalLink
+              // For Outlook copy: prefer joinUrl (Teams link) so recipient can join; fall back to calendar web URL
+              const copyText = source === 'outlook'
+                ? (initial?.joinUrl ?? outlookCalLink ?? '')
+                : (herbeLink ?? '')
+              const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors hover:border-primary hover:bg-primary/20'
+              return openLink ? (
+                <span className="flex items-stretch gap-1">
+                  <a
+                    href={openLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={source === 'outlook' ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
+                    tabIndex={-1}
+                    className={cls}
+                  >
+                    {source === 'outlook' ? (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
+                        <span>Calendar</span>
+                      </>
+                    ) : (
+                      <>#{editId} <SerpIcon /></>
+                    )}
+                  </a>
+                  {copyText && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      title={erpLinkCopied ? 'Copied!' : (source === 'outlook' ? 'Copy Teams/meeting link' : 'Copy ERP link')}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        await navigator.clipboard.writeText(copyText)
+                        setErpLinkCopied(true)
+                        setTimeout(() => setErpLinkCopied(false), 1500)
+                      }}
+                      className={`inline-flex items-center justify-center font-mono text-[11px] font-normal px-2 rounded-lg border transition-colors ${erpLinkCopied ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20'}`}
+                    >
+                      {erpLinkCopied ? '✓' : (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {canEdit !== false && source === 'outlook' && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      title="Delete from Outlook"
+                      onClick={handleDelete}
+                      disabled={saving}
+                      className="inline-flex items-center justify-center px-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:border-red-500/50 transition-colors disabled:opacity-50"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  )}
+                </span>
+              ) : source === 'herbe' ? (
+                <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{editId}</span>
+              ) : null
+            })()}
+            {/* View-only badge in header */}
+            {canEdit === false && (
+              <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400">View only</span>
             )}
-          </div>
-          <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+          </h2>
+          <button onClick={handleClose} className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
         </div>
 
         {/* Success state */}
@@ -354,7 +649,7 @@ export default function ActivityForm({
                     Create another (copy)
                   </button>
                   <button
-                    onClick={() => resetToCreate(null)}
+                    onClick={() => resetToCreate(null, savedActivity?.timeTo)}
                     className="w-full border border-border text-text-muted font-bold py-3 rounded-xl text-sm"
                   >
                     Create blank
@@ -370,7 +665,7 @@ export default function ActivityForm({
 
         {/* Scrollable body */}
         {!savedActivity && <div className="overflow-y-auto flex-1 p-4 space-y-3">
-          {/* Teams join button (Outlook meetings only) */}
+          {/* Teams join button (Outlook meetings only) — original Join Teams call button */}
           {initial?.joinUrl && (
             <a
               href={initial.joinUrl}
@@ -378,8 +673,73 @@ export default function ActivityForm({
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
             >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
               Join Teams call
             </a>
+          )}
+
+          {/* RSVP buttons (Outlook only, non-organizer) */}
+          {source === 'outlook' && rsvpStatus !== 'organizer' && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
+              <div className="flex gap-2">
+                {([
+                  {
+                    action: 'accept' as const,
+                    label: 'Accept',
+                    activeStatus: 'accepted' as const,
+                    activeClass: 'border-green-600 bg-green-900/20 text-green-400',
+                    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" className="stroke-green-500"/><polyline points="8 12 11 15 16 9" className="stroke-green-400"/></svg>,
+                  },
+                  {
+                    action: 'decline' as const,
+                    label: 'Decline',
+                    activeStatus: 'declined' as const,
+                    activeClass: 'border-red-600 bg-red-900/20 text-red-400',
+                    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" className="stroke-red-500"/><line x1="15" y1="9" x2="9" y2="15" className="stroke-red-400"/><line x1="9" y1="9" x2="15" y2="15" className="stroke-red-400"/></svg>,
+                  },
+                  {
+                    action: 'tentativelyAccept' as const,
+                    label: 'Tentative',
+                    activeStatus: 'tentativelyAccepted' as const,
+                    activeClass: 'border-amber-500 bg-amber-900/20 text-amber-400',
+                    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" className="stroke-amber-500"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" className="stroke-amber-400"/><line x1="12" y1="17" x2="12.01" y2="17" className="stroke-amber-400"/></svg>,
+                  },
+                ]).map(({ action, label, activeStatus, activeClass, icon }) => (
+                  <button
+                    key={action}
+                    type="button"
+                    tabIndex={-1}
+                    disabled={rsvpLoading}
+                    onClick={async () => {
+                      if (!editId || rsvpLoading) return
+                      setRsvpLoading(true)
+                      try {
+                        const res = await fetch(`/api/outlook/${editId}/rsvp`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action }),
+                        })
+                        if (res.ok) {
+                          const newStatus = action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'tentativelyAccepted'
+                          setRsvpStatus(newStatus)
+                          onRsvp?.(newStatus)
+                        }
+                      } finally {
+                        setRsvpLoading(false)
+                      }
+                    }}
+                    className={`flex-1 py-2 rounded-lg border text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                      rsvpStatus === activeStatus
+                        ? activeClass
+                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                    }`}
+                  >
+                    {icon}{label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Source toggle (create only) */}
@@ -400,52 +760,183 @@ export default function ActivityForm({
           <ErrorBanner errors={errors} />
 
           {/* Person(s) */}
+          {(() => {
+            const unselected = people
+              .filter(p => !selectedPersonCodes.includes(p.code))
+              .sort((a, b) => {
+                const ai = recentPersonCodes.indexOf(a.code)
+                const bi = recentPersonCodes.indexOf(b.code)
+                if (ai !== -1 && bi !== -1) return ai - bi
+                if (ai !== -1) return -1
+                if (bi !== -1) return 1
+                return 0
+              })
+            const visibleUnselected = personsExpanded ? unselected : unselected.slice(0, 3)
+            const hiddenCount = personsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            return (
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
+                <div className="flex flex-wrap gap-1">
+                  {people.filter(p => selectedPersonCodes.includes(p.code)).map(p => (
+                    <button
+                      key={p.code}
+                      tabIndex={-1}
+                      onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary hover:bg-primary/30 transition-colors"
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {visibleUnselected.map(p => (
+                    <button
+                      key={p.code}
+                      tabIndex={-1}
+                      onClick={() => setSelectedPersonCodes(prev => [...prev, p.code])}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPersonsExpanded(true)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      +{hiddenCount} more
+                    </button>
+                  )}
+                  {personsExpanded && unselected.length > 3 && (
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPersonsExpanded(false)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      Collapse
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* CC Person(s) — Herbe only */}
+          {source === 'herbe' && (() => {
+            const unselected = people
+              .filter(p => !selectedCCPersonCodes.includes(p.code))
+              .sort((a, b) => {
+                const ai = recentCCPersonCodes.indexOf(a.code)
+                const bi = recentCCPersonCodes.indexOf(b.code)
+                if (ai !== -1 && bi !== -1) return ai - bi
+                if (ai !== -1) return -1
+                if (bi !== -1) return 1
+                return 0
+              })
+            const visibleUnselected = ccPersonsExpanded ? unselected : unselected.slice(0, 3)
+            const hiddenCount = ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            return (
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">CC Person(s)</label>
+                <div className="flex flex-wrap gap-1">
+                  {people.filter(p => selectedCCPersonCodes.includes(p.code)).map(p => (
+                    <button key={p.code} tabIndex={-1}
+                      onClick={() => setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code))}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border transition-colors"
+                      style={{ borderStyle: 'dashed', borderColor: 'var(--color-primary)', background: 'rgba(var(--color-primary-rgb, 205 76 56) / 0.1)', color: 'var(--color-primary)', opacity: 0.8 }}
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {visibleUnselected.map(p => (
+                    <button key={p.code} tabIndex={-1}
+                      onClick={() => setSelectedCCPersonCodes(prev => [...prev, p.code])}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
+                    >
+                      {p.code}
+                    </button>
+                  ))}
+                  {hiddenCount > 0 && (
+                    <button type="button" tabIndex={-1}
+                      onClick={() => setCCPersonsExpanded(true)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      +{hiddenCount} more
+                    </button>
+                  )}
+                  {ccPersonsExpanded && unselected.length > 3 && (
+                    <button type="button" tabIndex={-1}
+                      onClick={() => setCCPersonsExpanded(false)}
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                    >
+                      Collapse
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Description — and all editable fields below; disabled visually when canEdit is false */}
+          <div
+            className={`space-y-3${canEdit === false ? ' pointer-events-none select-none opacity-50' : ''}`}
+            aria-disabled={canEdit === false}
+          >
           <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
-            <div className="flex flex-wrap gap-1">
-              {people.map(p => {
-                const sel = selectedPersonCodes.includes(p.code)
-                return (
-                  <button
-                    key={p.code}
-                    onClick={() => setSelectedPersonCodes(prev =>
-                      sel ? prev.filter(c => c !== p.code) : [...prev, p.code]
-                    )}
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${
-                      sel ? 'bg-primary/20 border-primary text-primary' : 'border-border text-text-muted'
-                    }`}
-                  >
-                    {p.code}
-                  </button>
-                )
-              })}
+            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
+              Description
+              <span className="normal-case font-normal text-[9px] tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
+            </label>
+            <div className="relative">
+              <input
+                ref={descInputRef}
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                autoFocus={!isEdit && !initial?.timeFrom}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-7"
+                placeholder="What are you working on?"
+              />
+              {description && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => { setDescription(''); descInputRef.current?.focus() }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted/60 hover:text-text text-base leading-none"
+                >×</button>
+              )}
             </div>
           </div>
 
-          {/* Description */}
-          <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Description</label>
-            <input
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-              placeholder="What are you working on?"
-            />
-          </div>
-
           {/* Date + Time From + Time To */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
+          <div className="grid grid-cols-[4fr_3fr_3fr] gap-3 items-start">
+            <div className="min-w-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                tabIndex={-1}
+                className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">From</label>
+            <div className="min-w-0">
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
+                From
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setTimeFrom(smartDefaultStart())}
+                  title="Apply auto-start time"
+                  className="text-text-muted/60 hover:text-primary transition-colors text-[11px] leading-none"
+                >
+                  ⏱
+                </button>
+              </label>
               <input
                 type="time"
                 value={timeFrom}
@@ -463,16 +954,16 @@ export default function ActivityForm({
                   }
                   setTimeFrom(newFrom)
                 }}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
               <input
                 type="time"
                 value={timeTo}
                 onChange={e => setTimeTo(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
               />
             </div>
           </div>
@@ -494,7 +985,7 @@ export default function ActivityForm({
               ? (() => { const [th, tm] = timeTo.split(':').map(Number); return th * 60 + tm - fromMins })()
               : null
             return (
-              <div className="flex gap-1.5 flex-wrap -mt-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {DURATIONS.map(({ label, mins }) => {
                   const active = currentDur === mins
                   const toMins = fromMins + mins
@@ -504,15 +995,30 @@ export default function ActivityForm({
                     <button
                       key={mins}
                       type="button"
+                      tabIndex={-1}
                       onClick={() => setTimeTo(`${hh}:${mm}`)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                        active ? 'bg-primary/20 border-primary text-primary' : 'border-border text-text-muted hover:border-primary/50'
+                        active ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30' : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
                       }`}
                     >
                       {label}
                     </button>
                   )
                 })}
+                {source === 'herbe' && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setPlanned(p => !p)}
+                    className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                      planned
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                    }`}
+                  >
+                    {planned ? '○ Planned' : '● Actual'}
+                  </button>
+                )}
               </div>
             )
           })()}
@@ -520,41 +1026,84 @@ export default function ActivityForm({
           {/* Activity type (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Activity Type</label>
-              {currentGroup && (currentGroup.forceProj || currentGroup.forceCust || currentGroup.forceItem || currentGroup.forceTextInMatrix) && (
-                <p className="text-[11px] text-amber-400 mb-1">
-                  Required: {[
-                    currentGroup.forceProj && 'project',
-                    currentGroup.forceCust && 'customer',
-                    currentGroup.forceItem && 'item code',
-                    currentGroup.forceTextInMatrix && 'additional text',
-                  ].filter(Boolean).join(', ')}
-                </p>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                Activity Type
+                {activityTypeCode && <span className="font-mono text-primary normal-case text-[11px]">{activityTypeCode}</span>}
+              </label>
+              {recentTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {recentTypes.map(code => {
+                    const type = activityTypes.find(t => t.code === code)
+                    if (!type) return null
+                    const isSelected = activityTypeCode === code
+                    const c = getTypeColor?.(code)
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => {
+                          setActivityTypeCode(type.code)
+                          setActivityTypeName(type.name)
+                          setActivityTypeResults([])
+                          setCurrentGroup(getTypeGroup?.(type.code))
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
+                          isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-border text-text-muted hover:border-primary/50'
+                        }`}
+                        style={!isSelected && c ? { borderColor: c + '44', color: c, background: c + '11' } : undefined}
+                      >
+                        {code}
+                      </button>
+                    )
+                  })}
+                </div>
               )}
-              <input
-                value={activityTypeName}
-                onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); filterActivityTypes(e.target.value) }}
-                onFocus={() => { if (!activityTypeResults.length) filterActivityTypes(activityTypeName) }}
-                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLElement).blur() }}
-                enterKeyHint="search"
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                placeholder="Type code or name…"
-              />
-              {activityTypeCode && (
-                <p className="text-[11px] text-text-muted mt-0.5">Code: <span className="font-mono text-primary">{activityTypeCode}</span></p>
-              )}
+              <div className="relative">
+                <input
+                  value={activityTypeName}
+                  onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value) }}
+                  onFocus={() => { if (!activityTypeResults.length) filterActivityTypes(activityTypeName) }}
+                  onKeyDown={e => {
+                    const n = activityTypeResults.length
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedTypeIdx(i => Math.min(i + 1, n - 1)); if (!n) filterActivityTypes(activityTypeName) }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedTypeIdx(i => Math.max(i - 1, -1)) }
+                    else if ((e.key === 'Enter' || e.key === 'Tab') && focusedTypeIdx >= 0) {
+                      if (e.key === 'Tab') e.preventDefault()
+                      const t = activityTypeResults[focusedTypeIdx]
+                      setActivityTypeCode(t.code); setActivityTypeName(t.name); setActivityTypeResults([]); setFocusedTypeIdx(-1); setCurrentGroup(getTypeGroup?.(t.code))
+                      if (e.key === 'Tab') projectInputRef.current?.focus()
+                    } else if (e.key === 'Escape') { setActivityTypeResults([]); setFocusedTypeIdx(-1) }
+                    else if (e.key === 'Enter') (e.target as HTMLElement).blur()
+                  }}
+                  enterKeyHint="search"
+                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-7"
+                  placeholder="Type code or name…"
+                />
+                {activityTypeName && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => { setActivityTypeCode(''); setActivityTypeName(''); setActivityTypeResults([]); setCurrentGroup(undefined) }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted/60 hover:text-text text-base leading-none"
+                  >×</button>
+                )}
+              </div>
               {activityTypeResults.length > 0 && (
                 <div className="bg-bg border border-border rounded-lg mt-1 max-h-40 overflow-y-auto">
-                  {activityTypeResults.map(t => (
+                  {activityTypeResults.map((t, tIdx) => (
                     <button
                       key={t.code}
+                      tabIndex={-1}
                       onClick={() => {
                         setActivityTypeCode(t.code)
                         setActivityTypeName(t.name)
                         setActivityTypeResults([])
+                        setFocusedTypeIdx(-1)
                         setCurrentGroup(getTypeGroup?.(t.code))
+                        projectInputRef.current?.focus()
                       }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-border flex items-center gap-2"
+                      className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${tIdx === focusedTypeIdx ? 'bg-primary/20' : 'hover:bg-border'}`}
                     >
                       {(() => {
                         const c = getTypeColor?.(t.code)
@@ -578,44 +1127,66 @@ export default function ActivityForm({
           {/* Project (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Project{currentGroup?.forceProj && <span className="text-red-400 ml-0.5">*</span>}
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                Project{currentGroup?.forceProj && <span className="text-red-400">*</span>}
+                {projectCode && <span className="font-mono text-primary normal-case text-[11px]">{projectCode}</span>}
+                {projectCode && (() => {
+                  const link = serpLink('PRVc', projectCode, companyCode)
+                  return link ? (
+                    <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                      <SerpIcon />
+                    </a>
+                  ) : null
+                })()}
+                {projectSearchMsg && !searchingProjects && <span className="normal-case font-normal text-text-muted ml-auto">{projectSearchMsg}</span>}
               </label>
               <div className="relative">
                 <input
+                  ref={projectInputRef}
                   value={projectName}
-                  onChange={e => { setProjectName(e.target.value); setProjectCode(''); searchProjects(e.target.value) }}
-                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLElement).blur() }}
+                  onChange={e => {
+                    setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1)
+                    if (projectSearchTimer.current) clearTimeout(projectSearchTimer.current)
+                    projectSearchTimer.current = setTimeout(() => searchProjects(e.target.value), 300)
+                  }}
+                  onKeyDown={e => {
+                    const n = projectResults.length
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedProjectIdx(i => Math.min(i + 1, n - 1)) }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedProjectIdx(i => Math.max(i - 1, -1)) }
+                    else if ((e.key === 'Enter' || e.key === 'Tab') && focusedProjectIdx >= 0) {
+                      if (e.key === 'Tab') e.preventDefault()
+                      const r = projectResults[focusedProjectIdx]
+                      setProjectCode(r.code); setProjectName(r.name); setProjectResults([]); setProjectSearchMsg(null); setFocusedProjectIdx(-1)
+                      if (r.customerCode) { setCustomerCode(r.customerCode); setCustomerName(r.customerName ?? r.customerCode) }
+                      if (e.key === 'Tab') customerInputRef.current?.focus()
+                    } else if (e.key === 'Escape') { setProjectResults([]); setFocusedProjectIdx(-1) }
+                    else if (e.key === 'Enter') (e.target as HTMLElement).blur()
+                  }}
                   enterKeyHint="search"
                   className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-8"
                   placeholder="Type to search… (min 2 chars)"
                 />
-                {searchingProjects && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-primary text-sm animate-spin inline-block">⟳</span>
-                )}
+                {searchingProjects
+                  ? <span className="absolute right-2 top-1/2 -translate-y-1/2 text-primary text-sm animate-spin inline-block">⟳</span>
+                  : projectName && <button type="button" tabIndex={-1} onClick={() => { setProjectCode(''); setProjectName(''); setProjectResults([]) }} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted/60 hover:text-text text-base leading-none">×</button>
+                }
               </div>
-              {projectCode && (
-                <p className="text-[11px] text-text-muted mt-0.5">Code: <span className="font-mono text-primary">{projectCode}</span></p>
-              )}
-              {projectSearchMsg && !searchingProjects && (
-                <p className="text-[11px] text-text-muted mt-0.5">{projectSearchMsg}</p>
-              )}
               {projectResults.length > 0 && (
                 <div className="bg-bg border border-border rounded-lg mt-1 max-h-32 overflow-y-auto">
-                  {projectResults.map(r => (
+                  {projectResults.map((r, rIdx) => (
                     <button
                       key={r.code}
+                      tabIndex={-1}
                       onClick={() => {
                         setProjectCode(r.code)
                         setProjectName(r.name)
                         setProjectResults([])
                         setProjectSearchMsg(null)
-                        if (r.customerCode) {
-                          setCustomerCode(r.customerCode)
-                          setCustomerName(r.customerName ?? r.customerCode)
-                        }
+                        setFocusedProjectIdx(-1)
+                        if (r.customerCode) { setCustomerCode(r.customerCode); setCustomerName(r.customerName ?? r.customerCode) }
+                        customerInputRef.current?.focus()
                       }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-border"
+                      className={`w-full text-left px-3 py-1.5 text-sm ${rIdx === focusedProjectIdx ? 'bg-primary/20' : 'hover:bg-border'}`}
                     >
                       {r.name} <span className="text-text-muted text-xs">({r.code})</span>
                     </button>
@@ -628,35 +1199,56 @@ export default function ActivityForm({
           {/* Customer (Herbe only) */}
           {source === 'herbe' && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Customer{currentGroup?.forceCust && <span className="text-red-400 ml-0.5">*</span>}
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                Customer{currentGroup?.forceCust && <span className="text-red-400">*</span>}
+                {customerCode && <span className="font-mono text-primary normal-case text-[11px]">{customerCode}</span>}
+                {customerCode && (() => {
+                  const link = serpLink('CUVc', customerCode, companyCode)
+                  return link ? (
+                    <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                      <SerpIcon />
+                    </a>
+                  ) : null
+                })()}
+                {customerSearchMsg && !searchingCustomers && <span className="normal-case font-normal text-text-muted ml-auto">{customerSearchMsg}</span>}
               </label>
               <div className="relative">
                 <input
+                  ref={customerInputRef}
                   value={customerName}
-                  onChange={e => { setCustomerName(e.target.value); setCustomerCode(''); searchCustomers(e.target.value) }}
-                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLElement).blur() }}
+                  onChange={e => {
+                    setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1)
+                    if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
+                    customerSearchTimer.current = setTimeout(() => searchCustomers(e.target.value), 300)
+                  }}
+                  onKeyDown={e => {
+                    const n = customerResults.length
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedCustomerIdx(i => Math.min(i + 1, n - 1)) }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedCustomerIdx(i => Math.max(i - 1, -1)) }
+                    else if ((e.key === 'Enter' || e.key === 'Tab') && focusedCustomerIdx >= 0) {
+                      if (e.key === 'Tab') e.preventDefault()
+                      const r = customerResults[focusedCustomerIdx]
+                      setCustomerCode(r.code); setCustomerName(r.name); setCustomerResults([]); setCustomerSearchMsg(null); setFocusedCustomerIdx(-1)
+                    } else if (e.key === 'Escape') { setCustomerResults([]); setFocusedCustomerIdx(-1) }
+                    else if (e.key === 'Enter') (e.target as HTMLElement).blur()
+                  }}
                   enterKeyHint="search"
                   className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-8"
                   placeholder="Type to search… (min 2 chars)"
                 />
-                {searchingCustomers && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-primary text-sm animate-spin inline-block">⟳</span>
-                )}
+                {searchingCustomers
+                  ? <span className="absolute right-2 top-1/2 -translate-y-1/2 text-primary text-sm animate-spin inline-block">⟳</span>
+                  : customerName && <button type="button" tabIndex={-1} onClick={() => { setCustomerCode(''); setCustomerName(''); setCustomerResults([]) }} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted/60 hover:text-text text-base leading-none">×</button>
+                }
               </div>
-              {customerCode && (
-                <p className="text-[11px] text-text-muted mt-0.5">Code: <span className="font-mono text-primary">{customerCode}</span></p>
-              )}
-              {customerSearchMsg && !searchingCustomers && (
-                <p className="text-[11px] text-text-muted mt-0.5">{customerSearchMsg}</p>
-              )}
               {customerResults.length > 0 && (
                 <div className="bg-bg border border-border rounded-lg mt-1 max-h-32 overflow-y-auto">
-                  {customerResults.map(r => (
+                  {customerResults.map((r, rIdx) => (
                     <button
                       key={r.code}
-                      onClick={() => { setCustomerCode(r.code); setCustomerName(r.name); setCustomerResults([]); setCustomerSearchMsg(null) }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-border"
+                      tabIndex={-1}
+                      onClick={() => { setCustomerCode(r.code); setCustomerName(r.name); setCustomerResults([]); setCustomerSearchMsg(null); setFocusedCustomerIdx(-1) }}
+                      className={`w-full text-left px-3 py-1.5 text-sm ${rIdx === focusedCustomerIdx ? 'bg-primary/20' : 'hover:bg-border'}`}
                     >
                       {r.name} <span className="text-text-muted text-xs">({r.code})</span>
                     </button>
@@ -696,47 +1288,42 @@ export default function ActivityForm({
               />
             </div>
           )}
+          </div>
         </div>}
 
         {/* Footer actions */}
-        {!savedActivity && <div className="p-4 border-t border-border space-y-2">
+        {!savedActivity && <div className="p-4 border-t border-border">
           {/* If editing but canEdit is false, show close only */}
           {isEdit && !(canEdit ?? true) ? (
-            <button onClick={onClose} className="w-full border border-border text-text-muted font-bold py-3 rounded-xl">
-              Close
-            </button>
-          ) : (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
-            </button>
-          )}
-
-          {isEdit && (canEdit ?? true) && (
             <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 border border-border text-text-muted font-bold py-3 rounded-xl hover:bg-border transition-colors">
+                Close
+              </button>
               <button
                 onClick={handleDuplicate}
-                className="flex-1 border border-border text-text-muted font-bold py-2 rounded-xl text-sm"
+                title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
+                className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
               >
-                Duplicate
+                ⧉
               </button>
-              {!showDeleteConfirm ? (
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : isEdit ? `Save changes` : `Create activity`}
+                {!saving && <span className="ml-2 opacity-60 text-xs font-normal">{saveShortcut}</span>}
+              </button>
+              {isEdit && (
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="flex-1 border border-red-800 text-red-400 font-bold py-2 rounded-xl text-sm"
+                  onClick={handleDuplicate}
+                  title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
+                  className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
                 >
-                  Delete
-                </button>
-              ) : (
-                <button
-                  onClick={handleDelete}
-                  disabled={saving}
-                  className="flex-1 bg-red-800 text-white font-bold py-2 rounded-xl text-sm"
-                >
-                  Confirm delete
+                  ⧉
                 </button>
               )}
             </div>

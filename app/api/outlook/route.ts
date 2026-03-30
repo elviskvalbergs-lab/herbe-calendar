@@ -3,55 +3,166 @@ import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
+import type { Activity } from '@/types'
+import ICAL from 'ical.js'
+import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
+import { pool } from '@/lib/db'
+
+async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
+  try {
+    const res = await fetch(url)
+    const icsText = await res.text()
+    const jcalData = ICAL.parse(icsText)
+    const vcalendar = new ICAL.Component(jcalData)
+    const vevents = vcalendar.getAllSubcomponents('vevent')
+
+    const rangeStart = startOfDay(parseISO(dateFrom))
+    const rangeEnd = endOfDay(parseISO(dateTo))
+
+    const events: any[] = []
+    for (const comp of vevents) {
+      const event = new ICAL.Event(comp)
+      const start = event.startDate.toJSDate()
+      const end = event.endDate.toJSDate()
+      if (!start || !end) continue
+
+      // Simple overlap check
+      if (isWithinInterval(start, { start: rangeStart, end: rangeEnd }) || 
+          isWithinInterval(end, { start: rangeStart, end: rangeEnd }) ||
+          (start < rangeStart && end > rangeEnd)) {
+        
+        const dtStr = start.toISOString()
+        const endDtStr = end.toISOString()
+
+        events.push({
+          id: `ics-${event.uid}`,
+          source: 'outlook' as const,
+          isExternal: true,
+          personCode: code,
+          description: event.summary || '',
+          date: dtStr.slice(0, 10),
+          timeFrom: dtStr.slice(11, 16),
+          timeTo: endDtStr.slice(11, 16),
+          isOrganizer: false,
+          location: event.location || undefined,
+          bodyPreview: event.description || '',
+          webLink: '',
+          rsvpStatus: undefined,
+        })
+      }
+    }
+    return events
+  } catch (e) {
+    console.error(`[outlook] ICS fetch/parse failed for ${url}:`, e)
+    return []
+  }
+}
 
 // Cache the full user list for the lifetime of the server process (small list, rarely changes)
 let userListCache: Record<string, string> | null = null  // code → email
 
 async function emailForCode(code: string): Promise<string | null> {
   if (!userListCache) {
-    const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-    userListCache = Object.fromEntries(
-      (users as Record<string, unknown>[])
-        .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
-        .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
-    )
+    try {
+      const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
+      userListCache = Object.fromEntries(
+        (users as Record<string, unknown>[])
+          .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
+          .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
+      )
+    } catch (e) {
+      console.warn('[outlook] UserVc unavailable, skipping Outlook calendar:', String(e))
+      userListCache = {}
+    }
   }
   return userListCache[code] ?? null
 }
 
 export async function GET(req: NextRequest) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
 
   const { searchParams } = new URL(req.url)
   const persons = searchParams.get('persons')
-  const date = searchParams.get('date')
-  const dateFrom = searchParams.get('dateFrom') ?? date
-  const dateTo = searchParams.get('dateTo') ?? date
+  const dateStr = searchParams.get('date')
+  const dateFrom = searchParams.get('dateFrom') ?? dateStr
+  const dateTo = searchParams.get('dateTo') ?? dateStr
 
-  if (!persons || !dateFrom) return NextResponse.json({ error: 'persons and date required' }, { status: 400 })
+  if (!persons || !dateFrom || !dateTo) return NextResponse.json({ error: 'persons and dates required' }, { status: 400 })
 
   const personList = persons.split(',').map(p => p.trim())
+  const sessionEmail = session.email
 
   try {
     const results = await Promise.all(personList.map(async code => {
       const email = await emailForCode(code)
       if (!email) return []
 
+      // --- ICS FALLBACK CHECK (DB-backed) ---
+      try {
+        const { rows: icsRows } = await pool.query(
+          'SELECT ics_url FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 LIMIT 1',
+          [session.email, code]
+        )
+        if (icsRows.length > 0) {
+          console.log(`[outlook] Using DB ICS fallback for ${code} (${icsRows[0].ics_url})`)
+          return fetchIcsEvents(icsRows[0].ics_url, code, dateFrom, dateTo)
+        }
+      } catch (e) {
+        console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
+      }
+
       // calendarView expands recurring events automatically; no type filter needed
       const startDt = `${dateFrom}T00:00:00`
       const endDt = `${dateTo}T23:59:59`
-      const res = await graphFetch(
-        `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
+      const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=100`
+      
+      let res = await graphFetch(
+        `/users/${email}/calendarView?${calendarViewParams}`,
         { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
       )
+
+      if (!res.ok && res.status === 404) {
+        // Fallback: If 404, this user isn't in the tenant. 
+        // Search the logged-in user's own shared calendars list for a match.
+        try {
+          if (sessionEmail) {
+            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`)
+            if (listRes.ok) {
+              const listData = await listRes.json()
+              const cals = listData.value as any[]
+              console.log(`[outlook] Fallback for ${email}: searching ${cals?.length ?? 0} calendars of ${sessionEmail}`)
+              const sharedCal = cals?.find(c => 
+                c.owner?.address?.toLowerCase() === email.toLowerCase()
+              )
+              if (sharedCal) {
+                console.log(`[outlook] Fallback found calendar ID ${sharedCal.id} for ${email}`)
+                res = await graphFetch(
+                  `/users/${sessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
+                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+                )
+              } else {
+                console.log(`[outlook] Fallback: No calendar owned by ${email} found in ${sessionEmail}'s list`)
+              }
+            } else {
+              const listErr = await listRes.text()
+              console.warn(`[outlook] Fallback lookup failed for ${sessionEmail}: ${listRes.status} ${listErr}`)
+            }
+          }
+        } catch (e) {
+          console.warn('[outlook] Fallback shared calendar search failed:', String(e))
+        }
+      }
+
       if (!res.ok) {
         const errText = await res.text()
         console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
-        throw new Error(`Graph ${res.status}: ${errText}`)
+        // Don't throw if one fails, just return empty so others can load
+        return []
       }
       const data = await res.json()
       return (data.value ?? []).map((ev: Record<string, unknown>) => {
@@ -63,6 +174,10 @@ export async function GET(req: NextRequest) {
         const organizerEmail = (organizer?.['emailAddress'] as Record<string, string> | undefined)?.['address'] ?? ''
         const onlineMeeting = ev['onlineMeeting'] as Record<string, string> | undefined
         const joinUrl = onlineMeeting?.['joinUrl'] ?? (ev['onlineMeetingUrl'] as string | undefined) ?? undefined
+        const responseStatus = ev['responseStatus'] as Record<string, string> | undefined
+        const rawRsvp = responseStatus?.['response']
+        // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
+        const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
         return {
           id: String(ev['id'] ?? ''),
           source: 'outlook' as const,
@@ -75,6 +190,8 @@ export async function GET(req: NextRequest) {
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
           joinUrl,
+          webLink: String(ev['webLink'] ?? ''),
+          rsvpStatus,
         }
       })
     }))

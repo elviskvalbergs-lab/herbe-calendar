@@ -1,24 +1,26 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { format, addDays, parseISO } from 'date-fns'
+import { format, addDays, subDays, parseISO } from 'date-fns'
 import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
-import ColorSettings from './ColorSettings'
+import SettingsModal from './SettingsModal'
+import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
 } from '@/lib/activityColors'
 
-interface Props { userCode: string }
+interface Props { userCode: string; companyCode: string }
 
-export default function CalendarShell({ userCode }: Props) {
+export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
   const [state, setState] = useState<CalendarState>(() => {
     try {
@@ -33,18 +35,37 @@ export default function CalendarShell({ userCode }: Props) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok?: boolean } | null>(null)
+  const [allCustomers, setAllCustomers] = useState<{ Code: string; Name: string }[]>([])
+  const [allProjects, setAllProjects] = useState<{ Code: string; Name: string; CUCode: string | null; CUName: string | null }[]>([])
   const [formState, setFormState] = useState<{
     open: boolean
     initial?: Partial<Activity>
     editId?: string
     canEdit?: boolean
   }>({ open: false })
+  const [debugCalsOpen, setDebugCalsOpen] = useState(false)
+  const [debugCals, setDebugCals] = useState<any[]>([])
+  const [debugGroups, setDebugGroups] = useState<any[]>([])
+  const [debugGuests, setDebugGuests] = useState<any[]>([])
+  const [debugLoading, setDebugLoading] = useState(false)
+
+  // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('theme')
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light')
+      else if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark')
+      else if (!t && window.matchMedia('(prefers-color-scheme: light)').matches)
+        document.documentElement.setAttribute('data-theme', 'light')
+    } catch {}
+  }, [])
 
   function canEditActivity(activity: Activity): boolean {
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
-    return activity.personCode === userCode || inMainPersons || inAccessGroup
+    const inCCPersons = activity.ccPersons?.includes(userCode) ?? false
+    return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
   }
 
   // Persist state to localStorage (only after people have loaded, to avoid overwriting saved person codes on mount)
@@ -59,23 +80,62 @@ export default function CalendarShell({ userCode }: Props) {
     } catch {}
   }, [state.view, state.date, state.selectedPersons])
 
-  // Keyboard shortcut: Cmd+Ctrl+N (Mac) or Ctrl+Alt+N (Windows/Linux) → new activity
+  // Global keyboard shortcuts (N/⌘N, T, ←, →, ?, Esc)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Esc closes color settings (form/shortcuts handle their own Esc)
+      if (e.key === 'Escape' && colorSettingsOpen) {
+        setColorSettingsOpen(false); return
+      }
+      // Skip if any modal/form is open
+      if (formState.open || colorSettingsOpen || shortcutsOpen) return
+
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
+      const inInput = tag === 'input' || tag === 'textarea' || tag === 'select'
+
+      // ⌃⌘N — New activity (works from anywhere when no modal open)
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault()
+        setFormState({ open: true, initial: { date: state.date } })
+        return
+      }
+      // ⌃⌘T — Jump to today
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 't' || e.key === 'T')) {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
+        return
+      }
+      // ⌃⌘← / ⌃⌘→ — Jump by view step (1 / 3 / 5 days)
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault()
+        const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+        const dir = e.key === 'ArrowLeft' ? -step : step
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), dir), 'yyyy-MM-dd') }))
+        return
+      }
+      // Skip bare key shortcuts if modifier held or input focused
+      if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
+
       if (e.key === 'n' || e.key === 'N') {
-        const isMac = navigator.platform.toUpperCase().includes('MAC')
-        const trigger = isMac
-          ? e.metaKey && e.ctrlKey
-          : e.ctrlKey && e.altKey
-        if (trigger) {
-          e.preventDefault()
-          setFormState({ open: true })
-        }
+        e.preventDefault()
+        setFormState({ open: true, initial: { date: state.date } })
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(new Date(), 'yyyy-MM-dd') }))
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(subDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setState(s => ({ ...s, date: format(addDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
+      } else if (e.key === '?') {
+        e.preventDefault()
+        setShortcutsOpen(true)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [formState.open, colorSettingsOpen, shortcutsOpen, state.view, state.date])
 
   // Derived color maps
   const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
@@ -94,6 +154,90 @@ export default function CalendarShell({ userCode }: Props) {
     const grp = typeToClassGroup.get(typeCode)
     if (!grp) return undefined
     return classGroups.find(g => g.code === grp)
+  }
+
+  function getTypeName(typeCode: string): string {
+    return activityTypes.find(t => t.code === typeCode)?.name ?? ''
+  }
+
+  async function loadDebugCals() {
+    setDebugLoading(true)
+    try {
+      const res = await fetch('/api/outlook/debug-calendars?full=1')
+      const data = await res.json()
+      setDebugCals(data.calendars || [])
+      setDebugGroups(data.calendarGroups || [])
+      setDebugGuests(data.guestStatus || [])
+      setDebugCalsOpen(true)
+    } catch (e) {
+      setStatus({ msg: `Debug fetch failed: ${e}`, ok: false })
+    } finally {
+      setDebugLoading(false)
+    }
+  }
+
+  function renderDebugModal() {
+    if (!debugCalsOpen) return null
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-2xl bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-bold">Outlook Shared Calendars Debug</h3>
+            <button onClick={() => setDebugCalsOpen(false)} className="text-text-muted hover:text-white">✕</button>
+          </div>
+          <div className="p-4 overflow-auto space-y-6">
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Guest User Verification (Search)</h4>
+              {debugGuests.map(search => (
+                <div key={search.prefix} className="space-y-2">
+                  <div className="text-[10px] font-bold text-text-muted">Prefix: {search.prefix} ({search.foundCount || 0} found)</div>
+                  {search.matches?.map((m: any) => (
+                    <div key={m.id} className="p-2 rounded text-xs border bg-surface border-border">
+                      <div className="font-bold flex justify-between">
+                        <span>{m.displayName}</span>
+                        <span className={m.calendarStatus === 200 ? 'text-green-400' : 'text-orange-400'}>
+                          Calendar: {m.calendarStatus === 200 ? 'ACCESSIBLE' : `HTTP ${m.calendarStatus}`}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[10px] space-y-1">
+                        <div><span className="opacity-50">UPN:</span> {m.upn}</div>
+                        <div><span className="opacity-50">Mail:</span> {m.mail || 'n/a'}</div>
+                        <div><span className="opacity-50">ID:</span> {m.id}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {search.error && <div className="text-red-400 text-[10px]">{search.error}</div>}
+                  {!search.error && (!search.matches || search.matches.length === 0) && <div className="text-red-400 text-[10px]">No users found for "{search.prefix}"</div>}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Calendars</h4>
+              {debugCals.map(cal => (
+                  <pre key={cal.id} className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
+                    {JSON.stringify(cal, null, 2)}
+                  </pre>
+              ))}
+              {debugCals.length === 0 && <div className="text-center py-4 text-text-muted">No calendars found</div>}
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase text-text-muted">Calendar Groups</h4>
+              {debugGroups.map(grp => (
+                  <pre key={grp.id} className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
+                    {JSON.stringify(grp, null, 2)}
+                  </pre>
+              ))}
+              {debugGroups.length === 0 && <div className="text-center py-4 text-text-muted">No groups found</div>}
+            </div>
+          </div>
+          <div className="p-4 bg-bg text-[10px] text-text-muted font-mono break-all line-clamp-1">
+            Perspectives of the server-side App Token for your mailbox.
+          </div>
+        </div>
+      </div>
+    )
   }
 
   function reloadColorData(bust = false) {
@@ -160,7 +304,27 @@ export default function CalendarShell({ userCode }: Props) {
         if (me) setState(s => ({ ...s, selectedPersons: [me] }))
         else if (userCode) setStatus({ msg: `Loaded ${list.length} users — user "${userCode}" not found in list`, ok: false })
       })
-      .catch(e => setStatus({ msg: `Failed to load users: ${e}`, ok: false }))
+      .catch(e => {
+        // User list unavailable — restore saved person codes from localStorage so
+        // the calendar still works (activities will load, just no name/email lookup)
+        try {
+          const saved = localStorage.getItem('calendarState')
+          if (saved) {
+            const { personCodes } = JSON.parse(saved)
+            if (personCodes?.length) {
+              const fallback: Person[] = (personCodes as string[]).map(code => ({ code, name: code, email: '' }))
+              setState(s => ({ ...s, selectedPersons: fallback }))
+              setStatus({ msg: `User list unavailable (${e}) — restored saved selection`, ok: false })
+              return
+            }
+          }
+        } catch {}
+        // Last resort: use logged-in user code directly
+        if (userCode) {
+          setState(s => ({ ...s, selectedPersons: [{ code: userCode, name: userCode, email: '' }] }))
+        }
+        setStatus({ msg: `Failed to load users: ${e}`, ok: false })
+      })
   }, [userCode])
 
   const fetchActivities = useCallback(async () => {
@@ -168,7 +332,9 @@ export default function CalendarShell({ userCode }: Props) {
     setLoading(true)
     const codes = state.selectedPersons.map(p => p.code).join(',')
     const dateFrom = state.date
-    const dateTo = state.view === '3day'
+    const dateTo = state.view === '5day'
+      ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
+      : state.view === '3day'
       ? format(addDays(parseISO(state.date), 2), 'yyyy-MM-dd')
       : state.date
     const dateParam = dateFrom === dateTo
@@ -182,6 +348,15 @@ export default function CalendarShell({ userCode }: Props) {
         fetch(`/api/outlook?persons=${codes}&${dateParam}`),
       ])
       const herbe: Activity[] = herbeRes.ok ? await herbeRes.json() : []
+      let herbeErrMsg = ''
+      if (!herbeRes.ok) {
+        try {
+          const e = await herbeRes.json()
+          herbeErrMsg = String(e.error ?? JSON.stringify(e))
+        } catch {
+          herbeErrMsg = String(herbeRes.status)
+        }
+      }
       let outlook: Activity[] = []
       let outlookErrMsg = ''
       if (outlookRes.ok) {
@@ -196,7 +371,7 @@ export default function CalendarShell({ userCode }: Props) {
       }
       setActivities([...herbe, ...outlook])
 
-      const herbeErr = !herbeRes.ok ? ` | Herbe error ${herbeRes.status}` : ''
+      const herbeErr = !herbeRes.ok ? ` | Herbe: ${herbeErrMsg}` : ''
       const outlookErr = !outlookRes.ok ? ` | Outlook: ${outlookErrMsg}` : ''
       setStatus({
         msg: `${herbe.length} Herbe + ${outlook.length} Outlook activities${herbeErr}${outlookErr}`,
@@ -214,6 +389,15 @@ export default function CalendarShell({ userCode }: Props) {
     fetchActivities()
   }, [fetchActivities])
 
+  // Fetch full customer + project lists into client state for instant search
+  useEffect(() => {
+    setStatus({ msg: 'Loading customers & projects…' })
+    Promise.all([
+      fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(setAllCustomers).catch(() => {}),
+      fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(setAllProjects).catch(() => {}),
+    ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
+  }, [])
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       <CalendarHeader
@@ -223,6 +407,7 @@ export default function CalendarShell({ userCode }: Props) {
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
         onRefresh={fetchActivities}
         onColorSettings={() => setColorSettingsOpen(true)}
+        onShortcuts={() => setShortcutsOpen(true)}
       />
       <CalendarGrid
         state={state}
@@ -230,7 +415,18 @@ export default function CalendarShell({ userCode }: Props) {
         loading={loading}
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
+        getTypeName={getTypeName}
         onRefresh={fetchActivities}
+        onNavigate={(dir) => {
+          const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+          setState(s => ({
+            ...s,
+            date: format(
+              dir === 'next' ? addDays(parseISO(s.date), step) : subDays(parseISO(s.date), step),
+              'yyyy-MM-dd'
+            ),
+          }))
+        }}
         onSlotClick={(personCode, time, date) =>
           setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
         }
@@ -243,23 +439,38 @@ export default function CalendarShell({ userCode }: Props) {
           })
         }
         onActivityUpdate={fetchActivities}
+        onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
       />
       {status && (
-        <div className={`px-3 py-1 text-xs font-mono border-t shrink-0 ${
-          status.ok === false
-            ? 'bg-red-900/30 border-red-700/50 text-red-300'
+        <div
+          className="px-3 py-1 text-xs font-mono border-t shrink-0 flex items-center justify-between"
+          style={status.ok === false
+            ? { background: 'var(--status-err-bg)', borderColor: 'var(--status-err-border)', color: 'var(--status-err-text)' }
             : status.ok === true
-            ? 'bg-green-900/20 border-green-700/30 text-green-400'
-            : 'bg-surface border-border text-text-muted'
-        }`}>
-          {status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}
+            ? { background: 'var(--status-ok-bg)', borderColor: 'var(--status-ok-border)', color: 'var(--status-ok-text)' }
+            : undefined
+          }
+        >
+          <div>{status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}</div>
+          <button 
+            onClick={loadDebugCals} 
+            className="ml-4 underline hover:text-white opacity-50 hover:opacity-100"
+            disabled={debugLoading}
+          >
+            {debugLoading ? 'Loading...' : 'Debug Calendars'}
+          </button>
         </div>
       )}
 
+      {shortcutsOpen && (
+        <KeyboardShortcutsModal onClose={() => setShortcutsOpen(false)} />
+      )}
+
       {colorSettingsOpen && (
-        <ColorSettings
+        <SettingsModal
           classGroups={classGroups}
           colorMap={classGroupToColor}
+          persons={people}
           error={classGroupsError}
           onClose={() => setColorSettingsOpen(false)}
           onColorChange={(groupCode, color) => {
@@ -276,15 +487,42 @@ export default function CalendarShell({ userCode }: Props) {
           people={people}
           defaultPersonCode={userCode}
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
-          todayActivities={activities.filter(a => a.date === state.date)}
+          allActivities={activities}
           onClose={() => setFormState({ open: false })}
           onSaved={fetchActivities}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
+          onRsvp={(newStatus) => {
+            // Update the activity in-state so re-opening the form shows the correct RSVP
+            setActivities(prev => prev.map(a =>
+              a.id === formState.editId ? { ...a, rsvpStatus: newStatus } : a
+            ))
+            setFormState(prev => ({
+              ...prev,
+              initial: prev.initial ? { ...prev.initial, rsvpStatus: newStatus } : prev.initial
+            }))
+          }}
           canEdit={formState.canEdit}
           getTypeColor={typeGroupColor}
           getTypeGroup={getTypeGroup}
+          companyCode={companyCode}
+          allCustomers={allCustomers}
+          allProjects={allProjects}
         />
       )}
+
+      {/* FAB — mobile only, hidden when form is open */}
+      {!formState.open && (
+        <button
+          onClick={() => setFormState({ open: true, initial: { date: state.date } })}
+          className="fixed bottom-5 right-5 z-50 lg:hidden bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
+          title="New activity"
+          aria-label="New activity"
+        >
+          +
+        </button>
+      )}
+
+      {renderDebugModal()}
     </div>
   )
 }

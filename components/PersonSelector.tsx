@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Person } from '@/types'
 import { personColor } from '@/lib/colors'
 
@@ -13,6 +13,7 @@ interface Props {
 export default function PersonSelector({ people, selected, onChange, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [local, setLocal] = useState<Person[]>(selected)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   const filtered = people.filter(p =>
     p.code.toLowerCase().includes(query.toLowerCase()) ||
@@ -30,7 +31,22 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[70vh] flex flex-col">
+      <div
+        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[70vh] flex flex-col"
+        onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
+        onTouchEnd={e => {
+          if (swipeStart.current !== null) {
+            const dx = e.changedTouches[0].clientX - swipeStart.current.x
+            const dy = e.changedTouches[0].clientY - swipeStart.current.y
+            if (dy > 80 && dy > Math.abs(dx)) onClose()
+            else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) onClose()
+          }
+          swipeStart.current = null
+        }}
+      >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
         <div className="p-4 border-b border-border">
           <h2 className="font-bold mb-3">Select people</h2>
           <input
@@ -50,6 +66,7 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
                 key={p.code}
                 onClick={() => toggle(p)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-border text-left"
+                title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
               >
                 <span
                   className="text-xs font-bold px-2 py-0.5 rounded-full border"
