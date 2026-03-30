@@ -57,7 +57,9 @@ export default function CalendarGrid({
     xVelocities: [] as number[],
     intentActive: false,
     pullHoldStart: 0,
-    pullActivated: false,  // once activated, stays true for the touch
+    pullActivated: false,
+    pullActivateY: 0,     // Y position when pull was activated
+    swipeActivateX: 0,    // X position when swipe intent started
   })
 
   // Responsive max visible columns
@@ -123,7 +125,7 @@ export default function CalendarGrid({
       atLeft: (el?.scrollLeft ?? 1) <= 1,
       atRight: el ? el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 : false,
       locked: null, yVelocities: [], xVelocities: [], intentActive: false,
-      pullHoldStart: 0, pullActivated: false,
+      pullHoldStart: 0, pullActivated: false, pullActivateY: 0, swipeActivateX: 0,
     }
     swipeIntentRef.current = null
     pullStateRef.current = { pulling: false, progress: 0, triggered: false }
@@ -170,7 +172,8 @@ export default function CalendarGrid({
         if (avgVy <= PULL_NEAR_ZERO_VELOCITY) {
           if (ref.pullHoldStart === 0) ref.pullHoldStart = now
           if (now - ref.pullHoldStart >= PULL_HOLD_MS) {
-            ref.pullActivated = true // finger was still long enough
+            ref.pullActivated = true
+            ref.pullActivateY = t.clientY // measure progress from here
           }
         } else {
           ref.pullHoldStart = 0 // reset if finger speeds up
@@ -178,8 +181,9 @@ export default function CalendarGrid({
         return // don't show indicator yet
       }
 
-      // Pull is activated — show indicator and track progress
-      const progress = Math.min(dy / PULL_THRESHOLD, 1)
+      // Pull is activated — measure from activation point, not touch start
+      const pullDy = t.clientY - ref.pullActivateY
+      const progress = Math.min(Math.max(pullDy / PULL_THRESHOLD, 0), 1)
       pullStateRef.current = { pulling: true, progress, triggered: progress >= 1 }
       rerenderGesture()
       return
@@ -189,7 +193,11 @@ export default function CalendarGrid({
     if (ref.locked === 'horizontal') {
       const swipingLeft = dx < 0
       const swipingRight = dx > 0
-      const atEdge = (swipingLeft && ref.atRight) || (swipingRight && ref.atLeft)
+      // Re-check edges live (scroll position may have changed during this touch)
+      const el = scrollRef.current
+      const nowAtLeft = el ? el.scrollLeft <= 1 : false
+      const nowAtRight = el ? el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 : false
+      const atEdge = (swipingLeft && nowAtRight) || (swipingRight && nowAtLeft)
 
       if (!atEdge) {
         if (ref.intentActive) {
@@ -205,8 +213,12 @@ export default function CalendarGrid({
         : 1
 
       if (avgVx < SWIPE_SLOW_VELOCITY || ref.intentActive) {
-        ref.intentActive = true
-        const progress = Math.min(Math.max(adx / SWIPE_THRESHOLD, 0), 1)
+        if (!ref.intentActive) {
+          ref.intentActive = true
+          ref.swipeActivateX = t.clientX // measure progress from here
+        }
+        const swipeDx = Math.abs(t.clientX - ref.swipeActivateX)
+        const progress = Math.min(Math.max(swipeDx / SWIPE_THRESHOLD, 0), 1)
         const dir = swipingLeft ? 'next' as const : 'prev' as const
         swipeIntentRef.current = { dir, progress }
         rerenderGesture()
