@@ -11,16 +11,23 @@ interface Props {
   onDragStart?: (e: React.PointerEvent<HTMLDivElement>, a: Activity, type: 'move' | 'resize') => void
   canEdit: boolean
   isCC?: boolean
+  scale?: number
   style?: React.CSSProperties
   getTypeName?: (typeCode: string) => string
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, style, getTypeName }: Props) {
-  const top = timeToTopPx(activity.timeFrom)
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, scale = 1, style, getTypeName }: Props) {
+  const top = timeToTopPx(activity.timeFrom, scale)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
+
+  // Light mode contrast: stronger opacity fills
+  const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
+  const fillNormal = isLight ? '55' : '33'
+  const fillPlanned = isLight ? '33' : '1a'
+  const fillCC = isLight ? '1a' : '0a'
 
   return (
     <div
@@ -29,8 +36,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         top,
         height,
         background: isCC
-          ? `repeating-linear-gradient(135deg, ${color}0a, ${color}0a 4px, transparent 4px, transparent 8px)`
-          : isPlanned ? color + '1a' : color + '33',
+          ? `repeating-linear-gradient(135deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
+          : isPlanned ? color + fillPlanned : color + fillNormal,
         borderLeft: isOutlook
           ? `2px dashed ${color}`
           : isCC

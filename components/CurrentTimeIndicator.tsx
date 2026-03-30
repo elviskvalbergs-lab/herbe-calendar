@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { timeToTopPx } from '@/lib/time'
 
-export default function CurrentTimeIndicator() {
+export default function CurrentTimeIndicator({ scale = 1 }: { scale?: number }) {
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
@@ -10,7 +10,7 @@ export default function CurrentTimeIndicator() {
     return () => clearInterval(timer)
   }, [])
 
-  const top = timeToTopPx(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`)
+  const top = timeToTopPx(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, scale)
 
   return (
     <div

@@ -1,6 +1,6 @@
 'use client'
 import { Activity } from '@/types'
-import { GRID_START_HOUR, GRID_END_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
+import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
 import { useRef, useState } from 'react'
@@ -15,6 +15,7 @@ interface Props {
   onSlotClick: (personCode: string, time: string, date: string) => void
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
+  scale?: number
   colMinW?: string
 }
 
@@ -31,7 +32,7 @@ interface DragState {
 
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
-  onSlotClick, onActivityClick, onActivityUpdate, colMinW = 'min-w-[44vw] sm:min-w-0'
+  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, colMinW = 'min-w-[44vw] sm:min-w-0'
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -47,6 +48,8 @@ export default function PersonColumn({
     const inCCPersons = activity.ccPersons?.includes(sessionUserCode) ?? false
     return activity.personCode === sessionUserCode || inMainPersons || inAccessGroup || inCCPersons
   }
+
+  const rowHeight = PX_PER_HOUR * scale
 
   function handleSlotClick(hour: number, e: React.MouseEvent) {
     if (drag) return
@@ -68,7 +71,7 @@ export default function PersonColumn({
 
     function onMove(me: PointerEvent) {
       const deltaY = me.clientY - dragState.startY
-      const rawDeltaMins = Math.round(pxToMinutes(deltaY) / 15) * 15
+      const rawDeltaMins = Math.round(pxToMinutes(deltaY, scale) / 15) * 15
       if (type === 'move') {
         const fromMins = timeToMinutes(dragState.originalFrom) + rawDeltaMins
         const toMins = timeToMinutes(dragState.originalTo) + rawDeltaMins
@@ -161,7 +164,8 @@ export default function PersonColumn({
           {hours.map(h => (
             <div
               key={h}
-              className="h-14 border-b border-border/30 hover:bg-white/5 cursor-pointer relative"
+              className="border-b border-border/30 hover:bg-white/5 cursor-pointer relative"
+              style={{ height: rowHeight }}
               onClick={(e) => handleSlotClick(h, e)}
             >
               <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
@@ -174,7 +178,7 @@ export default function PersonColumn({
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
-            const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo), 20)
+            const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
             const actColor = getActivityColor(act)
             return (
               <div
@@ -199,6 +203,7 @@ export default function PersonColumn({
                     !(act.mainPersons?.includes(personCode) ?? false)
                   }
                   getTypeName={getTypeName}
+                  scale={scale}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
@@ -206,7 +211,7 @@ export default function PersonColumn({
                 {isDragging && (
                   <div
                     className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                    style={{ top: timeToTopPx(drag!.currentFrom) - 14, color: actColor }}
+                    style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
                   >
                     {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                   </div>
@@ -222,7 +227,7 @@ export default function PersonColumn({
             style={{ width: '40%', pointerEvents: 'none' }}
           >
             {hours.map(h => (
-              <div key={h} className="h-14 border-b border-border/30" />
+              <div key={h} className="border-b border-border/30" style={{ height: rowHeight }} />
             ))}
 
             {outlookLaned.map(({ activity: act, laneIndex, laneCount }) => {
@@ -231,7 +236,7 @@ export default function PersonColumn({
               const displayActivity = isDragging
                 ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
                 : act
-              const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo), 20)
+              const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
               const actColor = getActivityColor(act)
               return (
                 <div
@@ -251,6 +256,7 @@ export default function PersonColumn({
                     onClick={(a) => { if (!suppressClickRef.current) onActivityClick(a) }}
                     onDragStart={handleDragStart}
                     canEdit={canEdit(act)}
+                    scale={scale}
                     style={isDragging
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                       : undefined}
@@ -258,7 +264,7 @@ export default function PersonColumn({
                   {isDragging && (
                     <div
                       className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                      style={{ top: timeToTopPx(drag!.currentFrom) - 14, color: actColor }}
+                      style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
                     >
                       {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                     </div>

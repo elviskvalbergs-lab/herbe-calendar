@@ -49,6 +49,23 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [debugGuests, setDebugGuests] = useState<any[]>([])
   const [debugLoading, setDebugLoading] = useState(false)
 
+  // Zoom state: 1 = normal (56px/hour), 2 = zoomed (112px/hour)
+  const [zoom, setZoom] = useState<1 | 2>(() => {
+    try {
+      const saved = localStorage.getItem('calendarZoom')
+      if (saved === '2') return 2
+    } catch {}
+    return 1
+  })
+
+  function toggleZoom() {
+    setZoom(prev => {
+      const next = prev === 1 ? 2 : 1
+      try { localStorage.setItem('calendarZoom', String(next)) } catch {}
+      return next
+    })
+  }
+
   // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
   useEffect(() => {
     try {
@@ -116,7 +133,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       // Skip bare key shortcuts if modifier held or input focused
       if (e.metaKey || e.ctrlKey || e.altKey || inInput) return
 
-      if (e.key === 'n' || e.key === 'N') {
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault()
+        toggleZoom()
+      } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setFormState({ open: true, initial: { date: state.date } })
       } else if (e.key === 't' || e.key === 'T') {
@@ -408,6 +428,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onRefresh={fetchActivities}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
+        zoom={zoom}
+        onToggleZoom={toggleZoom}
       />
       <CalendarGrid
         state={state}
@@ -416,6 +438,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
         getTypeName={getTypeName}
+        scale={zoom}
         onRefresh={fetchActivities}
         onNavigate={(dir) => {
           const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
@@ -510,16 +533,31 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         />
       )}
 
-      {/* FAB — mobile only, hidden when form is open */}
+      {/* FABs — mobile only, hidden when form is open */}
       {!formState.open && (
-        <button
-          onClick={() => setFormState({ open: true, initial: { date: state.date } })}
-          className="fixed bottom-5 right-5 z-50 lg:hidden bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
-          title="New activity"
-          aria-label="New activity"
-        >
-          +
-        </button>
+        <div className="fixed bottom-5 right-5 z-50 lg:hidden flex flex-col gap-3 items-center">
+          <button
+            onClick={toggleZoom}
+            className="bg-surface border border-border text-text-muted text-sm font-bold w-10 h-10 rounded-full shadow-lg flex items-center justify-center"
+            title={zoom === 1 ? 'Zoom in (2x)' : 'Zoom out (1x)'}
+            aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              {zoom === 1
+                ? <><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></>
+                : <line x1="8" y1="11" x2="14" y2="11"/>}
+            </svg>
+          </button>
+          <button
+            onClick={() => setFormState({ open: true, initial: { date: state.date } })}
+            className="bg-primary text-white text-2xl font-bold w-14 h-14 rounded-full shadow-lg flex items-center justify-center"
+            title="New activity"
+            aria-label="New activity"
+          >
+            +
+          </button>
+        </div>
       )}
 
       {renderDebugModal()}

@@ -5,7 +5,7 @@ import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
 import { addDays, format, parseISO, isToday } from 'date-fns'
-import { minutesToPx, GRID_START_HOUR } from '@/lib/time'
+import { minutesToPx, GRID_START_HOUR, PX_PER_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
   sessionUserCode?: string
   getActivityColor: (activity: Activity) => string
   getTypeName?: (typeCode: string) => string
+  scale?: number
   onRefresh: () => void
   onNavigate: (dir: 'prev' | 'next') => void
   onSlotClick: (personCode: string, time: string, date: string) => void
@@ -25,17 +26,29 @@ interface Props {
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
-  onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate
+  scale = 1, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const prevScaleRef = useRef(scale)
 
   // Auto-scroll to 08:00 on mount
   useEffect(() => {
     if (!scrollRef.current) return
-    const HEADER_HEIGHT = 40
     const TARGET_HOUR = 8
-    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60)
-  }, [])
+    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60, scale)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Preserve scroll position proportionally when zoom changes
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const prev = prevScaleRef.current
+    if (prev !== scale) {
+      const ratio = scale / prev
+      scrollRef.current.scrollTop = scrollRef.current.scrollTop * ratio
+      prevScaleRef.current = scale
+    }
+  }, [scale])
 
   // Build date list for current view
   const viewDays = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
@@ -82,7 +95,7 @@ export default function CalendarGrid({
       )}
 
       <div className="flex min-w-0">
-        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} />
+        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} scale={scale} />
 
         {/* For each date, a grouped column with shared header */}
         {dates.map((date, dateIdx) => {
@@ -122,7 +135,7 @@ export default function CalendarGrid({
 
               {/* Person columns (body only, no header) */}
               <div className="flex flex-1 relative">
-                {isToday(parseISO(date)) && <CurrentTimeIndicator />}
+                {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} />}
                 {state.selectedPersons.map((person, personIdx) => {
                   const personActivities = activities.filter(
                     a => a.personCode === person.code && a.date === date
@@ -136,6 +149,7 @@ export default function CalendarGrid({
                       sessionUserCode={sessionUserCode}
                       getActivityColor={getActivityColor}
                       getTypeName={getTypeName}
+                      scale={scale}
                       onSlotClick={onSlotClick}
                       onActivityClick={onActivityClick}
                       onActivityUpdate={onActivityUpdate}
