@@ -27,11 +27,10 @@ interface Props {
 type SwipeIntent = { dir: 'prev' | 'next'; progress: number } | null
 type PullState = { pulling: boolean; progress: number; triggered: boolean }
 
-const SWIPE_THRESHOLD = 80
-const PULL_THRESHOLD = 90
-const SWIPE_SLOW_VELOCITY = 0.15    // px/ms
+const SWIPE_THRESHOLD = 50           // px from activation to full reveal
+const PULL_THRESHOLD = 60            // px from activation to trigger
+const SWIPE_SLOW_VELOCITY = 0.15     // px/ms
 const LOCK_DISTANCE = 12
-// Pull-to-refresh: finger must be nearly stopped for 300ms before indicator appears
 const PULL_NEAR_ZERO_VELOCITY = 0.08 // px/ms — finger nearly stopped
 const PULL_HOLD_MS = 300             // ms of near-zero velocity required
 
@@ -69,14 +68,14 @@ export default function CalendarGrid({
       const w = window.innerWidth
       const h = window.innerHeight
       if (w >= 640) {
-        // Desktop / tablet landscape
-        setMaxVisibleCols(15)
+        // Desktop / tablet
+        setMaxVisibleCols(8)
       } else if (w > h) {
-        // Mobile landscape
-        setMaxVisibleCols(10)
+        // Mobile landscape — ~5 person-columns visible
+        setMaxVisibleCols(5)
       } else {
-        // Mobile portrait
-        setMaxVisibleCols(4)
+        // Mobile portrait — ~2 person-columns visible + peek
+        setMaxVisibleCols(2)
       }
     }
     update()

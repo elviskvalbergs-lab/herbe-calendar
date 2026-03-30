@@ -61,6 +61,8 @@ export default function PersonColumn({
   }
 
   function handleDragStart(e: React.PointerEvent<HTMLDivElement>, activity: Activity, type: 'move' | 'resize') {
+    // Disable drag on touch devices — too finicky, conflicts with scrolling
+    if (e.pointerType === 'touch') return
     e.preventDefault()
     const dragState: DragState = {
       activity, type, startY: e.clientY,
