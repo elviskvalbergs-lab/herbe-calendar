@@ -247,7 +247,7 @@ export default function PersonColumn({
               return (
                 <div
                   key={act.id}
-                  className="absolute pointer-events-auto"
+                  className="absolute pointer-events-none"
                   style={{
                     left: `${(laneIndex / laneCount) * 100}%`,
                     right: `${((laneCount - laneIndex - 1) / laneCount) * 100}%`,
