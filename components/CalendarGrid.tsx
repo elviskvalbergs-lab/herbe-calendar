@@ -27,12 +27,13 @@ interface Props {
 type SwipeIntent = { dir: 'prev' | 'next'; progress: number } | null
 type PullState = { pulling: boolean; progress: number; triggered: boolean }
 
-const SWIPE_THRESHOLD = 80          // px to fully reveal indicator
-const PULL_THRESHOLD = 80           // px to trigger refresh
-const PULL_SLOW_VELOCITY = 0.3      // px/ms — finger must be slow for pull
-const SWIPE_SLOW_VELOCITY = 0.15    // px/ms — finger must be slow for swipe
-const LOCK_DISTANCE = 12            // px before locking axis
-const HOLD_TIME_MS = 150            // ms finger must be near-still before pull activates
+const SWIPE_THRESHOLD = 80
+const PULL_THRESHOLD = 90
+const SWIPE_SLOW_VELOCITY = 0.15    // px/ms
+const LOCK_DISTANCE = 12
+// Pull-to-refresh: finger must be nearly stopped for 300ms before indicator appears
+const PULL_NEAR_ZERO_VELOCITY = 0.08 // px/ms — finger nearly stopped
+const PULL_HOLD_MS = 300             // ms of near-zero velocity required
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
@@ -41,7 +42,7 @@ export default function CalendarGrid({
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
 
-  // Use refs for gesture state to avoid stale closures
+  // Gesture state via refs to avoid stale closures
   const swipeIntentRef = useRef<SwipeIntent>(null)
   const pullStateRef = useRef<PullState>({ pulling: false, progress: 0, triggered: false })
   const [, forceRender] = useState(0)
@@ -55,8 +56,35 @@ export default function CalendarGrid({
     yVelocities: [] as number[],
     xVelocities: [] as number[],
     intentActive: false,
-    pullHoldStart: 0,   // timestamp when finger first slowed at top
+    pullHoldStart: 0,
+    pullActivated: false,  // once activated, stays true for the touch
   })
+
+  // Responsive max visible columns
+  const [maxVisibleCols, setMaxVisibleCols] = useState(4)
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      if (w >= 640) {
+        // Desktop / tablet landscape
+        setMaxVisibleCols(15)
+      } else if (w > h) {
+        // Mobile landscape
+        setMaxVisibleCols(10)
+      } else {
+        // Mobile portrait
+        setMaxVisibleCols(4)
+      }
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+    }
+  }, [])
 
   // Auto-scroll to 08:00 on mount
   useEffect(() => {
@@ -84,6 +112,7 @@ export default function CalendarGrid({
         format(addDays(parseISO(state.date), i), 'yyyy-MM-dd')
       )
 
+  // --- Gesture handlers ---
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const el = scrollRef.current
     const t = e.touches[0]
@@ -94,7 +123,7 @@ export default function CalendarGrid({
       atLeft: (el?.scrollLeft ?? 1) <= 1,
       atRight: el ? el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 : false,
       locked: null, yVelocities: [], xVelocities: [], intentActive: false,
-      pullHoldStart: 0,
+      pullHoldStart: 0, pullActivated: false,
     }
     swipeIntentRef.current = null
     pullStateRef.current = { pulling: false, progress: 0, triggered: false }
@@ -129,31 +158,30 @@ export default function CalendarGrid({
       ref.locked = adx > ady ? 'horizontal' : 'vertical'
     }
 
-    // --- Pull-to-refresh (vertical, at scroll top, deliberate) ---
+    // --- Pull-to-refresh: very deliberate ---
+    // Only at scroll top, finger must nearly stop for 300ms, then drag down slowly
     if (ref.locked === 'vertical' && ref.atTop && dy > 0) {
       const avgVy = ref.yVelocities.length > 0
         ? ref.yVelocities.reduce((a, b) => a + b, 0) / ref.yVelocities.length
         : 1
 
-      // Only start pull if finger is moving slowly (deliberate drag, not fast scroll)
-      if (avgVy > PULL_SLOW_VELOCITY && !pullStateRef.current.pulling) {
-        // Too fast — don't activate pull
-        return
+      // If pull not yet activated, require near-zero velocity hold
+      if (!ref.pullActivated) {
+        if (avgVy <= PULL_NEAR_ZERO_VELOCITY) {
+          if (ref.pullHoldStart === 0) ref.pullHoldStart = now
+          if (now - ref.pullHoldStart >= PULL_HOLD_MS) {
+            ref.pullActivated = true // finger was still long enough
+          }
+        } else {
+          ref.pullHoldStart = 0 // reset if finger speeds up
+        }
+        return // don't show indicator yet
       }
 
-      // Track how long finger has been slow at top
-      if (avgVy <= PULL_SLOW_VELOCITY) {
-        if (ref.pullHoldStart === 0) ref.pullHoldStart = now
-      } else {
-        ref.pullHoldStart = 0
-      }
-
-      // Only activate after finger has been slow for HOLD_TIME_MS
-      if (ref.pullHoldStart > 0 && (now - ref.pullHoldStart >= HOLD_TIME_MS || pullStateRef.current.pulling)) {
-        const progress = Math.min(dy / PULL_THRESHOLD, 1)
-        pullStateRef.current = { pulling: true, progress, triggered: progress >= 1 }
-        rerenderGesture()
-      }
+      // Pull is activated — show indicator and track progress
+      const progress = Math.min(dy / PULL_THRESHOLD, 1)
+      pullStateRef.current = { pulling: true, progress, triggered: progress >= 1 }
+      rerenderGesture()
       return
     }
 
@@ -172,7 +200,6 @@ export default function CalendarGrid({
         return
       }
 
-      // At edge — check if finger has slowed down
       const avgVx = ref.xVelocities.length > 0
         ? ref.xVelocities.reduce((a, b) => a + b, 0) / ref.xVelocities.length
         : 1
@@ -206,22 +233,33 @@ export default function CalendarGrid({
     }
     swipeIntentRef.current = null
     ref.intentActive = false
+    ref.pullActivated = false
     rerenderGesture()
   }, [onRefresh, onNavigate, rerenderGesture])
 
+  // Read gesture state for rendering
   const swipeIntent = swipeIntentRef.current
   const pullUI = pullStateRef.current
 
-  // Calculate column widths: on mobile portrait, show 1 full date group + peek
+  // --- Column sizing ---
+  // Total "columns" = persons × days
   const personCount = state.selectedPersons.length
-  const totalColumns = dates.length * personCount
-  // Each person column: aim for ~1 full day group + 15% peek of next visible on mobile
-  // On desktop (sm:), let flex handle it
-  const colMinVw = state.view === '5day'
-    ? Math.max(Math.floor(85 / (personCount * Math.min(dates.length, 2))), 15)
-    : state.view === '3day'
-      ? Math.max(Math.floor(85 / (personCount * Math.min(dates.length, 1.15))), 20)
-      : Math.max(Math.floor(85 / personCount), 30)
+  const totalColumns = personCount * dates.length
+
+  // Calculate per-column vw: fit maxVisibleCols on screen, rest scrollable
+  // ~90vw available (100vw minus time column ~48px ≈ 10vw on mobile)
+  const availableVw = 90
+  let colMinVw: number
+  if (totalColumns <= maxVisibleCols) {
+    // Everything fits — divide equally
+    colMinVw = availableVw / totalColumns
+  } else {
+    // Show maxVisibleCols + 30% peek of next column
+    colMinVw = availableVw / (maxVisibleCols + 0.3)
+  }
+  // Clamp to reasonable range
+  colMinVw = Math.max(colMinVw, 12)
+  colMinVw = Math.min(colMinVw, 80)
 
   return (
     <div
@@ -264,7 +302,7 @@ export default function CalendarGrid({
         </div>
       )}
 
-      {/* Loading overlay — fixed so it covers entire viewport regardless of scroll */}
+      {/* Loading overlay — fixed to cover entire viewport */}
       {loading && (
         <div className="fixed inset-0 z-30 bg-black/40 flex items-center justify-center pointer-events-auto">
           <div className="bg-surface border border-border rounded-xl px-5 py-3 text-sm font-bold text-text-muted animate-pulse">
@@ -276,10 +314,8 @@ export default function CalendarGrid({
       <div className="flex">
         <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} scale={scale} />
 
-        {/* For each date, a grouped column with shared header */}
         {dates.map((date, dateIdx) => {
           const isMultiDay = state.view === '3day' || state.view === '5day'
-          // Date group min-width: all person columns must fit
           const dateGroupMinW = personCount * colMinVw
           return (
             <div
@@ -287,7 +323,6 @@ export default function CalendarGrid({
               className={`flex-1 shrink-0 sm:shrink flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
               style={{ minWidth: `${dateGroupMinW}vw` }}
             >
-              {/* Sticky two-row header for this day */}
               <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (
                   <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold text-text-muted tracking-wide relative">
@@ -313,7 +348,6 @@ export default function CalendarGrid({
                 </div>
               </div>
 
-              {/* Person columns (body only, no header) */}
               <div className="flex flex-1 relative">
                 {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} />}
                 {state.selectedPersons.map((person, personIdx) => {
