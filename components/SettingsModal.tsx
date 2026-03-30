@@ -36,7 +36,8 @@ type Tab = 'style' | 'calendars'
 export default function SettingsModal({ classGroups, colorMap, persons, error, onClose, onColorChange, onReload }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
-  const [customCals, setCustomCals] = useState<any[]>([])
+  interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string }
+  const [customCals, setCustomCals] = useState<CustomCalendar[]>([])
   const [calLoading, setCalLoading] = useState(false)
   const [newCal, setNewCal] = useState({ personCode: '', name: '', icsUrl: '' })
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -100,7 +101,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
     }
   }
 
-  function startEdit(cal: any) {
+  function startEdit(cal: CustomCalendar) {
     setEditingId(cal.id)
     setEditForm({ name: cal.name, icsUrl: cal.icsUrl, personCode: cal.personCode, color: cal.color || '' })
   }

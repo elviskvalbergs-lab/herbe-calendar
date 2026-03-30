@@ -16,6 +16,7 @@ interface Props {
   getActivityColor: (activity: Activity) => string
   getTypeName?: (typeCode: string) => string
   scale?: number
+  isLightMode?: boolean
   onRefresh: () => void
   onNavigate: (dir: 'prev' | 'next') => void
   onSlotClick: (personCode: string, time: string, date: string) => void
@@ -28,7 +29,7 @@ interface Props {
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
-  scale = 1, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
+  scale = 1, isLightMode = false, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
   onDrillDate, onDrillPerson
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -229,6 +230,7 @@ export default function CalendarGrid({
                       onSlotClick={onSlotClick}
                       onActivityClick={onActivityClick}
                       onActivityUpdate={onActivityUpdate}
+                      isLightMode={isLightMode}
                       colMinVw={colMinVw}
                     />
                   )

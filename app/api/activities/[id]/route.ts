@@ -2,24 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchById, herbeWebExcellentDelete } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
+import { extractHerbeError } from '@/lib/herbe/errors'
 import { toHerbeForm } from '../route'
-
-function extractHerbeError(e: unknown): string {
-  if (!e) return ''
-  if (typeof e === 'string') return e
-  if (typeof e === 'object') {
-    const o = e as Record<string, unknown>
-    const msg = o.message ?? o.text ?? o.msg ?? o.description ?? o.Error ?? o.error
-    if (msg) return String(msg)
-    const parts: string[] = []
-    if (o.field) parts.push(`field: ${o.field}`)
-    if (o.code) parts.push(`code: ${o.code}`)
-    if (o.vc) parts.push(`vc: ${o.vc}`)
-    return parts.length ? parts.join(', ') : JSON.stringify(e).slice(0, 300)
-  }
-  return String(e)
-}
-
 
 async function fetchActivity(id: string) {
   // Path-based URL (/ActVc/id) fetches one record — query ?id=X may scan all records

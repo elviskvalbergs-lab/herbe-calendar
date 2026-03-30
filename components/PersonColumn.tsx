@@ -16,6 +16,7 @@ interface Props {
   onActivityClick: (activity: Activity) => void
   onActivityUpdate: () => void
   scale?: number
+  isLightMode?: boolean
   colMinVw?: number
 }
 
@@ -32,7 +33,7 @@ interface DragState {
 
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
-  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, colMinVw = 44
+  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -204,6 +205,7 @@ export default function PersonColumn({
                     (act.ccPersons?.includes(personCode) ?? false) &&
                     !(act.mainPersons?.includes(personCode) ?? false)
                   }
+                  isLightMode={isLightMode}
                   getTypeName={getTypeName}
                   scale={scale}
                   style={isDragging
@@ -258,6 +260,7 @@ export default function PersonColumn({
                     onClick={(a) => { if (!suppressClickRef.current) onActivityClick(a) }}
                     onDragStart={handleDragStart}
                     canEdit={canEdit(act)}
+                    isLightMode={isLightMode}
                     scale={scale}
                     style={isDragging
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }

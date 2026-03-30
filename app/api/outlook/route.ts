@@ -75,24 +75,26 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
   }
 }
 
-// Cache the full user list for the lifetime of the server process (small list, rarely changes)
-let userListCache: Record<string, string> | null = null  // code → email
+// Cache the full user list with TTL (small list, rarely changes)
+let userListCache: { data: Record<string, string>; ts: number } | null = null
+const USER_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 async function emailForCode(code: string): Promise<string | null> {
-  if (!userListCache) {
+  if (!userListCache || Date.now() - userListCache.ts > USER_LIST_CACHE_TTL) {
     try {
       const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-      userListCache = Object.fromEntries(
+      const data = Object.fromEntries(
         (users as Record<string, unknown>[])
           .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
           .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
       )
+      userListCache = { data, ts: Date.now() }
     } catch (e) {
       console.warn('[outlook] UserVc unavailable, skipping Outlook calendar:', String(e))
-      userListCache = {}
+      userListCache = { data: {}, ts: Date.now() }
     }
   }
-  return userListCache[code] ?? null
+  return userListCache.data[code] ?? null
 }
 
 export async function GET(req: NextRequest) {
@@ -227,7 +229,7 @@ export async function GET(req: NextRequest) {
       const uniqueIcs = icsEvents.filter((e: any) => !graphKeys.has(`${e.date}|${e.timeFrom}|${e.timeTo}|${e.description.toLowerCase()}`))
       return [...graphEvents, ...uniqueIcs]
     }))
-    return NextResponse.json(results.flat())
+    return NextResponse.json(results.flat(), { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
@@ -242,7 +244,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = await req.json()
+    const raw = await req.json()
+    const ALLOWED_POST_FIELDS = ['subject', 'body', 'start', 'end', 'location', 'attendees', 'isOnlineMeeting', 'onlineMeetingProvider'] as const
+    const body: Record<string, unknown> = {}
+    for (const key of ALLOWED_POST_FIELDS) {
+      if (raw[key] !== undefined) body[key] = raw[key]
+    }
     const email = session.email
     const res = await graphFetch(`/users/${email}/events`, {
       method: 'POST',

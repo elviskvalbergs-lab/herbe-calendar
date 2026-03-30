@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
+import { validateIcsUrl } from '@/lib/ics-allowlist'
 
 // Simple auto-migration helper
-let tableChecked = false
+let tableCheckedAt = 0
+const TABLE_CHECK_TTL = 60 * 60 * 1000 // 1 hour
 async function ensureTable() {
-  if (tableChecked) return
+  if (Date.now() - tableCheckedAt < TABLE_CHECK_TTL) return
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_calendars (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -20,7 +22,7 @@ async function ensureTable() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_target_person_code ON user_calendars(target_person_code)`)
   // Add color column if missing (existing tables)
   await pool.query(`ALTER TABLE user_calendars ADD COLUMN IF NOT EXISTS color TEXT`)
-  tableChecked = true
+  tableCheckedAt = Date.now()
 }
 
 export async function GET(req: NextRequest) {
@@ -50,6 +52,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
+    const urlCheck = validateIcsUrl(icsUrl)
+    if (!urlCheck.valid) {
+      return NextResponse.json({ error: urlCheck.error }, { status: 400 })
+    }
+
     const { rows } = await pool.query(
       'INSERT INTO user_calendars (user_email, target_person_code, name, ics_url, color) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [session.user.email, personCode, name, icsUrl, null]
@@ -68,6 +75,13 @@ export async function PUT(req: NextRequest) {
     await ensureTable()
     const { id, name, icsUrl, personCode, color } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+    if (icsUrl !== undefined) {
+      const urlCheck = validateIcsUrl(icsUrl)
+      if (!urlCheck.valid) {
+        return NextResponse.json({ error: urlCheck.error }, { status: 400 })
+      }
+    }
 
     const sets: string[] = []
     const vals: any[] = []

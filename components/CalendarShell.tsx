@@ -43,11 +43,6 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     editId?: string
     canEdit?: boolean
   }>({ open: false })
-  const [debugCalsOpen, setDebugCalsOpen] = useState(false)
-  const [debugCals, setDebugCals] = useState<any[]>([])
-  const [debugGroups, setDebugGroups] = useState<any[]>([])
-  const [debugGuests, setDebugGuests] = useState<any[]>([])
-  const [debugLoading, setDebugLoading] = useState(false)
 
   // Zoom state: 1 = normal (56px/hour), 2 = zoomed (112px/hour)
   const [zoom, setZoom] = useState<1 | 2>(() => {
@@ -66,8 +61,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     })
   }
 
-  // Re-apply stored theme on mount (safety net in case inline script was overridden by hydration)
+  // Theme state — tracks current theme for passing to components
+  const [isLightMode, setIsLightMode] = useState(false)
+
+  // Re-apply stored theme on mount + track it in state
   useEffect(() => {
+    function syncTheme() {
+      const theme = document.documentElement.getAttribute('data-theme')
+      setIsLightMode(theme === 'light')
+    }
     try {
       const t = localStorage.getItem('theme')
       if (t === 'light') document.documentElement.setAttribute('data-theme', 'light')
@@ -75,6 +77,11 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       else if (!t && window.matchMedia('(prefers-color-scheme: light)').matches)
         document.documentElement.setAttribute('data-theme', 'light')
     } catch {}
+    syncTheme()
+    // Watch for theme changes (e.g. from SettingsModal)
+    const obs = new MutationObserver(syncTheme)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
   }, [])
 
   function canEditActivity(activity: Activity): boolean {
@@ -214,86 +221,6 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     return activityTypes.find(t => t.code === typeCode)?.name ?? ''
   }
 
-  async function loadDebugCals() {
-    setDebugLoading(true)
-    try {
-      const res = await fetch('/api/outlook/debug-calendars?full=1')
-      const data = await res.json()
-      setDebugCals(data.calendars || [])
-      setDebugGroups(data.calendarGroups || [])
-      setDebugGuests(data.guestStatus || [])
-      setDebugCalsOpen(true)
-    } catch (e) {
-      setStatus({ msg: `Debug fetch failed: ${e}`, ok: false })
-    } finally {
-      setDebugLoading(false)
-    }
-  }
-
-  function renderDebugModal() {
-    if (!debugCalsOpen) return null
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-        <div className="w-full max-w-2xl bg-surface border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-          <div className="p-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-bold">Outlook Shared Calendars Debug</h3>
-            <button onClick={() => setDebugCalsOpen(false)} className="text-text-muted hover:text-white">✕</button>
-          </div>
-          <div className="p-4 overflow-auto space-y-6">
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase text-text-muted">Guest User Verification (Search)</h4>
-              {debugGuests.map(search => (
-                <div key={search.prefix} className="space-y-2">
-                  <div className="text-[10px] font-bold text-text-muted">Prefix: {search.prefix} ({search.foundCount || 0} found)</div>
-                  {search.matches?.map((m: any) => (
-                    <div key={m.id} className="p-2 rounded text-xs border bg-surface border-border">
-                      <div className="font-bold flex justify-between">
-                        <span>{m.displayName}</span>
-                        <span className={m.calendarStatus === 200 ? 'text-green-400' : 'text-orange-400'}>
-                          Calendar: {m.calendarStatus === 200 ? 'ACCESSIBLE' : `HTTP ${m.calendarStatus}`}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[10px] space-y-1">
-                        <div><span className="opacity-50">UPN:</span> {m.upn}</div>
-                        <div><span className="opacity-50">Mail:</span> {m.mail || 'n/a'}</div>
-                        <div><span className="opacity-50">ID:</span> {m.id}</div>
-                      </div>
-                    </div>
-                  ))}
-                  {search.error && <div className="text-red-400 text-[10px]">{search.error}</div>}
-                  {!search.error && (!search.matches || search.matches.length === 0) && <div className="text-red-400 text-[10px]">No users found for "{search.prefix}"</div>}
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase text-text-muted">Calendars</h4>
-              {debugCals.map(cal => (
-                  <pre key={cal.id} className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
-                    {JSON.stringify(cal, null, 2)}
-                  </pre>
-              ))}
-              {debugCals.length === 0 && <div className="text-center py-4 text-text-muted">No calendars found</div>}
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase text-text-muted">Calendar Groups</h4>
-              {debugGroups.map(grp => (
-                  <pre key={grp.id} className="mt-1 p-2 bg-black/30 rounded text-xs overflow-auto max-h-32">
-                    {JSON.stringify(grp, null, 2)}
-                  </pre>
-              ))}
-              {debugGroups.length === 0 && <div className="text-center py-4 text-text-muted">No groups found</div>}
-            </div>
-          </div>
-          <div className="p-4 bg-bg text-[10px] text-text-muted font-mono break-all line-clamp-1">
-            Perspectives of the server-side App Token for your mailbox.
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   function reloadColorData(bust = false) {
     const opts: RequestInit = bust ? { cache: 'reload' } : {}
     Promise.all([
@@ -401,14 +328,16 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         fetch(`/api/activities?persons=${codes}&${dateParam}`),
         fetch(`/api/outlook?persons=${codes}&${dateParam}`),
       ])
-      const herbe: Activity[] = herbeRes.ok ? await herbeRes.json() : []
+      let herbe: Activity[] = []
       let herbeErrMsg = ''
-      if (!herbeRes.ok) {
+      if (herbeRes.ok) {
+        herbe = await herbeRes.json()
+      } else {
         try {
           const e = await herbeRes.json()
-          herbeErrMsg = String(e.error ?? JSON.stringify(e))
+          herbeErrMsg = e.error || e.message || JSON.stringify(e)
         } catch {
-          herbeErrMsg = String(herbeRes.status)
+          herbeErrMsg = `HTTP ${herbeRes.status}`
         }
       }
       let outlook: Activity[] = []
@@ -478,6 +407,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         getActivityColor={colorForActivity}
         getTypeName={getTypeName}
         scale={zoom}
+        isLightMode={isLightMode}
         onRefresh={fetchActivities}
         onNavigate={(dir) => {
           const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
@@ -516,13 +446,6 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           }
         >
           <div>{status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}</div>
-          <button 
-            onClick={loadDebugCals} 
-            className="ml-4 underline hover:text-white opacity-50 hover:opacity-100"
-            disabled={debugLoading}
-          >
-            {debugLoading ? 'Loading...' : 'Debug Calendars'}
-          </button>
         </div>
       )}
 
@@ -601,7 +524,6 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         </div>
       )}
 
-      {renderDebugModal()}
     </div>
   )
 }

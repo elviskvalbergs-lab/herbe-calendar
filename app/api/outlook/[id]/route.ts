@@ -21,7 +21,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return forbidden()
     }
 
-    const body = await req.json()
+    const raw = await req.json()
+    const ALLOWED_PUT_FIELDS = ['subject', 'body', 'start', 'end', 'location', 'attendees'] as const
+    const body: Record<string, unknown> = {}
+    for (const key of ALLOWED_PUT_FIELDS) {
+      if (raw[key] !== undefined) body[key] = raw[key]
+    }
     const res = await graphFetch(`/users/${session.email}/events/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),

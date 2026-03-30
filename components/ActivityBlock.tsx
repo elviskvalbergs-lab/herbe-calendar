@@ -11,20 +11,20 @@ interface Props {
   onDragStart?: (e: React.PointerEvent<HTMLDivElement>, a: Activity, type: 'move' | 'resize') => void
   canEdit: boolean
   isCC?: boolean
+  isLightMode?: boolean
   scale?: number
   style?: React.CSSProperties
   getTypeName?: (typeCode: string) => string
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, scale = 1, style, getTypeName }: Props) {
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName }: Props) {
   const top = timeToTopPx(activity.timeFrom, scale)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
 
-  // Light mode contrast: stronger opacity fills
-  const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
+  const isLight = isLightMode
   const fillNormal = isLight ? '55' : '33'
   const fillPlanned = isLight ? '33' : '1a'
   const fillCC = isLight ? '1a' : '0a'

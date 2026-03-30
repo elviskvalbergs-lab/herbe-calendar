@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
 
-let tableChecked = false
+let tableCheckedAt = 0
+const TABLE_CHECK_TTL = 60 * 60 * 1000 // 1 hour
 async function ensureTable() {
-  if (tableChecked) return
+  if (Date.now() - tableCheckedAt < TABLE_CHECK_TTL) return
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_favorites (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -15,7 +16,7 @@ async function ensureTable() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )`)
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_favorites_user_email ON user_favorites(user_email)`)
-  tableChecked = true
+  tableCheckedAt = Date.now()
 }
 
 export async function GET() {
