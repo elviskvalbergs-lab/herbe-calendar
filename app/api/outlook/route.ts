@@ -19,9 +19,59 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
     const rangeStart = startOfDay(parseISO(dateFrom))
     const rangeEnd = endOfDay(parseISO(dateTo))
 
+    console.log(`[outlook/ics] Parsing ${vevents.length} VEVENT components for ${code}, range ${dateFrom}–${dateTo}`)
     const events: any[] = []
     for (const comp of vevents) {
       const event = new ICAL.Event(comp)
+      // Expand recurring events
+      if (event.isRecurring()) {
+        try {
+          const iter = event.iterator()
+          let next = iter.next()
+          let count = 0
+          while (next && count < 200) {
+            count++
+            const occStart = next.toJSDate()
+            if (occStart > rangeEnd) break
+            const duration = event.duration
+            const occEnd = new Date(occStart.getTime() + (duration?.toSeconds() ?? 3600) * 1000)
+            if (occStart >= rangeStart || occEnd >= rangeStart) {
+              const dtStr = occStart.toISOString()
+              const endDtStr = occEnd.toISOString()
+              let joinUrl: string | undefined
+              const skypeData = comp.getFirstPropertyValue('x-microsoft-skypeteamsdata')
+              if (skypeData) {
+                try { const parsed = JSON.parse(String(skypeData)); if (parsed.joinUrl) joinUrl = parsed.joinUrl } catch {}
+              }
+              if (!joinUrl) {
+                const desc = event.description || ''
+                const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<"]+/)
+                if (teamsMatch) joinUrl = teamsMatch[0]
+              }
+              events.push({
+                id: `ics-${event.uid}-${dtStr.slice(0, 10)}`,
+                source: 'outlook' as const,
+                isExternal: true,
+                personCode: code,
+                description: event.summary || '',
+                date: dtStr.slice(0, 10),
+                timeFrom: dtStr.slice(11, 16),
+                timeTo: endDtStr.slice(11, 16),
+                isOrganizer: false,
+                location: event.location || undefined,
+                bodyPreview: event.description || '',
+                joinUrl,
+                webLink: '',
+                rsvpStatus: undefined,
+              })
+            }
+            next = iter.next()
+          }
+        } catch (e) {
+          console.warn(`[outlook/ics] Failed to expand recurring event ${event.uid}:`, e)
+        }
+        continue
+      }
       const start = event.startDate.toJSDate()
       const end = event.endDate.toJSDate()
       if (!start || !end) continue

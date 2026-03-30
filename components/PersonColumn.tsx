@@ -144,9 +144,11 @@ export default function PersonColumn({
   const herbeActivities = activities.filter(a => a.source !== 'outlook')
   const outlookActivities = activities.filter(a => a.source === 'outlook')
   const hasBoth = herbeActivities.length > 0 && outlookActivities.length > 0
+  // When only outlook/ICS activities exist, show them in the main column
+  const mainActivities = hasBoth ? herbeActivities : herbeActivities.length > 0 ? herbeActivities : outlookActivities
 
-  const herbeLaned = buildLanedActivities(herbeActivities)
-  const outlookLaned = buildLanedActivities(outlookActivities)
+  const herbeLaned = buildLanedActivities(mainActivities)
+  const outlookLaned = buildLanedActivities(hasBoth ? outlookActivities : [])
 
   return (
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
