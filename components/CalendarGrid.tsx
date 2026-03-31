@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { Activity, CalendarState } from '@/types'
+import { Activity, CalendarState, ShareVisibility } from '@/types'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
@@ -25,12 +25,13 @@ interface Props {
   onNewForDate?: (date: string) => void
   onDrillDate?: (date: string) => void
   onDrillPerson?: (personCode: string) => void
+  visibility?: ShareVisibility
 }
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
   scale = 1, isLightMode = false, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
-  onDrillDate, onDrillPerson
+  onDrillDate, onDrillPerson, visibility
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
@@ -237,6 +238,7 @@ export default function CalendarGrid({
                       colMinVw={colMinVw}
                       mobileSelectedId={mobileSelectedId}
                       onMobileSelect={setMobileSelectedId}
+                      visibility={visibility}
                     />
                   )
                 })}

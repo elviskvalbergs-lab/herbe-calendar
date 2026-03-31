@@ -1,5 +1,5 @@
 'use client'
-import { Activity } from '@/types'
+import { Activity, ShareVisibility } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
@@ -20,6 +20,7 @@ interface Props {
   colMinVw?: number
   mobileSelectedId?: string | null
   onMobileSelect?: (id: string | null) => void
+  visibility?: ShareVisibility
 }
 
 interface DragState {
@@ -41,7 +42,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('touchstart', () => { allDayIsTouchDevice = true }, { once: true })
 }
 
-function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose, getTypeName }: {
+function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose, getTypeName, visibility }: {
   activity: Activity
   color: string
   onClick: (a: Activity) => void
@@ -49,6 +50,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
   onMobileTap: (id: string) => void
   onMobileClose: () => void
   getTypeName?: (typeCode: string) => string
+  visibility?: ShareVisibility
 }) {
   const [hovered, setHovered] = useState(false)
   const touchIsTapRef = useRef(true)
@@ -90,6 +92,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
         style={{ background: color + '33', color, borderLeft: `3px solid ${color}` }}
         onClick={() => {
           if (wasTouchRef.current || allDayTouchActive) { wasTouchRef.current = false; return }
+          if (visibility) return
           onClick(activity)
         }}
       >
@@ -100,7 +103,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
           ref={cardRef}
           className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
           style={{ top: 0, border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)', isolation: 'isolate' }}
-          onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
+          onClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose(); onClick(activity) }}
         >
           {isMobileSelected && (
             <button
@@ -116,54 +119,81 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               ✕
             </button>
           )}
-          <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
-            {activity.icsCalendarName ? '📅 ' : isOutlook ? '📅 ' : null}{activity.description || '(all day)'}
-          </p>
-          <p className="text-xs text-text-muted">All day</p>
-          {activity.activityTypeCode && (
-            <p className="text-[10px] mt-1" style={{ color }}>
-              <span className="font-mono">{activity.activityTypeCode}</span>
-              {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
-                <span className="ml-1 not-italic">
-                  {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
-                </span>
+          {visibility === 'busy' ? (
+            <>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>Busy</p>
+              <p className="text-xs text-text-muted">All day</p>
+            </>
+          ) : visibility === 'titles' ? (
+            <>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+                {activity.icsCalendarName ? '📅 ' : isOutlook ? '📅 ' : null}{activity.description || '(all day)'}
+              </p>
+              <p className="text-xs text-text-muted">All day</p>
+              {activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
               )}
-            </p>
+              {isOutlook && !activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
+              )}
+              {!isOutlook && activity.source === 'herbe' && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+                {activity.icsCalendarName ? '📅 ' : isOutlook ? '📅 ' : null}{activity.description || '(all day)'}
+              </p>
+              <p className="text-xs text-text-muted">All day</p>
+              {activity.activityTypeCode && (
+                <p className="text-[10px] mt-1" style={{ color }}>
+                  <span className="font-mono">{activity.activityTypeCode}</span>
+                  {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
+                    <span className="ml-1 not-italic">
+                      {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
+                    </span>
+                  )}
+                </p>
+              )}
+              {activity.projectName && (
+                <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
+              )}
+              {activity.customerName && (
+                <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
+              )}
+              {activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
+              )}
+              {isOutlook && !activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
+              )}
+              {!isOutlook && activity.source === 'herbe' && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+              )}
+              {activity.joinUrl && visibility !== 'full' && (
+                <a
+                  href={activity.joinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+                  style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
+                >
+                  🔗 Join meeting
+                </a>
+              )}
+              {!visibility && (
+                <button
+                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+                  style={{ background: color }}
+                  onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
+                >
+                  View details
+                </button>
+              )}
+            </>
           )}
-          {activity.projectName && (
-            <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
-          )}
-          {activity.customerName && (
-            <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
-          )}
-          {activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
-          )}
-          {isOutlook && !activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
-          )}
-          {!isOutlook && activity.source === 'herbe' && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
-          )}
-          {activity.joinUrl && (
-            <a
-              href={activity.joinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-              style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
-            >
-              🔗 Join meeting
-            </a>
-          )}
-          <button
-            className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-            style={{ background: color }}
-            onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
-          >
-            View details
-          </button>
         </div>
       )}
     </div>
@@ -173,7 +203,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
-  mobileSelectedId = null, onMobileSelect
+  mobileSelectedId = null, onMobileSelect, visibility
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -311,6 +341,7 @@ export default function PersonColumn({
               onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
               onMobileClose={() => setMobileSelectedId(null)}
               getTypeName={getTypeName}
+              visibility={visibility}
             />
           ))}
         </div>
@@ -380,6 +411,7 @@ export default function PersonColumn({
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
+                  visibility={visibility}
                 />
                 {isDragging && (
                   <div
@@ -437,6 +469,7 @@ export default function PersonColumn({
                     style={isDragging
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                       : undefined}
+                    visibility={visibility}
                   />
                   {isDragging && (
                     <div

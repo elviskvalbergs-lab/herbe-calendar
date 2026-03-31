@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useLayoutEffect } from 'react'
-import { Activity } from '@/types'
+import { Activity, ShareVisibility } from '@/types'
 import { timeToTopPx } from '@/lib/time'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
@@ -45,9 +45,10 @@ interface Props {
   mobileSelected?: boolean
   onMobileTap?: (id: string) => void
   onMobileClose?: () => void
+  visibility?: ShareVisibility
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose }: Props) {
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility }: Props) {
   const top = timeToTopPx(activity.timeFrom, scale)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
@@ -114,6 +115,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       onClick={() => {
         // Touch taps are handled in onTouchEnd — only real mouse clicks go here
         if (wasTouchRef.current || globalTouchActive) { wasTouchRef.current = false; return }
+        if (visibility) return
         onClick(activity)
       }}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
@@ -178,7 +180,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           ref={cardRef}
           className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
           style={{ top: 0, border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)', isolation: 'isolate' }}
-          onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
+          onClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose?.(); onClick(activity) }}
         >
           {mobileSelected && (
             <button
@@ -194,63 +196,93 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               ✕
             </button>
           )}
-          <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
-            {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
-          </p>
-          <p className="text-xs text-text-muted">
-            {activity.timeFrom} – {activity.timeTo}
-            {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
-          </p>
-          {activity.activityTypeCode && (
-            <p className="text-[10px] mt-1" style={{ color }}>
-              <span className="font-mono">{activity.activityTypeCode}</span>
-              {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
-                <span className="ml-1 not-italic">
-                  {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
-                </span>
+          {visibility === 'busy' ? (
+            <>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>Busy</p>
+              <p className="text-xs text-text-muted">{activity.timeFrom} – {activity.timeTo}</p>
+            </>
+          ) : visibility === 'titles' ? (
+            <>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
+              </p>
+              <p className="text-xs text-text-muted">
+                {activity.timeFrom} – {activity.timeTo}
+                {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
+              </p>
+              {activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
               )}
-            </p>
+              {isOutlook && !activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
+              )}
+              {!isOutlook && activity.source === 'herbe' && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
+              </p>
+              <p className="text-xs text-text-muted">
+                {activity.timeFrom} – {activity.timeTo}
+                {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
+              </p>
+              {activity.activityTypeCode && (
+                <p className="text-[10px] mt-1" style={{ color }}>
+                  <span className="font-mono">{activity.activityTypeCode}</span>
+                  {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
+                    <span className="ml-1 not-italic">
+                      {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
+                    </span>
+                  )}
+                </p>
+              )}
+              {activity.projectName && (
+                <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
+              )}
+              {activity.customerName && (
+                <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
+              )}
+              {activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
+              )}
+              {isOutlook && !activity.icsCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
+              )}
+              {!isOutlook && activity.source === 'herbe' && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+              )}
+              {isCC && (
+                <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
+              )}
+              {activity.joinUrl && visibility !== 'full' && (
+                <a
+                  href={activity.joinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+                  style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
+                >
+                  {activity.icsCalendarName
+                    ? <>🔗 Join meeting</>
+                    : <><TeamsIcon size={12} /> Join in Teams</>
+                  }
+                </a>
+              )}
+              {!visibility && (
+                <button
+                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+                  style={{ background: color }}
+                  onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
+                >
+                  {canEdit ? 'Edit' : 'View details'}
+                </button>
+              )}
+            </>
           )}
-          {activity.projectName && (
-            <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
-          )}
-          {activity.customerName && (
-            <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
-          )}
-          {activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
-          )}
-          {isOutlook && !activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
-          )}
-          {!isOutlook && activity.source === 'herbe' && (
-            <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
-          )}
-          {isCC && (
-            <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
-          )}
-          {activity.joinUrl && (
-            <a
-              href={activity.joinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-              style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
-            >
-              {activity.icsCalendarName
-                ? <>🔗 Join meeting</>
-                : <><TeamsIcon size={12} /> Join in Teams</>
-              }
-            </a>
-          )}
-          <button
-            className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-            style={{ background: color }}
-            onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
-          >
-            {canEdit ? 'Edit' : 'View details'}
-          </button>
         </div>
       )}
     </div>
