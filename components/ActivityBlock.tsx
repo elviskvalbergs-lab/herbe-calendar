@@ -178,7 +178,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           ref={cardRef}
           className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
           style={{ top: 0, border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)', isolation: 'isolate' }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
         >
           {mobileSelected && (
             <button
