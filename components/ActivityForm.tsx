@@ -685,8 +685,8 @@ export default function ActivityForm({
             </a>
           )}
 
-          {/* RSVP buttons (Outlook only, non-organizer) */}
-          {source === 'outlook' && rsvpStatus !== 'organizer' && (
+          {/* RSVP buttons (Outlook Graph only, not ICS) */}
+          {source === 'outlook' && !initial?.isExternal && rsvpStatus !== 'organizer' && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
               <div className="flex gap-2">
