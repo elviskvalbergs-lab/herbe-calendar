@@ -56,9 +56,11 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
   }
 
   const currentCodes = state.selectedPersons.map(p => p.code).sort().join(',')
+  const currentHidden = hiddenCalendars ? [...hiddenCalendars].sort().join(',') : ''
   const activeMatch = favorites.find(f =>
     f.view === state.view &&
-    f.personCodes.slice().sort().join(',') === currentCodes
+    f.personCodes.slice().sort().join(',') === currentCodes &&
+    (f.hiddenCalendars ?? []).slice().sort().join(',') === currentHidden
   )
   const isActive = !!activeMatch
 
