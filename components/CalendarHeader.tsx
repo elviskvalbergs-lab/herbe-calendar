@@ -32,27 +32,27 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   }
 
   return (
-    <header className="flex items-center gap-2 px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
+    <header className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
       {/* Title */}
-      <span className="font-bold text-base mr-auto">
+      <span className="font-bold text-base mr-auto pr-0.5 sm:pr-1">
         herbe<span className="text-primary">.</span>calendar
       </span>
 
       {/* Date navigation */}
       {viewStep > 1 && (
-        <button onClick={() => navigate(-viewStep)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
+        <button onClick={() => navigate(-viewStep)} className="text-text-muted px-1.5 sm:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
       )}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
+      <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 sm:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
       <span className="text-sm font-semibold whitespace-nowrap">
         {format(parseISO(state.date), 'd MMM yyyy')}
       </span>
-      <button onClick={() => navigate(1)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
+      <button onClick={() => navigate(1)} className="text-text-muted px-1.5 sm:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
       {viewStep > 1 && (
-        <button onClick={() => navigate(viewStep)} className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
+        <button onClick={() => navigate(viewStep)} className="text-text-muted px-1.5 sm:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
       )}
       <button
         onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
-        className="text-text-muted px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
+        className="text-text-muted px-1.5 sm:px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
         title="Go to today (⌃⌘T)"
       >
         Today
@@ -64,7 +64,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           <button
             key={v}
             onClick={() => onStateChange({ ...state, view: v })}
-            className={`px-3 py-1 ${state.view === v ? 'bg-primary text-white' : 'text-text-muted'}`}
+            className={`px-2 sm:px-3 py-1 ${state.view === v ? 'bg-primary text-white' : 'text-text-muted'}`}
           >
             {v === 'day' ? 'Day' : v === '3day' ? '3 Day' : '5 Day'}
           </button>
