@@ -67,8 +67,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
             ? `2px solid ${color}8c`
             : `3px solid ${color}`,
         borderRight: isPlanned && !isCC ? `3px solid ${color}` : undefined,
-        opacity: (isOutlook || isCC) ? (isCC ? 1 : 0.85) : 1,
-        zIndex: hovered ? 40 : undefined,
+        opacity: (hovered || mobileSelected) ? 1 : (isOutlook || isCC) ? (isCC ? 1 : 0.85) : 1,
+        zIndex: (hovered || mobileSelected) ? 40 : undefined,
         boxShadow: hovered ? `0 2px 14px ${color}55` : undefined,
         ...style,
       }}
