@@ -213,6 +213,7 @@ export default function PersonColumn({
                   getTypeName={getTypeName}
                   scale={scale}
                   mobileSelected={mobileSelectedId === act.id}
+                  anyMobileSelected={mobileSelectedId !== null}
                   onMobileTap={(id) => setMobileSelectedId(prev => prev === id ? null : id)}
                   onMobileClose={() => setMobileSelectedId(null)}
                   style={isDragging

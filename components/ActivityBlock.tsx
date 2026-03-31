@@ -35,11 +35,12 @@ interface Props {
   style?: React.CSSProperties
   getTypeName?: (typeCode: string) => string
   mobileSelected?: boolean
+  anyMobileSelected?: boolean
   onMobileTap?: (id: string) => void
   onMobileClose?: () => void
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose }: Props) {
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, anyMobileSelected = false, onMobileTap, onMobileClose }: Props) {
   const top = timeToTopPx(activity.timeFrom, scale)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
@@ -83,9 +84,11 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
       onTouchStart={(e) => {
+        setHovered(false)
+        // If another block's preview is open and this isn't it, ignore
+        if (anyMobileSelected && !mobileSelected) return
         const t = e.touches[0]
         touchStartRef.current = { x: t.clientX, y: t.clientY }
-        setHovered(false)
       }}
       onTouchEnd={(e) => {
         if (!touchStartRef.current) return
