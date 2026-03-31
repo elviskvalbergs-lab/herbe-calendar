@@ -107,6 +107,55 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  const session = await auth()
+  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    await ensureTable()
+    const { id, name, visibility, expiresAt, password } = await req.json()
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+    // Verify ownership
+    const { rows: check } = await pool.query(
+      `SELECT sl.id FROM favorite_share_links sl
+       JOIN user_favorites f ON f.id = sl.favorite_id
+       WHERE sl.id = $1 AND f.user_email = $2`,
+      [id, session.user.email]
+    )
+    if (!check.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    // Build update dynamically
+    const updates: string[] = []
+    const values: unknown[] = []
+    let idx = 1
+
+    if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name) }
+    if (visibility !== undefined) { updates.push(`visibility = $${idx++}`); values.push(visibility) }
+    if (expiresAt !== undefined) { updates.push(`expires_at = $${idx++}`); values.push(expiresAt || null) }
+    if (password !== undefined) {
+      if (password === '') {
+        // Remove password
+        updates.push(`password_hash = $${idx++}`); values.push(null)
+      } else {
+        const bcrypt = (await import('bcryptjs')).default
+        updates.push(`password_hash = $${idx++}`); values.push(await bcrypt.hash(password, 10))
+      }
+    }
+
+    if (!updates.length) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+
+    values.push(id)
+    const { rows } = await pool.query(
+      `UPDATE favorite_share_links SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    )
+    return NextResponse.json(mapRow(rows[0]))
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

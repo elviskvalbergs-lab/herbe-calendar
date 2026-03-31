@@ -20,6 +20,7 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
   const [detailFavorite, setDetailFavorite] = useState<Favorite | null>(null)
+  const [linkCounts, setLinkCounts] = useState<Record<string, number>>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
           </span>
           <button
             onClick={(e) => { e.stopPropagation(); setDetailFavorite(fav); if (!inline) setOpen(false) }}
-            className="text-text-muted hover:text-primary text-xs shrink-0 opacity-0 group-hover:opacity-100"
+            className={`text-xs shrink-0 ${linkCounts[fav.id] > 0 ? 'text-red-400 hover:text-red-300' : 'text-text-muted hover:text-primary'}`}
             title="Share / details"
           >
             ↗
@@ -138,6 +139,7 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
       favorite={detailFavorite}
       open={!!detailFavorite}
       onClose={() => setDetailFavorite(null)}
+      onLinksChange={(favId, count) => setLinkCounts(prev => ({ ...prev, [favId]: count }))}
     />
   )
 

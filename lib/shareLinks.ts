@@ -40,3 +40,17 @@ export async function removeAllShareLinks(favoriteId: string): Promise<void> {
     body: JSON.stringify({ favoriteId }),
   })
 }
+
+export async function updateShareLink(id: string, data: {
+  name?: string
+  visibility?: ShareVisibility
+  expiresAt?: string | null
+  password?: string
+}): Promise<ShareLink> {
+  const res = await fetch('/api/settings/share-links', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...data }),
+  })
+  return res.json()
+}
