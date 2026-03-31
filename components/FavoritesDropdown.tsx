@@ -5,12 +5,14 @@ import { loadFavorites, addFavorite, removeFavorite } from '@/lib/favorites'
 
 interface Props {
   state: CalendarState
-  onApply: (view: CalendarState['view'], personCodes: string[]) => void
+  onApply: (view: CalendarState['view'], personCodes: string[], hiddenCalendars?: string[]) => void
+  /** Current hidden calendars to save with favorites. */
+  hiddenCalendars?: Set<string>
   /** Render as flat list (no star button / no dropdown wrapper). Used inside mobile bottom sheet. */
   inline?: boolean
 }
 
-export default function FavoritesDropdown({ state, onApply, inline }: Props) {
+export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inline }: Props) {
   const [open, setOpen] = useState(false)
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [naming, setNaming] = useState(false)
@@ -32,6 +34,7 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
       name: name.trim(),
       view: state.view,
       personCodes: state.selectedPersons.map(p => p.code),
+      hiddenCalendars: hiddenCalendars ? [...hiddenCalendars] : [],
     })
     setFavorites(prev => [...prev, fav])
     setName('')
@@ -45,7 +48,7 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
   }
 
   function handleApply(fav: Favorite) {
-    onApply(fav.view, fav.personCodes)
+    onApply(fav.view, fav.personCodes, fav.hiddenCalendars)
     if (!inline) setOpen(false)
   }
 

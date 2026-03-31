@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
 
-let tableCheckedAt = 0
+let tableCheckedAt = 0 // Reset to 0 to force migration on next request
 const TABLE_CHECK_TTL = 60 * 60 * 1000 // 1 hour
 async function ensureTable() {
   if (Date.now() - tableCheckedAt < TABLE_CHECK_TTL) return
@@ -16,6 +16,7 @@ async function ensureTable() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )`)
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_favorites_user_email ON user_favorites(user_email)`)
+  await pool.query(`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS hidden_calendars TEXT[] DEFAULT '{}'`)
   tableCheckedAt = Date.now()
 }
 
@@ -26,7 +27,7 @@ export async function GET() {
   try {
     await ensureTable()
     const { rows } = await pool.query(
-      'SELECT id, name, view, person_codes as "personCodes" FROM user_favorites WHERE user_email = $1 ORDER BY created_at',
+      'SELECT id, name, view, person_codes as "personCodes", hidden_calendars as "hiddenCalendars" FROM user_favorites WHERE user_email = $1 ORDER BY created_at',
       [session.user.email]
     )
     return NextResponse.json(rows)
@@ -41,16 +42,16 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureTable()
-    const { name, view, personCodes } = await req.json()
+    const { name, view, personCodes, hiddenCalendars = [] } = await req.json()
     if (!name || !view || !personCodes?.length) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
     const { rows } = await pool.query(
-      'INSERT INTO user_favorites (user_email, name, view, person_codes) VALUES ($1, $2, $3, $4) RETURNING id',
-      [session.user.email, name, view, personCodes]
+      'INSERT INTO user_favorites (user_email, name, view, person_codes, hidden_calendars) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [session.user.email, name, view, personCodes, hiddenCalendars]
     )
-    return NextResponse.json({ id: rows[0].id, name, view, personCodes }, { status: 201 })
+    return NextResponse.json({ id: rows[0].id, name, view, personCodes, hiddenCalendars }, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

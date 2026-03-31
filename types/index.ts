@@ -65,9 +65,16 @@ export interface CalendarState {
   selectedPersons: Person[]
 }
 
+export interface CalendarSource {
+  id: string        // 'herbe' | 'outlook' | 'ics:<name>'
+  label: string
+  color: string
+}
+
 export interface Favorite {
   id: string
   name: string
   view: CalendarState['view']
   personCodes: string[]
+  hiddenCalendars?: string[]
 }

@@ -1,15 +1,18 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
-import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState } from '@/types'
+import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
-  buildClassGroupColorMap, getActivityColor, loadColorOverrides,
+  buildClassGroupColorMap, getActivityColor, loadColorOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
 } from '@/lib/activityColors'
+import {
+  HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
+} from '@/lib/calendarVisibility'
 
 interface Props { userCode: string; companyCode: string }
 
@@ -43,6 +46,35 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     editId?: string
     canEdit?: boolean
   }>({ open: false })
+
+  // Calendar visibility state
+  const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
+  const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string }[]>([])
+
+  const calendarSources: CalendarSource[] = useMemo(() => [
+    { id: HERBE_ID, label: 'Herbe', color: HERBE_COLOR },
+    { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
+    ...userIcsCalendars.map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR })),
+  ], [userIcsCalendars])
+
+  const visibleActivities = useMemo(() => {
+    if (hiddenCalendars.size === 0) return activities
+    return activities.filter(a => {
+      if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
+      if (a.source === 'outlook' && !a.isExternal) return !hiddenCalendars.has(OUTLOOK_ID)
+      if (a.source === 'herbe') return !hiddenCalendars.has(HERBE_ID)
+      return true
+    })
+  }, [activities, hiddenCalendars])
+
+  function toggleCalendar(id: string) {
+    setHiddenCalendars(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      saveHidden(next)
+      return next
+    })
+  }
 
   // Zoom state: 1 = normal (56px/hour), 2 = zoomed (112px/hour)
   const [zoom, setZoom] = useState<1 | 2>(() => {
@@ -381,6 +413,14 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
   }, [])
 
+  // Fetch user's ICS calendars for the source list
+  useEffect(() => {
+    fetch('/api/settings/calendars')
+      .then(r => r.ok ? r.json() : [])
+      .then((cals: { name: string; color?: string }[]) => setUserIcsCalendars(cals))
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       <CalendarHeader
@@ -391,17 +431,25 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onRefresh={fetchActivities}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
-        onApplyFavorite={(view, personCodes) => {
+        calendarSources={calendarSources}
+        hiddenCalendars={hiddenCalendars}
+        onToggleCalendar={toggleCalendar}
+        onApplyFavorite={(view: CalendarState['view'], personCodes: string[], hiddenCals?: string[]) => {
           const resolved = personCodes
-            .map(code => people.find(p => p.code === code) ?? { code, name: code, email: '' })
+            .map((code: string) => people.find(p => p.code === code) ?? { code, name: code, email: '' })
           setState(s => ({ ...s, view, selectedPersons: resolved }))
+          if (hiddenCals !== undefined) {
+            const next = new Set<string>(hiddenCals)
+            setHiddenCalendars(next)
+            saveHidden(next)
+          }
         }}
         zoom={zoom}
         onToggleZoom={toggleZoom}
       />
       <CalendarGrid
         state={state}
-        activities={activities}
+        activities={visibleActivities}
         loading={loading}
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
