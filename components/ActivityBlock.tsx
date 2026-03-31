@@ -38,18 +38,18 @@ interface Props {
   style?: React.CSSProperties
   getTypeName?: (typeCode: string) => string
   mobileSelected?: boolean
-  anyMobileSelected?: boolean
   onMobileTap?: (id: string) => void
   onMobileClose?: () => void
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, anyMobileSelected = false, onMobileTap, onMobileClose }: Props) {
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose }: Props) {
   const top = timeToTopPx(activity.timeFrom, scale)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const wasTouchRef = useRef(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const [alignRight, setAlignRight] = useState(false)
 
@@ -87,12 +87,10 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !globalCloseCooldown) setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
       onTouchStart={(e) => {
+        wasTouchRef.current = true
         setHovered(false)
-        if (globalCloseCooldown) return
-        // If another block's preview is open and this isn't it, ignore
-        if (anyMobileSelected && !mobileSelected) return
         const t = e.touches[0]
-        touchStartRef.current = { x: t.clientX, y: t.clientY }
+        touchStartRef.current = globalCloseCooldown ? null : { x: t.clientX, y: t.clientY }
       }}
       onTouchEnd={(e) => {
         if (!touchStartRef.current) return
@@ -108,7 +106,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         onMobileTap?.(activity.id)
       }}
       onClick={() => {
-        if (!touchStartRef.current) onClick(activity)
+        // Touch taps are handled in onTouchEnd — only real mouse clicks go here
+        if (wasTouchRef.current) { wasTouchRef.current = false; return }
+        onClick(activity)
       }}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
