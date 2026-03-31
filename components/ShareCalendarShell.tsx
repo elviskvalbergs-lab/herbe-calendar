@@ -28,6 +28,7 @@ export default function ShareCalendarShell({ token }: Props) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   // Build person-to-color map based on personCodes order
   const personColorMap = useMemo(() => {
@@ -172,7 +173,6 @@ export default function ShareCalendarShell({ token }: Props) {
 
   const formattedDate = format(parseISO(date), 'd MMM yyyy')
   const viewStep = config.view === '5day' ? 5 : config.view === '3day' ? 3 : 1
-  const dateInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
