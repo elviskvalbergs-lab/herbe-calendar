@@ -69,6 +69,7 @@ export interface CalendarSource {
   id: string        // 'herbe' | 'outlook' | 'ics:<name>'
   label: string
   color: string
+  personCode?: string  // for grouping ICS calendars by person
 }
 
 export interface Favorite {

@@ -58,7 +58,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
-      .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR })),
+      .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
   ], [userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
@@ -71,6 +71,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     })
   }, [activities, hiddenCalendars])
 
+  const [calendarSourcesOpen, setCalendarSourcesOpen] = useState(false)
+
   function toggleCalendar(id: string) {
     setHiddenCalendars(prev => {
       const next = new Set(prev)
@@ -78,6 +80,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       saveHidden(next)
       return next
     })
+  }
+
+  function setAllCalendars(show: boolean) {
+    if (show) {
+      setHiddenCalendars(new Set())
+      saveHidden(new Set())
+    } else {
+      const all = new Set(calendarSources.map(s => s.id))
+      setHiddenCalendars(all)
+      saveHidden(all)
+    }
   }
 
   // Zoom state: 1 = normal (56px/hour), 2 = zoomed (112px/hour)
@@ -192,6 +205,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
         setState(s => ({ ...s, date: format(addDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault()
+        setCalendarSourcesOpen(o => !o)
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
@@ -438,6 +454,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         calendarSources={calendarSources}
         hiddenCalendars={hiddenCalendars}
         onToggleCalendar={toggleCalendar}
+        onSetAllCalendars={setAllCalendars}
+        calendarSourcesOpen={calendarSourcesOpen}
+        onCalendarSourcesOpenChange={setCalendarSourcesOpen}
         onApplyFavorite={(view: CalendarState['view'], personCodes: string[], hiddenCals?: string[]) => {
           const resolved = personCodes
             .map((code: string) => people.find(p => p.code === code) ?? { code, name: code, email: '' })

@@ -19,12 +19,15 @@ interface Props {
   calendarSources: CalendarSource[]
   hiddenCalendars: Set<string>
   onToggleCalendar: (id: string) => void
+  onSetAllCalendars: (show: boolean) => void
+  calendarSourcesOpen: boolean
+  onCalendarSourcesOpenChange: (open: boolean) => void
   onApplyFavorite: (view: CalendarState['view'], personCodes: string[], hiddenCalendars?: string[]) => void
   zoom: 1 | 2
   onToggleZoom: () => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onApplyFavorite, zoom, onToggleZoom }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
@@ -117,7 +120,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           <FavoritesDropdown state={state} onApply={onApplyFavorite} hiddenCalendars={hiddenCalendars} />
         </span>
         <span className="hidden lg:inline-flex">
-          <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} />
+          <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} onSetAll={onSetAllCalendars} people={people} open={calendarSourcesOpen} onOpenChange={onCalendarSourcesOpenChange} />
         </span>
       </div>
 
@@ -269,7 +272,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               <h3 className="font-bold text-sm">Calendars</h3>
               <button onClick={() => setMobileCalendarsOpen(false)} className="text-text-muted text-lg">✕</button>
             </div>
-            <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} inline />
+            <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} onSetAll={onSetAllCalendars} people={people} inline />
           </div>
         </div>
       )}
