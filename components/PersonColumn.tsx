@@ -146,8 +146,12 @@ export default function PersonColumn({
     window.addEventListener('pointerup', onUp)
   }
 
-  const herbeActivities = activities.filter(a => a.source !== 'outlook')
-  const outlookActivities = activities.filter(a => a.source === 'outlook')
+  // Separate all-day events from timed events
+  const allDayActivities = activities.filter(a => a.isAllDay)
+  const timedActivities = activities.filter(a => !a.isAllDay)
+
+  const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
+  const outlookActivities = timedActivities.filter(a => a.source === 'outlook')
   const hasBoth = herbeActivities.length > 0 && outlookActivities.length > 0
   // When only outlook/ICS activities exist, show them in the main column
   const mainActivities = hasBoth ? herbeActivities : herbeActivities.length > 0 ? herbeActivities : outlookActivities
@@ -157,6 +161,25 @@ export default function PersonColumn({
 
   return (
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
+      {/* All-day event banners */}
+      {allDayActivities.length > 0 && (
+        <div className="border-b border-border bg-surface/50 px-1 py-0.5 space-y-0.5">
+          {allDayActivities.map(act => {
+            const actColor = getActivityColor(act)
+            return (
+              <button
+                key={act.id}
+                className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-bold truncate cursor-pointer hover:brightness-125"
+                style={{ background: actColor + '33', color: actColor, borderLeft: `3px solid ${actColor}` }}
+                onClick={() => onActivityClick(act)}
+              >
+                {act.description || '(all day)'}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
