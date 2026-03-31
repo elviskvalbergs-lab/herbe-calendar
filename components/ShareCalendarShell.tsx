@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import CalendarGrid from './CalendarGrid'
 import { OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
+import { personColor } from '@/lib/colors'
 
 interface ShareConfig {
   view: 'day' | '3day' | '5day'
@@ -17,12 +18,6 @@ interface Props {
   token: string
 }
 
-function getColor(a: Activity): string {
-  if (a.icsColor) return a.icsColor
-  if (a.source === 'outlook') return OUTLOOK_COLOR
-  return FALLBACK_COLOR
-}
-
 export default function ShareCalendarShell({ token }: Props) {
   const [config, setConfig] = useState<ShareConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -33,6 +28,18 @@ export default function ShareCalendarShell({ token }: Props) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+
+  // Build person-to-color map based on personCodes order
+  const personColorMap = useMemo(() => {
+    if (!config) return {}
+    return Object.fromEntries(config.personCodes.map((code, i) => [code, personColor(i)]))
+  }, [config])
+
+  function getColor(a: Activity): string {
+    if (a.icsColor) return a.icsColor
+    if (a.source === 'outlook') return OUTLOOK_COLOR
+    return personColorMap[a.personCode] ?? FALLBACK_COLOR
+  }
 
   // Fetch link metadata on mount
   useEffect(() => {
@@ -98,11 +105,13 @@ export default function ShareCalendarShell({ token }: Props) {
     setNeedsPassword(false)
   }
 
-  function navigate(dir: 'prev' | 'next') {
-    const step = config?.view === '5day' ? 5 : config?.view === '3day' ? 3 : 1
+  function navigate(dir: 'prev' | 'next' | 'prev-multi' | 'next-multi') {
+    const viewStep = config?.view === '5day' ? 5 : config?.view === '3day' ? 3 : 1
+    const step = (dir === 'prev-multi' || dir === 'next-multi') ? viewStep : 1
+    const forward = dir === 'next' || dir === 'next-multi'
     setDate(d =>
       format(
-        dir === 'next' ? addDays(parseISO(d), step) : subDays(parseISO(d), step),
+        forward ? addDays(parseISO(d), step) : subDays(parseISO(d), step),
         'yyyy-MM-dd'
       )
     )
@@ -168,33 +177,53 @@ export default function ShareCalendarShell({ token }: Props) {
     return `${format(parseISO(date), 'd MMM')} – ${format(endDate, 'd MMM yyyy')}`
   })()
 
+  const viewStep = config.view === '5day' ? 5 : config.view === '3day' ? 3 : 1
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-2 px-3 py-2 bg-surface border-b border-border shrink-0">
+      <header className="flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
+        {/* Logo */}
+        <span className="font-bold text-base mr-auto pr-0.5 lg:pr-1">
+          herbe<span className="text-primary">.</span>calendar
+        </span>
+
+        {/* Multi-day back */}
+        {viewStep > 1 && (
+          <button
+            onClick={() => navigate('prev-multi')}
+            className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
+            title={`Back ${viewStep} days`}
+          >«</button>
+        )}
+        {/* Single day back */}
         <button
           onClick={() => navigate('prev')}
-          className="text-text-muted px-1.5 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
-          title="Previous"
-        >
-          ‹
-        </button>
-        <div className="flex-1 text-center text-sm font-semibold">
-          {config.favoriteName && (
-            <span className="mr-1 text-text-muted">{config.favoriteName} ·</span>
-          )}
-          <span>{formattedDate}</span>
-        </div>
+          className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
+          title="Previous day"
+        >‹</button>
+        {/* Date display */}
+        <span className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border text-sm font-semibold whitespace-nowrap">
+          {formattedDate}
+        </span>
+        {/* Single day forward */}
         <button
           onClick={() => navigate('next')}
-          className="text-text-muted px-1.5 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
-          title="Next"
-        >
-          ›
-        </button>
+          className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
+          title="Next day"
+        >›</button>
+        {/* Multi-day forward */}
+        {viewStep > 1 && (
+          <button
+            onClick={() => navigate('next-multi')}
+            className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
+            title={`Forward ${viewStep} days`}
+          >»</button>
+        )}
+        {/* Today */}
         <button
           onClick={() => setDate(format(new Date(), 'yyyy-MM-dd'))}
-          className="text-text-muted px-2 py-1.5 rounded border border-border hover:bg-border text-xs font-semibold"
+          className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
           title="Today"
         >
           Today

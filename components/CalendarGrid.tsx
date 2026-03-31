@@ -180,18 +180,24 @@ export default function CalendarGrid({
               <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (
                   <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative">
-                    <button
-                      onClick={() => onDrillDate?.(date)}
-                      className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
-                      title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
-                    >
-                      {format(parseISO(date), 'EEE dd/MM')}
-                    </button>
-                    <button
-                      onClick={() => onNewForDate?.(date)}
-                      className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
-                      title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
-                    >+</button>
+                    {visibility ? (
+                      <span className="text-text-muted">{format(parseISO(date), 'EEE dd/MM')}</span>
+                    ) : (
+                      <button
+                        onClick={() => onDrillDate?.(date)}
+                        className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
+                        title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
+                      >
+                        {format(parseISO(date), 'EEE dd/MM')}
+                      </button>
+                    )}
+                    {!visibility && (
+                      <button
+                        onClick={() => onNewForDate?.(date)}
+                        className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
+                        title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
+                      >+</button>
+                    )}
                   </div>
                 )}
                 <div className="flex border-b border-border h-10">
@@ -202,7 +208,7 @@ export default function CalendarGrid({
                       style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                       title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                     >
-                      {personCount > 1 ? (
+                      {!visibility && personCount > 1 ? (
                         <button
                           onClick={() => onDrillPerson?.(person.code)}
                           className="underline decoration-border hover:decoration-current active:opacity-70"
