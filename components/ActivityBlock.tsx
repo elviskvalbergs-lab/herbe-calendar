@@ -56,8 +56,10 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
 
   useLayoutEffect(() => {
     if (!cardRef.current) { setAlignRight(false); return }
-    const rect = cardRef.current.getBoundingClientRect()
-    setAlignRight(rect.right > window.innerWidth)
+    const parentRect = cardRef.current.parentElement?.getBoundingClientRect()
+    if (!parentRect) return
+    // If activity is in the right half of the screen, align card to the right
+    setAlignRight(parentRect.left + parentRect.width / 2 > window.innerWidth / 2)
   }, [hovered, mobileSelected])
 
   const isLight = isLightMode
@@ -173,8 +175,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       {(hovered || mobileSelected) && (
         <div
           ref={cardRef}
-          className={`absolute z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
-          style={{ top: '100%', border: `1px solid ${color}88`, background: '#ffffff', color: '#1a1a1a', isolation: 'isolate' }}
+          className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
+          style={{ top: 0, border: `1px solid ${color}88`, background: '#ffffff', color: '#1a1a1a', isolation: 'isolate' }}
           onClick={(e) => e.stopPropagation()}
         >
           {mobileSelected && (
