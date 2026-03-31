@@ -68,7 +68,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
 
   const isLight = isLightMode
   const fillNormal = isLight ? '55' : (isOutlook ? '28' : '33')
-  const fillPlanned = isLight ? '33' : '1a'
+  const fillPlanned = isLight ? '22' : '18'
   const fillCC = isLight ? '1a' : '0a'
 
   return (
@@ -79,13 +79,16 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         height,
         background: isCC
           ? `repeating-linear-gradient(135deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
-          : isPlanned ? color + fillPlanned : color + fillNormal,
+          : isPlanned
+            ? `repeating-linear-gradient(135deg, ${color}${fillPlanned}, ${color}${fillPlanned} 3px, transparent 3px, transparent 6px)`
+            : color + fillNormal,
         borderLeft: isOutlook
           ? `2px dashed ${color}cc`
           : isCC
             ? `2px solid ${color}8c`
-            : `3px solid ${color}`,
-        borderRight: isPlanned && !isCC ? `3px solid ${color}` : undefined,
+            : isPlanned
+              ? `3px solid ${color}99`
+              : `3px solid ${color}`,
         // Never use CSS opacity — it makes child elements (preview card) translucent too
         zIndex: (hovered || mobileSelected) ? 40 : undefined,
         boxShadow: hovered ? `0 2px 14px ${color}55` : undefined,
