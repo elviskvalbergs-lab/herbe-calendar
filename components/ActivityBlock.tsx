@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
 import { Activity } from '@/types'
 import { timeToTopPx } from '@/lib/time'
 
@@ -46,6 +46,14 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [alignRight, setAlignRight] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!cardRef.current) { setAlignRight(false); return }
+    const rect = cardRef.current.getBoundingClientRect()
+    setAlignRight(rect.right > window.innerWidth)
+  }, [hovered, mobileSelected])
 
   const isLight = isLightMode
   const fillNormal = isLight ? '55' : '33'
@@ -81,6 +89,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       }}
       onTouchEnd={(e) => {
         if (!touchStartRef.current) return
+        // Don't intercept touches inside the preview card
+        if (cardRef.current?.contains(e.target as Node)) { touchStartRef.current = null; return }
         const t = e.changedTouches[0]
         const dx = t.clientX - touchStartRef.current.x
         const dy = t.clientY - touchStartRef.current.y
@@ -152,8 +162,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       {/* Detail card — hover on desktop, tap on mobile */}
       {(hovered || mobileSelected) && (
         <div
-          className="absolute left-0 z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto"
-          style={{ top: '100%', borderColor: color + '88', border: `1px solid ${color}88`, background: '#fff', color: '#1a1a1a' }}
+          ref={cardRef}
+          className={`absolute z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
+          style={{ top: '100%', border: `1px solid ${color}88`, background: '#fff', color: '#1a1a1a' }}
           onClick={(e) => e.stopPropagation()}
         >
           {mobileSelected && (
