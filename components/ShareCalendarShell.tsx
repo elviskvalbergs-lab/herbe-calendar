@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import CalendarGrid from './CalendarGrid'
@@ -170,14 +170,9 @@ export default function ShareCalendarShell({ token }: Props) {
     selectedPersons: config.personCodes.map(code => ({ code, name: code, email: '' })),
   }
 
-  const formattedDate = (() => {
-    const step = config.view === '5day' ? 4 : config.view === '3day' ? 2 : 0
-    if (step === 0) return format(parseISO(date), 'd MMM yyyy')
-    const endDate = addDays(parseISO(date), step)
-    return `${format(parseISO(date), 'd MMM')} – ${format(endDate, 'd MMM yyyy')}`
-  })()
-
+  const formattedDate = format(parseISO(date), 'd MMM yyyy')
   const viewStep = config.view === '5day' ? 5 : config.view === '3day' ? 3 : 1
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -202,10 +197,22 @@ export default function ShareCalendarShell({ token }: Props) {
           className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
           title="Previous day"
         >‹</button>
-        {/* Date display */}
-        <span className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border text-sm font-semibold whitespace-nowrap">
+        {/* Date picker */}
+        <button
+          onClick={() => dateInputRef.current?.showPicker()}
+          className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap relative"
+          title="Pick a date"
+        >
           {formattedDate}
-        </span>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={date}
+            onChange={e => { if (e.target.value) setDate(e.target.value) }}
+            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+            tabIndex={-1}
+          />
+        </button>
         {/* Single day forward */}
         <button
           onClick={() => navigate('next')}
@@ -231,20 +238,18 @@ export default function ShareCalendarShell({ token }: Props) {
       </header>
 
       {/* Calendar */}
-      <div className="flex-1 overflow-hidden">
-        <CalendarGrid
-          state={state}
-          activities={activities}
-          loading={loading}
-          getActivityColor={getColor}
-          onRefresh={fetchActivities}
-          onNavigate={navigate}
-          onSlotClick={() => {}}
-          onActivityClick={() => {}}
-          onActivityUpdate={() => {}}
-          visibility={config.visibility}
-        />
-      </div>
+      <CalendarGrid
+        state={state}
+        activities={activities}
+        loading={loading}
+        getActivityColor={getColor}
+        onRefresh={fetchActivities}
+        onNavigate={navigate}
+        onSlotClick={() => {}}
+        onActivityClick={() => {}}
+        onActivityUpdate={() => {}}
+        visibility={config.visibility}
+      />
     </div>
   )
 }
