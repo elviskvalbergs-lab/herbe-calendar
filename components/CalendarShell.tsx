@@ -49,13 +49,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
   // Calendar visibility state
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
-  const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string }[]>([])
+  const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string; personCode: string }[]>([])
+
+  const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
   const calendarSources: CalendarSource[] = useMemo(() => [
     { id: HERBE_ID, label: 'Herbe', color: HERBE_COLOR },
     { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
-    ...userIcsCalendars.map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR })),
-  ], [userIcsCalendars])
+    ...userIcsCalendars
+      .filter(c => selectedCodes.has(c.personCode))
+      .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR })),
+  ], [userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
     if (hiddenCalendars.size === 0) return activities
@@ -417,7 +421,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   useEffect(() => {
     fetch('/api/settings/calendars')
       .then(r => r.ok ? r.json() : [])
-      .then((cals: { name: string; color?: string }[]) => setUserIcsCalendars(cals))
+      .then((cals: { name: string; color?: string; personCode: string }[]) => setUserIcsCalendars(cals))
       .catch(() => {})
   }, [])
 
