@@ -25,6 +25,10 @@ function TeamsIcon({ size = 11 }: { size?: number }) {
 // Module-level flags shared across all ActivityBlock instances
 let globalCloseCooldown = false
 let globalTouchActive = false
+let isTouchDevice = false
+if (typeof window !== 'undefined') {
+  window.addEventListener('touchstart', () => { isTouchDevice = true }, { once: true })
+}
 
 interface Props {
   activity: Activity
@@ -87,7 +91,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         boxShadow: hovered ? `0 2px 14px ${color}55` : undefined,
         ...style,
       }}
-      onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !globalCloseCooldown) setHovered(true) }}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !globalCloseCooldown && !isTouchDevice) setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
       onTouchStart={() => {
         globalTouchActive = true
@@ -165,8 +169,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(e, activity, 'resize') }}
         />
       )}
-      {/* Detail card — hover on desktop, tap on mobile */}
-      {(hovered || mobileSelected) && (
+      {/* Detail card — hover on desktop only, tap on mobile */}
+      {((!isTouchDevice && hovered) || mobileSelected) && (
         <div
           ref={cardRef}
           className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
