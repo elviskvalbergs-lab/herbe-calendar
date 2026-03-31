@@ -18,6 +18,8 @@ interface Props {
   scale?: number
   isLightMode?: boolean
   colMinVw?: number
+  mobileSelectedId?: string | null
+  onMobileSelect?: (id: string | null) => void
 }
 
 interface DragState {
@@ -33,13 +35,14 @@ interface DragState {
 
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
-  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44
+  onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
+  mobileSelectedId = null, onMobileSelect
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
   const suppressClickRef = useRef(false)
-  const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
+  const setMobileSelectedId = onMobileSelect ?? (() => {})
 
   const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
 
@@ -213,7 +216,7 @@ export default function PersonColumn({
                   getTypeName={getTypeName}
                   scale={scale}
                   mobileSelected={mobileSelectedId === act.id}
-                  onMobileTap={(id) => setMobileSelectedId(prev => prev === id ? null : id)}
+                  onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
                   onMobileClose={() => setMobileSelectedId(null)}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
@@ -270,7 +273,7 @@ export default function PersonColumn({
                     isLightMode={isLightMode}
                     scale={scale}
                     mobileSelected={mobileSelectedId === act.id}
-                    onMobileTap={(id) => setMobileSelectedId(prev => prev === id ? null : id)}
+                    onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
                     onMobileClose={() => setMobileSelectedId(null)}
                     style={isDragging
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }

@@ -34,6 +34,7 @@ export default function CalendarGrid({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
+  const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
 
   // Responsive max visible columns
   const [maxVisibleCols, setMaxVisibleCols] = useState(2)
@@ -234,6 +235,8 @@ export default function CalendarGrid({
                       onActivityUpdate={onActivityUpdate}
                       isLightMode={isLightMode}
                       colMinVw={colMinVw}
+                      mobileSelectedId={mobileSelectedId}
+                      onMobileSelect={setMobileSelectedId}
                     />
                   )
                 })}
