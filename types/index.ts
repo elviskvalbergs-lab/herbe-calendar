@@ -31,6 +31,7 @@ export interface Activity {
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
   isExternal?: boolean   // ICS-backed external calendar
+  isAllDay?: boolean     // All-day or multi-day event (no specific time)
   icsColor?: string      // Custom color from ICS calendar settings
   icsCalendarName?: string  // Name of the ICS calendar this event came from
 }

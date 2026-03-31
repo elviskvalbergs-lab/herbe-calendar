@@ -5,7 +5,7 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import type { Activity } from '@/types'
 import ICAL from 'ical.js'
-import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
+import { parseISO, isWithinInterval, startOfDay, endOfDay, addDays, format } from 'date-fns'
 import { pool } from '@/lib/db'
 
 async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
@@ -76,13 +76,13 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
       const end = event.endDate.toJSDate()
       if (!start || !end) continue
 
+      // Detect all-day events (VALUE=DATE in ICS)
+      const isAllDay = event.startDate.isDate === true
+
       // Simple overlap check
-      if (isWithinInterval(start, { start: rangeStart, end: rangeEnd }) || 
+      if (isWithinInterval(start, { start: rangeStart, end: rangeEnd }) ||
           isWithinInterval(end, { start: rangeStart, end: rangeEnd }) ||
           (start < rangeStart && end > rangeEnd)) {
-        
-        const dtStr = start.toISOString()
-        const endDtStr = end.toISOString()
 
         // Extract Teams join URL from ICS properties
         let joinUrl: string | undefined
@@ -94,28 +94,63 @@ async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateT
           } catch {}
         }
         if (!joinUrl) {
-          // Fallback: scan DESCRIPTION for Teams meeting link
           const desc = event.description || ''
           const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<"]+/)
           if (teamsMatch) joinUrl = teamsMatch[0]
         }
 
-        events.push({
-          id: `ics-${event.uid}`,
-          source: 'outlook' as const,
-          isExternal: true,
-          personCode: code,
-          description: event.summary || '',
-          date: dtStr.slice(0, 10),
-          timeFrom: dtStr.slice(11, 16),
-          timeTo: endDtStr.slice(11, 16),
-          isOrganizer: false,
-          location: event.location || undefined,
-          bodyPreview: event.description || '',
-          joinUrl,
-          webLink: '',
-          rsvpStatus: undefined,
-        })
+        if (isAllDay) {
+          // All-day/multi-day: create one entry per visible day
+          const eventStart = startOfDay(start)
+          const eventEnd = startOfDay(end) // DTEND is exclusive for all-day events
+          let cursor = eventStart < rangeStart ? rangeStart : eventStart
+          const lastDay = eventEnd > rangeEnd ? rangeEnd : eventEnd
+          const totalDays = Math.round((eventEnd.getTime() - eventStart.getTime()) / (24 * 60 * 60 * 1000))
+          let dayIndex = Math.round((cursor.getTime() - eventStart.getTime()) / (24 * 60 * 60 * 1000))
+          while (cursor < lastDay) {
+            dayIndex++
+            const dateStr = format(cursor, 'yyyy-MM-dd')
+            events.push({
+              id: `ics-${event.uid}-${dateStr}`,
+              source: 'outlook' as const,
+              isExternal: true,
+              isAllDay: true,
+              personCode: code,
+              description: totalDays > 1
+                ? `${event.summary || ''} (day ${dayIndex}/${totalDays})`
+                : (event.summary || ''),
+              date: dateStr,
+              timeFrom: '00:00',
+              timeTo: '23:59',
+              isOrganizer: false,
+              location: event.location || undefined,
+              bodyPreview: event.description || '',
+              joinUrl,
+              webLink: '',
+              rsvpStatus: undefined,
+            })
+            cursor = addDays(cursor, 1)
+          }
+        } else {
+          const dtStr = start.toISOString()
+          const endDtStr = end.toISOString()
+          events.push({
+            id: `ics-${event.uid}`,
+            source: 'outlook' as const,
+            isExternal: true,
+            personCode: code,
+            description: event.summary || '',
+            date: dtStr.slice(0, 10),
+            timeFrom: dtStr.slice(11, 16),
+            timeTo: endDtStr.slice(11, 16),
+            isOrganizer: false,
+            location: event.location || undefined,
+            bodyPreview: event.description || '',
+            joinUrl,
+            webLink: '',
+            rsvpStatus: undefined,
+          })
+        }
       }
     }
     return events
