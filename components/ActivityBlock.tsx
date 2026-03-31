@@ -45,7 +45,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
-  const isTouchRef = useRef(false)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   const isLight = isLightMode
   const fillNormal = isLight ? '55' : '33'
@@ -74,14 +74,24 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       }}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
-      onTouchStart={() => { isTouchRef.current = true; setHovered(false) }}
+      onTouchStart={(e) => {
+        const t = e.touches[0]
+        touchStartRef.current = { x: t.clientX, y: t.clientY }
+        setHovered(false)
+      }}
+      onTouchEnd={(e) => {
+        if (!touchStartRef.current) return
+        const t = e.changedTouches[0]
+        const dx = t.clientX - touchStartRef.current.x
+        const dy = t.clientY - touchStartRef.current.y
+        const moved = Math.abs(dx) + Math.abs(dy) > 10
+        touchStartRef.current = null
+        if (moved) return
+        e.preventDefault()
+        onMobileTap?.(activity.id)
+      }}
       onClick={() => {
-        if (isTouchRef.current) {
-          isTouchRef.current = false
-          onMobileTap?.(activity.id)
-        } else {
-          onClick(activity)
-        }
+        if (!touchStartRef.current) onClick(activity)
       }}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
@@ -142,7 +152,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       {/* Detail card — hover on desktop, tap on mobile */}
       {(hovered || mobileSelected) && (
         <div
-          className={`absolute left-0 z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] ${mobileSelected ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          className="absolute left-0 z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto"
           style={{ top: '100%', borderColor: color + '88', border: `1px solid ${color}88`, background: '#fff', color: '#1a1a1a' }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -204,17 +214,13 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               }
             </a>
           )}
-          {mobileSelected ? (
-            <button
-              className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-              style={{ background: color }}
-              onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
-            >
-              {canEdit ? 'Edit' : 'View details'}
-            </button>
-          ) : (
-            <p className="text-[10px] text-gray-400 mt-2 opacity-60">Click to {canEdit ? 'edit' : 'view'}</p>
-          )}
+          <button
+            className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+            style={{ background: color }}
+            onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
+          >
+            {canEdit ? 'Edit' : 'View details'}
+          </button>
         </div>
       )}
     </div>
