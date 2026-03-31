@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     if (!favRows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const { rows } = await pool.query(
-      'SELECT * FROM favorite_share_links WHERE favorite_id = $1 ORDER BY created_at',
+      'SELECT * FROM favorite_share_links WHERE favorite_id = $1 ORDER BY created_at DESC',
       [favoriteId]
     )
     return NextResponse.json(rows.map(mapRow))
