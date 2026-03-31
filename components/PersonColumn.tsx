@@ -3,7 +3,7 @@ import { Activity } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 
 interface Props {
   personCode: string
@@ -31,6 +31,65 @@ interface DragState {
   currentFrom: string
   currentTo: string
   saving?: boolean
+}
+
+function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose }: {
+  activity: Activity
+  color: string
+  onClick: (a: Activity) => void
+  isMobileSelected: boolean
+  onMobileTap: (id: string) => void
+  onMobileClose: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  const showCard = hovered || isMobileSelected
+
+  return (
+    <div
+      className="relative w-full"
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true) }}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <button
+        className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-bold truncate cursor-pointer hover:brightness-125"
+        style={{ background: color + '33', color, borderLeft: `3px solid ${color}` }}
+        onClick={() => onClick(activity)}
+        onTouchEnd={(e) => { e.preventDefault(); onMobileTap(activity.id) }}
+      >
+        {activity.description || '(all day)'}
+      </button>
+      {showCard && (
+        <div
+          className="absolute left-0 z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto"
+          style={{ top: '100%', border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)' }}
+          onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
+        >
+          {isMobileSelected && (
+            <button
+              className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-text-muted active:bg-border text-base font-bold"
+              onClick={(e) => { e.stopPropagation(); onMobileClose() }}
+            >
+              ✕
+            </button>
+          )}
+          <p className="text-xs font-bold leading-snug mb-1 pr-8" style={{ color }}>
+            {activity.description || '(all day)'}
+          </p>
+          <p className="text-[10px] text-text-muted">All day</p>
+          {activity.icsCalendarName && (
+            <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
+          )}
+          <button
+            className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
+            style={{ background: color }}
+            onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
+          >
+            View details
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function PersonColumn({
@@ -164,19 +223,17 @@ export default function PersonColumn({
       {/* All-day event banners */}
       {allDayActivities.length > 0 && (
         <div className="border-b border-border bg-surface/50 px-1 py-0.5 space-y-0.5">
-          {allDayActivities.map(act => {
-            const actColor = getActivityColor(act)
-            return (
-              <button
-                key={act.id}
-                className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-bold truncate cursor-pointer hover:brightness-125"
-                style={{ background: actColor + '33', color: actColor, borderLeft: `3px solid ${actColor}` }}
-                onClick={() => onActivityClick(act)}
-              >
-                {act.description || '(all day)'}
-              </button>
-            )
-          })}
+          {allDayActivities.map(act => (
+            <AllDayBanner
+              key={act.id}
+              activity={act}
+              color={getActivityColor(act)}
+              onClick={onActivityClick}
+              isMobileSelected={mobileSelectedId === act.id}
+              onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
+              onMobileClose={() => setMobileSelectedId(null)}
+            />
+          ))}
         </div>
       )}
 
