@@ -49,7 +49,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
   const [hovered, setHovered] = useState(false)
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const touchIsTapRef = useRef(true)
   const wasTouchRef = useRef(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const [alignRight, setAlignRight] = useState(false)
@@ -89,24 +89,18 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       }}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !globalCloseCooldown) setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
-      onTouchStart={(e) => {
+      onTouchStart={() => {
         globalTouchActive = true
         wasTouchRef.current = true
+        touchIsTapRef.current = !globalCloseCooldown
         setHovered(false)
-        const t = e.touches[0]
-        touchStartRef.current = globalCloseCooldown ? null : { x: t.clientX, y: t.clientY }
       }}
+      onTouchMove={() => { touchIsTapRef.current = false }}
       onTouchEnd={(e) => {
         globalTouchActive = false
-        if (!touchStartRef.current) return
+        if (!touchIsTapRef.current) return
         // Don't intercept touches inside the preview card
-        if (cardRef.current?.contains(e.target as Node)) { touchStartRef.current = null; return }
-        const t = e.changedTouches[0]
-        const dx = t.clientX - touchStartRef.current.x
-        const dy = t.clientY - touchStartRef.current.y
-        const moved = Math.abs(dx) + Math.abs(dy) > 20
-        touchStartRef.current = null
-        if (moved) return
+        if (cardRef.current?.contains(e.target as Node)) return
         e.preventDefault()
         onMobileTap?.(activity.id)
       }}
