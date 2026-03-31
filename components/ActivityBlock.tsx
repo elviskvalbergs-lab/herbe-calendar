@@ -22,6 +22,9 @@ function TeamsIcon({ size = 11 }: { size?: number }) {
   )
 }
 
+// Module-level cooldown after closing a mobile preview — prevents hover trigger on activity behind the X button
+let globalCloseCooldown = false
+
 interface Props {
   activity: Activity
   color: string
@@ -57,7 +60,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
   }, [hovered, mobileSelected])
 
   const isLight = isLightMode
-  const fillNormal = isLight ? '55' : '33'
+  const fillNormal = isLight ? '55' : (isOutlook ? '28' : '33')
   const fillPlanned = isLight ? '33' : '1a'
   const fillCC = isLight ? '1a' : '0a'
 
@@ -71,20 +74,21 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           ? `repeating-linear-gradient(135deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
           : isPlanned ? color + fillPlanned : color + fillNormal,
         borderLeft: isOutlook
-          ? `2px dashed ${color}`
+          ? `2px dashed ${color}cc`
           : isCC
             ? `2px solid ${color}8c`
             : `3px solid ${color}`,
         borderRight: isPlanned && !isCC ? `3px solid ${color}` : undefined,
-        opacity: (hovered || mobileSelected) ? 1 : (isOutlook || isCC) ? (isCC ? 1 : 0.85) : 1,
+        // Never use CSS opacity — it makes child elements (preview card) translucent too
         zIndex: (hovered || mobileSelected) ? 40 : undefined,
         boxShadow: hovered ? `0 2px 14px ${color}55` : undefined,
         ...style,
       }}
-      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setHovered(true) }}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !globalCloseCooldown) setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
       onTouchStart={(e) => {
         setHovered(false)
+        if (globalCloseCooldown) return
         // If another block's preview is open and this isn't it, ignore
         if (anyMobileSelected && !mobileSelected) return
         const t = e.touches[0]
@@ -167,13 +171,19 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         <div
           ref={cardRef}
           className={`absolute z-50 mt-1 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
-          style={{ top: '100%', border: `1px solid ${color}88`, background: '#fff', color: '#1a1a1a' }}
+          style={{ top: '100%', border: `1px solid ${color}88`, background: '#ffffff', color: '#1a1a1a', isolation: 'isolate' }}
           onClick={(e) => e.stopPropagation()}
         >
           {mobileSelected && (
             <button
               className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-200 text-base font-bold"
-              onClick={(e) => { e.stopPropagation(); onMobileClose?.() }}
+              onTouchEnd={(e) => { e.stopPropagation() }}
+              onClick={(e) => {
+                e.stopPropagation()
+                globalCloseCooldown = true
+                setTimeout(() => { globalCloseCooldown = false }, 300)
+                onMobileClose?.()
+              }}
             >
               ✕
             </button>
