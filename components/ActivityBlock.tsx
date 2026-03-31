@@ -78,7 +78,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         top,
         height,
         background: isCC
-          ? `repeating-linear-gradient(135deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
+          ? `repeating-linear-gradient(45deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
           : isPlanned
             ? `repeating-linear-gradient(135deg, ${color}${fillPlanned}, ${color}${fillPlanned} 3px, transparent 3px, transparent 6px)`
             : color + fillNormal,
