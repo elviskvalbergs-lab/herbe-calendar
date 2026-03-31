@@ -1,6 +1,18 @@
 import ICAL from 'ical.js'
 import { parseISO, isWithinInterval, startOfDay, endOfDay, addDays, format } from 'date-fns'
 
+const TIMEZONE = 'Europe/Riga'
+
+/** Format a Date as 'YYYY-MM-DD' in Europe/Riga timezone */
+function rigaDate(d: Date): string {
+  return d.toLocaleDateString('sv-SE', { timeZone: TIMEZONE }) // sv-SE gives YYYY-MM-DD
+}
+
+/** Format a Date as 'HH:mm' in Europe/Riga timezone */
+function rigaTime(d: Date): string {
+  return d.toLocaleTimeString('en-GB', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
 export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
   try {
     const res = await fetch(url)
@@ -29,8 +41,9 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
             const duration = event.duration
             const occEnd = new Date(occStart.getTime() + (duration?.toSeconds() ?? 3600) * 1000)
             if (occStart >= rangeStart || occEnd >= rangeStart) {
-              const dtStr = occStart.toISOString()
-              const endDtStr = occEnd.toISOString()
+              const dateStr = rigaDate(occStart)
+              const timeFromStr = rigaTime(occStart)
+              const timeToStr = rigaTime(occEnd)
               let joinUrl: string | undefined
               const skypeData = comp.getFirstPropertyValue('x-microsoft-skypeteamsdata')
               if (skypeData) {
@@ -42,14 +55,14 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
                 if (teamsMatch) joinUrl = teamsMatch[0]
               }
               events.push({
-                id: `ics-${event.uid}-${dtStr.slice(0, 10)}`,
+                id: `ics-${event.uid}-${dateStr}`,
                 source: 'outlook' as const,
                 isExternal: true,
                 personCode: code,
                 description: event.summary || '',
-                date: dtStr.slice(0, 10),
-                timeFrom: dtStr.slice(11, 16),
-                timeTo: endDtStr.slice(11, 16),
+                date: dateStr,
+                timeFrom: timeFromStr,
+                timeTo: timeToStr,
                 isOrganizer: false,
                 location: event.location || undefined,
                 bodyPreview: event.description || '',
@@ -125,17 +138,15 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
             cursor = addDays(cursor, 1)
           }
         } else {
-          const dtStr = start.toISOString()
-          const endDtStr = end.toISOString()
           events.push({
             id: `ics-${event.uid}`,
             source: 'outlook' as const,
             isExternal: true,
             personCode: code,
             description: event.summary || '',
-            date: dtStr.slice(0, 10),
-            timeFrom: dtStr.slice(11, 16),
-            timeTo: endDtStr.slice(11, 16),
+            date: rigaDate(start),
+            timeFrom: rigaTime(start),
+            timeTo: rigaTime(end),
             isOrganizer: false,
             location: event.location || undefined,
             bodyPreview: event.description || '',
