@@ -22,8 +22,9 @@ function TeamsIcon({ size = 11 }: { size?: number }) {
   )
 }
 
-// Module-level cooldown after closing a mobile preview — prevents hover trigger on activity behind the X button
+// Module-level flags shared across all ActivityBlock instances
 let globalCloseCooldown = false
+let globalTouchActive = false
 
 interface Props {
   activity: Activity
@@ -87,19 +88,21 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !globalCloseCooldown) setHovered(true) }}
       onPointerLeave={() => setHovered(false)}
       onTouchStart={(e) => {
+        globalTouchActive = true
         wasTouchRef.current = true
         setHovered(false)
         const t = e.touches[0]
         touchStartRef.current = globalCloseCooldown ? null : { x: t.clientX, y: t.clientY }
       }}
       onTouchEnd={(e) => {
+        globalTouchActive = false
         if (!touchStartRef.current) return
         // Don't intercept touches inside the preview card
         if (cardRef.current?.contains(e.target as Node)) { touchStartRef.current = null; return }
         const t = e.changedTouches[0]
         const dx = t.clientX - touchStartRef.current.x
         const dy = t.clientY - touchStartRef.current.y
-        const moved = Math.abs(dx) + Math.abs(dy) > 10
+        const moved = Math.abs(dx) + Math.abs(dy) > 20
         touchStartRef.current = null
         if (moved) return
         e.preventDefault()
@@ -107,7 +110,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       }}
       onClick={() => {
         // Touch taps are handled in onTouchEnd — only real mouse clicks go here
-        if (wasTouchRef.current) { wasTouchRef.current = false; return }
+        if (wasTouchRef.current || globalTouchActive) { wasTouchRef.current = false; return }
         onClick(activity)
       }}
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
