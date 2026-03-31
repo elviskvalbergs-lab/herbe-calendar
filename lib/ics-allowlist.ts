@@ -6,8 +6,7 @@ const ALLOWED_ICS_DOMAINS = [
   // Google
   'calendar.google.com',
   // Apple
-  'caldav.icloud.com',
-  'p-calendar.icloud.com',
+  'icloud.com',
   'webcal.me',
   // Other common providers
   'ical.fastmail.com',
@@ -16,11 +15,16 @@ const ALLOWED_ICS_DOMAINS = [
   'calendly.com',
 ]
 
+/** Normalize webcal:// to https:// */
+export function normalizeIcsUrl(url: string): string {
+  return url.replace(/^webcal:\/\//i, 'https://')
+}
+
 export function validateIcsUrl(url: string): { valid: boolean; error?: string } {
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(normalizeIcsUrl(url))
     if (parsed.protocol !== 'https:') {
-      return { valid: false, error: 'ICS URL must use HTTPS' }
+      return { valid: false, error: 'ICS URL must use HTTPS or webcal' }
     }
     const hostname = parsed.hostname.toLowerCase()
     const allowed = ALLOWED_ICS_DOMAINS.some(domain =>

@@ -82,9 +82,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
       if (res.ok) {
         setNewCal({ personCode: '', name: '', icsUrl: '' })
         fetchCustomCals()
+      } else {
+        const data = await res.json().catch(() => null)
+        alert(data?.error || `Failed to add calendar (HTTP ${res.status})`)
       }
     } catch (e) {
-      console.error('Failed to add calendar:', e)
+      alert('Failed to add calendar: ' + e)
     }
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
-import { validateIcsUrl } from '@/lib/ics-allowlist'
+import { validateIcsUrl, normalizeIcsUrl } from '@/lib/ics-allowlist'
 
 // Simple auto-migration helper
 let tableCheckedAt = 0
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     const { rows } = await pool.query(
       'INSERT INTO user_calendars (user_email, target_person_code, name, ics_url, color) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [session.user.email, personCode, name, icsUrl, null]
+      [session.user.email, personCode, name, normalizeIcsUrl(icsUrl), null]
     )
     return NextResponse.json(rows[0], { status: 201 })
   } catch (e) {
@@ -87,7 +87,7 @@ export async function PUT(req: NextRequest) {
     const vals: any[] = []
     let idx = 1
     if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name) }
-    if (icsUrl !== undefined) { sets.push(`ics_url = $${idx++}`); vals.push(icsUrl) }
+    if (icsUrl !== undefined) { sets.push(`ics_url = $${idx++}`); vals.push(normalizeIcsUrl(icsUrl)) }
     if (personCode !== undefined) { sets.push(`target_person_code = $${idx++}`); vals.push(personCode) }
     if (color !== undefined) { sets.push(`color = $${idx++}`); vals.push(color || null) }
 
