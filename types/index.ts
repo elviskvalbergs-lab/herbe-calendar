@@ -78,3 +78,18 @@ export interface Favorite {
   personCodes: string[]
   hiddenCalendars?: string[]
 }
+
+export type ShareVisibility = 'busy' | 'titles' | 'full'
+
+export interface ShareLink {
+  id: string
+  favoriteId: string
+  token: string
+  name: string
+  visibility: ShareVisibility
+  hasPassword: boolean
+  expiresAt: string | null
+  createdAt: string
+  lastAccessedAt: string | null
+  accessCount: number
+}
