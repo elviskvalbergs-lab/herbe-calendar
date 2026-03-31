@@ -174,12 +174,12 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
         <div
           ref={cardRef}
           className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
-          style={{ top: 0, border: `1px solid ${color}88`, background: '#ffffff', color: '#1a1a1a', isolation: 'isolate' }}
+          style={{ top: 0, border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)', isolation: 'isolate' }}
           onClick={(e) => e.stopPropagation()}
         >
           {mobileSelected && (
             <button
-              className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-gray-400 active:bg-gray-200 text-base font-bold"
+              className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-text-muted active:bg-border text-base font-bold"
               onTouchEnd={(e) => { e.stopPropagation() }}
               onClick={(e) => {
                 e.stopPropagation()
@@ -194,9 +194,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-text-muted">
             {activity.timeFrom} – {activity.timeTo}
-            {isPlanned && <span className="ml-1 text-amber-600 text-[10px]">(planned)</span>}
+            {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
           </p>
           {activity.activityTypeCode && (
             <p className="text-[10px] mt-1" style={{ color }}>
@@ -209,19 +209,19 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
             </p>
           )}
           {activity.projectName && (
-            <p className="text-xs text-gray-500 mt-1 truncate">{activity.projectName}</p>
+            <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
           )}
           {activity.customerName && (
-            <p className="text-xs text-gray-500 truncate">{activity.customerName}</p>
+            <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
           )}
           {activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-gray-400 truncate">📅 {activity.icsCalendarName}</p>
+            <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
           )}
           {isOutlook && !activity.icsCalendarName && (
-            <p className="text-[10px] mt-1 text-gray-400 truncate"><OutlookIcon /> Outlook Calendar</p>
+            <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
           )}
           {!isOutlook && activity.source === 'herbe' && (
-            <p className="text-[10px] mt-1 text-gray-400 truncate">Herbe ERP</p>
+            <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
           )}
           {isCC && (
             <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
