@@ -2,20 +2,25 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Favorite, CalendarState } from '@/types'
 import { loadFavorites, addFavorite, removeFavorite } from '@/lib/favorites'
+import FavoriteDetailModal from './FavoriteDetailModal'
 
 interface Props {
   state: CalendarState
-  onApply: (view: CalendarState['view'], personCodes: string[]) => void
+  onApply: (view: CalendarState['view'], personCodes: string[], hiddenCalendars?: string[]) => void
+  /** Current hidden calendars to save with favorites. */
+  hiddenCalendars?: Set<string>
   /** Render as flat list (no star button / no dropdown wrapper). Used inside mobile bottom sheet. */
   inline?: boolean
 }
 
-export default function FavoritesDropdown({ state, onApply, inline }: Props) {
+export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inline }: Props) {
   const [open, setOpen] = useState(false)
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
+  const [detailFavorite, setDetailFavorite] = useState<Favorite | null>(null)
+  const [linkCounts, setLinkCounts] = useState<Record<string, number>>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -32,6 +37,7 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
       name: name.trim(),
       view: state.view,
       personCodes: state.selectedPersons.map(p => p.code),
+      hiddenCalendars: hiddenCalendars ? [...hiddenCalendars] : [],
     })
     setFavorites(prev => [...prev, fav])
     setName('')
@@ -45,14 +51,16 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
   }
 
   function handleApply(fav: Favorite) {
-    onApply(fav.view, fav.personCodes)
+    onApply(fav.view, fav.personCodes, fav.hiddenCalendars)
     if (!inline) setOpen(false)
   }
 
   const currentCodes = state.selectedPersons.map(p => p.code).sort().join(',')
+  const currentHidden = hiddenCalendars ? [...hiddenCalendars].sort().join(',') : ''
   const activeMatch = favorites.find(f =>
     f.view === state.view &&
-    f.personCodes.slice().sort().join(',') === currentCodes
+    f.personCodes.slice().sort().join(',') === currentCodes &&
+    (f.hiddenCalendars ?? []).slice().sort().join(',') === currentHidden
   )
   const isActive = !!activeMatch
 
@@ -72,6 +80,13 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
           <span className="text-[10px] text-text-muted ml-auto whitespace-nowrap">
             {fav.view === 'day' ? 'Day' : fav.view === '3day' ? '3D' : '5D'} · {fav.personCodes.length}p
           </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); setDetailFavorite(fav); if (!inline) setOpen(false) }}
+            className={`text-xs shrink-0 ${linkCounts[fav.id] > 0 ? 'text-red-400 hover:text-red-300' : 'text-text-muted hover:text-primary'}`}
+            title="Share / details"
+          >
+            ↗
+          </button>
           <button
             onClick={(e) => handleDelete(e, fav.id)}
             className="text-text-muted hover:text-red-400 text-xs ml-1 shrink-0 opacity-0 group-hover:opacity-100"
@@ -121,34 +136,46 @@ export default function FavoritesDropdown({ state, onApply, inline }: Props) {
     </>
   )
 
-  if (inline) return <div>{list}</div>
+  const modal = detailFavorite && (
+    <FavoriteDetailModal
+      favorite={detailFavorite}
+      open={!!detailFavorite}
+      onClose={() => setDetailFavorite(null)}
+      onLinksChange={(favId, count) => setLinkCounts(prev => ({ ...prev, [favId]: count }))}
+    />
+  )
+
+  if (inline) return <><div>{list}</div>{modal}</>
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => { setOpen(o => !o); setNaming(false); setName('') }}
-        className="text-text-muted px-1.5 py-1 rounded-lg hover:bg-border text-base leading-none"
-        title="Favorites"
-      >
-        {isActive ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" className="text-yellow-400">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-        )}
-      </button>
+    <>
+      <div className="relative">
+        <button
+          onClick={() => { setOpen(o => !o); setNaming(false); setName('') }}
+          className="text-text-muted px-1.5 py-1 rounded-lg hover:bg-border text-base leading-none"
+          title="Favorites"
+        >
+          {isActive ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" className="text-yellow-400">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          )}
+        </button>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setNaming(false) }} />
-          <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[240px]">
-            {list}
-          </div>
-        </>
-      )}
-    </div>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setNaming(false) }} />
+            <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[240px]">
+              {list}
+            </div>
+          </>
+        )}
+      </div>
+      {modal}
+    </>
   )
 }

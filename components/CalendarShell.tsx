@@ -1,15 +1,18 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
-import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState } from '@/types'
+import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
-  buildClassGroupColorMap, getActivityColor, loadColorOverrides,
+  buildClassGroupColorMap, getActivityColor, loadColorOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
 } from '@/lib/activityColors'
+import {
+  HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
+} from '@/lib/calendarVisibility'
 
 interface Props { userCode: string; companyCode: string }
 
@@ -43,6 +46,52 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     editId?: string
     canEdit?: boolean
   }>({ open: false })
+
+  // Calendar visibility state
+  const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
+  const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string; personCode: string }[]>([])
+
+  const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
+
+  const calendarSources: CalendarSource[] = useMemo(() => [
+    { id: HERBE_ID, label: 'Herbe', color: HERBE_COLOR },
+    { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
+    ...userIcsCalendars
+      .filter(c => selectedCodes.has(c.personCode))
+      .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
+  ], [userIcsCalendars, selectedCodes])
+
+  const visibleActivities = useMemo(() => {
+    if (hiddenCalendars.size === 0) return activities
+    return activities.filter(a => {
+      if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
+      if (a.source === 'outlook' && !a.isExternal) return !hiddenCalendars.has(OUTLOOK_ID)
+      if (a.source === 'herbe') return !hiddenCalendars.has(HERBE_ID)
+      return true
+    })
+  }, [activities, hiddenCalendars])
+
+  const [calendarSourcesOpen, setCalendarSourcesOpen] = useState(false)
+
+  function toggleCalendar(id: string) {
+    setHiddenCalendars(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      saveHidden(next)
+      return next
+    })
+  }
+
+  function setAllCalendars(show: boolean) {
+    if (show) {
+      setHiddenCalendars(new Set())
+      saveHidden(new Set())
+    } else {
+      const all = new Set(calendarSources.map(s => s.id))
+      setHiddenCalendars(all)
+      saveHidden(all)
+    }
+  }
 
   // Zoom state: 1 = normal (56px/hour), 2 = zoomed (112px/hour)
   const [zoom, setZoom] = useState<1 | 2>(() => {
@@ -156,6 +205,9 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       } else if (e.key === 'ArrowRight') {
         e.preventDefault()
         setState(s => ({ ...s, date: format(addDays(parseISO(s.date), 1), 'yyyy-MM-dd') }))
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault()
+        setCalendarSourcesOpen(o => !o)
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
@@ -308,7 +360,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       })
   }, [userCode])
 
-  const fetchActivities = useCallback(async () => {
+  const fetchActivities = useCallback(async (bustIcsCache = false) => {
     if (!state.selectedPersons.length) return
     setLoading(true)
     const codes = state.selectedPersons.map(p => p.code).join(',')
@@ -326,7 +378,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     try {
       const [herbeRes, outlookRes] = await Promise.all([
         fetch(`/api/activities?persons=${codes}&${dateParam}`),
-        fetch(`/api/outlook?persons=${codes}&${dateParam}`),
+        fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`),
       ])
       let herbe: Activity[] = []
       let herbeErrMsg = ''
@@ -381,6 +433,14 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
   }, [])
 
+  // Fetch user's ICS calendars for the source list
+  useEffect(() => {
+    fetch('/api/settings/calendars')
+      .then(r => r.ok ? r.json() : [])
+      .then((cals: { name: string; color?: string; personCode: string }[]) => setUserIcsCalendars(cals))
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       <CalendarHeader
@@ -388,27 +448,38 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onStateChange={setState}
         people={people}
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
-        onRefresh={fetchActivities}
+        onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
-        onApplyFavorite={(view, personCodes) => {
+        calendarSources={calendarSources}
+        hiddenCalendars={hiddenCalendars}
+        onToggleCalendar={toggleCalendar}
+        onSetAllCalendars={setAllCalendars}
+        calendarSourcesOpen={calendarSourcesOpen}
+        onCalendarSourcesOpenChange={setCalendarSourcesOpen}
+        onApplyFavorite={(view: CalendarState['view'], personCodes: string[], hiddenCals?: string[]) => {
           const resolved = personCodes
-            .map(code => people.find(p => p.code === code) ?? { code, name: code, email: '' })
+            .map((code: string) => people.find(p => p.code === code) ?? { code, name: code, email: '' })
           setState(s => ({ ...s, view, selectedPersons: resolved }))
+          if (hiddenCals !== undefined) {
+            const next = new Set<string>(hiddenCals)
+            setHiddenCalendars(next)
+            saveHidden(next)
+          }
         }}
         zoom={zoom}
         onToggleZoom={toggleZoom}
       />
       <CalendarGrid
         state={state}
-        activities={activities}
+        activities={visibleActivities}
         loading={loading}
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
         getTypeName={getTypeName}
         scale={zoom}
         isLightMode={isLightMode}
-        onRefresh={fetchActivities}
+        onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
         onNavigate={(dir) => {
           const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
           setState(s => ({
@@ -463,7 +534,6 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
           }}
-          onReload={() => reloadColorData(true)}
         />
       )}
 

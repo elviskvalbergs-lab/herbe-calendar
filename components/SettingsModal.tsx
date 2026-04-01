@@ -28,12 +28,11 @@ interface Props {
   error?: string | null
   onClose: () => void
   onColorChange: (groupCode: string, color: string) => void
-  onReload?: () => void
 }
 
 type Tab = 'style' | 'calendars'
 
-export default function SettingsModal({ classGroups, colorMap, persons, error, onClose, onColorChange, onReload }: Props) {
+export default function SettingsModal({ classGroups, colorMap, persons, error, onClose, onColorChange }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string }
@@ -222,14 +221,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
 
               {/* Class groups */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Palette</p>
-                  {onReload && (
-                    <button onClick={onReload} className="text-[10px] text-primary hover:underline" title="Reload types & groups from Herbe">
-                      ↻ Sync Herbe
-                    </button>
-                  )}
-                </div>
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Palette</p>
                 {error && (
                   <p className="text-xs text-red-400 font-mono bg-red-900/20 rounded p-2 break-all">{error}</p>
                 )}

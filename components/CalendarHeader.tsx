@@ -1,11 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
-import { Person, CalendarState } from '@/types'
+import { Person, CalendarState, CalendarSource } from '@/types'
 import { signOut } from 'next-auth/react'
 import { personColor } from '@/lib/colors'
 import PersonSelector from './PersonSelector'
 import FavoritesDropdown from './FavoritesDropdown'
+import CalendarSourcesDropdown from './CalendarSourcesDropdown'
 
 interface Props {
   state: CalendarState
@@ -15,15 +16,23 @@ interface Props {
   onRefresh: () => void
   onColorSettings: () => void
   onShortcuts: () => void
-  onApplyFavorite: (view: CalendarState['view'], personCodes: string[]) => void
+  calendarSources: CalendarSource[]
+  hiddenCalendars: Set<string>
+  onToggleCalendar: (id: string) => void
+  onSetAllCalendars: (show: boolean) => void
+  calendarSourcesOpen: boolean
+  onCalendarSourcesOpenChange: (open: boolean) => void
+  onApplyFavorite: (view: CalendarState['view'], personCodes: string[], hiddenCalendars?: string[]) => void
   zoom: 1 | 2
   onToggleZoom: () => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, onApplyFavorite, zoom, onToggleZoom }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
+  const [mobileCalendarsOpen, setMobileCalendarsOpen] = useState(false)
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const viewStep = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
@@ -43,9 +52,23 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         <button onClick={() => navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
       )}
       <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
-      <span className="text-sm font-semibold whitespace-nowrap">
+      <button
+        onClick={() => dateInputRef.current?.showPicker()}
+        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap relative"
+        title="Pick a date"
+      >
         {format(parseISO(state.date), 'd MMM yyyy')}
-      </span>
+        <input
+          ref={dateInputRef}
+          type="date"
+          value={state.date}
+          onChange={e => {
+            if (e.target.value) onStateChange({ ...state, date: e.target.value })
+          }}
+          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+          tabIndex={-1}
+        />
+      </button>
       <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
       {viewStep > 1 && (
         <button onClick={() => navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
@@ -94,7 +117,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           title="Add person"
         >+</button>
         <span className="hidden lg:inline-flex">
-          <FavoritesDropdown state={state} onApply={onApplyFavorite} />
+          <FavoritesDropdown state={state} onApply={onApplyFavorite} hiddenCalendars={hiddenCalendars} />
+        </span>
+        <span className="hidden lg:inline-flex">
+          <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} onSetAll={onSetAllCalendars} people={people} open={calendarSourcesOpen} onOpenChange={onCalendarSourcesOpenChange} />
         </span>
       </div>
 
@@ -123,6 +149,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
             <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
             {/* right-0 ensures popup stays on screen regardless of where the hamburger is positioned */}
             <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
+              <button
+                onClick={() => { setHamburgerOpen(false); setMobileCalendarsOpen(true) }}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                Calendars
+              </button>
               <button
                 onClick={() => { setHamburgerOpen(false); setMobileFavsOpen(true) }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
@@ -222,7 +260,19 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               <h3 className="font-bold text-sm">Favorites</h3>
               <button onClick={() => setMobileFavsOpen(false)} className="text-text-muted text-lg">✕</button>
             </div>
-            <FavoritesDropdown state={state} onApply={(view, codes) => { setMobileFavsOpen(false); onApplyFavorite(view, codes) }} inline />
+            <FavoritesDropdown state={state} onApply={(view, codes) => { setMobileFavsOpen(false); onApplyFavorite(view, codes) }} hiddenCalendars={hiddenCalendars} inline />
+          </div>
+        </div>
+      )}
+
+      {mobileCalendarsOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:hidden" onClick={() => setMobileCalendarsOpen(false)}>
+          <div className="w-full max-w-md bg-surface border-t border-border rounded-t-2xl shadow-2xl p-4 pb-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm">Calendars</h3>
+              <button onClick={() => setMobileCalendarsOpen(false)} className="text-text-muted text-lg">✕</button>
+            </div>
+            <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} onSetAll={onSetAllCalendars} people={people} inline />
           </div>
         </div>
       )}

@@ -65,9 +65,32 @@ export interface CalendarState {
   selectedPersons: Person[]
 }
 
+export interface CalendarSource {
+  id: string        // 'herbe' | 'outlook' | 'ics:<name>'
+  label: string
+  color: string
+  personCode?: string  // for grouping ICS calendars by person
+}
+
 export interface Favorite {
   id: string
   name: string
   view: CalendarState['view']
   personCodes: string[]
+  hiddenCalendars?: string[]
+}
+
+export type ShareVisibility = 'busy' | 'titles' | 'full'
+
+export interface ShareLink {
+  id: string
+  favoriteId: string
+  token: string
+  name: string
+  visibility: ShareVisibility
+  hasPassword: boolean
+  expiresAt: string | null
+  createdAt: string
+  lastAccessedAt: string | null
+  accessCount: number
 }
