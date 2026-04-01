@@ -448,7 +448,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onStateChange={setState}
         people={people}
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
-        onRefresh={() => fetchActivities(true)}
+        onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
         calendarSources={calendarSources}
@@ -479,7 +479,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         getTypeName={getTypeName}
         scale={zoom}
         isLightMode={isLightMode}
-        onRefresh={() => fetchActivities(true)}
+        onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
         onNavigate={(dir) => {
           const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
           setState(s => ({
@@ -534,7 +534,6 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
           }}
-          onReload={() => reloadColorData(true)}
         />
       )}
 
