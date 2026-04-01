@@ -360,7 +360,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       })
   }, [userCode])
 
-  const fetchActivities = useCallback(async () => {
+  const fetchActivities = useCallback(async (bustIcsCache = false) => {
     if (!state.selectedPersons.length) return
     setLoading(true)
     const codes = state.selectedPersons.map(p => p.code).join(',')
@@ -378,7 +378,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     try {
       const [herbeRes, outlookRes] = await Promise.all([
         fetch(`/api/activities?persons=${codes}&${dateParam}`),
-        fetch(`/api/outlook?persons=${codes}&${dateParam}`),
+        fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`),
       ])
       let herbe: Activity[] = []
       let herbeErrMsg = ''
@@ -448,7 +448,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         onStateChange={setState}
         people={people}
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
-        onRefresh={fetchActivities}
+        onRefresh={() => fetchActivities(true)}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
         calendarSources={calendarSources}
@@ -479,7 +479,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         getTypeName={getTypeName}
         scale={zoom}
         isLightMode={isLightMode}
-        onRefresh={fetchActivities}
+        onRefresh={() => fetchActivities(true)}
         onNavigate={(dir) => {
           const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
           setState(s => ({

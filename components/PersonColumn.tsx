@@ -5,6 +5,17 @@ import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
 import { useRef, useState, useCallback, useLayoutEffect } from 'react'
 
+function OutlookIcon({ size = 11 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 opacity-60" style={{ verticalAlign: 'middle' }}>
+      <rect x="2" y="3" width="13" height="18" rx="1.5"/>
+      <circle cx="8.5" cy="12" r="3.5"/>
+      <path d="M15 7h6a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-6"/>
+      <path d="M15 10h5M15 14h5"/>
+    </svg>
+  )
+}
+
 interface Props {
   personCode: string
   date: string
@@ -127,7 +138,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
           ) : visibility === 'titles' ? (
             <>
               <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
-                {activity.icsCalendarName ? '📅 ' : isOutlook ? '📅 ' : null}{activity.description || '(all day)'}
+                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
               </p>
               <p className="text-xs text-text-muted">All day</p>
               {activity.icsCalendarName && (
@@ -143,7 +154,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
           ) : (
             <>
               <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
-                {activity.icsCalendarName ? '📅 ' : isOutlook ? '📅 ' : null}{activity.description || '(all day)'}
+                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
               </p>
               <p className="text-xs text-text-muted">All day</p>
               {activity.activityTypeCode && (
@@ -171,7 +182,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               {!isOutlook && activity.source === 'herbe' && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
               )}
-              {activity.joinUrl && visibility !== 'full' && (
+              {activity.joinUrl && (
                 <a
                   href={activity.joinUrl}
                   target="_blank"

@@ -2,6 +2,11 @@ import ICAL from 'ical.js'
 import { parseISO, isWithinInterval, startOfDay, endOfDay, addDays, format } from 'date-fns'
 
 const TIMEZONE = 'Europe/Riga'
+const FETCH_TIMEOUT_MS = 8000
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+// In-memory cache: URL → { text, fetchedAt }
+const icsCache = new Map<string, { text: string; fetchedAt: number }>()
 
 /** Format a Date as 'YYYY-MM-DD' in Europe/Riga timezone */
 function rigaDate(d: Date): string {
@@ -13,10 +18,35 @@ function rigaTime(d: Date): string {
   return d.toLocaleTimeString('en-GB', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
-export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string): Promise<any[]> {
+async function fetchIcsText(url: string, bustCache: boolean): Promise<string> {
+  const cached = icsCache.get(url)
+  if (!bustCache && cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.text
+  }
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+  const text = await res.text()
+  icsCache.set(url, { text, fetchedAt: Date.now() })
+  return text
+}
+
+/** Clear all cached ICS data (used for manual sync). */
+export function clearIcsCache() {
+  icsCache.clear()
+}
+
+function extractJoinUrl(comp: ICAL.Component, event: ICAL.Event): string | undefined {
+  const skypeData = comp.getFirstPropertyValue('x-microsoft-skypeteamsdata')
+  if (skypeData) {
+    try { const parsed = JSON.parse(String(skypeData)); if (parsed.joinUrl) return parsed.joinUrl } catch {}
+  }
+  const desc = event.description || ''
+  const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<"]+/)
+  return teamsMatch?.[0]
+}
+
+export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string, bustCache = false): Promise<any[]> {
   try {
-    const res = await fetch(url)
-    const icsText = await res.text()
+    const icsText = await fetchIcsText(url, bustCache)
     const jcalData = ICAL.parse(icsText)
     const vcalendar = new ICAL.Component(jcalData)
     const vevents = vcalendar.getAllSubcomponents('vevent')
@@ -24,13 +54,14 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
     const rangeStart = startOfDay(parseISO(dateFrom))
     const rangeEnd = endOfDay(parseISO(dateTo))
 
-    console.log(`[outlook/ics] Parsing ${vevents.length} VEVENT components for ${code}, range ${dateFrom}–${dateTo}`)
+    console.log(`[outlook/ics] Parsing ${vevents.length} VEVENT components for ${code}, range ${dateFrom}–${dateTo}${bustCache ? ' (cache busted)' : ''}`)
     const events: any[] = []
     for (const comp of vevents) {
       const event = new ICAL.Event(comp)
       // Expand recurring events
       if (event.isRecurring()) {
         try {
+          const isAllDay = event.startDate.isDate === true
           const iter = event.iterator()
           let next = iter.next()
           let count = 0
@@ -42,34 +73,44 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
             const occEnd = new Date(occStart.getTime() + (duration?.toSeconds() ?? 3600) * 1000)
             if (occStart >= rangeStart || occEnd >= rangeStart) {
               const dateStr = rigaDate(occStart)
-              const timeFromStr = rigaTime(occStart)
-              const timeToStr = rigaTime(occEnd)
-              let joinUrl: string | undefined
-              const skypeData = comp.getFirstPropertyValue('x-microsoft-skypeteamsdata')
-              if (skypeData) {
-                try { const parsed = JSON.parse(String(skypeData)); if (parsed.joinUrl) joinUrl = parsed.joinUrl } catch {}
+              const joinUrl = extractJoinUrl(comp, event)
+
+              if (isAllDay) {
+                events.push({
+                  id: `ics-${event.uid}-${dateStr}`,
+                  source: 'outlook' as const,
+                  isExternal: true,
+                  isAllDay: true,
+                  personCode: code,
+                  description: event.summary || '',
+                  date: dateStr,
+                  timeFrom: '00:00',
+                  timeTo: '23:59',
+                  isOrganizer: false,
+                  location: event.location || undefined,
+                  bodyPreview: event.description || '',
+                  joinUrl,
+                  webLink: '',
+                  rsvpStatus: undefined,
+                })
+              } else {
+                events.push({
+                  id: `ics-${event.uid}-${dateStr}`,
+                  source: 'outlook' as const,
+                  isExternal: true,
+                  personCode: code,
+                  description: event.summary || '',
+                  date: dateStr,
+                  timeFrom: rigaTime(occStart),
+                  timeTo: rigaTime(occEnd),
+                  isOrganizer: false,
+                  location: event.location || undefined,
+                  bodyPreview: event.description || '',
+                  joinUrl,
+                  webLink: '',
+                  rsvpStatus: undefined,
+                })
               }
-              if (!joinUrl) {
-                const desc = event.description || ''
-                const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<"]+/)
-                if (teamsMatch) joinUrl = teamsMatch[0]
-              }
-              events.push({
-                id: `ics-${event.uid}-${dateStr}`,
-                source: 'outlook' as const,
-                isExternal: true,
-                personCode: code,
-                description: event.summary || '',
-                date: dateStr,
-                timeFrom: timeFromStr,
-                timeTo: timeToStr,
-                isOrganizer: false,
-                location: event.location || undefined,
-                bodyPreview: event.description || '',
-                joinUrl,
-                webLink: '',
-                rsvpStatus: undefined,
-              })
             }
             next = iter.next()
           }
@@ -90,20 +131,7 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
           isWithinInterval(end, { start: rangeStart, end: rangeEnd }) ||
           (start < rangeStart && end > rangeEnd)) {
 
-        // Extract Teams join URL from ICS properties
-        let joinUrl: string | undefined
-        const skypeData = comp.getFirstPropertyValue('x-microsoft-skypeteamsdata')
-        if (skypeData) {
-          try {
-            const parsed = JSON.parse(String(skypeData))
-            if (parsed.joinUrl) joinUrl = parsed.joinUrl
-          } catch {}
-        }
-        if (!joinUrl) {
-          const desc = event.description || ''
-          const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<"]+/)
-          if (teamsMatch) joinUrl = teamsMatch[0]
-        }
+        const joinUrl = extractJoinUrl(comp, event)
 
         if (isAllDay) {
           // All-day/multi-day: create one entry per visible day

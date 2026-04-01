@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
   const dateFrom = searchParams.get('dateFrom') ?? dateStr
   const dateTo = searchParams.get('dateTo') ?? dateStr
 
+  const bustIcsCache = searchParams.get('bustIcsCache') === '1'
+
   if (!persons || !dateFrom || !dateTo) return NextResponse.json({ error: 'persons and dates required' }, { status: 400 })
 
   const personList = persons.split(',').map(p => p.trim())
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
           console.log(`[outlook] Found ${icsRows.length} ICS feed(s) for ${code}`)
           icsEventsPromise = Promise.all(
             icsRows.map(async row => {
-              const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
+              const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo, bustIcsCache)
               return events.map(ev => ({
                 ...ev,
                 ...(row.color ? { icsColor: row.color } : {}),

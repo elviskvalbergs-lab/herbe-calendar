@@ -257,7 +257,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               {isCC && (
                 <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
               )}
-              {activity.joinUrl && visibility !== 'full' && (
+              {activity.joinUrl && (
                 <a
                   href={activity.joinUrl}
                   target="_blank"
