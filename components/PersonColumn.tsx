@@ -351,7 +351,7 @@ export default function PersonColumn({
   const colLatestTime = colAfterActivities.length > 0
     ? colAfterActivities.reduce((max, a) => a.timeTo > max ? a.timeTo : max, colAfterActivities[0].timeTo)
     : null
-  const showTopBanner = !expandedUp && (colBeforeActivities.length > 0 || allDayActivities.length > 0)
+  const showTopBanner = !expandedUp && colBeforeActivities.length > 0
   const showBottomBanner = !expandedDown && colAfterActivities.length > 0
 
   const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
@@ -365,43 +365,13 @@ export default function PersonColumn({
 
   return (
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
-      {/* Top indicator banner */}
+      {/* Top edge indicator — thin line signaling off-grid content above */}
       {showTopBanner && (
         <button
           onClick={() => onExpandUp?.()}
-          className="sticky top-10 z-30 w-full flex items-center justify-center gap-1 px-1 py-0.5 text-[9px] font-bold bg-primary/90 text-white cursor-pointer hover:bg-primary transition-colors"
-          title={[
-            allDayActivities.length > 0 ? `${allDayActivities.length} all-day` : '',
-            colBeforeActivities.length > 0 ? `${colBeforeActivities.length} before ${String(effectiveStart).padStart(2, '0')}:00${colEarliestTime ? ` (earliest ${colEarliestTime})` : ''}` : '',
-          ].filter(Boolean).join(' + ')}
-        >
-          <span>
-            {[
-              allDayActivities.length > 0 ? `${allDayActivities.length} all-day` : '',
-              colBeforeActivities.length > 0 ? `${colBeforeActivities.length} before ${colEarliestTime ?? `${String(effectiveStart).padStart(2, '0')}:00`}` : '',
-            ].filter(Boolean).join(' · ')}
-          </span>
-          <span>▲</span>
-        </button>
-      )}
-
-      {/* All-day event banners */}
-      {allDayActivities.length > 0 && (
-        <div className="border-b border-border bg-surface/50 px-1 py-0.5 space-y-0.5">
-          {allDayActivities.map(act => (
-            <AllDayBanner
-              key={act.id}
-              activity={act}
-              color={getActivityColor(act)}
-              onClick={onActivityClick}
-              isMobileSelected={mobileSelectedId === act.id}
-              onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
-              onMobileClose={() => setMobileSelectedId(null)}
-              getTypeName={getTypeName}
-              visibility={visibility}
-            />
-          ))}
-        </div>
+          className="sticky top-10 z-30 w-full h-1 bg-primary/70 cursor-pointer hover:bg-primary hover:h-1.5 transition-all"
+          title={`${colBeforeActivities.length} before ${colEarliestTime ?? `${String(effectiveStart).padStart(2, '0')}:00`}`}
+        />
       )}
 
       {dragError && (
@@ -428,6 +398,30 @@ export default function PersonColumn({
               <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
             </div>
           ))}
+
+          {/* All-day events rendered as overlay blocks at the top of the grid */}
+          {allDayActivities.map((act, i) => {
+            const actColor = getActivityColor(act)
+            const bannerHeight = rowHeight / 2
+            return (
+              <div
+                key={act.id}
+                className="absolute left-0 right-0 z-15 pointer-events-auto"
+                style={{ top: i * bannerHeight, height: bannerHeight }}
+              >
+                <AllDayBanner
+                  activity={act}
+                  color={actColor}
+                  onClick={onActivityClick}
+                  isMobileSelected={mobileSelectedId === act.id}
+                  onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
+                  onMobileClose={() => setMobileSelectedId(null)}
+                  getTypeName={getTypeName}
+                  visibility={visibility}
+                />
+              </div>
+            )
+          })}
 
           {herbeLaned.map(({ activity: act, laneIndex, laneCount }) => {
             const isDragging = drag?.activity.id === act.id
@@ -545,16 +539,13 @@ export default function PersonColumn({
         )}
       </div>
 
-      {/* Bottom indicator banner */}
+      {/* Bottom edge indicator — thin line signaling off-grid content below */}
       {showBottomBanner && (
         <button
           onClick={() => onExpandDown?.()}
-          className="sticky bottom-0 z-30 w-full flex items-center justify-center gap-1 px-1 py-0.5 text-[9px] font-bold bg-primary/90 text-white cursor-pointer hover:bg-primary transition-colors"
-          title={`${colAfterActivities.length} after ${String(effectiveEnd).padStart(2, '0')}:00${colLatestTime ? ` (latest ${colLatestTime})` : ''}`}
-        >
-          <span>▼</span>
-          <span>{colAfterActivities.length} after {colLatestTime ?? `${String(effectiveEnd).padStart(2, '0')}:00`}</span>
-        </button>
+          className="sticky bottom-0 z-30 w-full h-1 bg-primary/70 cursor-pointer hover:bg-primary hover:h-1.5 transition-all"
+          title={`${colAfterActivities.length} after ${colLatestTime ?? `${String(effectiveEnd).padStart(2, '0')}:00`}`}
+        />
       )}
     </div>
   )
