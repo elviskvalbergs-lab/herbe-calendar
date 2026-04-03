@@ -205,7 +205,19 @@ export default function CalendarGrid({
       )}
 
       <div className="flex">
-        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} scale={scale} startHour={effectiveStartHour} endHour={effectiveEndHour} />
+        <TimeColumn
+          is3Day={state.view === '3day' || state.view === '5day'}
+          scale={scale}
+          startHour={effectiveStartHour}
+          endHour={effectiveEndHour}
+          canExpandUp={!expandedUp && (beforeCount > 0)}
+          canExpandDown={!expandedDown && (afterCount > 0)}
+          onExpandUp={() => {
+            setExpandedUp(true)
+            setTimeout(() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }, 50)
+          }}
+          onExpandDown={() => setExpandedDown(true)}
+        />
 
         {dates.map((date, dateIdx) => {
           const isMultiDay = state.view === '3day' || state.view === '5day'
@@ -286,16 +298,6 @@ export default function CalendarGrid({
                       visibility={visibility}
                       startHour={effectiveStartHour}
                       endHour={effectiveEndHour}
-                      onExpandUp={() => {
-                        setExpandedUp(true)
-                        // Scroll to top after expansion
-                        setTimeout(() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }, 50)
-                      }}
-                      onExpandDown={() => setExpandedDown(true)}
-                      beforeCount={beforeCount}
-                      afterCount={afterCount}
-                      earliestHour={earliestHour}
-                      latestHour={latestHour}
                       expandedUp={expandedUp}
                       expandedDown={expandedDown}
                     />

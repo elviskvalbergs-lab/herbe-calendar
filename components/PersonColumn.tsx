@@ -34,12 +34,6 @@ interface Props {
   visibility?: ShareVisibility
   startHour?: number
   endHour?: number
-  onExpandUp?: () => void
-  onExpandDown?: () => void
-  beforeCount?: number
-  afterCount?: number
-  earliestHour?: number
-  latestHour?: number
   expandedUp?: boolean
   expandedDown?: boolean
 }
@@ -225,8 +219,7 @@ export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
   mobileSelectedId = null, onMobileSelect, visibility,
-  startHour, endHour, onExpandUp, onExpandDown, beforeCount = 0, afterCount = 0,
-  earliestHour, latestHour, expandedUp = false, expandedDown = false
+  startHour, endHour, expandedUp = false, expandedDown = false
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -367,11 +360,7 @@ export default function PersonColumn({
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
       {/* Top edge indicator — thin line signaling off-grid content above */}
       {showTopBanner && (
-        <button
-          onClick={() => onExpandUp?.()}
-          className="sticky top-10 z-30 w-full h-1 bg-primary/70 cursor-pointer hover:bg-primary hover:h-1.5 transition-all"
-          title={`${colBeforeActivities.length} before ${colEarliestTime ?? `${String(effectiveStart).padStart(2, '0')}:00`}`}
-        />
+        <div className="sticky top-10 z-30 w-full h-1 bg-primary/70" />
       )}
 
       {dragError && (
@@ -541,11 +530,7 @@ export default function PersonColumn({
 
       {/* Bottom edge indicator — thin line signaling off-grid content below */}
       {showBottomBanner && (
-        <button
-          onClick={() => onExpandDown?.()}
-          className="sticky bottom-0 z-30 w-full h-1 bg-primary/70 cursor-pointer hover:bg-primary hover:h-1.5 transition-all"
-          title={`${colAfterActivities.length} after ${colLatestTime ?? `${String(effectiveEnd).padStart(2, '0')}:00`}`}
-        />
+        <div className="sticky bottom-0 z-30 w-full h-1 bg-primary/70" />
       )}
     </div>
   )
