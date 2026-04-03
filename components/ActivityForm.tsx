@@ -920,25 +920,34 @@ export default function ActivityForm({
           })()}
 
           {/* External attendees (Outlook only) */}
-          {source === 'outlook' && (
+          {source === 'outlook' && externalAttendees.length > 0 && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
-              <div className="flex flex-wrap gap-1 mb-1.5">
+              <div className="flex flex-wrap gap-1">
                 {externalAttendees.map(email => (
                   <span
                     key={email}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border border-border bg-border/30 text-text-muted"
                   >
                     {email}
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setExternalAttendees(prev => prev.filter(e => e !== email))}
-                      className="text-text-muted/60 hover:text-text leading-none"
-                    >×</button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setExternalAttendees(prev => prev.filter(e => e !== email))}
+                        className="text-text-muted/60 hover:text-text leading-none"
+                      >×</button>
+                    )}
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+          {source === 'outlook' && canEdit && (
+            <div>
+              {externalAttendees.length === 0 && (
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
+              )}
               <div className="flex gap-1.5">
                 <input
                   value={externalAttendeeInput}
@@ -1117,15 +1126,19 @@ export default function ActivityForm({
           )}
 
           {/* Location (Outlook only) */}
-          {source === 'outlook' && (
+          {source === 'outlook' && (location || canEdit) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
-              <input
-                value={location}
-                onChange={e => setLocation(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                placeholder="Add a location..."
-              />
+              {canEdit ? (
+                <input
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  placeholder="Add a location..."
+                />
+              ) : (
+                <p className="text-sm text-text-muted">{location}</p>
+              )}
             </div>
           )}
 
