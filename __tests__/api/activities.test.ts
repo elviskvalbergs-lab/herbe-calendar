@@ -23,6 +23,46 @@ describe('toHerbeForm', () => {
     const result = toHerbeForm({ CCPersons: '' }, new Set(['CCPersons']))
     expect(result).toContain('CCPersons')
   })
+
+  it('omits undefined and null values', () => {
+    const result = toHerbeForm({ a: undefined, b: null, c: 'ok' })
+    expect(result).toBe('set_field.c=ok')
+  })
+
+  it('encodes special characters', () => {
+    const result = toHerbeForm({ Comment: 'hello world & more' })
+    expect(result).toContain('set_field.Comment=hello%20world%20%26%20more')
+  })
+
+  it('handles Text field with short text', () => {
+    const result = toHerbeForm({ Text: 'short' })
+    expect(result).toContain('set_row_field.0.Text=short')
+  })
+
+  it('handles Text field with empty string', () => {
+    const result = toHerbeForm({ Text: '' }, new Set(['Text']))
+    expect(result).toContain('set_row_field.0.Text=')
+  })
+
+  it('chunks long Text into 100-char rows', () => {
+    const long = 'a'.repeat(250)
+    const result = toHerbeForm({ Text: long })
+    expect(result).toContain('set_row_field.0.Text=')
+    expect(result).toContain('set_row_field.1.Text=')
+    expect(result).toContain('set_row_field.2.Text=')
+  })
+
+  it('handles Text with newlines as separate rows', () => {
+    const result = toHerbeForm({ Text: 'line1\nline2' })
+    expect(result).toContain('set_row_field.0.Text=line1')
+    expect(result).toContain('set_row_field.1.Text=line2')
+  })
+
+  it('clears subsequent rows after text chunks', () => {
+    const result = toHerbeForm({ Text: 'short' })
+    // Should have clearing rows after the text
+    expect(result).toContain('set_row_field.1.Text=')
+  })
 })
 
 describe('GET /api/activities', () => {
