@@ -1,9 +1,11 @@
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR } from '@/lib/time'
 
-export default function TimeColumn({ is3Day = false, scale = 1 }: { is3Day?: boolean; scale?: number }) {
+export default function TimeColumn({ is3Day = false, scale = 1, startHour, endHour }: { is3Day?: boolean; scale?: number; startHour?: number; endHour?: number }) {
+  const start = startHour ?? GRID_START_HOUR
+  const end = endHour ?? GRID_END_HOUR
   const hours = Array.from(
-    { length: GRID_END_HOUR - GRID_START_HOUR },
-    (_, i) => GRID_START_HOUR + i
+    { length: end - start },
+    (_, i) => start + i
   )
   const rowHeight = PX_PER_HOUR * scale
   return (

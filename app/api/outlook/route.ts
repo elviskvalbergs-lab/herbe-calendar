@@ -119,6 +119,18 @@ export async function GET(req: NextRequest) {
         const rawRsvp = responseStatus?.['response']
         // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
         const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
+        // Map attendees
+        const rawAttendees = ev['attendees'] as Array<Record<string, unknown>> | undefined
+        const attendees = rawAttendees?.map(att => {
+          const emailAddr = att['emailAddress'] as Record<string, string> | undefined
+          const attResponse = att['status'] as Record<string, string> | undefined
+          return {
+            email: emailAddr?.['address'] ?? '',
+            name: emailAddr?.['name'] ?? undefined,
+            type: (att['type'] === 'optional' ? 'optional' : 'required') as 'required' | 'optional',
+            responseStatus: attResponse?.['response'] ?? undefined,
+          }
+        }).filter(a => a.email) ?? []
         return {
           id: String(ev['id'] ?? ''),
           source: 'outlook' as const,
@@ -128,6 +140,8 @@ export async function GET(req: NextRequest) {
           timeFrom: startDt.slice(11, 16),
           timeTo: endDt.slice(11, 16),
           isOrganizer: organizerEmail.toLowerCase() === email.toLowerCase(),
+          isOnlineMeeting: ev['isOnlineMeeting'] === true,
+          attendees,
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
           joinUrl,

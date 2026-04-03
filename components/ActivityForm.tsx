@@ -89,6 +89,15 @@ export default function ActivityForm({
   const [recentCCPersonCodes, setRecentCCPersonCodes] = useState<string[]>([])
   const [rsvpStatus, setRsvpStatus] = useState<Activity['rsvpStatus']>(initial?.rsvpStatus)
   const [rsvpLoading, setRsvpLoading] = useState(false)
+  // Outlook-specific: external attendees, location, Teams toggle
+  const [externalAttendees, setExternalAttendees] = useState<string[]>(() => {
+    if (!initial?.attendees) return []
+    const internalEmails = new Set(people.map(p => p.email.toLowerCase()).filter(Boolean))
+    return initial.attendees.filter(a => !internalEmails.has(a.email.toLowerCase())).map(a => a.email)
+  })
+  const [externalAttendeeInput, setExternalAttendeeInput] = useState('')
+  const [location, setLocation] = useState(initial?.location ?? '')
+  const [isOnlineMeeting, setIsOnlineMeeting] = useState(initial?.isOnlineMeeting ?? !isEdit)
   const handleSaveRef = useRef<() => void>(() => {})
   const handleDuplicateRef = useRef<() => void>(() => {})
   const handleCloseRef = useRef<() => void>(() => {})
@@ -297,6 +306,16 @@ export default function ActivityForm({
     }
   }
 
+  function addExternalAttendee() {
+    const email = externalAttendeeInput.trim().toLowerCase()
+    if (!email || !email.includes('@') || !email.includes('.')) return
+    if (externalAttendees.includes(email)) return
+    // Don't add if it matches an internal person's email
+    if (people.some(p => p.email.toLowerCase() === email)) return
+    setExternalAttendees(prev => [...prev, email])
+    setExternalAttendeeInput('')
+  }
+
   function buildHerbePayload() {
     return {
       Comment: description,
@@ -315,17 +334,28 @@ export default function ActivityForm({
   }
 
   function buildOutlookPayload() {
-    return {
+    const internalAttendees = selectedPersonCodes
+      .map(code => people.find(p => p.code === code))
+      .filter((p): p is Person => !!p && !!p.email)
+      .map(p => ({ emailAddress: { address: p.email, name: p.name }, type: 'required' as const }))
+    const external = externalAttendees.map(email => ({
+      emailAddress: { address: email },
+      type: 'required' as const,
+    }))
+    const payload: Record<string, unknown> = {
       subject: description,
       start: { dateTime: `${date}T${timeFrom}:00`, timeZone: 'Europe/Riga' },
       end: { dateTime: `${date}T${timeTo}:00`, timeZone: 'Europe/Riga' },
-      isOnlineMeeting: true,
-      onlineMeetingProvider: 'teamsForBusiness',
-      attendees: selectedPersonCodes
-        .map(code => people.find(p => p.code === code))
-        .filter((p): p is Person => !!p && !!p.email)
-        .map(p => ({ emailAddress: { address: p.email }, type: 'required' })),
+      attendees: [...internalAttendees, ...external],
     }
+    if (location.trim()) {
+      payload.location = { displayName: location.trim() }
+    }
+    if (!isEdit) {
+      payload.isOnlineMeeting = isOnlineMeeting
+      if (isOnlineMeeting) payload.onlineMeetingProvider = 'teamsForBusiness'
+    }
+    return payload
   }
 
   async function handleSave() {
@@ -889,6 +919,49 @@ export default function ActivityForm({
             )
           })()}
 
+          {/* External attendees (Outlook only) */}
+          {source === 'outlook' && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {externalAttendees.map(email => (
+                  <span
+                    key={email}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border border-border bg-border/30 text-text-muted"
+                  >
+                    {email}
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setExternalAttendees(prev => prev.filter(e => e !== email))}
+                      className="text-text-muted/60 hover:text-text leading-none"
+                    >×</button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
+                <input
+                  value={externalAttendeeInput}
+                  onChange={e => setExternalAttendeeInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addExternalAttendee()
+                    }
+                  }}
+                  className="flex-1 bg-bg border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary"
+                  placeholder="Add external email..."
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={addExternalAttendee}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                >+</button>
+              </div>
+            </div>
+          )}
+
           {/* Description — and all editable fields below; disabled visually when canEdit is false */}
           <div
             className={`space-y-3${canEdit === false ? ' pointer-events-none select-none opacity-50' : ''}`}
@@ -1029,6 +1102,32 @@ export default function ActivityForm({
               </div>
             )
           })()}
+
+          {/* Teams meeting toggle (Outlook create only) */}
+          {source === 'outlook' && !isEdit && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isOnlineMeeting}
+                onChange={e => setIsOnlineMeeting(e.target.checked)}
+                className="accent-primary w-4 h-4"
+              />
+              <span className="text-xs font-bold text-text-muted">Teams meeting</span>
+            </label>
+          )}
+
+          {/* Location (Outlook only) */}
+          {source === 'outlook' && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
+              <input
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                placeholder="Add a location..."
+              />
+            </div>
+          )}
 
           {/* Activity type (Herbe only) */}
           {source === 'herbe' && (

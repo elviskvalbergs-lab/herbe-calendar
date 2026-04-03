@@ -32,6 +32,16 @@ interface Props {
   mobileSelectedId?: string | null
   onMobileSelect?: (id: string | null) => void
   visibility?: ShareVisibility
+  startHour?: number
+  endHour?: number
+  onExpandUp?: () => void
+  onExpandDown?: () => void
+  beforeCount?: number
+  afterCount?: number
+  earliestHour?: number
+  latestHour?: number
+  expandedUp?: boolean
+  expandedDown?: boolean
 }
 
 interface DragState {
@@ -214,7 +224,9 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
-  mobileSelectedId = null, onMobileSelect, visibility
+  mobileSelectedId = null, onMobileSelect, visibility,
+  startHour, endHour, onExpandUp, onExpandDown, beforeCount = 0, afterCount = 0,
+  earliestHour, latestHour, expandedUp = false, expandedDown = false
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -222,7 +234,9 @@ export default function PersonColumn({
   const suppressClickRef = useRef(false)
   const setMobileSelectedId = onMobileSelect ?? (() => {})
 
-  const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
+  const effectiveStart = startHour ?? GRID_START_HOUR
+  const effectiveEnd = endHour ?? GRID_END_HOUR
+  const hours = Array.from({ length: effectiveEnd - effectiveStart }, (_, i) => effectiveStart + i)
 
   function canEdit(activity: Activity): boolean {
     if (activity.source === 'outlook') return !!activity.isOrganizer
@@ -261,12 +275,12 @@ export default function PersonColumn({
       if (type === 'move') {
         const fromMins = timeToMinutes(dragState.originalFrom) + rawDeltaMins
         const toMins = timeToMinutes(dragState.originalTo) + rawDeltaMins
-        dragState.currentFrom = minutesToTime(Math.max(GRID_START_HOUR * 60, fromMins))
-        dragState.currentTo = minutesToTime(Math.min(GRID_END_HOUR * 60, toMins))
+        dragState.currentFrom = minutesToTime(Math.max(effectiveStart * 60, fromMins))
+        dragState.currentTo = minutesToTime(Math.min(effectiveEnd * 60, toMins))
       } else {
         const toMins = timeToMinutes(dragState.originalTo) + rawDeltaMins
         dragState.currentTo = minutesToTime(
-          Math.max(timeToMinutes(dragState.originalFrom) + 15, Math.min(GRID_END_HOUR * 60, toMins))
+          Math.max(timeToMinutes(dragState.originalFrom) + 15, Math.min(effectiveEnd * 60, toMins))
         )
       }
       setDrag({ ...dragState })
@@ -328,6 +342,18 @@ export default function PersonColumn({
   const allDayActivities = activities.filter(a => a.isAllDay)
   const timedActivities = activities.filter(a => !a.isAllDay)
 
+  // Per-column off-grid activity stats for banners
+  const colBeforeActivities = timedActivities.filter(a => timeToMinutes(a.timeFrom) < effectiveStart * 60)
+  const colAfterActivities = timedActivities.filter(a => timeToMinutes(a.timeTo) > effectiveEnd * 60)
+  const colEarliestTime = colBeforeActivities.length > 0
+    ? colBeforeActivities.reduce((min, a) => a.timeFrom < min ? a.timeFrom : min, colBeforeActivities[0].timeFrom)
+    : null
+  const colLatestTime = colAfterActivities.length > 0
+    ? colAfterActivities.reduce((max, a) => a.timeTo > max ? a.timeTo : max, colAfterActivities[0].timeTo)
+    : null
+  const showTopBanner = !expandedUp && (colBeforeActivities.length > 0 || allDayActivities.length > 0)
+  const showBottomBanner = !expandedDown && colAfterActivities.length > 0
+
   const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
   const outlookActivities = timedActivities.filter(a => a.source === 'outlook')
   const hasBoth = herbeActivities.length > 0 && outlookActivities.length > 0
@@ -339,6 +365,26 @@ export default function PersonColumn({
 
   return (
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
+      {/* Top indicator banner */}
+      {showTopBanner && (
+        <button
+          onClick={() => onExpandUp?.()}
+          className="sticky top-10 z-30 w-full flex items-center justify-center gap-1 px-1 py-0.5 text-[9px] font-bold bg-primary/90 text-white cursor-pointer hover:bg-primary transition-colors"
+          title={[
+            allDayActivities.length > 0 ? `${allDayActivities.length} all-day` : '',
+            colBeforeActivities.length > 0 ? `${colBeforeActivities.length} before ${String(effectiveStart).padStart(2, '0')}:00${colEarliestTime ? ` (earliest ${colEarliestTime})` : ''}` : '',
+          ].filter(Boolean).join(' + ')}
+        >
+          <span>
+            {[
+              allDayActivities.length > 0 ? `${allDayActivities.length} all-day` : '',
+              colBeforeActivities.length > 0 ? `${colBeforeActivities.length} before ${colEarliestTime ?? `${String(effectiveStart).padStart(2, '0')}:00`}` : '',
+            ].filter(Boolean).join(' · ')}
+          </span>
+          <span>▲</span>
+        </button>
+      )}
+
       {/* All-day event banners */}
       {allDayActivities.length > 0 && (
         <div className="border-b border-border bg-surface/50 px-1 py-0.5 space-y-0.5">
@@ -423,11 +469,12 @@ export default function PersonColumn({
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
                   visibility={visibility}
+                  startHour={effectiveStart}
                 />
                 {isDragging && (
                   <div
                     className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                    style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
+                    style={{ top: timeToTopPx(drag!.currentFrom, scale, effectiveStart) - 14, color: actColor }}
                   >
                     {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                   </div>
@@ -481,11 +528,12 @@ export default function PersonColumn({
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                       : undefined}
                     visibility={visibility}
+                    startHour={effectiveStart}
                   />
                   {isDragging && (
                     <div
                       className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                      style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
+                      style={{ top: timeToTopPx(drag!.currentFrom, scale, effectiveStart) - 14, color: actColor }}
                     >
                       {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                     </div>
@@ -496,6 +544,18 @@ export default function PersonColumn({
           </div>
         )}
       </div>
+
+      {/* Bottom indicator banner */}
+      {showBottomBanner && (
+        <button
+          onClick={() => onExpandDown?.()}
+          className="sticky bottom-0 z-30 w-full flex items-center justify-center gap-1 px-1 py-0.5 text-[9px] font-bold bg-primary/90 text-white cursor-pointer hover:bg-primary transition-colors"
+          title={`${colAfterActivities.length} after ${String(effectiveEnd).padStart(2, '0')}:00${colLatestTime ? ` (latest ${colLatestTime})` : ''}`}
+        >
+          <span>▼</span>
+          <span>{colAfterActivities.length} after {colLatestTime ?? `${String(effectiveEnd).padStart(2, '0')}:00`}</span>
+        </button>
+      )}
     </div>
   )
 }

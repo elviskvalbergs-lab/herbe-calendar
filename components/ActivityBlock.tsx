@@ -46,10 +46,11 @@ interface Props {
   onMobileTap?: (id: string) => void
   onMobileClose?: () => void
   visibility?: ShareVisibility
+  startHour?: number
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility }: Props) {
-  const top = timeToTopPx(activity.timeFrom, scale)
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility, startHour }: Props) {
+  const top = timeToTopPx(activity.timeFrom, scale, startHour)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
@@ -244,6 +245,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               )}
               {activity.customerName && (
                 <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
+              )}
+              {activity.location && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📍 {activity.location}</p>
               )}
               {activity.icsCalendarName && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>

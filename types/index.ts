@@ -25,7 +25,10 @@ export interface Activity {
   mainPersons?: string[]  // Herbe: all persons on the activity
   accessGroup?: string    // comma-separated person codes (Herbe)
   planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
+  location?: string        // Outlook: meeting location
   isOrganizer?: boolean   // Outlook only
+  isOnlineMeeting?: boolean // Outlook: whether it's a Teams meeting
+  attendees?: { email: string; name?: string; type: 'required' | 'optional'; responseStatus?: string }[]
   joinUrl?: string        // Outlook/Teams meeting join link
   webLink?: string        // Outlook web UI link that opens this specific event
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
