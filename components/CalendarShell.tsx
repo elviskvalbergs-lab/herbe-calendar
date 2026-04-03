@@ -312,7 +312,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         const list: Person[] = users.map(u => ({
           code: u['Code'] as string,
           name: u['Name'] as string,
-          email: u['Email'] as string,
+          email: (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string,
         }))
         setPeople(list)
         peopleLoadedRef.current = true

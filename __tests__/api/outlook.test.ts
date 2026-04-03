@@ -27,7 +27,7 @@ describe('PUT /api/outlook/[id] — organizer guard', () => {
       method: 'PUT',
       body: JSON.stringify({ subject: 'updated' }),
     })
-    const res = await PUT(req as any, { params: { id: 'evt1' } })
+    const res = await PUT(req as any, { params: Promise.resolve({ id: 'evt1' }) })
     expect(res.status).toBe(403)
   })
 
@@ -42,7 +42,7 @@ describe('PUT /api/outlook/[id] — organizer guard', () => {
       method: 'PUT',
       body: JSON.stringify({ subject: 'updated' }),
     })
-    const res = await PUT(req as any, { params: { id: 'evt1' } })
+    const res = await PUT(req as any, { params: Promise.resolve({ id: 'evt1' }) })
     expect(graphFetch).toHaveBeenCalledWith(
       expect.stringContaining('evt1'),
       expect.objectContaining({ method: 'PATCH' })

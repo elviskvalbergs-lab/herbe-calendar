@@ -1,4 +1,4 @@
-import { getHerbeToken, herbeUrl } from '@/lib/herbe/client'
+import { herbeUrl, herbeUrlById } from '@/lib/herbe/client'
 
 describe('herbeUrl', () => {
   it('constructs the correct ERP endpoint URL', () => {
@@ -16,9 +16,10 @@ describe('herbeUrl', () => {
   })
 })
 
-describe('getHerbeToken', () => {
-  it('throws if HERBE_CLIENT_ID is missing', async () => {
-    delete process.env.HERBE_CLIENT_ID
-    await expect(getHerbeToken()).rejects.toThrow('HERBE_CLIENT_ID')
+describe('herbeUrlById', () => {
+  it('constructs URL with register and id', () => {
+    process.env.HERBE_API_BASE_URL = 'https://example.com/api'
+    process.env.HERBE_COMPANY_CODE = '3'
+    expect(herbeUrlById('ActVc', '12345')).toBe('https://example.com/api/3/ActVc/12345')
   })
 })
