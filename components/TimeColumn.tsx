@@ -15,8 +15,6 @@ interface Props {
   onContractDown?: () => void
 }
 
-const btnClass = 'w-full flex items-center justify-center py-1 text-text-muted text-[10px] leading-none font-bold border-b border-border/30 hover:bg-border transition-colors cursor-pointer'
-
 export default function TimeColumn({
   is3Day = false, scale = 1, startHour, endHour,
   canExpandUp, canExpandDown, canContractUp, canContractDown,
@@ -29,21 +27,27 @@ export default function TimeColumn({
     (_, i) => start + i
   )
   const rowHeight = PX_PER_HOUR * scale
+  const showTop = canExpandUp || canContractUp
+  const showBottom = canExpandDown || canContractDown
   return (
     <div className="w-12 shrink-0 sticky left-0 z-10 bg-surface">
       <div className={`${is3Day ? 'h-16' : 'h-10'} border-b border-border`} /> {/* header spacer */}
       {/* Expand / contract top */}
-      {(canExpandUp || canContractUp) && (
-        <div className="flex">
+      {showTop && (
+        <div className="flex justify-center gap-0.5 py-1 border-b border-border/30">
           {canExpandUp && (
-            <button onClick={onExpandUp} className={btnClass} title="Show earlier hours">
-              ▲
-            </button>
+            <button
+              onClick={onExpandUp}
+              className="w-5 h-5 flex items-center justify-center rounded-lg bg-primary/80 text-white text-[10px] font-bold shadow active:bg-primary"
+              title="Show earlier hours"
+            >▲</button>
           )}
           {canContractUp && (
-            <button onClick={onContractUp} className={btnClass} title="Hide earlier hours">
-              ▼
-            </button>
+            <button
+              onClick={onContractUp}
+              className="w-5 h-5 flex items-center justify-center rounded-lg bg-primary/80 text-white text-[10px] font-bold shadow active:bg-primary"
+              title="Hide earlier hours"
+            >▼</button>
           )}
         </div>
       )}
@@ -57,17 +61,21 @@ export default function TimeColumn({
         </div>
       ))}
       {/* Expand / contract bottom */}
-      {(canExpandDown || canContractDown) && (
-        <div className="flex">
+      {showBottom && (
+        <div className="flex justify-center gap-0.5 py-1 border-t border-border/30">
           {canContractDown && (
-            <button onClick={onContractDown} className={btnClass} title="Hide later hours">
-              ▲
-            </button>
+            <button
+              onClick={onContractDown}
+              className="w-5 h-5 flex items-center justify-center rounded-lg bg-primary/80 text-white text-[10px] font-bold shadow active:bg-primary"
+              title="Hide later hours"
+            >▲</button>
           )}
           {canExpandDown && (
-            <button onClick={onExpandDown} className={btnClass} title="Show later hours">
-              ▼
-            </button>
+            <button
+              onClick={onExpandDown}
+              className="w-5 h-5 flex items-center justify-center rounded-lg bg-primary/80 text-white text-[10px] font-bold shadow active:bg-primary"
+              title="Show later hours"
+            >▼</button>
           )}
         </div>
       )}

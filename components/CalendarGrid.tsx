@@ -219,8 +219,28 @@ export default function CalendarGrid({
             setTimeout(() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }, 50)
           }}
           onExpandDown={() => setExpandedDown(true)}
-          onContractUp={() => setExpandedUp(false)}
-          onContractDown={() => setExpandedDown(false)}
+          onContractUp={() => {
+            setExpandedUp(false)
+            // Scroll to keep the default grid start visible
+            setTimeout(() => {
+              if (scrollRef.current) {
+                const target = minutesToPx((8 - GRID_START_HOUR) * 60, scale)
+                scrollRef.current.scrollTo({ top: Math.min(scrollRef.current.scrollTop, target), behavior: 'smooth' })
+              }
+            }, 50)
+          }}
+          onContractDown={() => {
+            setExpandedDown(false)
+            // Clamp scroll if it's now past the end of the shorter grid
+            setTimeout(() => {
+              if (scrollRef.current) {
+                const maxScroll = scrollRef.current.scrollHeight - scrollRef.current.clientHeight
+                if (scrollRef.current.scrollTop > maxScroll) {
+                  scrollRef.current.scrollTo({ top: maxScroll, behavior: 'smooth' })
+                }
+              }
+            }, 50)
+          }}
         />
 
         {dates.map((date, dateIdx) => {
@@ -315,6 +335,25 @@ export default function CalendarGrid({
                       startHour={effectiveStartHour}
                       endHour={effectiveEndHour}
                     />
+                  )
+                })}
+              </div>
+
+              {/* Bottom indicator bar — shows per person if they have activities past grid end */}
+              <div className="flex sticky bottom-0 z-20 bg-surface">
+                {state.selectedPersons.map((person) => {
+                  const pa = activities.filter(a => a.personCode === person.code && a.date === date)
+                  const hasAfter = pa.some(a => !a.isAllDay && timeToMinutes(a.timeTo) > effectiveEndHour * 60)
+                  return (
+                    <div
+                      key={person.code}
+                      className="flex-1 border-r border-border last:border-r-0 relative"
+                      style={colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : undefined}
+                    >
+                      {hasAfter && (
+                        <div className="h-[3px] bg-amber-500" />
+                      )}
+                    </div>
                   )
                 })}
               </div>
