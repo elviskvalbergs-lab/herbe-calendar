@@ -7,11 +7,21 @@ interface Props {
   endHour?: number
   canExpandUp?: boolean
   canExpandDown?: boolean
+  canContractUp?: boolean
+  canContractDown?: boolean
   onExpandUp?: () => void
   onExpandDown?: () => void
+  onContractUp?: () => void
+  onContractDown?: () => void
 }
 
-export default function TimeColumn({ is3Day = false, scale = 1, startHour, endHour, canExpandUp, canExpandDown, onExpandUp, onExpandDown }: Props) {
+const btnClass = 'w-full flex items-center justify-center py-1 text-text-muted text-[10px] leading-none font-bold border-b border-border/30 hover:bg-border transition-colors cursor-pointer'
+
+export default function TimeColumn({
+  is3Day = false, scale = 1, startHour, endHour,
+  canExpandUp, canExpandDown, canContractUp, canContractDown,
+  onExpandUp, onExpandDown, onContractUp, onContractDown,
+}: Props) {
   const start = startHour ?? GRID_START_HOUR
   const end = endHour ?? GRID_END_HOUR
   const hours = Array.from(
@@ -22,13 +32,20 @@ export default function TimeColumn({ is3Day = false, scale = 1, startHour, endHo
   return (
     <div className="w-12 shrink-0 sticky left-0 z-10 bg-surface">
       <div className={`${is3Day ? 'h-16' : 'h-10'} border-b border-border`} /> {/* header spacer */}
-      {/* Expand up button */}
-      {canExpandUp && (
-        <button
-          onClick={onExpandUp}
-          className="w-full flex items-center justify-center py-0.5 text-[9px] font-bold text-primary hover:text-white hover:bg-primary/80 transition-colors"
-          title="Show earlier hours"
-        >▲</button>
+      {/* Expand / contract top */}
+      {(canExpandUp || canContractUp) && (
+        <div className="flex">
+          {canExpandUp && (
+            <button onClick={onExpandUp} className={btnClass} title="Show earlier hours">
+              ▲
+            </button>
+          )}
+          {canContractUp && (
+            <button onClick={onContractUp} className={btnClass} title="Hide earlier hours">
+              ▼
+            </button>
+          )}
+        </div>
       )}
       {hours.map(h => (
         <div key={h} className="border-b border-border/30 relative" style={{ height: rowHeight }}>
@@ -39,13 +56,20 @@ export default function TimeColumn({ is3Day = false, scale = 1, startHour, endHo
           <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
         </div>
       ))}
-      {/* Expand down button */}
-      {canExpandDown && (
-        <button
-          onClick={onExpandDown}
-          className="w-full flex items-center justify-center py-0.5 text-[9px] font-bold text-primary hover:text-white hover:bg-primary/80 transition-colors"
-          title="Show later hours"
-        >▼</button>
+      {/* Expand / contract bottom */}
+      {(canExpandDown || canContractDown) && (
+        <div className="flex">
+          {canContractDown && (
+            <button onClick={onContractDown} className={btnClass} title="Hide later hours">
+              ▲
+            </button>
+          )}
+          {canExpandDown && (
+            <button onClick={onExpandDown} className={btnClass} title="Show later hours">
+              ▼
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

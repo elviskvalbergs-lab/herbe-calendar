@@ -210,13 +210,17 @@ export default function CalendarGrid({
           scale={scale}
           startHour={effectiveStartHour}
           endHour={effectiveEndHour}
-          canExpandUp={!expandedUp && (beforeCount > 0)}
-          canExpandDown={!expandedDown && (afterCount > 0)}
+          canExpandUp={!expandedUp && beforeCount > 0}
+          canExpandDown={!expandedDown && afterCount > 0}
+          canContractUp={expandedUp}
+          canContractDown={expandedDown}
           onExpandUp={() => {
             setExpandedUp(true)
             setTimeout(() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }, 50)
           }}
           onExpandDown={() => setExpandedDown(true)}
+          onContractUp={() => setExpandedUp(false)}
+          onContractDown={() => setExpandedDown(false)}
         />
 
         {dates.map((date, dateIdx) => {
@@ -252,23 +256,35 @@ export default function CalendarGrid({
                   </div>
                 )}
                 <div className="flex border-b border-border h-10">
-                  {state.selectedPersons.map((person, personIdx) => (
-                    <div
-                      key={person.code}
-                      className="flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0"
-                      style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
-                      title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
-                    >
-                      {!visibility && personCount > 1 ? (
-                        <button
-                          onClick={() => onDrillPerson?.(person.code)}
-                          className="underline decoration-border hover:decoration-current active:opacity-70"
-                        >
-                          {person.code}
-                        </button>
-                      ) : person.code}
-                    </div>
-                  ))}
+                  {state.selectedPersons.map((person, personIdx) => {
+                    const pa = activities.filter(a => a.personCode === person.code && a.date === date)
+                    const hasOffGrid = pa.some(a => !a.isAllDay && (
+                      timeToMinutes(a.timeFrom) < effectiveStartHour * 60 ||
+                      timeToMinutes(a.timeTo) > effectiveEndHour * 60
+                    ))
+                    const hasAllDay = pa.some(a => a.isAllDay)
+                    const hasIndicator = hasOffGrid || hasAllDay
+                    return (
+                      <div
+                        key={person.code}
+                        className="flex-1 flex flex-col items-center justify-center text-xs font-bold border-r border-border last:border-r-0 relative"
+                        style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
+                        title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
+                      >
+                        {!visibility && personCount > 1 ? (
+                          <button
+                            onClick={() => onDrillPerson?.(person.code)}
+                            className="underline decoration-border hover:decoration-current active:opacity-70"
+                          >
+                            {person.code}
+                          </button>
+                        ) : person.code}
+                        {hasIndicator && (
+                          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-amber-500" />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -298,8 +314,6 @@ export default function CalendarGrid({
                       visibility={visibility}
                       startHour={effectiveStartHour}
                       endHour={effectiveEndHour}
-                      expandedUp={expandedUp}
-                      expandedDown={expandedDown}
                     />
                   )
                 })}

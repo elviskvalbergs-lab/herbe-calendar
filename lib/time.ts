@@ -29,8 +29,8 @@ export function snapToQuarter(minutes: number): number {
 }
 
 /** Grid start and end hours */
-export const GRID_START_HOUR = 6
-export const GRID_END_HOUR = 22
+export const GRID_START_HOUR = 7
+export const GRID_END_HOUR = 19
 export const GRID_TOTAL_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60
 
 /** Offset in px from top of grid for a given "HH:mm" time */

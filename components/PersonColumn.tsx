@@ -34,8 +34,6 @@ interface Props {
   visibility?: ShareVisibility
   startHour?: number
   endHour?: number
-  expandedUp?: boolean
-  expandedDown?: boolean
 }
 
 interface DragState {
@@ -219,7 +217,7 @@ export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
   mobileSelectedId = null, onMobileSelect, visibility,
-  startHour, endHour, expandedUp = false, expandedDown = false
+  startHour, endHour
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -335,17 +333,6 @@ export default function PersonColumn({
   const allDayActivities = activities.filter(a => a.isAllDay)
   const timedActivities = activities.filter(a => !a.isAllDay)
 
-  // Per-column off-grid activity stats for banners
-  const colBeforeActivities = timedActivities.filter(a => timeToMinutes(a.timeFrom) < effectiveStart * 60)
-  const colAfterActivities = timedActivities.filter(a => timeToMinutes(a.timeTo) > effectiveEnd * 60)
-  const colEarliestTime = colBeforeActivities.length > 0
-    ? colBeforeActivities.reduce((min, a) => a.timeFrom < min ? a.timeFrom : min, colBeforeActivities[0].timeFrom)
-    : null
-  const colLatestTime = colAfterActivities.length > 0
-    ? colAfterActivities.reduce((max, a) => a.timeTo > max ? a.timeTo : max, colAfterActivities[0].timeTo)
-    : null
-  const showTopBanner = !expandedUp && colBeforeActivities.length > 0
-  const showBottomBanner = !expandedDown && colAfterActivities.length > 0
 
   const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
   const outlookActivities = timedActivities.filter(a => a.source === 'outlook')
@@ -358,11 +345,6 @@ export default function PersonColumn({
 
   return (
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
-      {/* Top edge indicator — thin line signaling off-grid content above */}
-      {showTopBanner && (
-        <div className="sticky top-10 z-30 w-full h-1 bg-primary/70" />
-      )}
-
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
@@ -528,10 +510,6 @@ export default function PersonColumn({
         )}
       </div>
 
-      {/* Bottom edge indicator — thin line signaling off-grid content below */}
-      {showBottomBanner && (
-        <div className="sticky bottom-0 z-30 w-full h-1 bg-primary/70" />
-      )}
     </div>
   )
 }
