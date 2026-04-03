@@ -215,19 +215,27 @@ export default function CalendarGrid({
           canContractUp={expandedUp}
           canContractDown={expandedDown}
           onExpandUp={() => {
+            // Calculate how many extra hours will be added
+            const addedHours = GRID_START_HOUR - earliestHour
+            const addedPx = minutesToPx(addedHours * 60, scale)
             setExpandedUp(true)
-            setTimeout(() => { scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) }, 50)
+            // Compensate scroll so the viewport stays at the same content
+            requestAnimationFrame(() => {
+              if (scrollRef.current) {
+                scrollRef.current.scrollTop += addedPx
+              }
+            })
           }}
           onExpandDown={() => setExpandedDown(true)}
           onContractUp={() => {
+            const removedHours = GRID_START_HOUR - earliestHour
+            const removedPx = minutesToPx(removedHours * 60, scale)
             setExpandedUp(false)
-            // Scroll to keep the default grid start visible
-            setTimeout(() => {
+            requestAnimationFrame(() => {
               if (scrollRef.current) {
-                const target = minutesToPx((8 - GRID_START_HOUR) * 60, scale)
-                scrollRef.current.scrollTo({ top: Math.min(scrollRef.current.scrollTop, target), behavior: 'smooth' })
+                scrollRef.current.scrollTop = Math.max(0, scrollRef.current.scrollTop - removedPx)
               }
-            }, 50)
+            })
           }}
           onContractDown={() => {
             setExpandedDown(false)
@@ -300,7 +308,7 @@ export default function CalendarGrid({
                           </button>
                         ) : person.code}
                         {hasIndicator && (
-                          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-amber-500" />
+                          <div className="absolute bottom-0 left-0 right-0 h-px bg-red-500" />
                         )}
                       </div>
                     )
@@ -351,7 +359,7 @@ export default function CalendarGrid({
                       style={colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : undefined}
                     >
                       {hasAfter && (
-                        <div className="h-[3px] bg-amber-500" />
+                        <div className="h-px bg-red-500" />
                       )}
                     </div>
                   )
