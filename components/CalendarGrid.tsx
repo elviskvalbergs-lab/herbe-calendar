@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
@@ -103,8 +103,9 @@ export default function CalendarGrid({
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compensate scroll when grid range changes (expand/contract)
+  // useLayoutEffect runs synchronously before paint, preventing visible jump
   const prevStartHourRef = useRef(effectiveStartHour)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!scrollRef.current) return
     const prevStart = prevStartHourRef.current
     if (prevStart !== effectiveStartHour) {

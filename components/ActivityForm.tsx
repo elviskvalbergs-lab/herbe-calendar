@@ -92,8 +92,8 @@ export default function ActivityForm({
   // Outlook-specific: external attendees, location, Teams toggle
   const [externalAttendees, setExternalAttendees] = useState<string[]>(() => {
     if (!initial?.attendees) return []
-    const internalEmails = new Set(people.map(p => p.email.toLowerCase()).filter(Boolean))
-    return initial.attendees.filter(a => !internalEmails.has(a.email.toLowerCase())).map(a => a.email)
+    const internalEmails = new Set(people.map(p => (p.email || '').toLowerCase()).filter(Boolean))
+    return initial.attendees.filter(a => a.email && !internalEmails.has(a.email.toLowerCase())).map(a => a.email)
   })
   const [externalAttendeeInput, setExternalAttendeeInput] = useState('')
   const [location, setLocation] = useState(initial?.location ?? '')
@@ -311,7 +311,7 @@ export default function ActivityForm({
     if (!email || !email.includes('@') || !email.includes('.')) return
     if (externalAttendees.includes(email)) return
     // Don't add if it matches an internal person's email
-    if (people.some(p => p.email.toLowerCase() === email)) return
+    if (people.some(p => p.email && p.email.toLowerCase() === email)) return
     setExternalAttendees(prev => [...prev, email])
     setExternalAttendeeInput('')
   }
