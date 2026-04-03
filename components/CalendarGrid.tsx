@@ -102,6 +102,19 @@ export default function CalendarGrid({
     scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - effectiveStartHour) * 60, scale)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Compensate scroll when grid range changes (expand/contract)
+  const prevStartHourRef = useRef(effectiveStartHour)
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const prevStart = prevStartHourRef.current
+    if (prevStart !== effectiveStartHour) {
+      const deltaHours = prevStart - effectiveStartHour // positive = expanded up (more hours added at top)
+      const deltaPx = minutesToPx(deltaHours * 60, scale)
+      scrollRef.current.scrollTop += deltaPx
+      prevStartHourRef.current = effectiveStartHour
+    }
+  }, [effectiveStartHour, scale])
+
   // Preserve scroll position proportionally when zoom changes
   useEffect(() => {
     if (!scrollRef.current) return
@@ -214,41 +227,10 @@ export default function CalendarGrid({
           canExpandDown={!expandedDown && afterCount > 0}
           canContractUp={expandedUp}
           canContractDown={expandedDown}
-          onExpandUp={() => {
-            // Calculate how many extra hours will be added
-            const addedHours = GRID_START_HOUR - earliestHour
-            const addedPx = minutesToPx(addedHours * 60, scale)
-            setExpandedUp(true)
-            // Compensate scroll so the viewport stays at the same content
-            requestAnimationFrame(() => {
-              if (scrollRef.current) {
-                scrollRef.current.scrollTop += addedPx
-              }
-            })
-          }}
+          onExpandUp={() => setExpandedUp(true)}
           onExpandDown={() => setExpandedDown(true)}
-          onContractUp={() => {
-            const removedHours = GRID_START_HOUR - earliestHour
-            const removedPx = minutesToPx(removedHours * 60, scale)
-            setExpandedUp(false)
-            requestAnimationFrame(() => {
-              if (scrollRef.current) {
-                scrollRef.current.scrollTop = Math.max(0, scrollRef.current.scrollTop - removedPx)
-              }
-            })
-          }}
-          onContractDown={() => {
-            setExpandedDown(false)
-            // Clamp scroll if it's now past the end of the shorter grid
-            setTimeout(() => {
-              if (scrollRef.current) {
-                const maxScroll = scrollRef.current.scrollHeight - scrollRef.current.clientHeight
-                if (scrollRef.current.scrollTop > maxScroll) {
-                  scrollRef.current.scrollTo({ top: maxScroll, behavior: 'smooth' })
-                }
-              }
-            }, 50)
-          }}
+          onContractUp={() => setExpandedUp(false)}
+          onContractDown={() => setExpandedDown(false)}
         />
 
         {dates.map((date, dateIdx) => {
@@ -283,7 +265,7 @@ export default function CalendarGrid({
                     )}
                   </div>
                 )}
-                <div className="flex border-b border-border h-10">
+                <div className="flex h-10">
                   {state.selectedPersons.map((person, personIdx) => {
                     const pa = activities.filter(a => a.personCode === person.code && a.date === date)
                     const hasOffGrid = pa.some(a => !a.isAllDay && (
@@ -295,7 +277,7 @@ export default function CalendarGrid({
                     return (
                       <div
                         key={person.code}
-                        className="flex-1 flex flex-col items-center justify-center text-xs font-bold border-r border-border last:border-r-0 relative"
+                        className={`flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0 border-b ${hasIndicator ? 'border-b-red-500' : 'border-b-border'}`}
                         style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                         title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                       >
@@ -307,9 +289,6 @@ export default function CalendarGrid({
                             {person.code}
                           </button>
                         ) : person.code}
-                        {hasIndicator && (
-                          <div className="absolute bottom-0 left-0 right-0 h-px bg-red-500" />
-                        )}
                       </div>
                     )
                   })}
