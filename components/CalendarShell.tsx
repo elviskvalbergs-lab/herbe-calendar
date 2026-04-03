@@ -19,6 +19,7 @@ interface Props { userCode: string; companyCode: string }
 export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
+  const [sources, setSources] = useState<{ herbe: boolean; azure: boolean }>({ herbe: true, azure: true })
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
@@ -289,15 +290,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     }).catch(e => setClassGroupsError(String(e)))
   }
 
-  // Load activity types + class groups for color mapping
+  // Load activity types + class groups for color mapping (Herbe only)
   useEffect(() => {
     setColorOverrides(loadColorOverrides())
-    reloadColorData()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (sources.herbe) reloadColorData()
+  }, [sources.herbe]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load people list on mount
   useEffect(() => {
-    setStatus({ msg: 'Loading users from Herbe ERP…' })
+    setStatus({ msg: 'Loading users…' })
     fetch('/api/users')
       .then(async r => {
         const text = await r.text()
@@ -305,8 +306,14 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         try { data = JSON.parse(text) } catch {
           throw new Error(`Server error (${r.status}): ${text.slice(0, 120)}`)
         }
-        if (!Array.isArray(data)) throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
-        return data as Record<string, unknown>[]
+        // Handle both new { users, sources } format and legacy array format
+        const envelope = data as { users?: unknown[]; sources?: { herbe: boolean; azure: boolean } }
+        if (envelope.users && Array.isArray(envelope.users)) {
+          if (envelope.sources) setSources(envelope.sources)
+          return envelope.users as Record<string, unknown>[]
+        }
+        if (Array.isArray(data)) return data as Record<string, unknown>[]
+        throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
       })
       .then((users) => {
         const list: Person[] = users.map(u => ({
@@ -376,41 +383,51 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
     setStatus({ msg: `Fetching activities for ${codes} (${dateFrom}${dateTo !== dateFrom ? ` – ${dateTo}` : ''})…` })
     try {
-      const [herbeRes, outlookRes] = await Promise.all([
-        fetch(`/api/activities?persons=${codes}&${dateParam}`),
-        fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`),
-      ])
+      const fetches: Promise<Response>[] = []
+      if (sources.herbe) fetches.push(fetch(`/api/activities?persons=${codes}&${dateParam}`))
+      if (sources.azure) fetches.push(fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`))
+
+      const responses = await Promise.all(fetches)
+      let idx = 0
+
       let herbe: Activity[] = []
       let herbeErrMsg = ''
-      if (herbeRes.ok) {
-        herbe = await herbeRes.json()
-      } else {
-        try {
-          const e = await herbeRes.json()
-          herbeErrMsg = e.error || e.message || JSON.stringify(e)
-        } catch {
-          herbeErrMsg = `HTTP ${herbeRes.status}`
+      if (sources.herbe) {
+        const herbeRes = responses[idx++]
+        if (herbeRes.ok) {
+          herbe = await herbeRes.json()
+        } else {
+          try {
+            const e = await herbeRes.json()
+            herbeErrMsg = e.error || e.message || JSON.stringify(e)
+          } catch {
+            herbeErrMsg = `HTTP ${herbeRes.status}`
+          }
         }
       }
       let outlook: Activity[] = []
       let outlookErrMsg = ''
-      if (outlookRes.ok) {
-        outlook = await outlookRes.json()
-      } else {
-        try {
-          const e = await outlookRes.json()
-          outlookErrMsg = String(e.error ?? JSON.stringify(e))
-        } catch {
-          outlookErrMsg = await outlookRes.text().catch(() => String(outlookRes.status))
+      if (sources.azure) {
+        const outlookRes = responses[idx++]
+        if (outlookRes.ok) {
+          outlook = await outlookRes.json()
+        } else {
+          try {
+            const e = await outlookRes.json()
+            outlookErrMsg = String(e.error ?? JSON.stringify(e))
+          } catch {
+            outlookErrMsg = await outlookRes.text().catch(() => String(outlookRes.status))
+          }
         }
       }
       setActivities([...herbe, ...outlook])
 
-      const herbeErr = !herbeRes.ok ? ` | Herbe: ${herbeErrMsg}` : ''
-      const outlookErr = !outlookRes.ok ? ` | Outlook: ${outlookErrMsg}` : ''
+      const parts: string[] = []
+      if (sources.herbe) parts.push(`${herbe.length} Herbe${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
+      if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
       setStatus({
-        msg: `${herbe.length} Herbe + ${outlook.length} Outlook activities${herbeErr}${outlookErr}`,
-        ok: herbeRes.ok && outlookRes.ok,
+        msg: parts.join(' + ') + ' activities',
+        ok: !herbeErrMsg && !outlookErrMsg,
       })
     } catch (e) {
       setStatus({ msg: `Fetch failed: ${e}`, ok: false })
@@ -424,14 +441,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     fetchActivities()
   }, [fetchActivities])
 
-  // Fetch full customer + project lists into client state for instant search
+  // Fetch full customer + project lists into client state for instant search (Herbe only)
   useEffect(() => {
+    if (!sources.herbe) return
     setStatus({ msg: 'Loading customers & projects…' })
     Promise.all([
       fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(setAllCustomers).catch(() => {}),
       fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(setAllProjects).catch(() => {}),
     ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
-  }, [])
+  }, [sources.herbe])
 
   // Fetch user's ICS calendars for the source list
   useEffect(() => {

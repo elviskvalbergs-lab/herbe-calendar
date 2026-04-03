@@ -1,69 +1,54 @@
-jest.mock('@/lib/herbe/client', () => ({
-  herbeFetchAll: jest.fn(),
+jest.mock('@/lib/db', () => ({
+  pool: {
+    query: jest.fn(),
+  },
 }))
 
-const { herbeFetchAll } = require('@/lib/herbe/client')
+const { pool } = require('@/lib/db')
 
 describe('emailForCode', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
-  // Use fresh module for each test to reset cache
   function freshEmailForCode() {
     jest.resetModules()
-    jest.mock('@/lib/herbe/client', () => ({
-      herbeFetchAll,
-    }))
+    jest.mock('@/lib/db', () => ({ pool: { query: pool.query } }))
     return require('@/lib/emailForCode').emailForCode as (code: string) => Promise<string | null>
   }
 
   it('returns email for a valid user code', async () => {
     const fn = freshEmailForCode()
-    herbeFetchAll.mockResolvedValueOnce([
-      { Code: 'EKS', emailAddr: 'eks@example.com' },
-      { Code: 'JD', emailAddr: 'jd@example.com' },
-    ])
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        { generated_code: 'EKS', email: 'eks@example.com' },
+        { generated_code: 'JD', email: 'jd@example.com' },
+      ],
+    })
     expect(await fn('EKS')).toBe('eks@example.com')
   })
 
   it('returns null for unknown code', async () => {
     const fn = freshEmailForCode()
-    herbeFetchAll.mockResolvedValueOnce([
-      { Code: 'EKS', emailAddr: 'eks@example.com' },
-    ])
+    pool.query.mockResolvedValueOnce({
+      rows: [{ generated_code: 'EKS', email: 'eks@example.com' }],
+    })
     expect(await fn('UNKNOWN')).toBeNull()
   })
 
-  it('falls back to LoginEmailAddr when emailAddr is missing', async () => {
+  it('returns null on DB error', async () => {
     const fn = freshEmailForCode()
-    herbeFetchAll.mockResolvedValueOnce([
-      { Code: 'AA', LoginEmailAddr: 'aa@example.com' },
-    ])
-    expect(await fn('AA')).toBe('aa@example.com')
-  })
-
-  it('skips users without Code', async () => {
-    const fn = freshEmailForCode()
-    herbeFetchAll.mockResolvedValueOnce([
-      { emailAddr: 'no-code@example.com' },
-      { Code: 'BB', emailAddr: 'bb@example.com' },
-    ])
-    expect(await fn('BB')).toBe('bb@example.com')
-  })
-
-  it('skips users without any email', async () => {
-    const fn = freshEmailForCode()
-    herbeFetchAll.mockResolvedValueOnce([
-      { Code: 'NOEMAIL' },
-      { Code: 'CC', emailAddr: 'cc@example.com' },
-    ])
-    expect(await fn('NOEMAIL')).toBeNull()
-  })
-
-  it('returns null on fetch error', async () => {
-    const fn = freshEmailForCode()
-    herbeFetchAll.mockRejectedValueOnce(new Error('Network error'))
+    pool.query.mockRejectedValueOnce(new Error('DB error'))
     expect(await fn('EKS')).toBeNull()
+  })
+
+  it('uses cache on second call', async () => {
+    const fn = freshEmailForCode()
+    pool.query.mockResolvedValueOnce({
+      rows: [{ generated_code: 'EKS', email: 'eks@example.com' }],
+    })
+    await fn('EKS')
+    await fn('EKS')
+    expect(pool.query).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,0 +1,154 @@
+import { pool } from '@/lib/db'
+
+/** Raw user record from either source before merging */
+export interface RawUser {
+  email: string
+  displayName: string
+  source: 'erp' | 'azure'
+  erpCode?: string         // Original ERP code (e.g. 'EKS')
+  azureObjectId?: string   // Azure AD immutable object ID
+}
+
+/** Person code record from the DB */
+export interface PersonCodeRecord {
+  id: string
+  azure_object_id: string | null
+  erp_code: string | null
+  generated_code: string
+  email: string
+  display_name: string
+  source: string
+}
+
+/**
+ * Generate a short person code from a display name.
+ * Algorithm: first letter of first name + first and last letter of surname.
+ * e.g. "Elvis Kvalbergs" → "EKS", "John Doe" → "JDE"
+ * Falls back to first 3 chars of name if single-word name.
+ */
+export function generateCode(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/)
+  if (parts.length === 0 || !parts[0]) return 'USR'
+
+  const first = parts[0].toUpperCase()
+  if (parts.length === 1) {
+    return first.slice(0, 3).padEnd(3, 'X')
+  }
+
+  const last = parts[parts.length - 1].toUpperCase()
+  return (first[0] + last[0] + last[last.length - 1]).toUpperCase()
+}
+
+/**
+ * Find a unique code by appending a number suffix if needed.
+ * e.g. "EKS" → "EKS", "EKS2", "EKS3", ...
+ */
+export async function findUniqueCode(baseCode: string, excludeEmail?: string): Promise<string> {
+  // Check if base code is available
+  const { rows } = await pool.query(
+    'SELECT generated_code FROM person_codes WHERE generated_code = $1' + (excludeEmail ? ' AND email != $2' : ''),
+    excludeEmail ? [baseCode, excludeEmail] : [baseCode]
+  )
+  if (rows.length === 0) return baseCode
+
+  // Try with numeric suffixes
+  for (let i = 2; i < 100; i++) {
+    const candidate = `${baseCode}${i}`
+    const { rows: r } = await pool.query(
+      'SELECT generated_code FROM person_codes WHERE generated_code = $1' + (excludeEmail ? ' AND email != $2' : ''),
+      excludeEmail ? [candidate, excludeEmail] : [candidate]
+    )
+    if (r.length === 0) return candidate
+  }
+  throw new Error(`Could not generate unique code for base "${baseCode}"`)
+}
+
+/**
+ * Sync a list of raw users into the person_codes table.
+ * - Matches by email (case-insensitive)
+ * - Updates existing records (name, source, azure_object_id)
+ * - Inserts new records with generated codes
+ * - ERP code always takes priority as the generated_code when available
+ */
+export async function syncPersonCodes(users: RawUser[]): Promise<PersonCodeRecord[]> {
+  if (users.length === 0) return []
+
+  // Load existing records
+  const { rows: existing } = await pool.query<PersonCodeRecord>(
+    'SELECT * FROM person_codes'
+  )
+  const byEmail = new Map(existing.map(r => [r.email.toLowerCase(), r]))
+
+  // Merge users by email
+  const merged = new Map<string, { erp?: RawUser; azure?: RawUser }>()
+  for (const u of users) {
+    const key = u.email.toLowerCase()
+    const entry = merged.get(key) ?? {}
+    if (u.source === 'erp') entry.erp = u
+    else entry.azure = u
+    merged.set(key, entry)
+  }
+
+  const results: PersonCodeRecord[] = []
+
+  for (const [emailKey, { erp, azure }] of merged) {
+    const existingRecord = byEmail.get(emailKey)
+    const displayName = erp?.displayName || azure?.displayName || ''
+    const email = erp?.email || azure?.email || ''
+    const source = erp && azure ? 'both' : erp ? 'erp' : 'azure'
+    const azureObjectId = azure?.azureObjectId ?? existingRecord?.azure_object_id ?? null
+    const erpCode = erp?.erpCode ?? existingRecord?.erp_code ?? null
+
+    if (existingRecord) {
+      // Update existing record
+      const { rows } = await pool.query<PersonCodeRecord>(
+        `UPDATE person_codes
+         SET display_name = $1, source = $2, azure_object_id = COALESCE($3, azure_object_id),
+             erp_code = COALESCE($4, erp_code), email = $5, updated_at = now()
+         WHERE id = $6
+         RETURNING *`,
+        [displayName, source, azureObjectId, erpCode, email, existingRecord.id]
+      )
+      results.push(rows[0])
+    } else {
+      // Generate code for new user: use ERP code if available, otherwise generate
+      const code = erpCode ?? await findUniqueCode(generateCode(displayName), email)
+      const { rows } = await pool.query<PersonCodeRecord>(
+        `INSERT INTO person_codes (azure_object_id, erp_code, generated_code, email, display_name, source)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO UPDATE SET
+           display_name = EXCLUDED.display_name, source = EXCLUDED.source,
+           azure_object_id = COALESCE(EXCLUDED.azure_object_id, person_codes.azure_object_id),
+           erp_code = COALESCE(EXCLUDED.erp_code, person_codes.erp_code),
+           updated_at = now()
+         RETURNING *`,
+        [azureObjectId, erpCode, code, email, displayName, source]
+      )
+      results.push(rows[0])
+    }
+  }
+
+  return results
+}
+
+/**
+ * Look up a person code by email.
+ */
+export async function getCodeByEmail(email: string): Promise<string | null> {
+  const { rows } = await pool.query<{ generated_code: string }>(
+    'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1)',
+    [email]
+  )
+  return rows[0]?.generated_code ?? null
+}
+
+/**
+ * Check if an email exists in the person_codes table.
+ */
+export async function isEmailKnown(email: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    'SELECT 1 FROM person_codes WHERE LOWER(email) = LOWER($1) LIMIT 1',
+    [email]
+  )
+  return rows.length > 0
+}

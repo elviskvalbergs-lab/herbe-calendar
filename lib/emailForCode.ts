@@ -1,23 +1,21 @@
-import { herbeFetchAll } from '@/lib/herbe/client'
-import { REGISTERS } from '@/lib/herbe/constants'
+import { pool } from '@/lib/db'
 
-let userListCache: { data: Record<string, string>; ts: number } | null = null
-const USER_LIST_CACHE_TTL = 5 * 60 * 1000
+// Cache code → email lookups for 5 minutes
+let codeEmailCache: { data: Record<string, string>; ts: number } | null = null
+const CACHE_TTL = 5 * 60 * 1000
 
 export async function emailForCode(code: string): Promise<string | null> {
-  if (!userListCache || Date.now() - userListCache.ts > USER_LIST_CACHE_TTL) {
+  if (!codeEmailCache || Date.now() - codeEmailCache.ts > CACHE_TTL) {
     try {
-      const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-      const data = Object.fromEntries(
-        (users as Record<string, unknown>[])
-          .filter(u => u['Code'] && (u['emailAddr'] || u['LoginEmailAddr']))
-          .map(u => [u['Code'] as string, (u['emailAddr'] || u['LoginEmailAddr']) as string])
+      const { rows } = await pool.query<{ generated_code: string; email: string }>(
+        'SELECT generated_code, email FROM person_codes'
       )
-      userListCache = { data, ts: Date.now() }
+      const data = Object.fromEntries(rows.map(r => [r.generated_code, r.email]))
+      codeEmailCache = { data, ts: Date.now() }
     } catch (e) {
-      console.warn('[emailForCode] UserVc unavailable:', String(e))
-      userListCache = { data: {}, ts: Date.now() }
+      console.warn('[emailForCode] person_codes lookup failed:', String(e))
+      codeEmailCache = { data: {}, ts: Date.now() }
     }
   }
-  return userListCache.data[code] ?? null
+  return codeEmailCache.data[code] ?? null
 }

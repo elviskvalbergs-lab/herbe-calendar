@@ -1,13 +1,12 @@
 import NextAuth from 'next-auth'
 import PostgresAdapter from '@auth/pg-adapter'
 import { pool } from '@/lib/db'
-import { herbeFetchAll } from '@/lib/herbe/client'
-import { REGISTERS } from '@/lib/herbe/constants'
 import { sendMail } from '@/lib/graph/client'
 import type { EmailConfig } from 'next-auth/providers/email'
 import { AccessDenied } from '@auth/core/errors'
+import { getCodeByEmail, isEmailKnown } from '@/lib/personCodes'
 
-// Cache email → userCode lookups for 1 hour to avoid fetching all users on every session callback
+// Cache email → userCode lookups for 1 hour
 const userCache = new Map<string, { userCode: string; expiresAt: number }>()
 const USER_CACHE_TTL_MS = 60 * 60 * 1000
 
@@ -18,31 +17,25 @@ async function isEmailRegistered(email: string): Promise<{ registered: boolean; 
     return { registered: !!cached.userCode, userCode: cached.userCode }
   }
 
-  let users: unknown[]
   try {
-    users = await herbeFetchAll(REGISTERS.users, {}, 500)
-  } catch (e) {
-    const msg = String(e)
-    // 405 = UserVc endpoint not available on this server — can't validate against Herbe,
-    // so allow the request through (sign-in email link already provides security)
-    if (msg.includes('405') || msg.includes('HERBE_NOT_CONFIGURED')) {
-      console.warn('[auth] UserVc unavailable, skipping Herbe email check:', msg)
+    const code = await getCodeByEmail(lower)
+    if (code) {
+      userCache.set(lower, { userCode: code, expiresAt: Date.now() + USER_CACHE_TTL_MS })
+      return { registered: true, userCode: code }
+    }
+    // Not in person_codes yet — check if person_codes table has any records.
+    // If empty (first run, users not synced yet), allow login so user can trigger /api/users sync.
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS cnt FROM person_codes')
+    if (rows[0]?.cnt === 0) {
+      console.warn('[auth] person_codes table empty (first run), allowing login for:', lower)
       return { registered: true, userCode: '' }
     }
-    throw e
+    userCache.set(lower, { userCode: '', expiresAt: Date.now() + USER_CACHE_TTL_MS })
+    return { registered: false, userCode: '' }
+  } catch (e) {
+    console.warn('[auth] person_codes lookup failed, allowing login:', String(e))
+    return { registered: true, userCode: '' }
   }
-
-  const user = users.find((u) => {
-    const r = u as Record<string, unknown>
-    return (
-      String(r['emailAddr'] ?? '').toLowerCase() === lower ||
-      String(r['LoginEmailAddr'] ?? '').toLowerCase() === lower
-    )
-  }) as Record<string, unknown> | undefined
-  const userCode = user ? String(user['Code'] ?? '') : ''
-  userCache.set(lower, { userCode, expiresAt: Date.now() + USER_CACHE_TTL_MS })
-  if (!user) return { registered: false, userCode: '' }
-  return { registered: true, userCode }
 }
 
 const emailProvider: EmailConfig = {
@@ -104,7 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { userCode } = await isEmailRegistered(user.email)
         session.user.userCode = userCode
       } catch (err) {
-        console.error('[auth] Failed to fetch userCode from Herbe ERP:', err)
+        console.error('[auth] Failed to fetch userCode:', err)
         session.user.userCode = ''
       }
       return session

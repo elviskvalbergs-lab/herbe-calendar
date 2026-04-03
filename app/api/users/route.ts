@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { graphFetch } from '@/lib/graph/client'
+import { isHerbeConfigured, isAzureConfigured } from '@/lib/sourceConfig'
+import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,16 +12,88 @@ export async function GET(req: NextRequest) {
   } catch {
     return unauthorized()
   }
+
+  const debug = new URL(req.url).searchParams.get('debug')
+
   try {
-    const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-    const debug = new URL(req.url).searchParams.get('debug')
-    if (debug) {
-      // Return the raw record for the given user code to inspect field names
-      const record = (users as Record<string, unknown>[]).find(u => u['Code'] === debug)
-      return NextResponse.json(record ?? { error: `User ${debug} not found` })
+    const rawUsers: RawUser[] = []
+
+    // Fetch from Herbe ERP (if configured)
+    if (isHerbeConfigured()) {
+      try {
+        const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
+        const active = users.filter(u => String((u as Record<string, unknown>)['Closed'] ?? '0') === '0')
+
+        if (debug) {
+          const record = (users as Record<string, unknown>[]).find(u => u['Code'] === debug)
+          return NextResponse.json(record ?? { error: `User ${debug} not found` })
+        }
+
+        for (const u of active as Record<string, unknown>[]) {
+          const code = u['Code'] as string
+          const email = (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string
+          const name = (u['Name'] || code || '') as string
+          if (!code) continue
+          rawUsers.push({
+            email: email || `${code.toLowerCase()}@erp.local`,
+            displayName: name,
+            source: 'erp',
+            erpCode: code,
+          })
+        }
+      } catch (e) {
+        console.warn('[users] Herbe ERP fetch failed:', String(e))
+      }
     }
-    const active = users.filter(u => String((u as Record<string, unknown>)['Closed'] ?? '0') === '0')
-    return NextResponse.json(active)
+
+    // Fetch from Azure AD (if configured)
+    if (isAzureConfigured()) {
+      try {
+        const res = await graphFetch('/users?$select=id,displayName,mail,userPrincipalName&$top=999&$filter=accountEnabled eq true')
+        if (res.ok) {
+          const data = await res.json()
+          const azureUsers = (data.value ?? []) as Record<string, unknown>[]
+          for (const u of azureUsers) {
+            const email = (u['mail'] || u['userPrincipalName'] || '') as string
+            const name = (u['displayName'] || '') as string
+            const objectId = (u['id'] || '') as string
+            if (!email || !name) continue
+            // Skip service accounts / no-email accounts
+            if (email.includes('#EXT#') || !email.includes('@')) continue
+            rawUsers.push({
+              email,
+              displayName: name,
+              source: 'azure',
+              azureObjectId: objectId,
+            })
+          }
+        } else {
+          console.warn('[users] Azure AD fetch failed:', res.status, await res.text().catch(() => ''))
+        }
+      } catch (e) {
+        console.warn('[users] Azure AD fetch failed:', String(e))
+      }
+    }
+
+    // Sync to person_codes table and get unified list
+    const personCodes = await syncPersonCodes(rawUsers)
+
+    // Return as flat array matching the Person interface expectations
+    const result = personCodes.map(pc => ({
+      Code: pc.generated_code,
+      Name: pc.display_name,
+      emailAddr: pc.email,
+      ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
+      ...(pc.source ? { _source: pc.source } : {}),
+    }))
+
+    return NextResponse.json({
+      users: result,
+      sources: {
+        herbe: isHerbeConfigured(),
+        azure: isAzureConfigured(),
+      },
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
