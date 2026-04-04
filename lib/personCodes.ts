@@ -78,53 +78,74 @@ export async function syncPersonCodes(users: RawUser[]): Promise<PersonCodeRecor
     'SELECT * FROM person_codes'
   )
   const byEmail = new Map(existing.map(r => [r.email.toLowerCase(), r]))
+  const byErpCode = new Map(existing.filter(r => r.erp_code).map(r => [r.erp_code!, r]))
 
-  // Merge users by email
+  // Merge users by email (case-insensitive), also match ERP users by code
   const merged = new Map<string, { erp?: RawUser; azure?: RawUser }>()
   for (const u of users) {
     const key = u.email.toLowerCase()
+    // Skip ERP users without real email addresses
+    if (u.source === 'erp' && key.endsWith('@erp.local')) continue
     const entry = merged.get(key) ?? {}
     if (u.source === 'erp') entry.erp = u
     else entry.azure = u
     merged.set(key, entry)
   }
 
+  // Also add ERP users with dummy emails (no matching Azure user)
+  for (const u of users) {
+    if (u.source !== 'erp') continue
+    const key = u.email.toLowerCase()
+    if (!key.endsWith('@erp.local')) continue
+    // These users have no real email, add them separately
+    merged.set(key, { erp: u })
+  }
+
   const results: PersonCodeRecord[] = []
 
   for (const [emailKey, { erp, azure }] of merged) {
-    const existingRecord = byEmail.get(emailKey)
+    // Try to find existing record by email OR by ERP code
+    const existingRecord = byEmail.get(emailKey) ?? (erp?.erpCode ? byErpCode.get(erp.erpCode) : undefined)
     const displayName = erp?.displayName || azure?.displayName || ''
     const email = erp?.email || azure?.email || ''
     const source = erp && azure ? 'both' : erp ? 'erp' : 'azure'
-    const azureObjectId = azure?.azureObjectId ?? existingRecord?.azure_object_id ?? null
-    const erpCode = erp?.erpCode ?? existingRecord?.erp_code ?? null
+    const azureObjectId = azure?.azureObjectId || null
+    const erpCode = erp?.erpCode || null
 
     if (existingRecord) {
       // Update existing record
       const { rows } = await pool.query<PersonCodeRecord>(
         `UPDATE person_codes
-         SET display_name = $1, source = $2, azure_object_id = COALESCE($3, azure_object_id),
-             erp_code = COALESCE($4, erp_code), email = $5, updated_at = now()
+         SET display_name = $1, source = $2,
+             azure_object_id = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE azure_object_id END,
+             erp_code = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE erp_code END,
+             email = $5, updated_at = now()
          WHERE id = $6
          RETURNING *`,
         [displayName, source, azureObjectId, erpCode, email, existingRecord.id]
       )
-      results.push(rows[0])
+      if (rows[0]) results.push(rows[0])
     } else {
       // Generate code for new user: use ERP code if available, otherwise generate
       const code = erpCode ?? await findUniqueCode(generateCode(displayName), email)
-      const { rows } = await pool.query<PersonCodeRecord>(
-        `INSERT INTO person_codes (azure_object_id, erp_code, generated_code, email, display_name, source)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (email) DO UPDATE SET
-           display_name = EXCLUDED.display_name, source = EXCLUDED.source,
-           azure_object_id = COALESCE(EXCLUDED.azure_object_id, person_codes.azure_object_id),
-           erp_code = COALESCE(EXCLUDED.erp_code, person_codes.erp_code),
-           updated_at = now()
-         RETURNING *`,
-        [azureObjectId, erpCode, code, email, displayName, source]
-      )
-      results.push(rows[0])
+      try {
+        const { rows } = await pool.query<PersonCodeRecord>(
+          `INSERT INTO person_codes (azure_object_id, erp_code, generated_code, email, display_name, source)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [azureObjectId || null, erpCode, code, email, displayName, source]
+        )
+        if (rows[0]) results.push(rows[0])
+      } catch (e) {
+        // Duplicate — skip (likely a race condition or duplicate email with different case)
+        console.warn(`[personCodes] Insert failed for ${email}:`, String(e))
+        // Try to fetch the existing one
+        const { rows } = await pool.query<PersonCodeRecord>(
+          'SELECT * FROM person_codes WHERE LOWER(email) = $1',
+          [emailKey]
+        )
+        if (rows[0]) results.push(rows[0])
+      }
     }
   }
 

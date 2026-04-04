@@ -331,7 +331,13 @@ export default function PersonColumn({
 
   // Separate all-day events from timed events
   const allDayActivities = activities.filter(a => a.isAllDay)
-  const timedActivities = activities.filter(a => !a.isAllDay)
+  // Only show timed activities that overlap with the visible grid range
+  const timedActivities = activities.filter(a => {
+    if (a.isAllDay) return false
+    const fromMins = timeToMinutes(a.timeFrom)
+    const toMins = timeToMinutes(a.timeTo)
+    return toMins > effectiveStart * 60 && fromMins < effectiveEnd * 60
+  })
 
 
   const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
