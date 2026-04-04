@@ -342,10 +342,8 @@ export default function ActivityForm({
 
   function addExternalAttendee() {
     const email = externalAttendeeInput.trim().toLowerCase()
-    if (!email || !email.includes('@') || !email.includes('.')) return
+    if (!email || !email.includes('@')) return
     if (externalAttendees.includes(email)) return
-    // Don't add if it matches an internal person's email
-    if (people.some(p => p.email && p.email.toLowerCase() === email)) return
     setExternalAttendees(prev => [...prev, email])
     setExternalAttendeeInput('')
   }
@@ -997,9 +995,8 @@ export default function ActivityForm({
                 />
                 <button
                   type="button"
-                  tabIndex={-1}
                   onClick={addExternalAttendee}
-                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                  className="px-4 py-1.5 rounded-lg border border-border text-sm font-bold text-text-muted hover:border-primary/50 hover:text-text active:bg-border transition-colors shrink-0"
                 >+</button>
               </div>
             </div>
