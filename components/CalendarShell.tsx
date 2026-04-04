@@ -30,8 +30,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     try {
       const saved = localStorage.getItem('calendarState')
       if (saved) {
-        const { view, date } = JSON.parse(saved)
-        if (view && date) return { view, date, selectedPersons: [] }
+        const { view, date, personCodes } = JSON.parse(saved)
+        // Restore person codes as stubs immediately so the calendar isn't empty while loading
+        const persons: Person[] = (personCodes as string[] | undefined)?.map(code => ({ code, name: code, email: '' })) ?? []
+        if (view && date) return { view, date, selectedPersons: persons }
       }
     } catch {}
     return { view: 'day', date: format(new Date(), 'yyyy-MM-dd'), selectedPersons: [] }

@@ -43,13 +43,23 @@ export default function ActivityForm({
   onCloseRef.current = onClose
 
   const [source, setSource] = useState<'herbe' | 'outlook'>(initial?.source ?? 'herbe')
-  const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(
-    isEdit && initial?.mainPersons?.length
-      ? initial.mainPersons
-      : initial?.personCode
-      ? [initial.personCode]
-      : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
-  )
+  const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
+    if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
+    // For Outlook events: match attendees to internal people by email
+    if (isEdit && initial?.source === 'outlook' && initial?.attendees?.length) {
+      const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
+      const codes = new Set<string>()
+      if (initial.personCode) codes.add(initial.personCode)
+      for (const att of initial.attendees) {
+        if (!att.email) continue
+        const code = internalEmails.get(att.email.toLowerCase())
+        if (code) codes.add(code)
+      }
+      if (codes.size > 0) return [...codes]
+    }
+    if (initial?.personCode) return [initial.personCode]
+    return defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode]
+  })
   const [description, setDescription] = useState(initial?.description ?? '')
   const [date, setDate] = useState(initial?.date ?? format(new Date(), 'yyyy-MM-dd'))
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom ?? smartDefaultStart())
