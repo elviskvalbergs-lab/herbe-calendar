@@ -343,6 +343,15 @@ export default function ActivityForm({
   function addExternalAttendee() {
     const email = externalAttendeeInput.trim().toLowerCase()
     if (!email || !email.includes('@')) return
+    // If email matches an internal person, add them as a person chip instead
+    const internalMatch = people.find(p => p.email && p.email.toLowerCase() === email)
+    if (internalMatch) {
+      if (!selectedPersonCodes.includes(internalMatch.code)) {
+        setSelectedPersonCodes(prev => [...prev, internalMatch.code])
+      }
+      setExternalAttendeeInput('')
+      return
+    }
     if (externalAttendees.includes(email)) return
     setExternalAttendees(prev => [...prev, email])
     setExternalAttendeeInput('')
