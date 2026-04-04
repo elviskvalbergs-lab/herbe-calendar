@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
           date: startDt.slice(0, 10),
           timeFrom: startDt.slice(11, 16),
           timeTo: endDt.slice(11, 16),
-          isOrganizer: organizerEmail.toLowerCase() === email.toLowerCase(),
+          isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
           isOnlineMeeting: ev['isOnlineMeeting'] === true,
           attendees,
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
