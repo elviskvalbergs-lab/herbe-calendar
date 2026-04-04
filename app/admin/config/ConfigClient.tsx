@@ -80,22 +80,22 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-text-muted uppercase block mb-0.5">Tenant ID</label>
-            <input value={azureTenantId} onChange={e => setAzureTenantId(e.target.value)}
+            <input value={azureTenantId} onChange={e => setAzureTenantId(e.target.value)} autoComplete="off"
               className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
           </div>
           <div>
             <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client ID</label>
-            <input value={azureClientId} onChange={e => setAzureClientId(e.target.value)}
+            <input value={azureClientId} onChange={e => setAzureClientId(e.target.value)} autoComplete="off"
               className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
           </div>
           <div>
             <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client Secret {azure && <span className="text-text-muted">(leave blank to keep current)</span>}</label>
-            <input type="password" value={azureClientSecret} onChange={e => setAzureClientSecret(e.target.value)}
+            <input type="password" value={azureClientSecret} onChange={e => setAzureClientSecret(e.target.value)} autoComplete="new-password"
               className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Enter client secret..." />
           </div>
           <div>
             <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Email</label>
-            <input value={azureSenderEmail} onChange={e => setAzureSenderEmail(e.target.value)}
+            <input value={azureSenderEmail} onChange={e => setAzureSenderEmail(e.target.value)} autoComplete="off"
               className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="calendar@company.com" />
           </div>
         </div>
