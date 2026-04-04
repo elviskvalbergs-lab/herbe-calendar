@@ -76,16 +76,25 @@ export async function GET(req: NextRequest) {
     }
 
     // Sync to person_codes table and get unified list
-    const personCodes = await syncPersonCodes(rawUsers)
-
-    // Return as flat array matching the Person interface expectations
-    const result = personCodes.map(pc => ({
-      Code: pc.generated_code,
-      Name: pc.display_name,
-      emailAddr: pc.email,
-      ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
-      ...(pc.source ? { _source: pc.source } : {}),
-    }))
+    let result: Record<string, unknown>[]
+    try {
+      const personCodes = await syncPersonCodes(rawUsers)
+      result = personCodes.map(pc => ({
+        Code: pc.generated_code,
+        Name: pc.display_name,
+        emailAddr: pc.email,
+        ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
+        ...(pc.source ? { _source: pc.source } : {}),
+      }))
+    } catch (e) {
+      console.warn('[users] person_codes sync failed, returning raw users:', String(e))
+      // Fallback: return raw users directly without DB sync
+      result = rawUsers.map(u => ({
+        Code: u.erpCode || u.displayName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 3),
+        Name: u.displayName,
+        emailAddr: u.email,
+      }))
+    }
 
     return NextResponse.json({
       users: result,
