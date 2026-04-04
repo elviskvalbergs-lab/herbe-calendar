@@ -92,8 +92,15 @@ export default function ActivityForm({
   // Outlook-specific: external attendees, location, Teams toggle
   const [externalAttendees, setExternalAttendees] = useState<string[]>(() => {
     if (!initial?.attendees) return []
+    // Match attendees as internal by email OR by name (case-insensitive)
     const internalEmails = new Set(people.map(p => (p.email || '').toLowerCase()).filter(Boolean))
-    return initial.attendees.filter(a => a.email && !internalEmails.has(a.email.toLowerCase())).map(a => a.email)
+    const internalNames = new Set(people.map(p => (p.name || '').toLowerCase()).filter(Boolean))
+    return initial.attendees
+      .filter(a => a.email
+        && !internalEmails.has(a.email.toLowerCase())
+        && !internalNames.has((a.name || '').toLowerCase())
+      )
+      .map(a => a.email)
   })
   const [externalAttendeeInput, setExternalAttendeeInput] = useState('')
   const [location, setLocation] = useState(initial?.location ?? '')
@@ -808,8 +815,8 @@ export default function ActivityForm({
                 if (bi !== -1) return 1
                 return 0
               })
-            const visibleUnselected = personsExpanded ? unselected : unselected.slice(0, 3)
-            const hiddenCount = personsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            const visibleUnselected = canEdit ? (personsExpanded ? unselected : unselected.slice(0, 3)) : []
+            const hiddenCount = canEdit ? (personsExpanded ? 0 : Math.max(0, unselected.length - 3)) : 0
             return (
               <div>
                 <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
@@ -818,8 +825,8 @@ export default function ActivityForm({
                     <button
                       key={p.code}
                       tabIndex={-1}
-                      onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary hover:bg-primary/30 transition-colors"
+                      onClick={() => { if (!canEdit) return; setSelectedPersonCodes(prev => prev.filter(c => c !== p.code)) }}
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary ${canEdit ? 'hover:bg-primary/30 cursor-pointer' : 'cursor-default'} transition-colors`}
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
@@ -873,16 +880,16 @@ export default function ActivityForm({
                 if (bi !== -1) return 1
                 return 0
               })
-            const visibleUnselected = ccPersonsExpanded ? unselected : unselected.slice(0, 3)
-            const hiddenCount = ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            const visibleUnselected = canEdit ? (ccPersonsExpanded ? unselected : unselected.slice(0, 3)) : []
+            const hiddenCount = canEdit ? (ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)) : 0
             return (
               <div>
                 <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">CC Person(s)</label>
                 <div className="flex flex-wrap gap-1">
                   {people.filter(p => selectedCCPersonCodes.includes(p.code)).map(p => (
                     <button key={p.code} tabIndex={-1}
-                      onClick={() => setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code))}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border transition-colors"
+                      onClick={() => { if (!canEdit) return; setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code)) }}
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
                       style={{ borderStyle: 'dashed', borderColor: 'var(--color-primary)', background: 'rgba(var(--color-primary-rgb, 205 76 56) / 0.1)', color: 'var(--color-primary)', opacity: 0.8 }}
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
