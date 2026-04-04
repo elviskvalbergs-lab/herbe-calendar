@@ -13,21 +13,26 @@ export async function PUT(req: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const body = await req.json()
+  try {
+    const body = await req.json()
 
-  if (body.type === 'azure') {
-    // Get existing config to preserve secret if not provided
-    const existing = await getAzureConfig(session.accountId)
-    await saveAzureConfig(session.accountId, {
-      tenantId: body.tenantId ?? '',
-      clientId: body.clientId ?? '',
-      clientSecret: body.clientSecret || existing?.clientSecret || '',
-      senderEmail: body.senderEmail ?? '',
-    })
-    return NextResponse.json({ ok: true })
+    if (body.type === 'azure') {
+      // Get existing config to preserve secret if not provided
+      const existing = await getAzureConfig(session.accountId)
+      await saveAzureConfig(session.accountId, {
+        tenantId: body.tenantId ?? '',
+        clientId: body.clientId ?? '',
+        clientSecret: body.clientSecret || existing?.clientSecret || '',
+        senderEmail: body.senderEmail ?? '',
+      })
+      return NextResponse.json({ ok: true })
+    }
+
+    return NextResponse.json({ error: 'Unknown config type' }, { status: 400 })
+  } catch (e) {
+    console.error('[admin/config PUT]', e)
+    return NextResponse.json({ error: String(e) }, { status: 500 })
   }
-
-  return NextResponse.json({ error: 'Unknown config type' }, { status: 400 })
 }
 
 export async function POST(req: NextRequest) {

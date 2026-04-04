@@ -50,8 +50,8 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
         setMessage('Azure config saved')
         setAzureClientSecret('')
       } else {
-        const text = await res.text().catch(() => '')
-        setMessage(`Failed to save: ${text || res.status}`)
+        const data = await res.json().catch(() => null)
+        setMessage(`Failed to save: ${data?.error || res.status}`)
       }
     } catch (e) {
       setMessage(`Failed to save: ${String(e)}`)
