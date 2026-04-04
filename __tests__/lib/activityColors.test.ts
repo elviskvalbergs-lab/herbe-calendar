@@ -64,8 +64,8 @@ describe('BRAND_PALETTE', () => {
   it('index 2 is green', () => {
     expect(BRAND_PALETTE[2]).toBe('#22c55e')
   })
-  it('index 5 is teal', () => {
-    expect(BRAND_PALETTE[5]).toBe('#4db89a')
+  it('index 5 is blue', () => {
+    expect(BRAND_PALETTE[5]).toBe('#3b82f6')
   })
 })
 

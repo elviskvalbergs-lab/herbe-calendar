@@ -6,7 +6,7 @@ import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
 import { addDays, format, parseISO, isToday } from 'date-fns'
 import { minutesToPx, timeToMinutes, GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR } from '@/lib/time'
-import { personColor } from '@/lib/colors'
+import { personColor, loadPersonColorOverrides, savePersonColorOverride } from '@/lib/colors'
 
 interface Props {
   state: CalendarState
@@ -38,6 +38,16 @@ export default function CalendarGrid({
   const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
   const [expandedUp, setExpandedUp] = useState(false)
   const [expandedDown, setExpandedDown] = useState(false)
+  const [personColorOverrides, setPersonColorOverrides] = useState<Record<string, string>>({})
+  const colorInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  // Load person color overrides on mount
+  useEffect(() => { setPersonColorOverrides(loadPersonColorOverrides()) }, [])
+
+  /** Get effective color for a person: override or default by index */
+  function getPersonColor(personCode: string, index: number): string {
+    return personColorOverrides[personCode] || personColor(index)
+  }
 
   // Reset expansion on date/view navigation
   const viewKey = `${state.view}-${state.date}`
@@ -275,13 +285,36 @@ export default function CalendarGrid({
                     ))
                     const hasAllDay = pa.some(a => a.isAllDay)
                     const hasIndicator = hasOffGrid || hasAllDay
+                    const pColor = getPersonColor(person.code, personIdx)
                     return (
                       <div
                         key={person.code}
-                        className={`flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0 border-b ${hasIndicator ? 'border-b-red-500' : 'border-b-border'}`}
-                        style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
+                        className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold border-r border-border last:border-r-0 border-b ${hasIndicator ? 'border-b-red-500' : 'border-b-border'}`}
+                        style={{ color: pColor, ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                         title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                       >
+                        {!visibility && (
+                          <>
+                            <button
+                              className="w-3 h-3 rounded-full shrink-0 border border-border hover:scale-125 transition-transform"
+                              style={{ background: pColor }}
+                              onClick={() => colorInputRefs.current[person.code]?.click()}
+                              title="Pick color"
+                            />
+                            <input
+                              ref={el => { colorInputRefs.current[person.code] = el }}
+                              type="color"
+                              value={pColor}
+                              onChange={e => {
+                                const c = e.target.value
+                                savePersonColorOverride(person.code, c)
+                                setPersonColorOverrides(prev => ({ ...prev, [person.code]: c }))
+                              }}
+                              className="sr-only"
+                              tabIndex={-1}
+                            />
+                          </>
+                        )}
                         {!visibility && personCount > 1 ? (
                           <button
                             onClick={() => onDrillPerson?.(person.code)}

@@ -10,21 +10,21 @@ export const BRAND_PALETTE = [
   '#22c55e', // 2  green
   '#e8923a', // 3  orange
   '#a855f7', // 4  violet
-  '#4db89a', // 5  teal
-  '#f59e0b', // 6  amber
-  '#3b82f6', // 7  blue
-  '#ec4899', // 8  pink
-  '#14b8a6', // 9  teal-400
-  '#f97316', // 10 orange-500
-  '#8b5cf6', // 11 purple-500
-  '#06b6d4', // 12 cyan-400
-  '#84cc16', // 13 lime
-  '#d946ef', // 14 fuchsia
-  '#10b981', // 15 emerald
-  '#6366f1', // 16 indigo
-  '#ef4444', // 17 red-500
-  '#f43f5e', // 18 rose
-  '#64748b', // 19 slate
+  '#3b82f6', // 5  blue
+  '#ec4899', // 6  pink
+  '#84cc16', // 7  lime
+  '#f59e0b', // 8  amber
+  '#6366f1', // 9  indigo
+  '#14b8a6', // 10 teal
+  '#d946ef', // 11 fuchsia
+  '#64748b', // 12 slate
+  '#b45309', // 13 brown
+  '#0d9488', // 14 dark teal
+  '#7c3aed', // 15 deep purple
+  '#dc2626', // 16 crimson
+  '#0284c7', // 17 sky blue
+  '#65a30d', // 18 olive
+  '#be185d', // 19 dark pink
 ] as const
 
 const OVERRIDES_KEY = 'activityClassGroupColors'
