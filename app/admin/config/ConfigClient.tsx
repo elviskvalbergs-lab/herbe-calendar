@@ -275,16 +275,27 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                   >
                     {editingErpId === conn.id ? 'Cancel' : 'Edit'}
                   </button>
+                  {conn.client_id && (
+                    <button
+                      onClick={() => {
+                        const callbackUrl = `${window.location.origin}/api/herbe/callback`
+                        const authorizeUrl = `https://standard-id.hansaworld.com/oauth-authorize?client_id=${encodeURIComponent(conn.client_id)}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code`
+                        window.open(authorizeUrl, '_blank')
+                      }}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-primary/30 text-primary hover:bg-primary/10"
+                    >
+                      Connect OAuth
+                    </button>
+                  )}
                   <button
                     onClick={() => {
-                      // Show OAuth callback URL for this connection
                       const callbackUrl = `${window.location.origin}/api/herbe/callback`
                       navigator.clipboard.writeText(callbackUrl)
-                      setTestResult(prev => ({ ...prev, [conn.id]: `OAuth callback URL copied: ${callbackUrl}` }))
+                      setTestResult(prev => ({ ...prev, [conn.id]: `Callback URL copied: ${callbackUrl}` }))
                     }}
                     className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border text-text-muted hover:bg-border/30"
                   >
-                    OAuth URL
+                    Copy Callback URL
                   </button>
                   <button
                     onClick={async () => {
