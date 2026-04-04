@@ -24,6 +24,9 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
   const [message, setMessage] = useState<string | null>(null)
   const [showAddErp, setShowAddErp] = useState(false)
   const [erpForm, setErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '' })
+  const [editingErpId, setEditingErpId] = useState<string | null>(null)
+  const [editErpForm, setEditErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '' })
+  const [testResult, setTestResult] = useState<Record<string, string | null>>({})
 
   // Azure config form
   const [azureTenantId, setAzureTenantId] = useState(azure?.tenant_id ?? '')
@@ -213,14 +216,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
         ) : (
           <div className="space-y-2">
             {erpConnections.map(conn => (
-              <div key={conn.id} className="flex items-center justify-between p-3 rounded-lg bg-bg border border-border/50">
-                <div>
-                  <p className="text-sm font-bold">{conn.name}</p>
-                  <p className="text-[10px] text-text-muted font-mono">{conn.api_base_url} / {conn.company_code}</p>
-                  {conn.username && <p className="text-[10px] text-text-muted">Auth: Basic ({conn.username})</p>}
-                  {conn.client_id && <p className="text-[10px] text-text-muted">Auth: OAuth ({conn.client_id.slice(0, 8)}...)</p>}
-                </div>
-                <div className="flex items-center gap-2">
+              <div key={conn.id} className="p-3 rounded-lg bg-bg border border-border/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-bold">{conn.name}</p>
+                    <p className="text-[10px] text-text-muted font-mono">{conn.api_base_url} / {conn.company_code}</p>
+                    {conn.username && <p className="text-[10px] text-text-muted">Auth: Basic ({conn.username})</p>}
+                    {conn.client_id && !conn.username && <p className="text-[10px] text-text-muted">Auth: OAuth ({conn.client_id.slice(0, 8)}...)</p>}
+                  </div>
                   <button
                     onClick={async () => {
                       const newActive = !conn.active
@@ -237,6 +240,52 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                   >
                     {conn.active ? 'active' : 'inactive'}
                   </button>
+                </div>
+                {testResult[conn.id] && (
+                  <p className={`text-[10px] font-bold ${testResult[conn.id]!.startsWith('OK') ? 'text-green-500' : 'text-red-500'}`}>
+                    {testResult[conn.id]}
+                  </p>
+                )}
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={async () => {
+                      setTestResult(prev => ({ ...prev, [conn.id]: 'Testing...' }))
+                      const res = await fetch('/api/admin/erp-connections', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'test', id: conn.id }),
+                      })
+                      const data = await res.json()
+                      setTestResult(prev => ({ ...prev, [conn.id]: data.ok ? `OK (${data.userCount} users)` : `Failed: ${data.error}` }))
+                    }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border text-text-muted hover:bg-border/30"
+                  >
+                    Test
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (editingErpId === conn.id) { setEditingErpId(null); return }
+                      setEditingErpId(conn.id)
+                      setEditErpForm({
+                        name: conn.name, apiBaseUrl: conn.api_base_url, companyCode: conn.company_code,
+                        clientId: conn.client_id, clientSecret: '', username: conn.username || '', password: '',
+                      })
+                    }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border text-text-muted hover:bg-border/30"
+                  >
+                    {editingErpId === conn.id ? 'Cancel' : 'Edit'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Show OAuth callback URL for this connection
+                      const callbackUrl = `${window.location.origin}/api/herbe/callback`
+                      navigator.clipboard.writeText(callbackUrl)
+                      setTestResult(prev => ({ ...prev, [conn.id]: `OAuth callback URL copied: ${callbackUrl}` }))
+                    }}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border text-text-muted hover:bg-border/30"
+                  >
+                    OAuth URL
+                  </button>
                   <button
                     onClick={async () => {
                       if (!confirm(`Delete connection "${conn.name}"?`)) return
@@ -247,11 +296,72 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                       })
                       setErpConnections(prev => prev.filter(c => c.id !== conn.id))
                     }}
-                    className="text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30 text-red-500 hover:bg-red-500/10"
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-red-500/30 text-red-500 hover:bg-red-500/10"
                   >
                     Delete
                   </button>
                 </div>
+                {editingErpId === conn.id && (
+                  <div className="space-y-2 pt-1 border-t border-border/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Name</label>
+                        <input value={editErpForm.name} onChange={e => setEditErpForm(f => ({ ...f, name: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm" autoComplete="off" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Company Code</label>
+                        <input value={editErpForm.companyCode} onChange={e => setEditErpForm(f => ({ ...f, companyCode: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" autoComplete="off" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">API Base URL</label>
+                        <input value={editErpForm.apiBaseUrl} onChange={e => setEditErpForm(f => ({ ...f, apiBaseUrl: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" autoComplete="off" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Username <span className="text-text-muted">(blank to keep)</span></label>
+                        <input value={editErpForm.username} onChange={e => setEditErpForm(f => ({ ...f, username: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm" autoComplete="off" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Password <span className="text-text-muted">(blank to keep)</span></label>
+                        <input type="password" value={editErpForm.password} onChange={e => setEditErpForm(f => ({ ...f, password: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm" autoComplete="new-password" />
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setSaving(true)
+                        const payload: Record<string, unknown> = { id: conn.id }
+                        if (editErpForm.name !== conn.name) payload.name = editErpForm.name
+                        if (editErpForm.apiBaseUrl !== conn.api_base_url) payload.apiBaseUrl = editErpForm.apiBaseUrl
+                        if (editErpForm.companyCode !== conn.company_code) payload.companyCode = editErpForm.companyCode
+                        if (editErpForm.username) payload.username = editErpForm.username
+                        if (editErpForm.password) payload.password = editErpForm.password
+                        await fetch('/api/admin/erp-connections', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload),
+                        })
+                        setErpConnections(prev => prev.map(c => c.id === conn.id ? {
+                          ...c,
+                          name: editErpForm.name || c.name,
+                          api_base_url: editErpForm.apiBaseUrl || c.api_base_url,
+                          company_code: editErpForm.companyCode || c.company_code,
+                          username: editErpForm.username || c.username,
+                        } : c))
+                        setEditingErpId(null)
+                        setSaving(false)
+                        setMessage('Connection updated')
+                      }}
+                      disabled={saving}
+                      className="px-3 py-1.5 bg-primary text-white rounded-lg text-[10px] font-bold disabled:opacity-50"
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

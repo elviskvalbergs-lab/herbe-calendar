@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { pool } from '@/lib/db'
-import { encrypt } from '@/lib/crypto'
+import { encrypt, decrypt } from '@/lib/crypto'
+import { herbeFetchAll } from '@/lib/herbe/client'
+import type { ErpConnection } from '@/lib/accountConfig'
+
+/** Test an ERP connection by fetching from UserVc */
+async function testErpConnection(conn: ErpConnection): Promise<{ ok: boolean; userCount?: number; error?: string }> {
+  try {
+    const users = await herbeFetchAll('UserVc', {}, 5, conn)
+    return { ok: true, userCount: users.length }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
 
 export async function POST(req: NextRequest) {
   let session
@@ -14,6 +26,30 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
+
+  // Test existing connection
+  if (body.action === 'test' && body.id) {
+    try {
+      const { rows } = await pool.query(
+        'SELECT * FROM account_erp_connections WHERE id = $1 AND account_id = $2',
+        [body.id, session.accountId]
+      )
+      if (rows.length === 0) return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
+      const r = rows[0]
+      const conn: ErpConnection = {
+        id: r.id, name: r.name, apiBaseUrl: r.api_base_url, companyCode: r.company_code,
+        clientId: r.client_id, clientSecret: r.client_secret ? decrypt(r.client_secret) : '',
+        accessToken: null, refreshToken: null, tokenExpiresAt: 0,
+        username: r.username || null, password: r.password ? decrypt(r.password) : null, active: r.active,
+      }
+      const result = await testErpConnection(conn)
+      return NextResponse.json(result)
+    } catch (e) {
+      return NextResponse.json({ ok: false, error: String(e) })
+    }
+  }
+
+  // Create new connection
   const { name, apiBaseUrl, companyCode, clientId, clientSecret, username, password } = body
 
   if (!name || !apiBaseUrl || !companyCode) {
