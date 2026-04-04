@@ -34,33 +34,48 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
   async function saveAzure() {
     setSaving(true)
     setMessage(null)
-    const res = await fetch('/api/admin/config', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'azure',
-        tenantId: azureTenantId,
-        clientId: azureClientId,
-        clientSecret: azureClientSecret || undefined,
-        senderEmail: azureSenderEmail,
-      }),
-    })
-    setSaving(false)
-    setMessage(res.ok ? 'Azure config saved' : 'Failed to save')
-    if (res.ok) setAzureClientSecret('')
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'azure',
+          tenantId: azureTenantId.trim(),
+          clientId: azureClientId.trim(),
+          clientSecret: azureClientSecret.trim() || undefined,
+          senderEmail: azureSenderEmail.trim(),
+        }),
+      })
+      if (res.ok) {
+        setMessage('Azure config saved')
+        setAzureClientSecret('')
+      } else {
+        const text = await res.text().catch(() => '')
+        setMessage(`Failed to save: ${text || res.status}`)
+      }
+    } catch (e) {
+      setMessage(`Failed to save: ${String(e)}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function testAzure() {
     setSaving(true)
     setMessage(null)
-    const res = await fetch('/api/admin/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'test-azure' }),
-    })
-    const data = await res.json()
-    setSaving(false)
-    setMessage(data.ok ? `Azure connection OK (${data.userCount} users found)` : `Azure test failed: ${data.error}`)
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test-azure' }),
+      })
+      const data = await res.json()
+      setMessage(data.ok ? `Azure connection OK (${data.userCount} users found)` : `Azure test failed: ${data.error}`)
+    } catch (e) {
+      setMessage(`Azure test failed: ${String(e)}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
