@@ -882,7 +882,7 @@ export default function ActivityForm({
                       type="button"
                       tabIndex={-1}
                       onClick={() => setPersonsExpanded(true)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       +{hiddenCount} more
                     </button>
@@ -892,7 +892,7 @@ export default function ActivityForm({
                       type="button"
                       tabIndex={-1}
                       onClick={() => setPersonsExpanded(false)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       Collapse
                     </button>
@@ -942,7 +942,7 @@ export default function ActivityForm({
                   {hiddenCount > 0 && (
                     <button type="button" tabIndex={-1}
                       onClick={() => setCCPersonsExpanded(true)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       +{hiddenCount} more
                     </button>
@@ -950,7 +950,7 @@ export default function ActivityForm({
                   {ccPersonsExpanded && unselected.length > 3 && (
                     <button type="button" tabIndex={-1}
                       onClick={() => setCCPersonsExpanded(false)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       Collapse
                     </button>
