@@ -45,7 +45,7 @@ export async function requireAdminSession(requiredRole: 'admin' | 'superadmin' =
   }>(
     `SELECT am.account_id, am.role, a.display_name
      FROM account_members am
-     JOIN accounts a ON a.id = am.account_id
+     JOIN tenant_accounts a ON a.id = am.account_id
      WHERE LOWER(am.email) = $1 AND am.active = true AND a.suspended_at IS NULL
      LIMIT 1`,
     [email]

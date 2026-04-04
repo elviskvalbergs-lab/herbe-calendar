@@ -1,5 +1,5 @@
 -- Multi-tenant accounts table
-CREATE TABLE IF NOT EXISTS accounts (
+CREATE TABLE IF NOT EXISTS tenant_accounts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug          TEXT NOT NULL UNIQUE,
   display_name  TEXT NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 
 -- Seed the default account (absorbs existing single-tenant data)
-INSERT INTO accounts (id, slug, display_name)
+INSERT INTO tenant_accounts (id, slug, display_name)
 VALUES ('00000000-0000-0000-0000-000000000001', 'burti', 'Burti')
 ON CONFLICT DO NOTHING;
 
@@ -18,7 +18,7 @@ CREATE TYPE account_role AS ENUM ('admin', 'member');
 
 CREATE TABLE IF NOT EXISTS account_members (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id  UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  account_id  UUID NOT NULL REFERENCES tenant_accounts(id) ON DELETE CASCADE,
   email       TEXT NOT NULL,
   role        account_role NOT NULL DEFAULT 'member',
   active      BOOLEAN NOT NULL DEFAULT true,
@@ -40,7 +40,7 @@ ON CONFLICT DO NOTHING;
 -- Azure connection config per account (one per account)
 CREATE TABLE IF NOT EXISTS account_azure_config (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id        UUID NOT NULL UNIQUE REFERENCES accounts(id) ON DELETE CASCADE,
+  account_id        UUID NOT NULL UNIQUE REFERENCES tenant_accounts(id) ON DELETE CASCADE,
   tenant_id         TEXT NOT NULL DEFAULT '',
   client_id         TEXT NOT NULL DEFAULT '',
   client_secret     BYTEA,                -- AES-256-GCM encrypted
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS account_azure_config (
 -- ERP connections per account (multiple allowed)
 CREATE TABLE IF NOT EXISTS account_erp_connections (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id      UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  account_id      UUID NOT NULL REFERENCES tenant_accounts(id) ON DELETE CASCADE,
   name            TEXT NOT NULL DEFAULT 'Default',
   api_base_url    TEXT NOT NULL DEFAULT '',
   company_code    TEXT NOT NULL DEFAULT '',
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_erp_connections_account ON account_erp_connection
 -- General account settings (key-value for non-connection config)
 CREATE TABLE IF NOT EXISTS account_settings (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id    UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  account_id    UUID NOT NULL REFERENCES tenant_accounts(id) ON DELETE CASCADE,
   setting_key   TEXT NOT NULL,
   setting_value TEXT,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
             (SELECT COUNT(*)::int FROM account_members am WHERE am.account_id = a.id AND am.active = true) AS member_count,
             (SELECT COUNT(*)::int FROM account_erp_connections ec WHERE ec.account_id = a.id AND ec.active = true) AS erp_connection_count,
             (SELECT COUNT(*)::int FROM account_azure_config ac WHERE ac.account_id = a.id AND ac.tenant_id != '') AS has_azure
-     FROM accounts a
+     FROM tenant_accounts a
      ORDER BY a.display_name`
   )
 
