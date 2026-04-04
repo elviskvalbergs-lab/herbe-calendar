@@ -3,6 +3,7 @@ import { request as httpRequest } from 'node:http'
 import { createGunzip } from 'node:zlib'
 import { Readable } from 'node:stream'
 import { getHerbeAccessToken } from './config'
+import type { ErpConnection } from '@/lib/accountConfig'
 
 /**
  * Custom fetch that uses Node.js http/https with insecureHTTPParser: true.
@@ -61,7 +62,18 @@ async function herbeFetchRaw(url: string, init: RequestInit = {}): Promise<Respo
   })
 }
 
-async function herbeAuthHeader(): Promise<string> {
+async function herbeAuthHeader(conn?: ErpConnection): Promise<string> {
+  // If explicit connection config provided, use it
+  if (conn) {
+    if (conn.accessToken) return `Bearer ${conn.accessToken}`
+    if (conn.username && conn.password) {
+      return `Basic ${Buffer.from(`${conn.username}:${conn.password}`).toString('base64')}`
+    }
+    if (conn.clientId && conn.clientSecret) {
+      // OAuth flow needed but no cached token — fall through to global config
+    }
+  }
+
   // Try OAuth tokens from DB first
   try {
     const token = await getHerbeAccessToken()
@@ -80,26 +92,27 @@ async function herbeAuthHeader(): Promise<string> {
   throw new Error('HERBE_NOT_CONFIGURED')
 }
 
-export function herbeUrl(register: string, query?: string): string {
-  const base = (process.env.HERBE_API_BASE_URL ?? '').trim()
-  const company = (process.env.HERBE_COMPANY_CODE ?? '').trim()
+export function herbeUrl(register: string, query?: string, conn?: ErpConnection): string {
+  const base = (conn?.apiBaseUrl || process.env.HERBE_API_BASE_URL || '').trim()
+  const company = (conn?.companyCode || process.env.HERBE_COMPANY_CODE || '').trim()
   const url = `${base}/${company}/${register}`
   return query ? `${url}?${query}` : url
 }
 
-export function herbeUrlById(register: string, id: string): string {
-  const base = (process.env.HERBE_API_BASE_URL ?? '').trim()
-  const company = (process.env.HERBE_COMPANY_CODE ?? '').trim()
+export function herbeUrlById(register: string, id: string, conn?: ErpConnection): string {
+  const base = (conn?.apiBaseUrl || process.env.HERBE_API_BASE_URL || '').trim()
+  const company = (conn?.companyCode || process.env.HERBE_COMPANY_CODE || '').trim()
   return `${base}/${company}/${register}/${id}`
 }
 
 export async function herbeFetch(
   register: string,
   query?: string,
-  options?: RequestInit
+  options?: RequestInit,
+  conn?: ErpConnection
 ): Promise<Response> {
-  const auth = await herbeAuthHeader()
-  return herbeFetchRaw(herbeUrl(register, query), {
+  const auth = await herbeAuthHeader(conn)
+  return herbeFetchRaw(herbeUrl(register, query, conn), {
     ...options,
     headers: {
       Authorization: auth,
@@ -114,10 +127,11 @@ export async function herbeFetch(
 export async function herbeFetchById(
   register: string,
   id: string,
-  options?: RequestInit
+  options?: RequestInit,
+  conn?: ErpConnection
 ): Promise<Response> {
-  const auth = await herbeAuthHeader()
-  return herbeFetchRaw(herbeUrlById(register, id), {
+  const auth = await herbeAuthHeader(conn)
+  return herbeFetchRaw(herbeUrlById(register, id, conn), {
     ...options,
     headers: {
       Authorization: auth,
@@ -132,11 +146,12 @@ export async function herbeFetchById(
 export async function herbeWebExcellentDelete(
   register: string,
   id: string,
-  userCode: string
+  userCode: string,
+  conn?: ErpConnection
 ): Promise<Response> {
-  const auth = await herbeAuthHeader()
-  const base = (process.env.HERBE_API_BASE_URL ?? '').trim()
-  const company = (process.env.HERBE_COMPANY_CODE ?? '').trim()
+  const auth = await herbeAuthHeader(conn)
+  const base = (conn?.apiBaseUrl || process.env.HERBE_API_BASE_URL || '').trim()
+  const company = (conn?.companyCode || process.env.HERBE_COMPANY_CODE || '').trim()
 
   let baseUrlFn = base
   try {
@@ -185,13 +200,14 @@ async function herbeParseJSON(res: Response): Promise<unknown> {
 export async function herbeFetchAll(
   register: string,
   params: Record<string, string> = {},
-  limit = 100
+  limit = 100,
+  conn?: ErpConnection
 ): Promise<unknown[]> {
   const results: unknown[] = []
   let offset = 0
   while (true) {
     const query = new URLSearchParams({ ...params, limit: String(limit), offset: String(offset) }).toString()
-    const res = await herbeFetch(register, query)
+    const res = await herbeFetch(register, query, undefined, conn)
     if (!res.ok) throw new Error(`Herbe ${register} fetch failed: ${res.status}`)
     const json = await herbeParseJSON(res)
     // Response format: { data: { [register]: [...] } }

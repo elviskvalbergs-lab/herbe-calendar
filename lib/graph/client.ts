@@ -1,40 +1,58 @@
+import type { AzureConfig } from '@/lib/accountConfig'
+
 interface GraphTokenCache {
   token: string
   expiresAt: number
 }
 
-let graphTokenCache: GraphTokenCache | null = null
+// Per-account token cache (keyed by tenantId+clientId)
+const tokenCacheMap = new Map<string, GraphTokenCache>()
 
-async function getGraphToken(): Promise<string> {
-  const tenantId = process.env.AZURE_TENANT_ID!
-  const clientId = process.env.AZURE_CLIENT_ID!
-  const clientSecret = process.env.AZURE_CLIENT_SECRET!
+function cacheKey(config: AzureConfig): string {
+  return `${config.tenantId}:${config.clientId}`
+}
 
-  if (graphTokenCache && Date.now() < graphTokenCache.expiresAt - 30_000) {
-    return graphTokenCache.token
+/** Resolve Azure config: use provided config or fall back to env vars */
+function resolveConfig(config?: AzureConfig): AzureConfig {
+  if (config) return config
+  return {
+    tenantId: process.env.AZURE_TENANT_ID ?? '',
+    clientId: process.env.AZURE_CLIENT_ID ?? '',
+    clientSecret: process.env.AZURE_CLIENT_SECRET ?? '',
+    senderEmail: process.env.AZURE_SENDER_EMAIL ?? '',
+  }
+}
+
+async function getGraphToken(config: AzureConfig): Promise<string> {
+  const key = cacheKey(config)
+  const cached = tokenCacheMap.get(key)
+  if (cached && Date.now() < cached.expiresAt - 30_000) {
+    return cached.token
   }
 
   const res = await fetch(
-    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'client_credentials',
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
         scope: 'https://graph.microsoft.com/.default',
       }),
     }
   )
   if (!res.ok) throw new Error(`Graph OAuth failed: ${res.status}`)
   const data = await res.json()
-  graphTokenCache = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
-  return graphTokenCache.token
+  const entry = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
+  tokenCacheMap.set(key, entry)
+  return entry.token
 }
 
-export async function graphFetch(path: string, options?: RequestInit): Promise<Response> {
-  const token = await getGraphToken()
+export async function graphFetch(path: string, options?: RequestInit, azureConfig?: AzureConfig): Promise<Response> {
+  const config = resolveConfig(azureConfig)
+  const token = await getGraphToken(config)
   return fetch(`https://graph.microsoft.com/v1.0${path}`, {
     ...options,
     headers: {
@@ -45,9 +63,9 @@ export async function graphFetch(path: string, options?: RequestInit): Promise<R
   })
 }
 
-export async function sendMail(to: string, subject: string, html: string): Promise<void> {
-  const sender = process.env.AZURE_SENDER_EMAIL!
-  const res = await graphFetch(`/users/${sender}/sendMail`, {
+export async function sendMail(to: string, subject: string, html: string, azureConfig?: AzureConfig): Promise<void> {
+  const config = resolveConfig(azureConfig)
+  const res = await graphFetch(`/users/${config.senderEmail}/sendMail`, {
     method: 'POST',
     body: JSON.stringify({
       message: {
@@ -56,6 +74,6 @@ export async function sendMail(to: string, subject: string, html: string): Promi
         toRecipients: [{ emailAddress: { address: to } }],
       },
     }),
-  })
+  }, config)
   if (!res.ok) throw new Error(`sendMail failed: ${res.status} ${await res.text()}`)
 }
