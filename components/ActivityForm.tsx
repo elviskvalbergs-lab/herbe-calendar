@@ -163,6 +163,53 @@ export default function ActivityForm({
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
+  // Recalculate Outlook attendee matching when people emails become available
+  // (initial render may have stubs with empty emails from localStorage)
+  const peopleEmailsKey = people.filter(p => p.email).map(p => p.email.toLowerCase()).sort().join(',')
+  const attendeeRecalcDone = useRef(false)
+  useEffect(() => {
+    if (attendeeRecalcDone.current) return
+    if (!isEdit || initial?.source !== 'outlook' || !initial?.attendees?.length) return
+    if (!peopleEmailsKey) return // still stubs
+    attendeeRecalcDone.current = true
+
+    const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
+    const internalNameGroups = new Map<string, typeof people>()
+    for (const p of people) {
+      if (!p.name) continue
+      const key = p.name.toLowerCase()
+      const group = internalNameGroups.get(key) ?? []
+      group.push(p)
+      internalNameGroups.set(key, group)
+    }
+
+    // Recalculate person codes from attendees
+    const codes = new Set<string>()
+    if (initial.personCode) codes.add(initial.personCode)
+    const external: string[] = []
+    for (const att of initial.attendees) {
+      if (!att.email) continue
+      const byEmail = internalEmails.get(att.email.toLowerCase())
+      if (byEmail) { codes.add(byEmail); continue }
+      // Name match
+      if (att.name) {
+        const group = internalNameGroups.get(att.name.toLowerCase())
+        if (group?.length === 1) { codes.add(group[0].code); continue }
+        if (group && att.email) {
+          const attDomain = att.email.split('@')[1]?.toLowerCase()
+          const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
+          if (domainMatch || group[0]) { codes.add((domainMatch ?? group[0]).code); continue }
+        }
+      }
+      external.push(att.email)
+    }
+    if (codes.size > 0) {
+      setSelectedPersonCodes([...codes])
+      initialValuesRef.current.selectedPersonCodes = [...codes]
+    }
+    setExternalAttendees(external)
+  }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load recent items from localStorage
   useEffect(() => {
     setRecentTypes(getRecentTypes())
