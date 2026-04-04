@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       'SELECT id, target_person_code as "personCode", name, ics_url as "icsUrl", color FROM user_calendars WHERE user_email = $1 ORDER BY created_at DESC',
       [session.user.email]
     )
-    return NextResponse.json(rows)
+    return NextResponse.json(rows, { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

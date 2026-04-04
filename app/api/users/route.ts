@@ -6,6 +6,10 @@ import { graphFetch } from '@/lib/graph/client'
 import { isHerbeConfigured, isAzureConfigured } from '@/lib/sourceConfig'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
+// Module-level cache: avoids re-fetching ERP + Azure + DB sync on every page load
+let usersCache: { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number } | null = null
+const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 export async function GET(req: NextRequest) {
   try {
     await requireSession()
@@ -14,6 +18,12 @@ export async function GET(req: NextRequest) {
   }
 
   const debug = new URL(req.url).searchParams.get('debug')
+  const bustCache = new URL(req.url).searchParams.get('bust') === '1'
+
+  // Return cached result if fresh (skip for debug queries)
+  if (!debug && !bustCache && usersCache && Date.now() - usersCache.ts < USERS_CACHE_TTL) {
+    return NextResponse.json(usersCache.response, { headers: { 'Cache-Control': 'private, max-age=300' } })
+  }
 
   try {
     const rawUsers: RawUser[] = []
@@ -58,7 +68,6 @@ export async function GET(req: NextRequest) {
             const name = (u['displayName'] || '') as string
             const objectId = (u['id'] || '') as string
             if (!email || !name) continue
-            // Skip service accounts / no-email accounts
             if (email.includes('#EXT#') || !email.includes('@')) continue
             rawUsers.push({
               email,
@@ -88,7 +97,6 @@ export async function GET(req: NextRequest) {
       }))
     } catch (e) {
       console.warn('[users] person_codes sync failed, returning raw users:', String(e))
-      // Fallback: return raw users directly without DB sync
       result = rawUsers.map(u => ({
         Code: u.erpCode || u.displayName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 3),
         Name: u.displayName,
@@ -96,13 +104,12 @@ export async function GET(req: NextRequest) {
       }))
     }
 
-    return NextResponse.json({
-      users: result,
-      sources: {
-        herbe: isHerbeConfigured(),
-        azure: isAzureConfigured(),
-      },
-    }, { headers: { 'Cache-Control': 'no-store' } })
+    const sources = { herbe: isHerbeConfigured(), azure: isAzureConfigured() }
+
+    // Cache the result
+    usersCache = { response: { users: result, sources }, ts: Date.now() }
+
+    return NextResponse.json({ users: result, sources }, { headers: { 'Cache-Control': 'private, max-age=300' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

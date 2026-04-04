@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(r => r.Code)
-    return NextResponse.json(results)
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
   }
 
   if (q.length < 2) return NextResponse.json([])
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
           CUName: String(r['CUName'] ?? r['CustomerName'] ?? r['CustName'] ?? r['CUComment'] ?? '') || null,
         }
       })
-    return NextResponse.json(results)
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

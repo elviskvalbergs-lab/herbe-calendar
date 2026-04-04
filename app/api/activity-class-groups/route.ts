@@ -3,6 +3,11 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 
+// Module-level cache (mirrors activity-types pattern)
+let classGroupCache: Record<string, unknown>[] | null = null
+let classGroupCacheExpiry = 0
+const CLASS_GROUP_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
 export async function GET() {
   try {
     await requireSession()
@@ -10,7 +15,14 @@ export async function GET() {
     return unauthorized()
   }
   try {
-    const raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100)
+    let raw: unknown[]
+    if (classGroupCache && Date.now() < classGroupCacheExpiry) {
+      raw = classGroupCache
+    } else {
+      raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100)
+      classGroupCache = raw as Record<string, unknown>[]
+      classGroupCacheExpiry = Date.now() + CLASS_GROUP_CACHE_TTL
+    }
     const toBool = (v: unknown) => v === true || v === 1 || v === '1' || v === 'true'
     const groups = (raw as Record<string, unknown>[]).map(g => ({
       code: String(g['Code'] ?? ''),
