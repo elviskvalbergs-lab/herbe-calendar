@@ -45,14 +45,17 @@ export default function ActivityForm({
   const [source, setSource] = useState<'herbe' | 'outlook'>(initial?.source ?? 'herbe')
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
-    // For Outlook events: match attendees to internal people by email
+    // For Outlook events: match attendees to internal people by email or name
     if (isEdit && initial?.source === 'outlook' && initial?.attendees?.length) {
       const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
+      const internalNames = new Map(people.filter(p => p.name).map(p => [p.name.toLowerCase(), p.code] as const))
       const codes = new Set<string>()
       if (initial.personCode) codes.add(initial.personCode)
       for (const att of initial.attendees) {
-        if (!att.email) continue
-        const code = internalEmails.get(att.email.toLowerCase())
+        // Try email match first, then name match
+        const byEmail = att.email ? internalEmails.get(att.email.toLowerCase()) : undefined
+        const byName = att.name ? internalNames.get(att.name.toLowerCase()) : undefined
+        const code = byEmail || byName
         if (code) codes.add(code)
       }
       if (codes.size > 0) return [...codes]
@@ -125,6 +128,7 @@ export default function ActivityForm({
   const dragStartY = useRef<number | null>(null)
   const isDragging = useRef(false)
   // Snapshot of values at form open / reset — used for dirty detection
+  // Must match the actual initial selectedPersonCodes to avoid false dirty
   const initialValuesRef = useRef({
     description: initial?.description ?? '',
     timeTo: initial?.timeTo ?? '',
@@ -134,11 +138,7 @@ export default function ActivityForm({
     planned: initial?.planned ?? false,
     itemCode: initial?.itemCode ?? '',
     textInMatrix: initial?.textInMatrix ?? '',
-    selectedPersonCodes: (
-      isEdit && initial?.mainPersons?.length ? initial.mainPersons
-        : initial?.personCode ? [initial.personCode]
-        : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
-    ) as string[],
+    selectedPersonCodes: selectedPersonCodes as string[],
     selectedCCPersonCodes: [...(initial?.ccPersons ?? [])] as string[],
   })
   const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
