@@ -107,6 +107,12 @@ export default function AdminShell({ email, accountName, isSuperAdmin, children 
                 </Link>
               )
             })}
+            <Link
+              href="/"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/30 text-primary"
+            >
+              ← Calendar
+            </Link>
           </nav>
         )}
 
