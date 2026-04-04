@@ -369,10 +369,13 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       })
   }, [userCode])
 
+  // Stable string of selected person codes — avoids refetching when stubs are replaced with full objects
+  const selectedCodesKey = state.selectedPersons.map(p => p.code).join(',')
+
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
-    if (!state.selectedPersons.length) return
+    if (!selectedCodesKey) return
     setLoading(true)
-    const codes = state.selectedPersons.map(p => p.code).join(',')
+    const codes = selectedCodesKey
     const dateFrom = state.date
     const dateTo = state.view === '5day'
       ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
@@ -437,7 +440,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [state.selectedPersons, state.date, state.view])
+  }, [selectedCodesKey, state.date, state.view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchActivities()
