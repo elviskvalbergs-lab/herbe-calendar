@@ -48,15 +48,32 @@ export default function ActivityForm({
     // For Outlook events: match attendees to internal people by email or name
     if (isEdit && initial?.source === 'outlook' && initial?.attendees?.length) {
       const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
-      const internalNames = new Map(people.filter(p => p.name).map(p => [p.name.toLowerCase(), p.code] as const))
+      // Group people by name for disambiguation
+      const internalNameGroups = new Map<string, typeof people>()
+      for (const p of people) {
+        if (!p.name) continue
+        const key = p.name.toLowerCase()
+        const group = internalNameGroups.get(key) ?? []
+        group.push(p)
+        internalNameGroups.set(key, group)
+      }
       const codes = new Set<string>()
       if (initial.personCode) codes.add(initial.personCode)
       for (const att of initial.attendees) {
-        // Try email match first, then name match
+        // Try email match first
         const byEmail = att.email ? internalEmails.get(att.email.toLowerCase()) : undefined
-        const byName = att.name ? internalNames.get(att.name.toLowerCase()) : undefined
-        const code = byEmail || byName
-        if (code) codes.add(code)
+        if (byEmail) { codes.add(byEmail); continue }
+        // Name match: if multiple people share the name, prefer the one with matching email domain
+        if (att.name) {
+          const group = internalNameGroups.get(att.name.toLowerCase())
+          if (group?.length === 1) {
+            codes.add(group[0].code)
+          } else if (group && att.email) {
+            const attDomain = att.email.split('@')[1]?.toLowerCase()
+            const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
+            codes.add(domainMatch?.code ?? group[0].code)
+          }
+        }
       }
       if (codes.size > 0) return [...codes]
     }
