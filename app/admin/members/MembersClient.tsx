@@ -76,7 +76,7 @@ export default function MembersClient({ members: initial, accountId }: { members
           </thead>
           <tbody>
             {filtered.map(m => (
-              <tr key={m.email} className={`border-b border-border/30 ${!m.active ? 'opacity-40' : ''}`}>
+              <tr key={m.email} className={`border-b border-border/30 ${!m.active ? 'bg-border/10' : ''}`}>
                 <td className="px-4 py-2 font-mono text-xs font-bold">{m.generated_code ?? '—'}</td>
                 <td className="px-4 py-2 truncate max-w-[150px]">{m.display_name ?? m.email.split('@')[0]}</td>
                 <td className="px-4 py-2 hidden sm:table-cell text-text-muted text-xs truncate max-w-[200px]">{m.email}</td>
