@@ -65,7 +65,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           onChange={e => {
             if (e.target.value) onStateChange({ ...state, date: e.target.value })
           }}
-          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer pointer-events-none"
           tabIndex={-1}
         />
       </button>

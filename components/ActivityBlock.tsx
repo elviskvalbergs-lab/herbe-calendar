@@ -269,7 +269,13 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                       className="px-1.5 py-0 rounded-full text-[9px] font-bold border border-border/50 text-text-muted bg-border/20 truncate max-w-[80px]"
                       title={`${att.name || att.email}${att.responseStatus ? ` (${att.responseStatus})` : ''}`}
                     >
-                      {att.name?.split(' ').map(w => w[0]).join('') || att.email.split('@')[0]}
+                      {att.name ? (() => {
+                        const parts = att.name.trim().split(/\s+/)
+                        if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase()
+                        const first = parts[0].toUpperCase()
+                        const last = parts[parts.length - 1].toUpperCase()
+                        return first[0] + last[0] + last[last.length - 1]
+                      })() : att.email.split('@')[0]}
                     </span>
                   ))}
                   {activity.attendees.length > 6 && (
