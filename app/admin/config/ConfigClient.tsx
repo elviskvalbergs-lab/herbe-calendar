@@ -21,7 +21,13 @@ interface ErpConnection {
 export default function ConfigClient({ azure, erpConnections: initialErp }: { azure: AzureConfig | null; erpConnections: ErpConnection[] }) {
   const [erpConnections, setErpConnections] = useState(initialErp)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === 'herbe_connected') return 'Standard ERP OAuth connected successfully'
+    if (params.get('error')) return `OAuth error: ${params.get('error')}`
+    return null
+  })
   const [showAddErp, setShowAddErp] = useState(false)
   const [erpForm, setErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '' })
   const [editingErpId, setEditingErpId] = useState<string | null>(null)
@@ -279,7 +285,8 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                     <button
                       onClick={() => {
                         const callbackUrl = `${window.location.origin}/api/herbe/callback`
-                        const authorizeUrl = `https://standard-id.hansaworld.com/oauth-authorize?client_id=${encodeURIComponent(conn.client_id)}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code`
+                        const state = conn.id // pass connection ID as state
+                        const authorizeUrl = `https://standard-id.hansaworld.com/oauth-authorize?client_id=${encodeURIComponent(conn.client_id)}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${encodeURIComponent(state)}`
                         window.open(authorizeUrl, '_blank')
                       }}
                       className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-primary/30 text-primary hover:bg-primary/10"
