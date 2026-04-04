@@ -5,9 +5,9 @@ const NONCE_LEN = 12
 const TAG_LEN = 16
 
 function getKey(): Buffer {
-  const hex = process.env.CONFIG_ENCRYPTION_KEY
+  const hex = (process.env.CONFIG_ENCRYPTION_KEY ?? '').trim()
   if (!hex || hex.length !== 64) {
-    throw new Error('CONFIG_ENCRYPTION_KEY must be a 64-char hex string (32 bytes). Generate with: openssl rand -hex 32')
+    throw new Error(`CONFIG_ENCRYPTION_KEY must be a 64-char hex string (32 bytes), got ${hex.length} chars. Generate with: openssl rand -hex 32`)
   }
   return Buffer.from(hex, 'hex')
 }

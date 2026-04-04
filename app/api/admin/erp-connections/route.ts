@@ -20,16 +20,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'name, apiBaseUrl, and companyCode are required' }, { status: 400 })
   }
 
-  const encSecret = clientSecret ? encrypt(clientSecret) : null
-  const encPassword = password ? encrypt(password) : null
+  try {
+    const encSecret = clientSecret ? encrypt(clientSecret) : null
+    const encPassword = password ? encrypt(password) : null
 
-  const { rows } = await pool.query(
-    `INSERT INTO account_erp_connections (account_id, name, api_base_url, company_code, client_id, client_secret, username, password)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, name, api_base_url, company_code, client_id, username, active, created_at`,
-    [session.accountId, name, apiBaseUrl, companyCode, clientId || '', encSecret, username || null, encPassword]
-  )
+    const { rows } = await pool.query(
+      `INSERT INTO account_erp_connections (account_id, name, api_base_url, company_code, client_id, client_secret, username, password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, name, api_base_url, company_code, client_id, username, active, created_at`,
+      [session.accountId, name, apiBaseUrl, companyCode, clientId || '', encSecret, username || null, encPassword]
+    )
 
-  return NextResponse.json(rows[0], { status: 201 })
+    return NextResponse.json(rows[0], { status: 201 })
+  } catch (e) {
+    console.error('[admin/erp-connections POST]', e)
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
 }
 
 export async function PATCH(req: NextRequest) {
