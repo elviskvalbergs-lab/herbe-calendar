@@ -261,6 +261,22 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               {isCC && (
                 <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
               )}
+              {activity.attendees && activity.attendees.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 mt-1.5">
+                  {activity.attendees.slice(0, 6).map(att => (
+                    <span
+                      key={att.email}
+                      className="px-1.5 py-0 rounded-full text-[9px] font-bold border border-border/50 text-text-muted bg-border/20 truncate max-w-[80px]"
+                      title={`${att.name || att.email}${att.responseStatus ? ` (${att.responseStatus})` : ''}`}
+                    >
+                      {att.name?.split(' ').map(w => w[0]).join('') || att.email.split('@')[0]}
+                    </span>
+                  ))}
+                  {activity.attendees.length > 6 && (
+                    <span className="text-[9px] text-text-muted">+{activity.attendees.length - 6}</span>
+                  )}
+                </div>
+              )}
               {activity.joinUrl && (
                 <a
                   href={activity.joinUrl}
