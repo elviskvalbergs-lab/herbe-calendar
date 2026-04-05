@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getErpConnections } from '@/lib/accountConfig'
 
-let projectCache: Record<string, unknown>[] | null = null
-let projectCacheExpiry = 0
-
-async function getAllProjects(): Promise<Record<string, unknown>[]> {
-  if (projectCache && Date.now() < projectCacheExpiry) return projectCache
-  const all = await herbeFetchAll(REGISTERS.projects, {}, 500)
-  projectCache = all as Record<string, unknown>[]
-  projectCacheExpiry = Date.now() + 5 * 60 * 1000
-  return projectCache
-}
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
+const projCache = new Map<string, { data: Record<string, unknown>[]; expiry: number }>()
+const CACHE_TTL = 5 * 60 * 1000
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,13 +16,25 @@ export async function GET(req: NextRequest) {
   }
   const url = new URL(req.url)
   const q = url.searchParams.get('q') ?? ''
+  const connectionId = url.searchParams.get('connectionId')
+
+  const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+  const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+  const cacheKey = conn?.id ?? 'default'
+
+  async function getAllProjects(): Promise<Record<string, unknown>[]> {
+    const cached = projCache.get(cacheKey)
+    if (cached && Date.now() < cached.expiry) return cached.data
+    const raw = await herbeFetchAll(REGISTERS.projects, {}, 500, conn) as Record<string, unknown>[]
+    projCache.set(cacheKey, { data: raw, expiry: Date.now() + CACHE_TTL })
+    return raw
+  }
 
   if (url.searchParams.has('preload')) {
     getAllProjects().catch(() => {})
     return NextResponse.json({ ok: true })
   }
 
-  // Return all active projects for client-side caching
   if (url.searchParams.has('all')) {
     const all = await getAllProjects()
     const results = all
@@ -62,7 +68,6 @@ export async function GET(req: NextRequest) {
         return {
           Code: String(r['Code'] ?? r['PRCode'] ?? ''),
           Name: String(r['Name'] ?? ''),
-          // Try all known field name variants for the linked customer
           CUCode: String(r['CUCode'] ?? r['CustomerCode'] ?? r['CustCode'] ?? r['CU'] ?? '') || null,
           CUName: String(r['CUName'] ?? r['CustomerName'] ?? r['CustName'] ?? r['CUComment'] ?? '') || null,
         }

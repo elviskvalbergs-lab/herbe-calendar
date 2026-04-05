@@ -252,13 +252,18 @@ export default function ActivityForm({
     return () => window.removeEventListener('keydown', handler)
   }, [isEdit, editId, companyCode, canEdit])
 
-  // Load activity types on mount
+  // Per-connection data: projects and customers
+  const [connProjects, setConnProjects] = useState<{ Code: string; Name: string; CUCode: string | null; CUName: string | null }[]>(allProjects ?? [])
+  const [connCustomers, setConnCustomers] = useState<{ Code: string; Name: string }[]>(allCustomers ?? [])
+
+  // Load activity types when source/connection changes
+  const connParam = activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
   useEffect(() => {
-    fetch('/api/activity-types')
+    if (!isErpSource) return
+    fetch(`/api/activity-types${connParam}`)
       .then(r => r.json())
       .then((types: ActivityType[]) => {
         setActivityTypes(types)
-        // Set display name + group requirements for pre-selected type (edit mode)
         if (initial?.activityTypeCode) {
           const found = types.find(t => t.code === initial.activityTypeCode)
           if (found) {
@@ -268,7 +273,17 @@ export default function ActivityForm({
         }
       })
       .catch(console.error)
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Load per-connection projects and customers
+    fetch(`/api/projects?all=1${connParam ? '&' + connParam.slice(1) : ''}`)
+      .then(r => r.ok ? r.json() : []).then(setConnProjects).catch(() => {})
+    fetch(`/api/customers?all=1${connParam ? '&' + connParam.slice(1) : ''}`)
+      .then(r => r.ok ? r.json() : []).then(setConnCustomers).catch(() => {})
+
+    // Load recent types for this connection
+    const connKey = activeErpConnection?.id ?? 'default'
+    setRecentTypes(getRecentTypes(connKey))
+  }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function filterActivityTypes(q: string) {
     const lower = q.toLowerCase()
@@ -334,9 +349,9 @@ export default function ActivityForm({
   async function searchProjects(q: string) {
     if (q.length < 2) { setProjectResults([]); setProjectSearchMsg(null); return }
     // Use client-side data if available
-    if (allProjects?.length) {
+    if (connProjects?.length) {
       const lower = q.toLowerCase()
-      const results = allProjects
+      const results = connProjects
         .filter(p => p.Name.toLowerCase().includes(lower) || p.Code.toLowerCase().includes(lower))
         .slice(0, 20)
         .map(p => ({ code: p.Code, name: p.Name, customerCode: p.CUCode || undefined, customerName: p.CUName || undefined }))
@@ -368,9 +383,9 @@ export default function ActivityForm({
   async function searchCustomers(q: string) {
     if (q.length < 2) { setCustomerResults([]); setCustomerSearchMsg(null); return }
     // Use client-side data if available
-    if (allCustomers?.length) {
+    if (connCustomers?.length) {
       const lower = q.toLowerCase()
-      const results = allCustomers
+      const results = connCustomers
         .filter(c => c.Name.toLowerCase().includes(lower) || c.Code.toLowerCase().includes(lower))
         .slice(0, 20)
         .map(c => ({ code: c.Code, name: c.Name }))
@@ -501,7 +516,7 @@ export default function ActivityForm({
         : ''
 
       onSaved()
-      if (activityTypeCode) saveRecentType(activityTypeCode)
+      if (activityTypeCode) saveRecentType(activityTypeCode, activeErpConnection?.id)
       saveRecentPersons(selectedPersonCodes)
       saveRecentCCPersons(selectedCCPersonCodes)
       setRecentTypes(getRecentTypes())

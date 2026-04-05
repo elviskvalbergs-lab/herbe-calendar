@@ -2,18 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getErpConnections } from '@/lib/accountConfig'
 
-// Module-level cache — survives across requests on the same serverless instance
-let customerCache: Record<string, unknown>[] | null = null
-let customerCacheExpiry = 0
-
-async function getAllCustomers(): Promise<Record<string, unknown>[]> {
-  if (customerCache && Date.now() < customerCacheExpiry) return customerCache
-  const all = await herbeFetchAll(REGISTERS.customers, {}, 200)
-  customerCache = all as Record<string, unknown>[]
-  customerCacheExpiry = Date.now() + 5 * 60 * 1000 // 5 min TTL
-  return customerCache
-}
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
+const custCache = new Map<string, { data: Record<string, unknown>[]; expiry: number }>()
+const CACHE_TTL = 5 * 60 * 1000
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,54 +14,50 @@ export async function GET(req: NextRequest) {
   } catch {
     return unauthorized()
   }
-  const url = new URL(req.url)
-  const q = url.searchParams.get('q') ?? ''
-  const debug = url.searchParams.get('debug')
 
-  const preload = url.searchParams.has('preload')
+  const { searchParams } = new URL(req.url)
+  const q = searchParams.get('q') ?? ''
+  const all = searchParams.get('all')
+  const connectionId = searchParams.get('connectionId')
 
-  // Warm the cache in the background without returning data
-  if (preload) {
-    getAllCustomers().catch(() => {}) // fire and forget
-    return NextResponse.json({ ok: true })
+  const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+  const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+  const cacheKey = conn?.id ?? 'default'
+
+  async function getAllCustomers(): Promise<Record<string, unknown>[]> {
+    const cached = custCache.get(cacheKey)
+    if (cached && Date.now() < cached.expiry) return cached.data
+    const raw = await herbeFetchAll(REGISTERS.customers, {}, 200, conn) as Record<string, unknown>[]
+    custCache.set(cacheKey, { data: raw, expiry: Date.now() + CACHE_TTL })
+    return raw
   }
 
-  // Return all active customers for client-side caching
-  if (url.searchParams.has('all')) {
-    const all = await getAllCustomers()
-    const results = (all as Record<string, unknown>[])
-      .filter(r => String(r['Closed'] ?? r['Inactive'] ?? '0') !== '1')
-      .map(r => ({
-        Code: String(r['Code'] ?? r['CUCode'] ?? r['CustomerCode'] ?? ''),
-        Name: String(r['Name'] ?? r['CUName'] ?? r['CustomerName'] ?? r['Comment'] ?? ''),
-      }))
-      .filter(r => r.Code)
-    return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
+  if (all === '1') {
+    try {
+      const raw = await getAllCustomers()
+      const results = raw
+        .map(c => ({ Code: String((c as Record<string, unknown>)['Code'] ?? ''), Name: String((c as Record<string, unknown>)['Name'] ?? '') }))
+        .filter(r => r.Code)
+      return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 })
+    }
   }
 
-  if (!debug && q.length < 2) return NextResponse.json([])
-
+  if (q.length < 2) return NextResponse.json([])
   try {
-    const all = await getAllCustomers()
-
-    // Debug mode: return first 3 raw records to inspect field names
-    if (debug) return NextResponse.json((all as Record<string, unknown>[]).slice(0, 3))
-
+    const raw = await getAllCustomers()
     const lower = q.toLowerCase()
-    const results = (all as Record<string, unknown>[])
-      .filter(r => {
-        // Skip closed/inactive customers
-        if (String(r['Closed'] ?? r['Inactive'] ?? '0') === '1') return false
-        // Match against any plausible name/code field
-        const name = String(r['Name'] ?? r['CUName'] ?? r['CustomerName'] ?? r['Comment'] ?? '')
-        const code = String(r['Code'] ?? r['CUCode'] ?? r['CustomerCode'] ?? '')
-        return name.toLowerCase().includes(lower) || code.toLowerCase().includes(lower)
+    const results = raw
+      .filter(c => {
+        const r = c as Record<string, unknown>
+        return String(r['Name'] ?? '').toLowerCase().includes(lower)
       })
       .slice(0, 20)
-      .map(r => ({
-        Code: String(r['Code'] ?? r['CUCode'] ?? r['CustomerCode'] ?? ''),
-        Name: String(r['Name'] ?? r['CUName'] ?? r['CustomerName'] ?? r['Comment'] ?? ''),
-      }))
+      .map(c => {
+        const r = c as Record<string, unknown>
+        return { Code: String(r['Code'] ?? ''), Name: String(r['Name'] ?? '') }
+      })
       .filter(r => r.Code)
 
     return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
