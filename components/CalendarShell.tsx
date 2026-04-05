@@ -20,7 +20,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
   const [sources, setSources] = useState<{ herbe: boolean; azure: boolean }>({ herbe: true, azure: true })
-  const [erpConnections, setErpConnections] = useState<{ id: string; name: string }[]>([])
+  const [erpConnections, setErpConnections] = useState<{ id: string; name: string; companyCode?: string; serpUuid?: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})

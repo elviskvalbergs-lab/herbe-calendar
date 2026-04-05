@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Create new connection
-  const { name, apiBaseUrl, companyCode, clientId, clientSecret, username, password } = body
+  const { name, apiBaseUrl, companyCode, clientId, clientSecret, username, password, serpUuid } = body
 
   if (!name || !apiBaseUrl || !companyCode) {
     return NextResponse.json({ error: 'name, apiBaseUrl, and companyCode are required' }, { status: 400 })
@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
     const encPassword = password ? encrypt(password) : null
 
     const { rows } = await pool.query(
-      `INSERT INTO account_erp_connections (account_id, name, api_base_url, company_code, client_id, client_secret, username, password)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, name, api_base_url, company_code, client_id, username, active, created_at`,
-      [session.accountId, name, apiBaseUrl, companyCode, clientId || '', encSecret, username || null, encPassword]
+      `INSERT INTO account_erp_connections (account_id, name, api_base_url, company_code, client_id, client_secret, username, password, serp_uuid)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, name, api_base_url, company_code, client_id, username, active, created_at, serp_uuid`,
+      [session.accountId, name, apiBaseUrl, companyCode, clientId || '', encSecret, username || null, encPassword, serpUuid || null]
     )
 
     return NextResponse.json(rows[0], { status: 201 })
@@ -84,7 +84,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { id, name, apiBaseUrl, companyCode, clientId, clientSecret, username, password, active } = body
+  const { id, name, apiBaseUrl, companyCode, clientId, clientSecret, username, password, active, serpUuid } = body
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
@@ -100,6 +100,7 @@ export async function PATCH(req: NextRequest) {
   if (username !== undefined) { updates.push(`username = $${idx++}`); params.push(username || null) }
   if (password) { updates.push(`password = $${idx++}`); params.push(encrypt(password)) }
   if (typeof active === 'boolean') { updates.push(`active = $${idx++}`); params.push(active) }
+  if (serpUuid !== undefined) { updates.push(`serp_uuid = $${idx++}`); params.push(serpUuid || null) }
 
   if (updates.length === 0) return NextResponse.json({ error: 'nothing to update' }, { status: 400 })
 

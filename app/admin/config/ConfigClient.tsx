@@ -29,9 +29,9 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
     return null
   })
   const [showAddErp, setShowAddErp] = useState(false)
-  const [erpForm, setErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '' })
+  const [erpForm, setErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '', serpUuid: '' })
   const [editingErpId, setEditingErpId] = useState<string | null>(null)
-  const [editErpForm, setEditErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '' })
+  const [editErpForm, setEditErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '', serpUuid: '' })
   const [testResult, setTestResult] = useState<Record<string, string | null>>({})
 
   // Azure config form
@@ -165,6 +165,11 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                 <input value={erpForm.apiBaseUrl} onChange={e => setErpForm(f => ({ ...f, apiBaseUrl: e.target.value }))}
                   className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" placeholder="https://erp.example.com/api" />
               </div>
+              <div className="sm:col-span-2">
+                <label className="text-[10px] text-text-muted uppercase block mb-0.5">Server UUID <span className="text-text-muted">(for hansa:// deep links, optional)</span></label>
+                <input value={erpForm.serpUuid} onChange={e => setErpForm(f => ({ ...f, serpUuid: e.target.value }))} autoComplete="off"
+                  className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" placeholder="Server UUID from ERP Preferences" />
+              </div>
             </div>
             <p className="text-[10px] text-text-muted font-bold pt-1">Authentication (choose one)</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -200,7 +205,7 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                 if (res.ok) {
                   const conn = await res.json()
                   setErpConnections(prev => [...prev, conn])
-                  setErpForm({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '' })
+                  setErpForm({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '', serpUuid: '' })
                   setShowAddErp(false)
                   setMessage('ERP connection added')
                 } else {
@@ -275,6 +280,7 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
                       setEditErpForm({
                         name: conn.name, apiBaseUrl: conn.api_base_url, companyCode: conn.company_code,
                         clientId: conn.client_id, clientSecret: '', username: conn.username || '', password: '',
+                        serpUuid: (conn as any).serp_uuid || '',
                       })
                     }}
                     className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border text-text-muted hover:bg-border/30"

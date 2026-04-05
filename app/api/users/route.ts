@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       }))
     }
 
-    const erpConnectionList = erpConnections.map(c => ({ id: c.id, name: c.name }))
+    const erpConnectionList = erpConnections.map(c => ({ id: c.id, name: c.name, companyCode: c.companyCode, serpUuid: (c as any).serpUuid }))
     const responseData = {
       users: result,
       sources: { herbe: hasErp, azure: isAzureConfigured() },

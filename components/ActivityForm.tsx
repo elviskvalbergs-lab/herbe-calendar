@@ -23,7 +23,7 @@ interface Props {
   companyCode?: string
   allCustomers?: { Code: string; Name: string }[]
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
-  erpConnections?: { id: string; name: string }[]
+  erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
 }
 
 function SerpIcon() {
@@ -684,9 +684,17 @@ export default function ActivityForm({
         >
           <h2 className="font-bold flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
+            {/* ERP connection badge */}
+            {isEdit && isErpSource && activeErpConnection && activeErpConnection.name !== 'Default (env)' && (
+              <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-border bg-border/20 text-text-muted">
+                {activeErpConnection.name}
+              </span>
+            )}
             {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
             {isEdit && editId && (() => {
-              const herbeLink = isErpSource ? serpLink('ActVc', editId, companyCode) : null
+              const connUuid = activeErpConnection?.serpUuid
+              const connCompany = activeErpConnection?.companyCode || companyCode
+              const herbeLink = isErpSource && connUuid ? `hansa://${connUuid}/v1/${connCompany}/ActVc/${editId}` : null
               // Outlook: open in Outlook web calendar in a new tab
               const outlookCalLink = isOutlookSource
                 ? (initial?.webLink || `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`)
@@ -1373,7 +1381,7 @@ export default function ActivityForm({
                 Project{currentGroup?.forceProj && <span className="text-red-400">*</span>}
                 {projectCode && <span className="font-mono text-primary normal-case text-[11px]">{projectCode}</span>}
                 {projectCode && (() => {
-                  const link = serpLink('PRVc', projectCode, companyCode)
+                  const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/PRVc/${projectCode}` : serpLink('PRVc', projectCode, companyCode)
                   return link ? (
                     <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
@@ -1445,7 +1453,7 @@ export default function ActivityForm({
                 Customer{currentGroup?.forceCust && <span className="text-red-400">*</span>}
                 {customerCode && <span className="font-mono text-primary normal-case text-[11px]">{customerCode}</span>}
                 {customerCode && (() => {
-                  const link = serpLink('CUVc', customerCode, companyCode)
+                  const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/CUVc/${customerCode}` : serpLink('CUVc', customerCode, companyCode)
                   return link ? (
                     <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />

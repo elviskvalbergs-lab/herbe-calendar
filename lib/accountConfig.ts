@@ -21,6 +21,7 @@ export interface ErpConnection {
   username: string | null
   password: string | null
   active: boolean
+  serpUuid?: string | null
 }
 
 // Cache per account, 5 min TTL
@@ -98,6 +99,7 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
         username: r.username || null,
         password: decryptField(r.password) || null,
         active: r.active,
+        serpUuid: r.serp_uuid || null,
       }))
       erpCache.set(accountId, { data: connections, ts: Date.now() })
       return connections
@@ -123,6 +125,7 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
       username: process.env.HERBE_USERNAME?.trim() || null,
       password: process.env.HERBE_PASSWORD?.trim() || null,
       active: true,
+      serpUuid: process.env.NEXT_PUBLIC_HERBE_SERP_UUID?.trim() || null,
     }
     erpCache.set(accountId, { data: [fallback], ts: Date.now() })
     return [fallback]

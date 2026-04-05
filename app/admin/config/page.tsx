@@ -21,7 +21,7 @@ export default async function ConfigPage() {
 
   // Load ERP connections (redact secrets)
   const { rows: erpRows } = await pool.query(
-    `SELECT id, name, api_base_url, company_code, client_id, username, active, created_at
+    `SELECT id, name, api_base_url, company_code, client_id, username, active, created_at, serp_uuid
      FROM account_erp_connections WHERE account_id = $1 ORDER BY name`,
     [session.accountId]
   ).catch(() => ({ rows: [] }))
