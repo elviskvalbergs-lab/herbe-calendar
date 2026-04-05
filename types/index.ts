@@ -33,6 +33,7 @@ export interface Activity {
   webLink?: string        // Outlook web UI link that opens this specific event
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
+  erpConnectionName?: string // Name of the ERP connection this activity came from
   isExternal?: boolean   // ICS-backed external calendar
   isAllDay?: boolean     // All-day or multi-day event (no specific time)
   icsColor?: string      // Custom color from ICS calendar settings

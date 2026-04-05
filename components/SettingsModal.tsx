@@ -238,7 +238,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                           <span className="text-xs font-bold">{g.name || g.code}</span>
                           <span className="text-[10px] text-text-muted font-mono">{g.code}</span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1.5 items-center">
                           {BRAND_PALETTE.map(hex => (
                             <button
                               key={hex}
@@ -255,6 +255,21 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                               }}
                             />
                           ))}
+                          <label
+                            className="w-5 h-5 rounded-md border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[9px] text-text-muted hover:scale-110"
+                            title="Custom color"
+                          >
+                            +
+                            <input
+                              type="color"
+                              value={current}
+                              onChange={e => {
+                                saveColorOverride(g.code, e.target.value)
+                                onColorChange(g.code, e.target.value)
+                              }}
+                              className="sr-only"
+                            />
+                          </label>
                         </div>
                       </div>
                     )
@@ -377,7 +392,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                                 >✕</button>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50">
+                            <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50 items-center">
                               {BRAND_PALETTE.slice(0, 12).map(hex => (
                                 <button
                                   key={hex}
@@ -391,6 +406,18 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                                   }}
                                 />
                               ))}
+                              <label
+                                className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
+                                title="Custom color"
+                              >
+                                +
+                                <input
+                                  type="color"
+                                  value={c.color || OUTLOOK_COLOR}
+                                  onChange={e => handleColorChange(c.id, e.target.value)}
+                                  className="sr-only"
+                                />
+                              </label>
                               {c.color && (
                                 <button
                                   onClick={() => handleColorChange(c.id, '')}
