@@ -85,7 +85,7 @@ export async function GET(req: Request) {
           const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
           return mainPersons
             .filter(p => personSet.has(p))
-            .map(p => ({ ...mapActivity(rec, p), erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined }))
+            .map(p => ({ ...mapActivity(rec, p), erpConnectionId: conn.id, erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined }))
         })
 
         // Emit CC rows
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
           const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
           for (const ccCode of ccPersonsArr) {
             if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
-              results.push({ ...mapActivity(r, ccCode), erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined })
+              results.push({ ...mapActivity(r, ccCode), erpConnectionId: conn.id, erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined })
             }
           }
         }

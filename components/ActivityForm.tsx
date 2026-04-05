@@ -46,6 +46,8 @@ export default function ActivityForm({
   // Source: 'outlook' or an ERP connection ID (legacy 'herbe' maps to first connection)
   const [source, setSource] = useState<string>(() => {
     if (initial?.source === 'outlook') return 'outlook'
+    // For edit mode: use the activity's own connection ID if available
+    if (isEdit && initial?.erpConnectionId) return initial.erpConnectionId
     // For ERP activities, use the first connection ID or 'herbe' as fallback
     if (erpConnections.length > 0) return erpConnections[0].id
     return 'herbe'
@@ -541,7 +543,8 @@ export default function ActivityForm({
     setSaving(true)
     setErrors([])
     try {
-      const url = isErpSource ? `/api/activities/${editId}` : `/api/outlook/${editId}`
+      const delConnParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+      const url = isErpSource ? `/api/activities/${editId}${delConnParam}` : `/api/outlook/${editId}`
       const res = await fetch(url, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
@@ -895,7 +898,7 @@ export default function ActivityForm({
 
           {/* Source toggle (create only) */}
           {!isEdit && (
-            <div className="flex rounded overflow-hidden border border-border text-sm font-bold">
+            <div className="flex rounded overflow-hidden border border-border divide-x divide-border text-sm font-bold">
               {erpConnections.map(conn => (
                 <button
                   key={conn.id}
