@@ -82,26 +82,19 @@ async function herbeAuthHeader(conn?: ErpConnection): Promise<string> {
     if ((e as Error).message !== 'HERBE_NOT_CONFIGURED') throw e
   }
 
-  // Fallback: Basic Auth from env vars (for local dev)
-  const username = process.env.HERBE_USERNAME
-  const password = process.env.HERBE_PASSWORD
-  if (username && password) {
-    return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
-  }
-
   throw new Error('HERBE_NOT_CONFIGURED')
 }
 
 export function herbeUrl(register: string, query?: string, conn?: ErpConnection): string {
-  const base = (conn?.apiBaseUrl || process.env.HERBE_API_BASE_URL || '').trim()
-  const company = (conn?.companyCode || process.env.HERBE_COMPANY_CODE || '').trim()
+  const base = (conn?.apiBaseUrl || '').trim()
+  const company = (conn?.companyCode || '').trim()
   const url = `${base}/${company}/${register}`
   return query ? `${url}?${query}` : url
 }
 
 export function herbeUrlById(register: string, id: string, conn?: ErpConnection): string {
-  const base = (conn?.apiBaseUrl || process.env.HERBE_API_BASE_URL || '').trim()
-  const company = (conn?.companyCode || process.env.HERBE_COMPANY_CODE || '').trim()
+  const base = (conn?.apiBaseUrl || '').trim()
+  const company = (conn?.companyCode || '').trim()
   return `${base}/${company}/${register}/${id}`
 }
 
@@ -150,8 +143,8 @@ export async function herbeWebExcellentDelete(
   conn?: ErpConnection
 ): Promise<Response> {
   const auth = await herbeAuthHeader(conn)
-  const base = (conn?.apiBaseUrl || process.env.HERBE_API_BASE_URL || '').trim()
-  const company = (conn?.companyCode || process.env.HERBE_COMPANY_CODE || '').trim()
+  const base = (conn?.apiBaseUrl || '').trim()
+  const company = (conn?.companyCode || '').trim()
 
   let baseUrlFn = base
   try {

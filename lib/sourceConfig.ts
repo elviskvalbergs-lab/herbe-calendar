@@ -1,9 +1,13 @@
-/** Check which data sources are configured based on environment variables */
+/**
+ * Legacy source config checks.
+ * These always return false — source availability is now determined
+ * by DB-based configuration via getErpConnections / getAzureConfig.
+ */
 
 export function isHerbeConfigured(): boolean {
-  return !!(process.env.HERBE_API_BASE_URL?.trim() && process.env.HERBE_COMPANY_CODE?.trim())
+  return false
 }
 
 export function isAzureConfigured(): boolean {
-  return !!(process.env.AZURE_TENANT_ID?.trim() && process.env.AZURE_CLIENT_ID?.trim() && process.env.AZURE_CLIENT_SECRET?.trim())
+  return false
 }

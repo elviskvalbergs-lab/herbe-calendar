@@ -3,8 +3,7 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { graphFetch } from '@/lib/graph/client'
-import { isHerbeConfigured, isAzureConfigured } from '@/lib/sourceConfig'
-import { getErpConnections } from '@/lib/accountConfig'
+import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -33,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch from all active ERP connections
     const erpConnections = await getErpConnections(DEFAULT_ACCOUNT_ID)
-    const hasErp = isHerbeConfigured() || erpConnections.length > 0
+    const hasErp = erpConnections.length > 0
 
     if (hasErp) {
       await Promise.all(erpConnections.map(async (conn) => {
@@ -64,10 +63,12 @@ export async function GET(req: NextRequest) {
       }))
     }
 
-    // Fetch from Azure AD (if configured)
-    if (isAzureConfigured()) {
+    // Fetch from Azure AD (if configured in DB)
+    const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    const hasAzure = !!azureConfig
+    if (hasAzure) {
       try {
-        const res = await graphFetch('/users?$select=id,displayName,mail,userPrincipalName&$top=999&$filter=accountEnabled eq true')
+        const res = await graphFetch('/users?$select=id,displayName,mail,userPrincipalName&$top=999&$filter=accountEnabled eq true', undefined, azureConfig!)
         if (res.ok) {
           const data = await res.json()
           const azureUsers = (data.value ?? []) as Record<string, unknown>[]
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
     const erpConnectionList = erpConnections.map(c => ({ id: c.id, name: c.name, companyCode: c.companyCode, serpUuid: (c as any).serpUuid }))
     const responseData = {
       users: result,
-      sources: { herbe: hasErp, azure: isAzureConfigured() },
+      sources: { herbe: hasErp, azure: hasAzure },
       erpConnections: erpConnectionList,
     }
 

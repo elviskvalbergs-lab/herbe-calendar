@@ -16,16 +16,13 @@ jest.mock('@/lib/db', () => ({
   pool: { query: jest.fn().mockResolvedValue({ rows: [] }) },
 }))
 jest.mock('@/lib/auth', () => ({}))
-jest.mock('@/lib/sourceConfig', () => ({
-  isHerbeConfigured: jest.fn().mockReturnValue(true),
-  isAzureConfigured: jest.fn().mockReturnValue(false),
-}))
 jest.mock('@/lib/accountConfig', () => ({
   getErpConnections: jest.fn().mockResolvedValue([{
-    id: 'env-fallback', name: 'Default (env)', apiBaseUrl: '', companyCode: '',
+    id: 'test-conn', name: 'Test ERP', apiBaseUrl: '', companyCode: '3',
     clientId: '', clientSecret: '', accessToken: null, refreshToken: null,
     tokenExpiresAt: 0, username: null, password: null, active: true,
   }]),
+  getAzureConfig: jest.fn().mockResolvedValue(null),
 }))
 
 // Mock syncPersonCodes to pass through raw data as person codes

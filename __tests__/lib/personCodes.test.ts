@@ -47,59 +47,13 @@ describe('generateCode', () => {
   })
 })
 
-describe('sourceConfig', () => {
-  const origEnv = process.env
-
-  beforeEach(() => {
-    jest.resetModules()
-    process.env = { ...origEnv }
-  })
-
-  afterAll(() => {
-    process.env = origEnv
-  })
-
-  it('isHerbeConfigured returns true when both vars set', () => {
-    process.env.HERBE_API_BASE_URL = 'https://example.com'
-    process.env.HERBE_COMPANY_CODE = '3'
-    const { isHerbeConfigured } = require('@/lib/sourceConfig')
-    expect(isHerbeConfigured()).toBe(true)
-  })
-
-  it('isHerbeConfigured returns false when base URL missing', () => {
-    delete process.env.HERBE_API_BASE_URL
-    process.env.HERBE_COMPANY_CODE = '3'
+describe('sourceConfig (legacy — always returns false, DB-based config now)', () => {
+  it('isHerbeConfigured always returns false', () => {
     const { isHerbeConfigured } = require('@/lib/sourceConfig')
     expect(isHerbeConfigured()).toBe(false)
   })
 
-  it('isHerbeConfigured returns false when company code is empty', () => {
-    process.env.HERBE_API_BASE_URL = 'https://example.com'
-    process.env.HERBE_COMPANY_CODE = '  '
-    const { isHerbeConfigured } = require('@/lib/sourceConfig')
-    expect(isHerbeConfigured()).toBe(false)
-  })
-
-  it('isAzureConfigured returns true when all three vars set', () => {
-    process.env.AZURE_TENANT_ID = 'tenant'
-    process.env.AZURE_CLIENT_ID = 'client'
-    process.env.AZURE_CLIENT_SECRET = 'secret'
-    const { isAzureConfigured } = require('@/lib/sourceConfig')
-    expect(isAzureConfigured()).toBe(true)
-  })
-
-  it('isAzureConfigured returns false when tenant missing', () => {
-    delete process.env.AZURE_TENANT_ID
-    process.env.AZURE_CLIENT_ID = 'client'
-    process.env.AZURE_CLIENT_SECRET = 'secret'
-    const { isAzureConfigured } = require('@/lib/sourceConfig')
-    expect(isAzureConfigured()).toBe(false)
-  })
-
-  it('isAzureConfigured returns false when secret empty', () => {
-    process.env.AZURE_TENANT_ID = 'tenant'
-    process.env.AZURE_CLIENT_ID = 'client'
-    process.env.AZURE_CLIENT_SECRET = ''
+  it('isAzureConfigured always returns false', () => {
     const { isAzureConfigured } = require('@/lib/sourceConfig')
     expect(isAzureConfigured()).toBe(false)
   })

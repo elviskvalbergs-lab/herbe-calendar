@@ -12,15 +12,10 @@ function cacheKey(config: AzureConfig): string {
   return `${config.tenantId}:${config.clientId}`
 }
 
-/** Resolve Azure config: use provided config or fall back to env vars */
+/** Resolve Azure config: requires config from DB (no env var fallback) */
 function resolveConfig(config?: AzureConfig): AzureConfig {
   if (config) return config
-  return {
-    tenantId: process.env.AZURE_TENANT_ID ?? '',
-    clientId: process.env.AZURE_CLIENT_ID ?? '',
-    clientSecret: process.env.AZURE_CLIENT_SECRET ?? '',
-    senderEmail: process.env.AZURE_SENDER_EMAIL ?? '',
-  }
+  throw new Error('Azure config not provided — configure via admin panel')
 }
 
 async function getGraphToken(config: AzureConfig): Promise<string> {

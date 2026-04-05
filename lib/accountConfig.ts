@@ -34,7 +34,7 @@ function decryptField(data: Buffer | null): string {
   try { return decrypt(data) } catch { return '' }
 }
 
-/** Get Azure config for an account. Falls back to env vars for default account. */
+/** Get Azure config for an account from the database. */
 export async function getAzureConfig(accountId: string): Promise<AzureConfig | null> {
   const cached = azureCache.get(accountId)
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
@@ -58,24 +58,11 @@ export async function getAzureConfig(accountId: string): Promise<AzureConfig | n
     console.warn('[accountConfig] Azure config lookup failed:', String(e))
   }
 
-  // Fallback to env vars
-  const tenantId = process.env.AZURE_TENANT_ID?.trim()
-  const clientId = process.env.AZURE_CLIENT_ID?.trim()
-  const clientSecret = process.env.AZURE_CLIENT_SECRET?.trim()
-  if (tenantId && clientId && clientSecret) {
-    const config: AzureConfig = {
-      tenantId, clientId, clientSecret,
-      senderEmail: process.env.AZURE_SENDER_EMAIL?.trim() || '',
-    }
-    azureCache.set(accountId, { data: config, ts: Date.now() })
-    return config
-  }
-
   azureCache.set(accountId, { data: null, ts: Date.now() })
   return null
 }
 
-/** Get all active ERP connections for an account. Falls back to env vars. */
+/** Get all active ERP connections for an account from the database. */
 export async function getErpConnections(accountId: string): Promise<ErpConnection[]> {
   const cached = erpCache.get(accountId)
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data
@@ -106,29 +93,6 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
     }
   } catch (e) {
     console.warn('[accountConfig] ERP connections lookup failed:', String(e))
-  }
-
-  // Fallback to env vars
-  const baseUrl = process.env.HERBE_API_BASE_URL?.trim()
-  const companyCode = process.env.HERBE_COMPANY_CODE?.trim()
-  if (baseUrl && companyCode) {
-    const fallback: ErpConnection = {
-      id: 'env-fallback',
-      name: 'Default (env)',
-      apiBaseUrl: baseUrl,
-      companyCode,
-      clientId: process.env.HERBE_CLIENT_ID?.trim() || '',
-      clientSecret: process.env.HERBE_CLIENT_SECRET?.trim() || '',
-      accessToken: null,
-      refreshToken: null,
-      tokenExpiresAt: 0,
-      username: process.env.HERBE_USERNAME?.trim() || null,
-      password: process.env.HERBE_PASSWORD?.trim() || null,
-      active: true,
-      serpUuid: process.env.NEXT_PUBLIC_HERBE_SERP_UUID?.trim() || null,
-    }
-    erpCache.set(accountId, { data: [fallback], ts: Date.now() })
-    return [fallback]
   }
 
   erpCache.set(accountId, { data: [], ts: Date.now() })
