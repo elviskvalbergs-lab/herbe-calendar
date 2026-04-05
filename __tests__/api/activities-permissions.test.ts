@@ -10,7 +10,10 @@ jest.mock('@/lib/herbe/client', () => ({
   herbeWebExcellentDelete: jest.fn(),
 }))
 jest.mock('@/lib/auth', () => ({}))
-jest.mock('@/lib/db', () => ({ pool: { query: jest.fn() } }))
+jest.mock('@/lib/db', () => ({ pool: { query: jest.fn().mockResolvedValue({ rows: [] }) } }))
+jest.mock('@/lib/accountConfig', () => ({
+  getErpConnections: jest.fn().mockResolvedValue([]),
+}))
 
 import { GET, POST } from '@/app/api/activities/route'
 import { PUT, DELETE } from '@/app/api/activities/[id]/route'

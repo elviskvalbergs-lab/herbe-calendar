@@ -3,7 +3,10 @@ import { herbeFetch, herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
+import { getErpConnections } from '@/lib/accountConfig'
 import type { Activity } from '@/types'
+
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 
 function toTime(raw: string): string {
   // "HH:mm:ss" or "HH:mm" → "HH:mm"
@@ -65,31 +68,45 @@ export async function GET(req: Request) {
   try {
     const personList = persons.split(',').map(p => p.trim())
     const personSet = new Set(personList)
-    const raw = await herbeFetchAll(REGISTERS.activities, {
-      sort: 'TransDate',
-      range: `${dateFrom}:${dateTo}`,
-    })
-    const results: Activity[] = raw.flatMap(r => {
-      const rec = r as Record<string, unknown>
-      const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-      return mainPersons
-        .filter(p => personSet.has(p))
-        .map(p => mapActivity(rec, p))
-    })
 
-    // Emit CC rows for persons in CCPersons but NOT already in MainPersons
-    for (const record of raw) {
-      const r = record as Record<string, unknown>
-      const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-      const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-      for (const ccCode of ccPersonsArr) {
-        if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
-          results.push(mapActivity(r, ccCode))
+    // Fetch from all active ERP connections (or env-var fallback)
+    const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    const allResults: Activity[] = []
+
+    await Promise.all(connections.map(async (conn) => {
+      try {
+        const raw = await herbeFetchAll(REGISTERS.activities, {
+          sort: 'TransDate',
+          range: `${dateFrom}:${dateTo}`,
+        }, 100, conn)
+
+        const results: Activity[] = raw.flatMap(r => {
+          const rec = r as Record<string, unknown>
+          const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+          return mainPersons
+            .filter(p => personSet.has(p))
+            .map(p => ({ ...mapActivity(rec, p), erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined }))
+        })
+
+        // Emit CC rows
+        for (const record of raw) {
+          const r = record as Record<string, unknown>
+          const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+          const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+          for (const ccCode of ccPersonsArr) {
+            if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
+              results.push({ ...mapActivity(r, ccCode), erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined })
+            }
+          }
         }
-      }
-    }
 
-    return NextResponse.json(results, { headers: { 'Cache-Control': 'no-store' } })
+        allResults.push(...results)
+      } catch (e) {
+        console.warn(`[activities] ERP connection "${conn.name}" failed:`, String(e))
+      }
+    }))
+
+    return NextResponse.json(allResults, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

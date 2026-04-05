@@ -4,7 +4,10 @@ import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { graphFetch } from '@/lib/graph/client'
 import { isHerbeConfigured, isAzureConfigured } from '@/lib/sourceConfig'
+import { getErpConnections } from '@/lib/accountConfig'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
+
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 
 // Module-level cache: avoids re-fetching ERP + Azure + DB sync on every page load
 let usersCache: { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number } | null = null
@@ -28,32 +31,37 @@ export async function GET(req: NextRequest) {
   try {
     const rawUsers: RawUser[] = []
 
-    // Fetch from Herbe ERP (if configured)
-    if (isHerbeConfigured()) {
-      try {
-        const users = await herbeFetchAll(REGISTERS.users, {}, 1000)
-        const active = users.filter(u => String((u as Record<string, unknown>)['Closed'] ?? '0') === '0')
+    // Fetch from all active ERP connections
+    const erpConnections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    const hasErp = isHerbeConfigured() || erpConnections.length > 0
 
-        if (debug) {
-          const record = (users as Record<string, unknown>[]).find(u => u['Code'] === debug)
-          return NextResponse.json(record ?? { error: `User ${debug} not found` })
-        }
+    if (hasErp) {
+      await Promise.all(erpConnections.map(async (conn) => {
+        try {
+          const users = await herbeFetchAll(REGISTERS.users, {}, 1000, conn)
+          const active = users.filter(u => String((u as Record<string, unknown>)['Closed'] ?? '0') === '0')
 
-        for (const u of active as Record<string, unknown>[]) {
-          const code = u['Code'] as string
-          const email = (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string
-          const name = (u['Name'] || code || '') as string
-          if (!code) continue
-          rawUsers.push({
-            email: email || `${code.toLowerCase()}@erp.local`,
-            displayName: name,
-            source: 'erp',
-            erpCode: code,
-          })
+          if (debug) {
+            const record = (users as Record<string, unknown>[]).find(u => u['Code'] === debug)
+            if (record) return NextResponse.json(record)
+          }
+
+          for (const u of active as Record<string, unknown>[]) {
+            const code = u['Code'] as string
+            const email = (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string
+            const name = (u['Name'] || code || '') as string
+            if (!code) continue
+            rawUsers.push({
+              email: email || `${code.toLowerCase()}@erp.local`,
+              displayName: name,
+              source: 'erp',
+              erpCode: code,
+            })
+          }
+        } catch (e) {
+          console.warn(`[users] ERP connection "${conn.name}" fetch failed:`, String(e))
         }
-      } catch (e) {
-        console.warn('[users] Herbe ERP fetch failed:', String(e))
-      }
+      }))
     }
 
     // Fetch from Azure AD (if configured)
@@ -104,7 +112,7 @@ export async function GET(req: NextRequest) {
       }))
     }
 
-    const sources = { herbe: isHerbeConfigured(), azure: isAzureConfigured() }
+    const sources = { herbe: hasErp, azure: isAzureConfigured() }
 
     // Cache the result
     usersCache = { response: { users: result, sources }, ts: Date.now() }

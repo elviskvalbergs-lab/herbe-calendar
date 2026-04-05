@@ -218,7 +218,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
               )}
               {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+                <p className="text-[10px] mt-1 text-text-muted truncate">
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'Herbe ERP'}
+                </p>
               )}
             </>
           ) : (
@@ -256,7 +258,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
               )}
               {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+                <p className="text-[10px] mt-1 text-text-muted truncate">
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'Herbe ERP'}
+                </p>
               )}
               {isCC && (
                 <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>

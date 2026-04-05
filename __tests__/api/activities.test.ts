@@ -11,6 +11,15 @@ jest.mock('@/lib/herbe/client', () => ({
 jest.mock('@/lib/herbe/auth-guard', () => ({
   requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com' }),
 }))
+jest.mock('@/lib/accountConfig', () => ({
+  getErpConnections: jest.fn().mockResolvedValue([{
+    id: 'env-fallback', name: 'Default (env)', apiBaseUrl: '', companyCode: '',
+    clientId: '', clientSecret: '', accessToken: null, refreshToken: null,
+    tokenExpiresAt: 0, username: null, password: null, active: true,
+  }]),
+}))
+jest.mock('@/lib/db', () => ({ pool: { query: jest.fn().mockResolvedValue({ rows: [] }) } }))
+jest.mock('@/lib/auth', () => ({}))
 
 describe('toHerbeForm', () => {
   it('omits empty strings by default', () => {
