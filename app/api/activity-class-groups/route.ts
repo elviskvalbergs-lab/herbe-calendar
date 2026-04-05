@@ -1,30 +1,38 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getErpConnections } from '@/lib/accountConfig'
 
-// Module-level cache (mirrors activity-types pattern)
-let classGroupCache: Record<string, unknown>[] | null = null
-let classGroupCacheExpiry = 0
-const CLASS_GROUP_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
+const groupCache = new Map<string, { data: Record<string, unknown>[]; expiry: number }>()
+const CACHE_TTL = 60 * 60 * 1000
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await requireSession()
   } catch {
     return unauthorized()
   }
+
+  const connectionId = new URL(req.url).searchParams.get('connectionId')
+
   try {
-    let raw: unknown[]
-    if (classGroupCache && Date.now() < classGroupCacheExpiry) {
-      raw = classGroupCache
+    const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+    const cacheKey = conn?.id ?? 'default'
+
+    const cached = groupCache.get(cacheKey)
+    let raw: Record<string, unknown>[]
+    if (cached && Date.now() < cached.expiry) {
+      raw = cached.data
     } else {
-      raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100)
-      classGroupCache = raw as Record<string, unknown>[]
-      classGroupCacheExpiry = Date.now() + CLASS_GROUP_CACHE_TTL
+      raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100, conn) as Record<string, unknown>[]
+      groupCache.set(cacheKey, { data: raw, expiry: Date.now() + CACHE_TTL })
     }
+
     const toBool = (v: unknown) => v === true || v === 1 || v === '1' || v === 'true'
-    const groups = (raw as Record<string, unknown>[]).map(g => ({
+    const groups = raw.map(g => ({
       code: String(g['Code'] ?? ''),
       name: String(g['Comment'] ?? g['Name'] ?? g['Code'] ?? ''),
       calColNr: g['CalColNr'] != null ? String(g['CalColNr']) : undefined,

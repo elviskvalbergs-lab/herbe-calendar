@@ -181,13 +181,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Resolve ERP connection for this request
+    const connectionId = new URL(req.url).searchParams.get('connectionId')
+    const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+
     const body = await req.json()
     const formBody = toHerbeForm(body, new Set(['CCPersons']))
     const res = await herbeFetch(REGISTERS.activities, undefined, {
       method: 'POST',
       body: formBody,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-    })
+    }, conn)
     const data = await res.json().catch(() => null)
     console.log(`POST ActVc → ${res.status}`, JSON.stringify(data))
     if (!res.ok) {

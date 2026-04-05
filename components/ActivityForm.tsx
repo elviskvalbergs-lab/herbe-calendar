@@ -23,6 +23,7 @@ interface Props {
   companyCode?: string
   allCustomers?: { Code: string; Name: string }[]
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
+  erpConnections?: { id: string; name: string }[]
 }
 
 function SerpIcon() {
@@ -36,13 +37,22 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = []
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  const [source, setSource] = useState<'herbe' | 'outlook'>(initial?.source ?? 'herbe')
+  // Source: 'outlook' or an ERP connection ID (legacy 'herbe' maps to first connection)
+  const [source, setSource] = useState<string>(() => {
+    if (initial?.source === 'outlook') return 'outlook'
+    // For ERP activities, use the first connection ID or 'herbe' as fallback
+    if (erpConnections.length > 0) return erpConnections[0].id
+    return 'herbe'
+  })
+  const isOutlookSource = source === 'outlook'
+  const isErpSource = !isOutlookSource
+  const activeErpConnection = erpConnections.find(c => c.id === source)
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
     // For Outlook events: match attendees to internal people by email or name
@@ -452,21 +462,22 @@ export default function ActivityForm({
     if (!timeFrom) errs.push('Start time is required')
     if (!timeTo) errs.push('End time is required')
     if (timeFrom && timeTo && timeFrom >= timeTo) errs.push('End time must be after start time')
-    if (source === 'herbe' && currentGroup?.forceProj && !projectCode) errs.push('Project is required for this activity type')
-    if (source === 'herbe' && currentGroup?.forceCust && !customerCode) errs.push('Customer is required for this activity type')
-    if (source === 'herbe' && currentGroup?.forceItem && !itemCode.trim()) errs.push('Item code is required for this activity type')
-    if (source === 'herbe' && currentGroup?.forceTextInMatrix && !textInMatrix.trim()) errs.push('Additional text is required for this activity type')
+    if (isErpSource && currentGroup?.forceProj && !projectCode) errs.push('Project is required for this activity type')
+    if (isErpSource && currentGroup?.forceCust && !customerCode) errs.push('Customer is required for this activity type')
+    if (isErpSource && currentGroup?.forceItem && !itemCode.trim()) errs.push('Item code is required for this activity type')
+    if (isErpSource && currentGroup?.forceTextInMatrix && !textInMatrix.trim()) errs.push('Additional text is required for this activity type')
     if (errs.length) { setErrors(errs); return }
 
     setSaving(true)
     setErrors([])
 
     try {
-      const url = source === 'herbe'
-        ? (isEdit ? `/api/activities/${editId}` : '/api/activities')
+      const connParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+      const url = isErpSource
+        ? (isEdit ? `/api/activities/${editId}${connParam}` : `/api/activities${connParam}`)
         : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
       const method = isEdit ? 'PUT' : 'POST'
-      const body = source === 'herbe' ? buildHerbePayload() : buildOutlookPayload()
+      const body = isErpSource ? buildHerbePayload() : buildOutlookPayload()
 
       const res = await fetch(url, {
         method,
@@ -498,7 +509,7 @@ export default function ActivityForm({
       setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
         id: createdId,
-        source, personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
+        source: isOutlookSource ? 'outlook' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
         activityTypeCode, projectCode, projectName, customerCode, customerName,
       })
       setSaving(false)
@@ -510,12 +521,12 @@ export default function ActivityForm({
 
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(source === 'outlook' ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
+    if (!confirm(isOutlookSource ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
 
     setSaving(true)
     setErrors([])
     try {
-      const url = source === 'herbe' ? `/api/activities/${editId}` : `/api/outlook/${editId}`
+      const url = isErpSource ? `/api/activities/${editId}` : `/api/outlook/${editId}`
       const res = await fetch(url, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
@@ -562,7 +573,7 @@ export default function ActivityForm({
   function handleDuplicate() {
     onClose()
     onDuplicate({
-      source,
+      source: isOutlookSource ? 'outlook' : 'herbe',
       personCode: selectedPersonCodes[0],
       description,
       date,
@@ -657,14 +668,14 @@ export default function ActivityForm({
             {isEdit ? 'Edit Activity' : 'New Activity'}
             {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
             {isEdit && editId && (() => {
-              const herbeLink = source === 'herbe' ? serpLink('ActVc', editId, companyCode) : null
+              const herbeLink = isErpSource ? serpLink('ActVc', editId, companyCode) : null
               // Outlook: open in Outlook web calendar in a new tab
-              const outlookCalLink = source === 'outlook'
+              const outlookCalLink = isOutlookSource
                 ? (initial?.webLink || `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`)
                 : null
               const openLink = herbeLink ?? outlookCalLink
               // For Outlook copy: prefer joinUrl (Teams link) so recipient can join; fall back to calendar web URL
-              const copyText = source === 'outlook'
+              const copyText = isOutlookSource
                 ? (initial?.joinUrl ?? outlookCalLink ?? '')
                 : (herbeLink ?? '')
               const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors hover:border-primary hover:bg-primary/20'
@@ -674,11 +685,11 @@ export default function ActivityForm({
                     href={openLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={source === 'outlook' ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
+                    title={isOutlookSource ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
                     tabIndex={-1}
                     className={cls}
                   >
-                    {source === 'outlook' ? (
+                    {isOutlookSource ? (
                       <>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
                         <span>Calendar</span>
@@ -691,7 +702,7 @@ export default function ActivityForm({
                     <button
                       type="button"
                       tabIndex={-1}
-                      title={erpLinkCopied ? 'Copied!' : (source === 'outlook' ? 'Copy Teams/meeting link' : 'Copy ERP link')}
+                      title={erpLinkCopied ? 'Copied!' : (isOutlookSource ? 'Copy Teams/meeting link' : 'Copy ERP link')}
                       onClick={async (e) => {
                         e.stopPropagation()
                         await navigator.clipboard.writeText(copyText)
@@ -708,7 +719,7 @@ export default function ActivityForm({
                       )}
                     </button>
                   )}
-                  {canEdit !== false && source === 'outlook' && (
+                  {canEdit !== false && isOutlookSource && (
                     <button
                       type="button"
                       tabIndex={-1}
@@ -724,7 +735,7 @@ export default function ActivityForm({
                     </button>
                   )}
                 </span>
-              ) : source === 'herbe' ? (
+              ) : isErpSource ? (
                 <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{editId}</span>
               ) : null
             })()}
@@ -804,7 +815,7 @@ export default function ActivityForm({
           )}
 
           {/* RSVP buttons (Outlook Graph only, not ICS) */}
-          {source === 'outlook' && !initial?.isExternal && rsvpStatus !== 'organizer' && (
+          {isOutlookSource && !initial?.isExternal && rsvpStatus !== 'organizer' && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
               <div className="flex gap-2">
@@ -870,15 +881,22 @@ export default function ActivityForm({
           {/* Source toggle (create only) */}
           {!isEdit && (
             <div className="flex rounded overflow-hidden border border-border text-sm font-bold">
-              {(['herbe', 'outlook'] as const).map(s => (
+              {erpConnections.map(conn => (
                 <button
-                  key={s}
-                  onClick={() => setSource(s)}
-                  className={`flex-1 py-2 ${source === s ? 'bg-primary text-white' : 'text-text-muted'}`}
+                  key={conn.id}
+                  onClick={() => setSource(conn.id)}
+                  className={`flex-1 py-2 truncate px-1 ${source === conn.id ? 'bg-primary text-white' : 'text-text-muted'}`}
                 >
-                  {s === 'herbe' ? 'Herbe ERP' : 'Outlook'}
+                  {conn.name === 'Default (env)' ? 'ERP' : conn.name}
                 </button>
               ))}
+              <button
+                key="outlook"
+                onClick={() => setSource('outlook')}
+                className={`flex-1 py-2 ${isOutlookSource ? 'bg-primary text-white' : 'text-text-muted'}`}
+              >
+                Outlook
+              </button>
             </div>
           )}
 
@@ -950,7 +968,7 @@ export default function ActivityForm({
           })()}
 
           {/* CC Person(s) — Herbe only */}
-          {source === 'herbe' && (() => {
+          {isErpSource && (() => {
             const unselected = people
               .filter(p => !selectedCCPersonCodes.includes(p.code))
               .sort((a, b) => {
@@ -1008,7 +1026,7 @@ export default function ActivityForm({
           })()}
 
           {/* External attendees (Outlook only) */}
-          {source === 'outlook' && externalAttendees.length > 0 && (
+          {isOutlookSource && externalAttendees.length > 0 && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
               <div className="flex flex-wrap gap-1">
@@ -1031,7 +1049,7 @@ export default function ActivityForm({
               </div>
             </div>
           )}
-          {source === 'outlook' && canEdit && (
+          {isOutlookSource && canEdit && (
             <div>
               {externalAttendees.length === 0 && (
                 <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
@@ -1181,7 +1199,7 @@ export default function ActivityForm({
                     </button>
                   )
                 })}
-                {source === 'herbe' && (
+                {isErpSource && (
                   <button
                     type="button"
                     tabIndex={-1}
@@ -1200,7 +1218,7 @@ export default function ActivityForm({
           })()}
 
           {/* Teams meeting toggle (Outlook create only) */}
-          {source === 'outlook' && !isEdit && (
+          {isOutlookSource && !isEdit && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -1213,7 +1231,7 @@ export default function ActivityForm({
           )}
 
           {/* Location (Outlook only) */}
-          {source === 'outlook' && (location || canEdit) && (
+          {isOutlookSource && (location || canEdit) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
               {canEdit ? (
@@ -1230,7 +1248,7 @@ export default function ActivityForm({
           )}
 
           {/* Activity type (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 Activity Type
@@ -1331,7 +1349,7 @@ export default function ActivityForm({
           )}
 
           {/* Project (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 Project{currentGroup?.forceProj && <span className="text-red-400">*</span>}
@@ -1403,7 +1421,7 @@ export default function ActivityForm({
           )}
 
           {/* Customer (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 Customer{currentGroup?.forceCust && <span className="text-red-400">*</span>}
@@ -1465,7 +1483,7 @@ export default function ActivityForm({
           )}
 
           {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
-          {source === 'herbe' && (currentGroup?.forceItem || itemCode) && (
+          {isErpSource && (currentGroup?.forceItem || itemCode) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
                 Item Code{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
@@ -1480,7 +1498,7 @@ export default function ActivityForm({
           )}
 
           {/* Additional text (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
                 Additional Text{currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}

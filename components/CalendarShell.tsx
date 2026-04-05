@@ -20,6 +20,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
   const [sources, setSources] = useState<{ herbe: boolean; azure: boolean }>({ herbe: true, azure: true })
+  const [erpConnections, setErpConnections] = useState<{ id: string; name: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
@@ -312,6 +313,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         const envelope = data as { users?: unknown[]; sources?: { herbe: boolean; azure: boolean } }
         if (envelope.users && Array.isArray(envelope.users)) {
           if (envelope.sources) setSources(envelope.sources)
+          if ((envelope as any).erpConnections) setErpConnections((envelope as any).erpConnections)
           return envelope.users as Record<string, unknown>[]
         }
         if (Array.isArray(data)) return data as Record<string, unknown>[]
@@ -587,6 +589,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           companyCode={companyCode}
           allCustomers={allCustomers}
           allProjects={allProjects}
+          erpConnections={erpConnections}
         />
       )}
 

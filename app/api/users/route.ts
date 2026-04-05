@@ -112,12 +112,17 @@ export async function GET(req: NextRequest) {
       }))
     }
 
-    const sources = { herbe: hasErp, azure: isAzureConfigured() }
+    const erpConnectionList = erpConnections.map(c => ({ id: c.id, name: c.name }))
+    const responseData = {
+      users: result,
+      sources: { herbe: hasErp, azure: isAzureConfigured() },
+      erpConnections: erpConnectionList,
+    }
 
     // Cache the result
-    usersCache = { response: { users: result, sources }, ts: Date.now() }
+    usersCache = { response: responseData as any, ts: Date.now() }
 
-    return NextResponse.json({ users: result, sources }, { headers: { 'Cache-Control': 'private, max-age=300' } })
+    return NextResponse.json(responseData, { headers: { 'Cache-Control': 'private, max-age=300' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
