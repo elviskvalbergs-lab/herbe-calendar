@@ -1,4 +1,4 @@
-export type Source = 'herbe' | 'outlook'
+export type Source = 'herbe' | 'outlook' | 'google'
 
 export interface Person {
   code: string      // e.g. "EKS"

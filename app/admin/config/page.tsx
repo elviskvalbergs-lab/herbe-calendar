@@ -26,13 +26,27 @@ export default async function ConfigPage() {
     [session.accountId]
   ).catch(() => ({ rows: [] }))
 
-  const azure = azureRows[0] ?? null
-  const erpConnections = erpRows
+  // Load SMTP config (redact password)
+  const { rows: smtpRows } = await pool.query(
+    'SELECT host, port, username, sender_email, sender_name, use_tls FROM account_smtp_config WHERE account_id = $1',
+    [session.accountId]
+  ).catch(() => ({ rows: [] }))
+
+  // Load Google config (redact key)
+  const { rows: googleRows } = await pool.query(
+    'SELECT service_account_email, admin_email, domain FROM account_google_config WHERE account_id = $1',
+    [session.accountId]
+  ).catch(() => ({ rows: [] }))
 
   return (
     <AdminShell email={session.email} accountName={session.accountName} isSuperAdmin={session.isSuperAdmin}>
       <h1 className="text-xl font-bold mb-6">Connections</h1>
-      <ConfigClient azure={azure} erpConnections={erpConnections} />
+      <ConfigClient
+        azure={azureRows[0] ?? null}
+        erpConnections={erpRows}
+        smtp={smtpRows[0] ?? null}
+        google={googleRows[0] ?? null}
+      />
     </AdminShell>
   )
 }

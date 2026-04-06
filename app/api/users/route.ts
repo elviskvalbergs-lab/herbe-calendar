@@ -4,6 +4,7 @@ import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { graphFetch } from '@/lib/graph/client'
 import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
+import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -93,6 +94,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Fetch from Google Workspace (if configured)
+    const googleConfig = await getGoogleConfig(DEFAULT_ACCOUNT_ID)
+    const hasGoogle = !!googleConfig
+    if (hasGoogle) {
+      try {
+        const googleUsers = await listGoogleUsers(googleConfig)
+        for (const u of googleUsers) {
+          rawUsers.push({
+            email: u.email,
+            displayName: u.name,
+            source: 'azure', // Treat as 'azure' source type for person_codes (external provider)
+            azureObjectId: `google-${u.id}`,
+          })
+        }
+      } catch (e) {
+        console.warn('[users] Google Workspace fetch failed:', String(e))
+      }
+    }
+
     // Sync to person_codes table and get unified list
     let result: Record<string, unknown>[]
     try {
@@ -116,7 +136,7 @@ export async function GET(req: NextRequest) {
     const erpConnectionList = erpConnections.map(c => ({ id: c.id, name: c.name, companyCode: c.companyCode, serpUuid: (c as any).serpUuid }))
     const responseData = {
       users: result,
-      sources: { herbe: hasErp, azure: hasAzure },
+      sources: { herbe: hasErp, azure: hasAzure, google: hasGoogle },
       erpConnections: erpConnectionList,
     }
 

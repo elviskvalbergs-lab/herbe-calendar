@@ -19,7 +19,7 @@ interface Props { userCode: string; companyCode: string }
 export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
-  const [sources, setSources] = useState<{ herbe: boolean; azure: boolean }>({ herbe: true, azure: true })
+  const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean }>({ herbe: true, azure: true })
   const [erpConnections, setErpConnections] = useState<{ id: string; name: string; companyCode?: string; serpUuid?: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
@@ -393,6 +393,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       const fetches: Promise<Response>[] = []
       if (sources.herbe) fetches.push(fetch(`/api/activities?persons=${codes}&${dateParam}`))
       if (sources.azure) fetches.push(fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`))
+      if (sources.google) fetches.push(fetch(`/api/google?persons=${codes}&${dateParam}`))
 
       const responses = await Promise.all(fetches)
       let idx = 0
@@ -427,14 +428,30 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           }
         }
       }
-      setActivities([...herbe, ...outlook])
+      let googleEvents: Activity[] = []
+      let googleErrMsg = ''
+      if (sources.google) {
+        const googleRes = responses[idx++]
+        if (googleRes.ok) {
+          googleEvents = await googleRes.json()
+        } else {
+          try {
+            const e = await googleRes.json()
+            googleErrMsg = String(e.error ?? JSON.stringify(e))
+          } catch {
+            googleErrMsg = await googleRes.text().catch(() => String(googleRes.status))
+          }
+        }
+      }
+      setActivities([...herbe, ...outlook, ...googleEvents])
 
       const parts: string[] = []
       if (sources.herbe) parts.push(`${herbe.length} Herbe${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
       if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
+      if (sources.google) parts.push(`${googleEvents.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
       setStatus({
         msg: parts.join(' + ') + ' activities',
-        ok: !herbeErrMsg && !outlookErrMsg,
+        ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg,
       })
     } catch (e) {
       setStatus({ msg: `Fetch failed: ${e}`, ok: false })

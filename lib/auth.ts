@@ -1,10 +1,14 @@
 import NextAuth from 'next-auth'
 import PostgresAdapter from '@auth/pg-adapter'
 import { pool } from '@/lib/db'
-import { sendMail } from '@/lib/graph/client'
+import { sendMail as sendMailGraph } from '@/lib/graph/client'
+import { getAzureConfig } from '@/lib/accountConfig'
+import { getSmtpConfig, sendMailSmtp } from '@/lib/smtp'
 import type { EmailConfig } from 'next-auth/providers/email'
 import { AccessDenied } from '@auth/core/errors'
 import { getCodeByEmail, isEmailKnown } from '@/lib/personCodes'
+
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 
 // Cache email → userCode lookups for 1 hour
 const userCache = new Map<string, { userCode: string; expiresAt: number }>()
@@ -42,7 +46,7 @@ const emailProvider: EmailConfig = {
   id: 'email',
   type: 'email',
   name: 'Email',
-  from: process.env.AZURE_SENDER_EMAIL!,
+  from: 'noreply@herbe.calendar',  // Overridden by actual sender in sendVerificationRequest
   maxAge: 24 * 60 * 60,
   async sendVerificationRequest({ identifier: email, url: rawUrl }) {
     let url = rawUrl
@@ -75,14 +79,24 @@ const emailProvider: EmailConfig = {
     if (!registered) {
       throw new AccessDenied()
     }
-    await sendMail(
-      email,
-      'Your Herbe Calendar sign-in link',
-      `<p>Click the link below to sign in to Herbe Calendar. The link expires in 24 hours.</p>
+    const subject = 'Your Herbe Calendar sign-in link'
+    const html = `<p>Click the link below to sign in to Herbe Calendar. The link expires in 24 hours.</p>
        <p><a href="${url}" style="background:#cd4c38;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;">Sign in</a></p>
        <p>If you did not request this, you can safely ignore this email.</p>
        <p style="font-size: 11px; color: #666;">Target environment: ${url}</p>`
-    )
+
+    // Try Azure Graph first, then SMTP fallback
+    const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    if (azureConfig) {
+      await sendMailGraph(email, subject, html, azureConfig)
+    } else {
+      const smtpConfig = await getSmtpConfig(DEFAULT_ACCOUNT_ID)
+      if (smtpConfig) {
+        await sendMailSmtp(smtpConfig, email, subject, html)
+      } else {
+        throw new Error('No email transport configured. Set up Azure AD or SMTP in admin settings.')
+      }
+    }
   },
 }
 

@@ -18,7 +18,22 @@ interface ErpConnection {
   created_at: string
 }
 
-export default function ConfigClient({ azure, erpConnections: initialErp }: { azure: AzureConfig | null; erpConnections: ErpConnection[] }) {
+interface SmtpConfig {
+  host: string
+  port: number
+  username: string
+  sender_email: string
+  sender_name: string
+  use_tls: boolean
+}
+
+interface GoogleConfig {
+  service_account_email: string
+  admin_email: string
+  domain: string
+}
+
+export default function ConfigClient({ azure, erpConnections: initialErp, smtp: initialSmtp, google: initialGoogle }: { azure: AzureConfig | null; erpConnections: ErpConnection[]; smtp: SmtpConfig | null; google: GoogleConfig | null }) {
   const [erpConnections, setErpConnections] = useState(initialErp)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(() => {
@@ -39,6 +54,20 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
   const [azureClientId, setAzureClientId] = useState(azure?.client_id ?? '')
   const [azureClientSecret, setAzureClientSecret] = useState('')
   const [azureSenderEmail, setAzureSenderEmail] = useState(azure?.sender_email ?? '')
+
+  // SMTP config form
+  const [smtpHost, setSmtpHost] = useState(initialSmtp?.host ?? '')
+  const [smtpPort, setSmtpPort] = useState(String(initialSmtp?.port ?? 587))
+  const [smtpUsername, setSmtpUsername] = useState(initialSmtp?.username ?? '')
+  const [smtpPassword, setSmtpPassword] = useState('')
+  const [smtpSenderEmail, setSmtpSenderEmail] = useState(initialSmtp?.sender_email ?? '')
+  const [smtpSenderName, setSmtpSenderName] = useState(initialSmtp?.sender_name ?? 'Herbe Calendar')
+
+  // Google config form
+  const [googleServiceEmail, setGoogleServiceEmail] = useState(initialGoogle?.service_account_email ?? '')
+  const [googleServiceKey, setGoogleServiceKey] = useState('')
+  const [googleAdminEmail, setGoogleAdminEmail] = useState(initialGoogle?.admin_email ?? '')
+  const [googleDomain, setGoogleDomain] = useState(initialGoogle?.domain ?? '')
 
   async function saveAzure() {
     setSaving(true)
@@ -132,6 +161,120 @@ export default function ConfigClient({ azure, erpConnections: initialErp }: { az
             className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">
             Test Connection
           </button>
+        </div>
+      </section>
+
+      {/* SMTP Email */}
+      <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
+        <h2 className="text-sm font-bold flex items-center gap-2">
+          SMTP Email (for login magic links)
+          {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+        </h2>
+        <p className="text-[10px] text-text-muted">Used when Azure AD is not configured. Sends magic link emails via SMTP.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">SMTP Host</label>
+            <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="smtp.gmail.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Port</label>
+            <input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="587" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Username</label>
+            <input value={smtpUsername} onChange={e => setSmtpUsername(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="user@company.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Password {initialSmtp && <span className="text-text-muted">(blank to keep)</span>}</label>
+            <input type="password" value={smtpPassword} onChange={e => setSmtpPassword(e.target.value)} autoComplete="new-password"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Email</label>
+            <input value={smtpSenderEmail} onChange={e => setSmtpSenderEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="calendar@company.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Name</label>
+            <input value={smtpSenderName} onChange={e => setSmtpSenderName(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Herbe Calendar" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'smtp', host: smtpHost.trim(), port: parseInt(smtpPort) || 587, username: smtpUsername.trim(), password: smtpPassword || undefined, senderEmail: smtpSenderEmail.trim(), senderName: smtpSenderName.trim(), useTls: true }),
+              })
+              setMessage(res.ok ? 'SMTP config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
+              if (res.ok) setSmtpPassword('')
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save SMTP</button>
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-smtp' }) })
+              const data = await res.json()
+              setMessage(data.ok ? `SMTP OK: ${data.message}` : `SMTP test failed: ${data.error}`)
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test SMTP</button>
+        </div>
+      </section>
+
+      {/* Google Workspace */}
+      <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
+        <h2 className="text-sm font-bold flex items-center gap-2">
+          Google Workspace
+          {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+        </h2>
+        <p className="text-[10px] text-text-muted">Enables Google Calendar integration with Meet. Requires a service account with domain-wide delegation.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Service Account Email</label>
+            <input value={googleServiceEmail} onChange={e => setGoogleServiceEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="calendar@project.iam.gserviceaccount.com" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Service Account Private Key (JSON) {initialGoogle && <span className="text-text-muted">(blank to keep)</span>}</label>
+            <textarea value={googleServiceKey} onChange={e => setGoogleServiceKey(e.target.value)}
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono h-20 resize-none" placeholder='Paste the "private_key" value from the JSON key file' />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Admin Email (for delegation)</label>
+            <input value={googleAdminEmail} onChange={e => setGoogleAdminEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="admin@company.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Workspace Domain</label>
+            <input value={googleDomain} onChange={e => setGoogleDomain(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="company.com" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'google', serviceAccountEmail: googleServiceEmail.trim(), serviceAccountKey: googleServiceKey || undefined, adminEmail: googleAdminEmail.trim(), domain: googleDomain.trim() }),
+              })
+              setMessage(res.ok ? 'Google config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
+              if (res.ok) setGoogleServiceKey('')
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save Google Config</button>
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-google' }) })
+              const data = await res.json()
+              setMessage(data.ok ? `Google OK (${data.userCount} users found)` : `Google test failed: ${data.error}`)
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
         </div>
       </section>
 
