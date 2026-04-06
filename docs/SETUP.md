@@ -112,6 +112,73 @@ After first login, configure Azure through the admin UI, then remove these env v
      - `User.Read.All` — List users for the people selector
    - Click "Grant admin consent" for your organization
 
+### Step 5b: Configure SMTP (alternative to Azure for emails)
+
+If you don't have Azure AD, you can use SMTP to send magic link emails:
+
+1. Go to `/admin/config`
+2. Under "SMTP Email", enter:
+   - **Host**: Your SMTP server (e.g. `smtp.gmail.com`)
+   - **Port**: Usually `587` (TLS) or `465` (SSL)
+   - **Username**: SMTP login (usually your email address)
+   - **Password**: SMTP password or app-specific password
+   - **Sender Email**: The "from" address for login emails
+   - **Sender Name**: Display name (default: "Herbe Calendar")
+3. Click "Save SMTP"
+4. Click "Test SMTP" — you should receive a test email
+
+#### Gmail SMTP Setup
+
+1. Go to [Google Account Security](https://myaccount.google.com/security)
+2. Enable 2-Step Verification (required for app passwords)
+3. Go to [App Passwords](https://myaccount.google.com/apppasswords)
+4. Create a new app password for "Herbe Calendar"
+5. Use these settings:
+   - Host: `smtp.gmail.com`
+   - Port: `587`
+   - Username: your Gmail address
+   - Password: the generated app password
+
+### Step 5c: Configure Google Workspace (alternative to Azure for calendars)
+
+If your organization uses Google Workspace instead of Microsoft 365:
+
+1. Go to `/admin/config`
+2. Under "Google Workspace", enter:
+   - **Service Account Email**: From Google Cloud Console
+   - **Service Account Private Key**: The `private_key` value from the JSON key file
+   - **Admin Email**: A Workspace admin email (used for domain-wide delegation)
+   - **Domain**: Your Workspace domain (e.g. `company.com`)
+3. Click "Save Google Config"
+4. Click "Test Connection" to verify user listing works
+
+#### Google Cloud Service Account Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project (or use existing)
+3. Enable these APIs:
+   - Google Calendar API
+   - Admin SDK API (for Directory / user listing)
+4. Create a service account:
+   - IAM & Admin → Service Accounts → Create Service Account
+   - Name: "Herbe Calendar"
+   - Grant no roles (domain-wide delegation handles access)
+5. Create a key:
+   - Click the service account → Keys → Add Key → Create new key → JSON
+   - Save the JSON file — you'll need the `private_key` and `client_email` fields
+6. Enable domain-wide delegation:
+   - Click the service account → Details → Show advanced settings → Enable "Google Workspace Domain-wide Delegation"
+   - Note the **Client ID** (numeric)
+7. Grant API scopes in Google Workspace Admin:
+   - Go to [admin.google.com](https://admin.google.com) → Security → Access and data control → API controls → Manage Domain-wide Delegation
+   - Add new API client:
+     - Client ID: the numeric ID from step 6
+     - OAuth scopes (comma-separated):
+       ```
+       https://www.googleapis.com/auth/calendar,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/admin.directory.user.readonly
+       ```
+8. In the admin config, enter the service account email and private key
+
 ### Step 6: Add Standard ERP Connections
 
 1. Go to `/admin/config`
@@ -150,7 +217,10 @@ If you need to serve multiple organizations:
 1. Go to `/admin/accounts` (super admin only)
 2. Click "+ New Account"
 3. Enter a display name and URL slug
-4. The new account starts empty — configure its Azure and ERP connections separately
+4. The new account starts empty — configure its connections:
+   - Azure AD OR Google Workspace (for calendar + user listing)
+   - SMTP (for login emails, if not using Azure)
+   - Standard ERP connections (for activities)
 
 ---
 
@@ -183,5 +253,8 @@ To export data to external BI tools:
 | "Failed to save" on Azure config | `CONFIG_ENCRYPTION_KEY` not set or invalid | Set a 64-char hex string: `openssl rand -hex 32` |
 | Empty user list | person_codes sync failed | Check ERP/Azure connection config in admin |
 | "Forbidden" on editing activity | Activity from different ERP connection | Ensure the activity's connection is correctly configured |
-| Login email not received | Azure sender email not configured or lacks mailbox | Check Azure config and Mail.Send permission |
+| Login email not received | No email transport configured | Set up Azure AD (with Mail.Send) or SMTP in admin config |
+| SMTP test fails | Wrong credentials or blocked port | Check host/port/username/password. Gmail needs app password. |
+| Google "delegation denied" | Service account not authorized | Check domain-wide delegation in Workspace Admin Console |
+| Google "insufficient permissions" | Missing API scopes | Re-add scopes in Workspace Admin → API controls |
 | PWA shows empty on restart | Normal on first load — stubs restore from localStorage | Wait for API to load, or pull to refresh |
