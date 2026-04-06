@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { graphFetch } from '@/lib/graph/client'
+import { getAzureConfig } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchIcsEvents } from '@/lib/icsParser'
+
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
 import { compare } from 'bcryptjs'
 import type { Activity, ShareVisibility } from '@/types'
@@ -187,9 +190,12 @@ export async function GET(
       try {
         const startDt = `${dateFrom}T00:00:00`
         const endDt = `${dateTo}T23:59:59`
+        const shareAzureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+        if (!shareAzureConfig) throw new Error('Azure not configured')
         const res = await graphFetch(
           `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
-          { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+          { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+          shareAzureConfig
         )
         if (res.ok) {
           const data = await res.json()

@@ -12,6 +12,12 @@ jest.mock('@/lib/herbe/auth-guard', () => ({
 jest.mock('@/lib/herbe/client', () => ({
   herbeFetchAll: jest.fn().mockResolvedValue([]),
 }))
+jest.mock('@/lib/accountConfig', () => ({
+  getAzureConfig: jest.fn().mockResolvedValue({
+    tenantId: 'test-tenant', clientId: 'test-client',
+    clientSecret: 'test-secret', senderEmail: 'sender@example.com',
+  }),
+}))
 jest.mock('@/lib/db', () => ({
   pool: {
     query: jest.fn().mockImplementation((sql: string) => {
@@ -62,7 +68,8 @@ describe('PUT /api/outlook/[id] — organizer guard', () => {
     const res = await PUT(req as any, { params: Promise.resolve({ id: 'evt1' }) })
     expect(graphFetch).toHaveBeenCalledWith(
       expect.stringContaining('evt1'),
-      expect.objectContaining({ method: 'PATCH' })
+      expect.objectContaining({ method: 'PATCH' }),
+      expect.any(Object)
     )
   })
 })

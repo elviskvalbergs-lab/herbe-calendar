@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getAzureConfig } from '@/lib/accountConfig'
 import type { Activity } from '@/types'
 import { pool } from '@/lib/db'
 import { fetchIcsEvents } from '@/lib/icsParser'
 import { emailForCode } from '@/lib/emailForCode'
+
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 
 export async function GET(req: NextRequest) {
   let session
@@ -26,6 +29,12 @@ export async function GET(req: NextRequest) {
 
   const personList = persons.split(',').map(p => p.trim())
   const sessionEmail = session.email
+
+  const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+  if (!azureConfig) {
+    // No Azure config — still return ICS events if any
+    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
+  }
 
   try {
     const results = await Promise.all(personList.map(async code => {
@@ -63,7 +72,8 @@ export async function GET(req: NextRequest) {
       
       let res = await graphFetch(
         `/users/${email}/calendarView?${calendarViewParams}`,
-        { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+        { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+        azureConfig
       )
 
       if (!res.ok && res.status === 404) {
@@ -71,7 +81,7 @@ export async function GET(req: NextRequest) {
         // Search the logged-in user's own shared calendars list for a match.
         try {
           if (sessionEmail) {
-            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`)
+            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`, undefined, azureConfig)
             if (listRes.ok) {
               const listData = await listRes.json()
               const cals = listData.value as any[]
@@ -83,7 +93,8 @@ export async function GET(req: NextRequest) {
                 console.log(`[outlook] Fallback found calendar ID ${sharedCal.id} for ${email}`)
                 res = await graphFetch(
                   `/users/${sessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
-                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+                  azureConfig
                 )
               } else {
                 console.log(`[outlook] Fallback: No calendar owned by ${email} found in ${sessionEmail}'s list`)
@@ -176,10 +187,12 @@ export async function POST(req: NextRequest) {
       if (raw[key] !== undefined) body[key] = raw[key]
     }
     const email = session.email
+    const postAzureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    if (!postAzureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
     const res = await graphFetch(`/users/${email}/events`, {
       method: 'POST',
       body: JSON.stringify(body),
-    })
+    }, postAzureConfig)
     const data = await res.json()
     return NextResponse.json(data, { status: res.ok ? 201 : res.status })
   } catch (e) {
