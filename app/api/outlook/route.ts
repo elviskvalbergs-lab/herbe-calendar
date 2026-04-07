@@ -31,10 +31,6 @@ export async function GET(req: NextRequest) {
   const sessionEmail = session.email
 
   const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
-  if (!azureConfig) {
-    // No Azure config — still return ICS events if any
-    return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
-  }
 
   try {
     const results = await Promise.all(personList.map(async code => {
@@ -65,11 +61,16 @@ export async function GET(req: NextRequest) {
         console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
       }
 
+      // Skip Graph if Azure not configured — ICS events still returned
+      if (!azureConfig) {
+        return icsEventsPromise
+      }
+
       // calendarView expands recurring events automatically; no type filter needed
       const startDt = `${dateFrom}T00:00:00`
       const endDt = `${dateTo}T23:59:59`
       const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=100`
-      
+
       let res = await graphFetch(
         `/users/${email}/calendarView?${calendarViewParams}`,
         { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
