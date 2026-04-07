@@ -214,7 +214,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: FALLBACK_COLOR, background: FALLBACK_COLOR + '33' }} />
-                    <span className="text-xs text-text-muted">Direct herbe entry</span>
+                    <span className="text-xs text-text-muted">Direct ERP entry</span>
                   </div>
                 </div>
               </div>

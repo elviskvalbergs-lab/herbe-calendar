@@ -219,7 +219,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               )}
               {!isOutlook && activity.source === 'herbe' && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'Herbe ERP'}
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
                 </p>
               )}
             </>
@@ -259,7 +259,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               )}
               {!isOutlook && activity.source === 'herbe' && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'Herbe ERP'}
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
                 </p>
               )}
               {isCC && (

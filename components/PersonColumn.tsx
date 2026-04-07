@@ -151,7 +151,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               )}
               {!isOutlook && activity.source === 'herbe' && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'Herbe ERP'}
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
                 </p>
               )}
             </>
@@ -185,7 +185,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               )}
               {!isOutlook && activity.source === 'herbe' && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'Herbe ERP'}
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
                 </p>
               )}
               {activity.joinUrl && (

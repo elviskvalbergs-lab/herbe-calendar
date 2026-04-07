@@ -58,7 +58,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
   const calendarSources: CalendarSource[] = useMemo(() => [
-    { id: HERBE_ID, label: 'Herbe', color: HERBE_COLOR },
+    { id: HERBE_ID, label: 'ERP', color: HERBE_COLOR },
     { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
@@ -446,7 +446,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
       setActivities([...herbe, ...outlook, ...googleEvents])
 
       const parts: string[] = []
-      if (sources.herbe) parts.push(`${herbe.length} Herbe${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
+      if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
       if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
       if (sources.google) parts.push(`${googleEvents.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
       setStatus({
