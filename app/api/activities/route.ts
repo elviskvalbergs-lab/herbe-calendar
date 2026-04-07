@@ -72,8 +72,17 @@ export async function GET(req: Request) {
     const personSet = new Set(personList)
 
     // Fetch from all active ERP connections
-    const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    let connections: Awaited<ReturnType<typeof getErpConnections>> = []
+    try {
+      connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    } catch (e) {
+      console.error('[activities] getErpConnections failed:', e)
+      return NextResponse.json({ error: `ERP config error: ${String(e)}` }, { status: 500 })
+    }
     console.log(`[activities] Found ${connections.length} ERP connections, persons: ${persons}, date: ${dateFrom}`)
+    if (connections.length === 0) {
+      return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
+    }
     const allResults: Activity[] = []
 
     await Promise.all(connections.map(async (conn) => {
