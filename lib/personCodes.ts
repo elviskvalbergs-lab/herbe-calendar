@@ -43,11 +43,11 @@ export function generateCode(displayName: string): string {
  * Find a unique code by appending a number suffix if needed.
  * e.g. "EKS" → "EKS", "EKS2", "EKS3", ...
  */
-export async function findUniqueCode(baseCode: string, excludeEmail?: string): Promise<string> {
-  // Check if base code is available
+export async function findUniqueCode(baseCode: string, accountId: string, excludeEmail?: string): Promise<string> {
+  // Check if base code is available within this account
   const { rows } = await pool.query(
-    'SELECT generated_code FROM person_codes WHERE generated_code = $1' + (excludeEmail ? ' AND email != $2' : ''),
-    excludeEmail ? [baseCode, excludeEmail] : [baseCode]
+    'SELECT generated_code FROM person_codes WHERE account_id = $1 AND generated_code = $2' + (excludeEmail ? ' AND email != $3' : ''),
+    excludeEmail ? [accountId, baseCode, excludeEmail] : [accountId, baseCode]
   )
   if (rows.length === 0) return baseCode
 
@@ -55,8 +55,8 @@ export async function findUniqueCode(baseCode: string, excludeEmail?: string): P
   for (let i = 2; i < 100; i++) {
     const candidate = `${baseCode}${i}`
     const { rows: r } = await pool.query(
-      'SELECT generated_code FROM person_codes WHERE generated_code = $1' + (excludeEmail ? ' AND email != $2' : ''),
-      excludeEmail ? [candidate, excludeEmail] : [candidate]
+      'SELECT generated_code FROM person_codes WHERE account_id = $1 AND generated_code = $2' + (excludeEmail ? ' AND email != $3' : ''),
+      excludeEmail ? [accountId, candidate, excludeEmail] : [accountId, candidate]
     )
     if (r.length === 0) return candidate
   }
@@ -70,12 +70,13 @@ export async function findUniqueCode(baseCode: string, excludeEmail?: string): P
  * - Inserts new records with generated codes
  * - ERP code always takes priority as the generated_code when available
  */
-export async function syncPersonCodes(users: RawUser[]): Promise<PersonCodeRecord[]> {
+export async function syncPersonCodes(users: RawUser[], accountId: string): Promise<PersonCodeRecord[]> {
   if (users.length === 0) return []
 
-  // Load existing records
+  // Load existing records for this account only
   const { rows: existing } = await pool.query<PersonCodeRecord>(
-    'SELECT * FROM person_codes'
+    'SELECT * FROM person_codes WHERE account_id = $1',
+    [accountId]
   )
   const byEmail = new Map(existing.map(r => [r.email.toLowerCase(), r]))
   const byErpCode = new Map(existing.filter(r => r.erp_code).map(r => [r.erp_code!, r]))
@@ -127,13 +128,13 @@ export async function syncPersonCodes(users: RawUser[]): Promise<PersonCodeRecor
       if (rows[0]) results.push(rows[0])
     } else {
       // Generate code for new user: use ERP code if available, otherwise generate
-      const code = erpCode ?? await findUniqueCode(generateCode(displayName), email)
+      const code = erpCode ?? await findUniqueCode(generateCode(displayName), accountId, email)
       try {
         const { rows } = await pool.query<PersonCodeRecord>(
-          `INSERT INTO person_codes (azure_object_id, erp_code, generated_code, email, display_name, source)
-           VALUES ($1, $2, $3, $4, $5, $6)
+          `INSERT INTO person_codes (account_id, azure_object_id, erp_code, generated_code, email, display_name, source)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *`,
-          [azureObjectId || null, erpCode, code, email, displayName, source]
+          [accountId, azureObjectId || null, erpCode, code, email, displayName, source]
         )
         if (rows[0]) results.push(rows[0])
       } catch (e) {
@@ -141,8 +142,8 @@ export async function syncPersonCodes(users: RawUser[]): Promise<PersonCodeRecor
         console.warn(`[personCodes] Insert failed for ${email}:`, String(e))
         // Try to fetch the existing one
         const { rows } = await pool.query<PersonCodeRecord>(
-          'SELECT * FROM person_codes WHERE LOWER(email) = $1',
-          [emailKey]
+          'SELECT * FROM person_codes WHERE account_id = $1 AND LOWER(email) = $2',
+          [accountId, emailKey]
         )
         if (rows[0]) results.push(rows[0])
       }
@@ -155,9 +156,17 @@ export async function syncPersonCodes(users: RawUser[]): Promise<PersonCodeRecor
 /**
  * Look up a person code by email.
  */
-export async function getCodeByEmail(email: string): Promise<string | null> {
+export async function getCodeByEmail(email: string, accountId?: string): Promise<string | null> {
+  if (accountId) {
+    const { rows } = await pool.query<{ generated_code: string }>(
+      'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
+      [accountId, email]
+    )
+    return rows[0]?.generated_code ?? null
+  }
+  // Fallback: search across all accounts (used during auth before account is known)
   const { rows } = await pool.query<{ generated_code: string }>(
-    'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1)',
+    'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) LIMIT 1',
     [email]
   )
   return rows[0]?.generated_code ?? null
@@ -166,7 +175,15 @@ export async function getCodeByEmail(email: string): Promise<string | null> {
 /**
  * Check if an email exists in the person_codes table.
  */
-export async function isEmailKnown(email: string): Promise<boolean> {
+export async function isEmailKnown(email: string, accountId?: string): Promise<boolean> {
+  if (accountId) {
+    const { rows } = await pool.query(
+      'SELECT 1 FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2) LIMIT 1',
+      [accountId, email]
+    )
+    return rows.length > 0
+  }
+  // Fallback: search across all accounts (used during auth before account is known)
   const { rows } = await pool.query(
     'SELECT 1 FROM person_codes WHERE LOWER(email) = LOWER($1) LIMIT 1',
     [email]

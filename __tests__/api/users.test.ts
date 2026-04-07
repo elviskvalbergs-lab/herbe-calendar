@@ -27,7 +27,7 @@ jest.mock('@/lib/accountConfig', () => ({
 
 // Mock syncPersonCodes to pass through raw data as person codes
 jest.mock('@/lib/personCodes', () => ({
-  syncPersonCodes: jest.fn(async (users: any[]) =>
+  syncPersonCodes: jest.fn(async (users: any[], _accountId: string) =>
     users.map(u => ({
       id: 'mock-id',
       azure_object_id: u.azureObjectId ?? null,

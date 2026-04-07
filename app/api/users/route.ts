@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
     // Sync to person_codes table and get unified list
     let result: Record<string, unknown>[]
     try {
-      const personCodes = await syncPersonCodes(rawUsers)
+      const personCodes = await syncPersonCodes(rawUsers, session.accountId)
       result = personCodes.map(pc => ({
         Code: pc.generated_code,
         Name: pc.display_name,

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const connections = await getErpConnections(session.accountId)
   const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
-  const cacheKey = conn?.id ?? 'default'
+  const cacheKey = `${session.accountId}:${conn?.id ?? 'default'}`
 
   async function getAllProjects(): Promise<Record<string, unknown>[]> {
     const cached = projCache.get(cacheKey)

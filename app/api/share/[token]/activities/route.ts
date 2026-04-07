@@ -92,7 +92,8 @@ export async function GET(
       sl.password_hash AS "passwordHash",
       f.person_codes AS "personCodes",
       f.hidden_calendars AS "hiddenCalendars",
-      f.user_email AS "ownerEmail"
+      f.user_email AS "ownerEmail",
+      f.account_id AS "accountId"
     FROM favorite_share_links sl
     JOIN user_favorites f ON f.id = sl.favorite_id
     WHERE sl.token = $1`,
@@ -128,6 +129,7 @@ export async function GET(
   const hiddenCalendarsSet = new Set<string>(link.hiddenCalendars ?? [])
   const visibility: ShareVisibility = link.visibility
   const ownerEmail: string = link.ownerEmail
+  const accountId: string = link.accountId ?? DEFAULT_ACCOUNT_ID
 
   const allActivities: Record<string, unknown>[] = []
 
@@ -160,7 +162,7 @@ export async function GET(
   // Fetch Outlook/ICS activities per person
   for (const code of personCodes) {
     try {
-      const email = await emailForCode(code)
+      const email = await emailForCode(code, accountId)
       if (!email) continue
 
       // ICS feeds — query using ownerEmail (not session)

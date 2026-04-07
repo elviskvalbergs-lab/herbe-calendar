@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const results = await Promise.all(personList.map(async code => {
-      const email = await emailForCode(code)
+      const email = await emailForCode(code, session.accountId)
       if (!email) return []
 
       // --- ICS feeds (DB-backed) — fetched in parallel with Graph ---

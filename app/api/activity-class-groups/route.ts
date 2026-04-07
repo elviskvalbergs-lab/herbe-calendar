@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     const connections = await getErpConnections(session.accountId)
     const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
-    const cacheKey = conn?.id ?? 'default'
+    const cacheKey = `${session.accountId}:${conn?.id ?? 'default'}`
 
     const cached = groupCache.get(cacheKey)
     let raw: Record<string, unknown>[]
