@@ -110,7 +110,6 @@ export async function GET(req: Request) {
     }))
 
     // Track day_viewed (fire-and-forget)
-    const dateFrom = searchParams.get('dateFrom') ?? searchParams.get('date')
     if (dateFrom && session.email) {
       trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'day_viewed', { date: dateFrom }).catch(() => {})
     }
