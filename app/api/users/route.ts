@@ -30,11 +30,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const rawUsers: RawUser[] = []
+    const diagnostics: string[] = []
 
     // Fetch from all active ERP connections
     const erpConnections = await getErpConnections(session.accountId)
     const hasErp = erpConnections.length > 0
-    console.log(`[users] accountId: ${session.accountId}, ERP connections: ${erpConnections.length}, hasErp: ${hasErp}`)
+    diagnostics.push(`account=${session.accountId}, erpConns=${erpConnections.length}`)
 
     if (hasErp) {
       await Promise.all(erpConnections.map(async (conn) => {
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
             if (record) return NextResponse.json(record)
           }
 
+          diagnostics.push(`erp:${conn.name}=${active.length}/${users.length}`)
           for (const u of active as Record<string, unknown>[]) {
             const code = u['Code'] as string
             const email = (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
             })
           }
         } catch (e) {
-          console.warn(`[users] ERP connection "${conn.name}" fetch failed:`, String(e))
+          diagnostics.push(`erp:${conn.name}=FAIL:${String(e).slice(0, 120)}`)
         }
       }))
     }
@@ -114,13 +116,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    console.log(`[users] rawUsers count: ${rawUsers.length}`)
+    diagnostics.push(`raw=${rawUsers.length}`)
 
     // Sync to person_codes table and get unified list
     let result: Record<string, unknown>[]
     try {
       const personCodes = await syncPersonCodes(rawUsers, session.accountId)
-      console.log(`[users] syncPersonCodes returned ${personCodes.length} records`)
+      diagnostics.push(`synced=${personCodes.length}`)
       result = personCodes.map(pc => ({
         Code: pc.generated_code,
         Name: pc.display_name,
@@ -129,13 +131,15 @@ export async function GET(req: NextRequest) {
         ...(pc.source ? { _source: pc.source } : {}),
       }))
     } catch (e) {
-      console.error('[users] person_codes sync failed, returning raw users:', String(e))
+      diagnostics.push(`sync=FAIL:${String(e).slice(0, 120)}`)
       result = rawUsers.map(u => ({
         Code: u.erpCode || u.displayName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 3),
         Name: u.displayName,
         emailAddr: u.email,
       }))
     }
+
+    console.log(`[users] ${diagnostics.join(' | ')} | final=${result.length}`)
 
     const erpConnectionList = erpConnections.map(c => ({ id: c.id, name: c.name, companyCode: c.companyCode, serpUuid: (c as any).serpUuid }))
     const responseData = {
