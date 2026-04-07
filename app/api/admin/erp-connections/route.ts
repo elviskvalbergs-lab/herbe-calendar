@@ -5,6 +5,10 @@ import { encrypt, decrypt } from '@/lib/crypto'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import type { ErpConnection } from '@/lib/accountConfig'
 
+function getAccountIdFromCookie(req: NextRequest): string | undefined {
+  return req.cookies.get('adminAccountId')?.value || undefined
+}
+
 /** Test an ERP connection by fetching from UserVc */
 async function testErpConnection(conn: ErpConnection): Promise<{ ok: boolean; userCount?: number; error?: string }> {
   try {
@@ -18,7 +22,7 @@ async function testErpConnection(conn: ErpConnection): Promise<{ ok: boolean; us
 export async function POST(req: NextRequest) {
   let session
   try {
-    session = await requireAdminSession()
+    session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
     if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   let session
   try {
-    session = await requireAdminSession()
+    session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
     if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
@@ -117,7 +121,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   let session
   try {
-    session = await requireAdminSession()
+    session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
     if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })

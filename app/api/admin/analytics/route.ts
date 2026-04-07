@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { pool } from '@/lib/db'
 
+function getAccountIdFromCookie(req: NextRequest): string | undefined {
+  return req.cookies.get('adminAccountId')?.value || undefined
+}
+
 export async function GET(req: NextRequest) {
   let session
   try {
-    session = await requireAdminSession()
+    session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
     if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
