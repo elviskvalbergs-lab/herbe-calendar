@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     // Fetch from all active ERP connections
     const erpConnections = await getErpConnections(session.accountId)
     const hasErp = erpConnections.length > 0
-    console.log(`[users] ERP connections: ${erpConnections.length}, hasErp: ${hasErp}`)
+    console.log(`[users] accountId: ${session.accountId}, ERP connections: ${erpConnections.length}, hasErp: ${hasErp}`)
 
     if (hasErp) {
       await Promise.all(erpConnections.map(async (conn) => {
@@ -114,10 +114,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    console.log(`[users] rawUsers count: ${rawUsers.length}`)
+
     // Sync to person_codes table and get unified list
     let result: Record<string, unknown>[]
     try {
       const personCodes = await syncPersonCodes(rawUsers, session.accountId)
+      console.log(`[users] syncPersonCodes returned ${personCodes.length} records`)
       result = personCodes.map(pc => ({
         Code: pc.generated_code,
         Name: pc.display_name,
@@ -126,7 +129,7 @@ export async function GET(req: NextRequest) {
         ...(pc.source ? { _source: pc.source } : {}),
       }))
     } catch (e) {
-      console.warn('[users] person_codes sync failed, returning raw users:', String(e))
+      console.error('[users] person_codes sync failed, returning raw users:', String(e))
       result = rawUsers.map(u => ({
         Code: u.erpCode || u.displayName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 3),
         Name: u.displayName,
