@@ -71,8 +71,9 @@ export async function GET(req: Request) {
     const personList = persons.split(',').map(p => p.trim())
     const personSet = new Set(personList)
 
-    // Fetch from all active ERP connections (or env-var fallback)
+    // Fetch from all active ERP connections
     const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    console.log(`[activities] Found ${connections.length} ERP connections, persons: ${persons}, date: ${dateFrom}`)
     const allResults: Activity[] = []
 
     await Promise.all(connections.map(async (conn) => {

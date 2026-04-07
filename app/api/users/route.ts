@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     // Fetch from all active ERP connections
     const erpConnections = await getErpConnections(DEFAULT_ACCOUNT_ID)
     const hasErp = erpConnections.length > 0
+    console.log(`[users] ERP connections: ${erpConnections.length}, hasErp: ${hasErp}`)
 
     if (hasErp) {
       await Promise.all(erpConnections.map(async (conn) => {
