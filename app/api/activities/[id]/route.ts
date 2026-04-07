@@ -7,11 +7,9 @@ import { getErpConnections, type ErpConnection } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import { toHerbeForm } from '../route'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
-async function resolveConnection(url: string): Promise<ErpConnection | undefined> {
+async function resolveConnection(url: string, accountId: string): Promise<ErpConnection | undefined> {
   const connectionId = new URL(url).searchParams.get('connectionId')
-  const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+  const connections = await getErpConnections(accountId)
   return connectionId ? connections.find(c => c.id === connectionId) : connections[0]
 }
 
@@ -42,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return unauthorized()
   }
 
-  const conn = await resolveConnection(req.url)
+  const conn = await resolveConnection(req.url, session.accountId)
   const activity = await fetchActivity(id, conn)
   if (!activity) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canEdit(activity, session.userCode)) return forbidden()
@@ -65,7 +63,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
-    trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'activity_edited').catch(() => {})
+    trackEvent(session.accountId, session.email, 'activity_edited').catch(() => {})
     return NextResponse.json(data ?? {}, { status: 200 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -81,7 +79,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return unauthorized()
   }
 
-  const conn = await resolveConnection(req.url)
+  const conn = await resolveConnection(req.url, session.accountId)
   const activity = await fetchActivity(id, conn)
   if (!activity) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canEdit(activity, session.userCode)) return forbidden()
@@ -92,7 +90,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       const text = await res.text().catch(() => '')
       return NextResponse.json({ error: text || `Herbe error ${res.status}` }, { status: res.status })
     }
-    trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'activity_deleted').catch(() => {})
+    trackEvent(session.accountId, session.email, 'activity_deleted').catch(() => {})
     return new NextResponse(null, { status: 204 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

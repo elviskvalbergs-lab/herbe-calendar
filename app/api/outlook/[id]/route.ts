@@ -3,8 +3,6 @@ import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { getAzureConfig } from '@/lib/accountConfig'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   let session
@@ -14,7 +12,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return unauthorized()
   }
 
-  const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+  const azureConfig = await getAzureConfig(session.accountId)
   if (!azureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
 
   try {
@@ -52,7 +50,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return unauthorized()
   }
 
-  const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+  const azureConfig = await getAzureConfig(session.accountId)
   if (!azureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
 
   try {

@@ -7,8 +7,6 @@ import { pool } from '@/lib/db'
 import { fetchIcsEvents } from '@/lib/icsParser'
 import { emailForCode } from '@/lib/emailForCode'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
 export async function GET(req: NextRequest) {
   let session
   try {
@@ -30,7 +28,7 @@ export async function GET(req: NextRequest) {
   const personList = persons.split(',').map(p => p.trim())
   const sessionEmail = session.email
 
-  const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+  const azureConfig = await getAzureConfig(session.accountId)
 
   try {
     const results = await Promise.all(personList.map(async code => {
@@ -188,7 +186,7 @@ export async function POST(req: NextRequest) {
       if (raw[key] !== undefined) body[key] = raw[key]
     }
     const email = session.email
-    const postAzureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    const postAzureConfig = await getAzureConfig(session.accountId)
     if (!postAzureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
     const res = await graphFetch(`/users/${email}/events`, {
       method: 'POST',

@@ -4,8 +4,6 @@ import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
 import { emailForCode } from '@/lib/emailForCode'
 import type { Activity } from '@/types'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
 export async function GET(req: NextRequest) {
   let session
   try {
@@ -24,7 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'persons and dates required' }, { status: 400 })
   }
 
-  const googleConfig = await getGoogleConfig(DEFAULT_ACCOUNT_ID)
+  const googleConfig = await getGoogleConfig(session.accountId)
   if (!googleConfig) {
     return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
   }
@@ -113,7 +111,7 @@ export async function POST(req: NextRequest) {
     return unauthorized()
   }
 
-  const googleConfig = await getGoogleConfig(DEFAULT_ACCOUNT_ID)
+  const googleConfig = await getGoogleConfig(session.accountId)
   if (!googleConfig) {
     return NextResponse.json({ error: 'Google not configured' }, { status: 400 })
   }

@@ -7,15 +7,14 @@ import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
 import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
 // Module-level cache: avoids re-fetching ERP + Azure + DB sync on every page load
 let usersCache: { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number } | null = null
 const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export async function GET(req: NextRequest) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
@@ -32,7 +31,7 @@ export async function GET(req: NextRequest) {
     const rawUsers: RawUser[] = []
 
     // Fetch from all active ERP connections
-    const erpConnections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    const erpConnections = await getErpConnections(session.accountId)
     const hasErp = erpConnections.length > 0
     console.log(`[users] ERP connections: ${erpConnections.length}, hasErp: ${hasErp}`)
 
@@ -66,7 +65,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch from Azure AD (if configured in DB)
-    const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    const azureConfig = await getAzureConfig(session.accountId)
     const hasAzure = !!azureConfig
     if (hasAzure) {
       try {
@@ -96,7 +95,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch from Google Workspace (if configured)
-    const googleConfig = await getGoogleConfig(DEFAULT_ACCOUNT_ID)
+    const googleConfig = await getGoogleConfig(session.accountId)
     const hasGoogle = !!googleConfig
     if (hasGoogle) {
       try {

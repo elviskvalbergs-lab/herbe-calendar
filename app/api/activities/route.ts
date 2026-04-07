@@ -7,8 +7,6 @@ import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import type { Activity } from '@/types'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
 function toTime(raw: string): string {
   // "HH:mm:ss" or "HH:mm" → "HH:mm"
   return (raw ?? '').slice(0, 5)
@@ -74,7 +72,7 @@ export async function GET(req: Request) {
     // Fetch from all active ERP connections
     let connections: Awaited<ReturnType<typeof getErpConnections>> = []
     try {
-      connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+      connections = await getErpConnections(session.accountId)
     } catch (e) {
       console.error('[activities] getErpConnections failed:', e)
       return NextResponse.json({ error: `ERP config error: ${String(e)}` }, { status: 500 })
@@ -120,7 +118,7 @@ export async function GET(req: Request) {
 
     // Track day_viewed (fire-and-forget)
     if (dateFrom && session.email) {
-      trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'day_viewed', { date: dateFrom }).catch(() => {})
+      trackEvent(session.accountId, session.email, 'day_viewed', { date: dateFrom }).catch(() => {})
     }
 
     return NextResponse.json(allResults, { headers: { 'Cache-Control': 'no-store' } })
@@ -201,7 +199,7 @@ export async function POST(req: NextRequest) {
   try {
     // Resolve ERP connection for this request
     const connectionId = new URL(req.url).searchParams.get('connectionId')
-    const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+    const connections = await getErpConnections(postSession.accountId)
     const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
 
     const body = await req.json()
@@ -233,7 +231,7 @@ export async function POST(req: NextRequest) {
         : `Activity was not saved — Herbe response: ${JSON.stringify(data).slice(0, 300)}`
       return NextResponse.json({ error: hint }, { status: 422 })
     }
-    trackEvent(DEFAULT_ACCOUNT_ID, postSession.email, 'activity_created').catch(() => {})
+    trackEvent(postSession.accountId, postSession.email, 'activity_created').catch(() => {})
     return NextResponse.json(created, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

@@ -4,13 +4,13 @@ import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { getErpConnections } from '@/lib/accountConfig'
 
-const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 const custCache = new Map<string, { data: Record<string, unknown>[]; expiry: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
 export async function GET(req: NextRequest) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const all = searchParams.get('all')
   const connectionId = searchParams.get('connectionId')
 
-  const connections = await getErpConnections(DEFAULT_ACCOUNT_ID)
+  const connections = await getErpConnections(session.accountId)
   const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
   const cacheKey = conn?.id ?? 'default'
 
