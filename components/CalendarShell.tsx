@@ -459,7 +459,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [selectedCodesKey, state.date, state.view]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedCodesKey, state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchActivities()
