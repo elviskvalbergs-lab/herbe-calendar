@@ -35,7 +35,7 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
             <select
               value={accountId}
               onChange={e => {
-                document.cookie = `adminAccountId=${e.target.value};path=/admin;max-age=86400`
+                document.cookie = `adminAccountId=${e.target.value};path=/;max-age=86400`
                 window.location.reload()
               }}
               className="mt-1 w-full bg-bg border border-border rounded text-[10px] text-text-muted px-1 py-0.5"
@@ -105,7 +105,7 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
             <select
               value={accountId}
               onChange={e => {
-                document.cookie = `adminAccountId=${e.target.value};path=/admin;max-age=86400`
+                document.cookie = `adminAccountId=${e.target.value};path=/;max-age=86400`
                 window.location.reload()
               }}
               className="bg-bg border border-border rounded text-[10px] text-text-muted px-1 py-0.5 max-w-[120px]"
