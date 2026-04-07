@@ -31,7 +31,8 @@ export async function requireSession(): Promise<SessionUser> {
     if (impCookie) {
       const superAdmins = (process.env.SUPER_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
       if (superAdmins.includes(email)) {
-        const [targetEmail, targetAccountId] = impCookie.split('|')
+        const [rawEmail, targetAccountId] = impCookie.split('|')
+        const targetEmail = decodeURIComponent(rawEmail)
         if (targetEmail && targetAccountId) {
           const { rows } = await pool.query<{ generated_code: string }>(
             'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) AND account_id = $2',
@@ -61,11 +62,16 @@ export async function requireSession(): Promise<SessionUser> {
        LIMIT 1`,
       [email]
     )
-    const accountId = rows[0]?.account_id ?? DEFAULT_ACCOUNT_ID
+    if (!rows[0]?.account_id) {
+      console.error(`[auth-guard] No account membership found for ${email}`)
+      throw new Error(`No account membership for ${email}`)
+    }
+    const accountId = rows[0].account_id
     accountCache.set(email, { accountId, ts: Date.now() })
     return { userCode, email: session.user.email, accountId }
-  } catch {
-    return { userCode, email: session.user.email, accountId: DEFAULT_ACCOUNT_ID }
+  } catch (e) {
+    console.error(`[auth-guard] Account lookup failed for ${email}:`, String(e))
+    throw new Error(`Account membership required. Contact your admin to be added.`)
   }
 }
 
