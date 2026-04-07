@@ -56,6 +56,7 @@ export async function getAzureConfig(accountId: string): Promise<AzureConfig | n
     }
   } catch (e) {
     console.warn('[accountConfig] Azure config lookup failed:', String(e))
+    return null // don't cache failures — retry on next request
   }
 
   azureCache.set(accountId, { data: null, ts: Date.now() })
@@ -93,6 +94,7 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
     }
   } catch (e) {
     console.warn('[accountConfig] ERP connections lookup failed:', String(e))
+    return [] // don't cache failures — retry on next request
   }
 
   erpCache.set(accountId, { data: [], ts: Date.now() })

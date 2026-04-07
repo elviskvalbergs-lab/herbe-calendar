@@ -144,8 +144,10 @@ export async function GET(req: NextRequest) {
       erpConnections: erpConnectionList,
     }
 
-    // Cache the result per account
-    usersCache.set(session.accountId, { response: responseData as any, ts: Date.now() })
+    // Cache the result per account (skip if empty — might be transient failure)
+    if (result.length > 0) {
+      usersCache.set(session.accountId, { response: responseData as any, ts: Date.now() })
+    }
 
     return NextResponse.json(responseData, { headers: { 'Cache-Control': 'private, max-age=300' } })
   } catch (e) {
