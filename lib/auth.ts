@@ -105,6 +105,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   adapter: PostgresAdapter(pool),
   providers: [emailProvider],
+  events: {
+    async signIn({ user }) {
+      if (user.email) {
+        const { trackEvent } = await import('@/lib/analytics')
+        trackEvent(DEFAULT_ACCOUNT_ID, user.email, 'login').catch(() => {})
+        // Update last_login in account_members
+        pool.query('UPDATE account_members SET last_login = now() WHERE LOWER(email) = LOWER($1)', [user.email]).catch(() => {})
+      }
+    },
+  },
   callbacks: {
     async session({ session, user }) {
       try {

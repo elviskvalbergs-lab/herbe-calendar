@@ -4,6 +4,7 @@ import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
+import { trackEvent } from '@/lib/analytics'
 import type { Activity } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -50,8 +51,9 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
 }
 
 export async function GET(req: Request) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
@@ -105,6 +107,12 @@ export async function GET(req: Request) {
         console.warn(`[activities] ERP connection "${conn.name}" failed:`, String(e))
       }
     }))
+
+    // Track day_viewed (fire-and-forget)
+    const dateFrom = searchParams.get('dateFrom') ?? searchParams.get('date')
+    if (dateFrom && session.email) {
+      trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'day_viewed', { date: dateFrom }).catch(() => {})
+    }
 
     return NextResponse.json(allResults, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
@@ -174,8 +182,9 @@ export function toHerbeForm(
 }
 
 export async function POST(req: NextRequest) {
+  let postSession
   try {
-    await requireSession()
+    postSession = await requireSession()
   } catch {
     return unauthorized()
   }
@@ -215,6 +224,7 @@ export async function POST(req: NextRequest) {
         : `Activity was not saved — Herbe response: ${JSON.stringify(data).slice(0, 300)}`
       return NextResponse.json({ error: hint }, { status: 422 })
     }
+    trackEvent(DEFAULT_ACCOUNT_ID, postSession.email, 'activity_created').catch(() => {})
     return NextResponse.json(created, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

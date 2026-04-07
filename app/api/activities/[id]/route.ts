@@ -4,6 +4,7 @@ import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections, type ErpConnection } from '@/lib/accountConfig'
+import { trackEvent } from '@/lib/analytics'
 import { toHerbeForm } from '../route'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -64,6 +65,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
+    trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'activity_edited').catch(() => {})
     return NextResponse.json(data ?? {}, { status: 200 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -90,6 +92,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       const text = await res.text().catch(() => '')
       return NextResponse.json({ error: text || `Herbe error ${res.status}` }, { status: res.status })
     }
+    trackEvent(DEFAULT_ACCOUNT_ID, session.email, 'activity_deleted').catch(() => {})
     return new NextResponse(null, { status: 204 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
