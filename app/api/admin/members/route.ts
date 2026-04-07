@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { pool } from '@/lib/db'
+import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
+import { herbeFetchAll } from '@/lib/herbe/client'
+import { REGISTERS } from '@/lib/herbe/constants'
+import { graphFetch } from '@/lib/graph/client'
 
 function getAccountIdFromCookie(req: NextRequest): string | undefined {
   return req.cookies.get('adminAccountId')?.value || undefined
@@ -41,4 +45,95 @@ export async function PATCH(req: NextRequest) {
   )
 
   return NextResponse.json({ ok: true })
+}
+
+export async function POST(req: NextRequest) {
+  let session
+  try {
+    session = await requireAdminSession('admin', getAccountIdFromCookie(req))
+  } catch (e) {
+    const msg = (e as Error).message
+    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const { email, role } = await req.json()
+  if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
+
+  try {
+    await pool.query(
+      `INSERT INTO account_members (account_id, email, role) VALUES ($1, $2, $3)
+       ON CONFLICT (account_id, email) DO UPDATE SET role = EXCLUDED.role`,
+      [session.accountId, email.trim().toLowerCase(), role || 'member']
+    )
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  let session
+  try {
+    session = await requireAdminSession('admin', getAccountIdFromCookie(req))
+  } catch (e) {
+    const msg = (e as Error).message
+    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const { action } = await req.json()
+  if (action !== 'sync') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+
+  try {
+    const emails = new Set<string>()
+
+    // Fetch from ERP connections
+    const erpConnections = await getErpConnections(session.accountId)
+    for (const conn of erpConnections) {
+      try {
+        const users = await herbeFetchAll(REGISTERS.users, {}, 1000, conn)
+        for (const u of users as Record<string, unknown>[]) {
+          if (String(u['Closed'] ?? '0') !== '0') continue
+          const email = ((u['emailAddr'] || u['LoginEmailAddr'] || '') as string).toLowerCase().trim()
+          if (email && email.includes('@')) emails.add(email)
+        }
+      } catch (e) {
+        console.warn(`[members sync] ERP "${conn.name}" failed:`, String(e))
+      }
+    }
+
+    // Fetch from Azure
+    const azureConfig = await getAzureConfig(session.accountId)
+    if (azureConfig) {
+      try {
+        const res = await graphFetch('/users?$select=mail,userPrincipalName&$top=999&$filter=accountEnabled eq true', undefined, azureConfig)
+        if (res.ok) {
+          const data = await res.json()
+          for (const u of (data.value ?? []) as Record<string, unknown>[]) {
+            const email = ((u['mail'] || u['userPrincipalName'] || '') as string).toLowerCase().trim()
+            if (email && email.includes('@') && !email.includes('#EXT#')) emails.add(email)
+          }
+        }
+      } catch (e) {
+        console.warn('[members sync] Azure failed:', String(e))
+      }
+    }
+
+    // Insert new members
+    let added = 0
+    for (const email of emails) {
+      const { rowCount } = await pool.query(
+        `INSERT INTO account_members (account_id, email, role)
+         VALUES ($1, $2, 'member')
+         ON CONFLICT (account_id, email) DO NOTHING`,
+        [session.accountId, email]
+      )
+      if (rowCount && rowCount > 0) added++
+    }
+
+    return NextResponse.json({ ok: true, added, total: emails.size })
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
 }

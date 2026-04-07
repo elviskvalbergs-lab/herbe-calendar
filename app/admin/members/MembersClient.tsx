@@ -16,6 +16,47 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
   const [members, setMembers] = useState(initial)
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
+  const [addEmail, setAddEmail] = useState('')
+  const [addRole, setAddRole] = useState<'member' | 'admin'>('member')
+  const [syncing, setSyncing] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function addMember() {
+    if (!addEmail.includes('@')) return
+    setSaving('add')
+    const res = await fetch('/api/admin/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
+    })
+    if (res.ok) {
+      setMembers(prev => [...prev, { email: addEmail.trim(), role: addRole, active: true, last_login: null, created_at: new Date().toISOString(), generated_code: null, display_name: null, source: null }])
+      setAddEmail('')
+      setMessage('Member added')
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setMessage(`Failed: ${data.error || res.status}`)
+    }
+    setSaving(null)
+  }
+
+  async function syncUsers() {
+    setSyncing(true)
+    setMessage(null)
+    const res = await fetch('/api/admin/members', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sync' }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      setMessage(`Synced ${data.added ?? 0} new members`)
+      window.location.reload()
+    } else {
+      setMessage(`Sync failed: ${data.error || res.status}`)
+    }
+    setSyncing(false)
+  }
 
   const filtered = members.filter(m =>
     m.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -51,6 +92,35 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
 
   return (
     <div>
+      {message && (
+        <div className={`px-4 py-2 rounded-lg text-sm font-bold mb-4 ${message.includes('fail') || message.includes('Failed') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+          {message}
+        </div>
+      )}
+
+      {/* Add member + sync */}
+      <div className="flex flex-wrap items-end gap-3 mb-4 p-3 bg-surface border border-border rounded-xl">
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-[10px] text-text-muted uppercase block mb-0.5">Add Member by Email</label>
+          <input value={addEmail} onChange={e => setAddEmail(e.target.value)} autoComplete="off"
+            onKeyDown={e => { if (e.key === 'Enter') addMember() }}
+            placeholder="user@company.com" className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" />
+        </div>
+        <select value={addRole} onChange={e => setAddRole(e.target.value as 'member' | 'admin')}
+          className="bg-bg border border-border rounded-lg px-2 py-1.5 text-sm">
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button onClick={addMember} disabled={saving === 'add' || !addEmail.includes('@')}
+          className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">
+          Add
+        </button>
+        <button onClick={syncUsers} disabled={syncing}
+          className="px-3 py-1.5 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50 ml-auto">
+          {syncing ? 'Syncing...' : 'Sync from ERP/Azure'}
+        </button>
+      </div>
+
       <div className="flex items-center gap-3 mb-4">
         <input
           value={search}
