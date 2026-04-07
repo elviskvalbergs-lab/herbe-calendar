@@ -7,8 +7,8 @@ import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
 import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
-// Module-level cache: avoids re-fetching ERP + Azure + DB sync on every page load
-let usersCache: { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number } | null = null
+// Per-account cache: avoids re-fetching ERP + Azure + DB sync on every page load
+const usersCache = new Map<string, { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number }>()
 const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export async function GET(req: NextRequest) {
@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
   const bustCache = new URL(req.url).searchParams.get('bust') === '1'
 
   // Return cached result if fresh (skip for debug queries)
-  if (!debug && !bustCache && usersCache && Date.now() - usersCache.ts < USERS_CACHE_TTL) {
-    return NextResponse.json(usersCache.response, { headers: { 'Cache-Control': 'private, max-age=300' } })
+  const cached = usersCache.get(session.accountId)
+  if (!debug && !bustCache && cached && Date.now() - cached.ts < USERS_CACHE_TTL) {
+    return NextResponse.json(cached.response, { headers: { 'Cache-Control': 'private, max-age=300' } })
   }
 
   try {
@@ -140,8 +141,8 @@ export async function GET(req: NextRequest) {
       erpConnections: erpConnectionList,
     }
 
-    // Cache the result
-    usersCache = { response: responseData as any, ts: Date.now() }
+    // Cache the result per account
+    usersCache.set(session.accountId, { response: responseData as any, ts: Date.now() })
 
     return NextResponse.json(responseData, { headers: { 'Cache-Control': 'private, max-age=300' } })
   } catch (e) {

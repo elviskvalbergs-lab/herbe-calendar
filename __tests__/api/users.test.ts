@@ -1,5 +1,5 @@
 jest.mock('@/lib/herbe/auth-guard', () => ({
-  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com' }),
+  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'account-1' }),
   unauthorized: jest.fn(() => new Response('Unauthorized', { status: 401 })),
 }))
 jest.mock('@/lib/herbe/client', () => ({
@@ -41,8 +41,21 @@ jest.mock('@/lib/personCodes', () => ({
 }))
 
 import { GET } from '@/app/api/users/route'
+const { requireSession } = require('@/lib/herbe/auth-guard')
+const { getErpConnections } = require('@/lib/accountConfig')
 
 describe('GET /api/users', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    // Reset default mocks
+    requireSession.mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'account-1' })
+    getErpConnections.mockResolvedValue([{
+      id: 'test-conn', name: 'Test ERP', apiBaseUrl: '', companyCode: '3',
+      clientId: '', clientSecret: '', accessToken: null, refreshToken: null,
+      tokenExpiresAt: 0, username: null, password: null, active: true,
+    }])
+  })
+
   it('returns { users, sources } envelope', async () => {
     const req = new Request('http://localhost/api/users')
     const res = await GET(req as any)
@@ -72,5 +85,27 @@ describe('GET /api/users', () => {
     const body = await res.json()
     const codes = body.users.map((u: any) => u.Code)
     expect(codes).not.toContain('CLOSED')
+  })
+
+  it('caches users per account — different accounts get different results', async () => {
+    // Account 1: has ERP users
+    requireSession.mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'account-1' })
+    const res1 = await GET(new Request('http://localhost/api/users?bust=1') as any)
+    const body1 = await res1.json()
+    expect(body1.users.length).toBeGreaterThan(0)
+
+    // Account 2: no ERP connections, no users
+    requireSession.mockResolvedValue({ userCode: 'OTHER', email: 'other@example.com', accountId: 'account-2' })
+    getErpConnections.mockResolvedValue([])
+    const res2 = await GET(new Request('http://localhost/api/users?bust=1') as any)
+    const body2 = await res2.json()
+    expect(body2.users).toHaveLength(0)
+
+    // Account 1 again (cached): should still return its own users, not account-2's empty list
+    requireSession.mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'account-1' })
+    const res3 = await GET(new Request('http://localhost/api/users') as any)
+    const body3 = await res3.json()
+    expect(body3.users.length).toBeGreaterThan(0)
+    expect(body3.users.length).toBe(body1.users.length)
   })
 })
