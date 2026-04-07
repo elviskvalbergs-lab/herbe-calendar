@@ -149,7 +149,8 @@ export async function GET(req: NextRequest) {
       usersCache.set(session.accountId, { response: responseData as any, ts: Date.now() })
     }
 
-    return NextResponse.json(responseData, { headers: { 'Cache-Control': 'private, max-age=300' } })
+    const cacheHeader = result.length > 0 ? 'private, max-age=300' : 'no-store'
+    return NextResponse.json(responseData, { headers: { 'Cache-Control': cacheHeader } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

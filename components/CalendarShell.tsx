@@ -299,10 +299,11 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     if (sources.herbe) reloadColorData()
   }, [sources.herbe]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load people list on mount
+  // Load people list on mount (with retry on empty result)
+  const [usersRetry, setUsersRetry] = useState(0)
   useEffect(() => {
-    setStatus({ msg: 'Loading users…' })
-    fetch('/api/users')
+    setStatus({ msg: usersRetry > 0 ? `Retrying users (${usersRetry}/2)…` : 'Loading users…' })
+    fetch('/api/users' + (usersRetry > 0 ? '?bust=1' : ''))
       .then(async r => {
         const text = await r.text()
         let data: unknown
@@ -325,6 +326,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           name: u['Name'] as string,
           email: (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string,
         }))
+        if (list.length === 0 && usersRetry < 2) {
+          setTimeout(() => setUsersRetry(n => n + 1), 3000)
+          return
+        }
         setPeople(list)
         peopleLoadedRef.current = true
         setStatus({ msg: `Loaded ${list.length} users`, ok: true })
@@ -369,7 +374,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         }
         setStatus({ msg: `Failed to load users: ${e}`, ok: false })
       })
-  }, [userCode])
+  }, [userCode, usersRetry]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stable string of selected person codes — avoids refetching when stubs are replaced with full objects
   const selectedCodesKey = state.selectedPersons.map(p => p.code).join(',')
