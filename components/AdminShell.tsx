@@ -6,7 +6,9 @@ import { useState } from 'react'
 interface Props {
   email: string
   accountName: string
+  accountId: string
   isSuperAdmin: boolean
+  accounts?: { id: string; display_name: string }[]
   children: React.ReactNode
 }
 
@@ -17,7 +19,7 @@ const NAV_ITEMS = [
   { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
 ]
 
-export default function AdminShell({ email, accountName, isSuperAdmin, children }: Props) {
+export default function AdminShell({ email, accountName, accountId, isSuperAdmin, accounts, children }: Props) {
   const pathname = usePathname()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -29,7 +31,22 @@ export default function AdminShell({ email, accountName, isSuperAdmin, children 
           <Link href="/" className="font-bold text-base">
             herbe<span className="text-primary">.</span>calendar
           </Link>
-          <p className="text-[10px] text-text-muted mt-1 truncate">{accountName}</p>
+          {isSuperAdmin && accounts && accounts.length > 1 ? (
+            <select
+              value={accountId}
+              onChange={e => {
+                document.cookie = `adminAccountId=${e.target.value};path=/admin;max-age=86400`
+                window.location.reload()
+              }}
+              className="mt-1 w-full bg-bg border border-border rounded text-[10px] text-text-muted px-1 py-0.5"
+            >
+              {accounts.map(a => (
+                <option key={a.id} value={a.id}>{a.display_name}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-[10px] text-text-muted mt-1 truncate">{accountName}</p>
+          )}
         </div>
         <nav className="flex-1 py-2">
           {NAV_ITEMS.map(item => {
@@ -84,7 +101,22 @@ export default function AdminShell({ email, accountName, isSuperAdmin, children 
           <Link href="/" className="font-bold text-sm">
             herbe<span className="text-primary">.</span>calendar
           </Link>
-          <span className="text-xs text-text-muted">{accountName}</span>
+          {isSuperAdmin && accounts && accounts.length > 1 ? (
+            <select
+              value={accountId}
+              onChange={e => {
+                document.cookie = `adminAccountId=${e.target.value};path=/admin;max-age=86400`
+                window.location.reload()
+              }}
+              className="bg-bg border border-border rounded text-[10px] text-text-muted px-1 py-0.5 max-w-[120px]"
+            >
+              {accounts.map(a => (
+                <option key={a.id} value={a.id}>{a.display_name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-xs text-text-muted">{accountName}</span>
+          )}
           <button
             onClick={() => setMobileNavOpen(o => !o)}
             className="text-text-muted text-lg"

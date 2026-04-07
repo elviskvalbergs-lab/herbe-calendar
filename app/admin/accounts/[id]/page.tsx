@@ -51,7 +51,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   ).catch(() => ({ rows: [{ total: 0, active: 0 }] }))
 
   return (
-    <AdminShell email={session.email} accountName={`${account.display_name} (managing)`} isSuperAdmin={session.isSuperAdmin}>
+    <AdminShell email={session.email} accountName={`${account.display_name} (managing)`} accountId={accountId} isSuperAdmin={session.isSuperAdmin}>
       <div className="flex items-center gap-3 mb-6">
         <a href="/admin/accounts" className="text-text-muted hover:text-text text-sm">← Accounts</a>
         <h1 className="text-xl font-bold">{account.display_name}</h1>

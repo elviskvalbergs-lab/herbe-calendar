@@ -1,16 +1,19 @@
 import { redirect } from 'next/navigation'
 import { requireAdminSession } from '@/lib/adminAuth'
+import { getAdminAccountId, getAllAccounts } from '@/lib/adminAccountId'
 import AdminShell from '@/components/AdminShell'
 import { pool } from '@/lib/db'
 
 export default async function DashboardPage() {
+  const overrideAccountId = await getAdminAccountId()
   let session
   try {
-    session = await requireAdminSession()
+    session = await requireAdminSession('admin', overrideAccountId)
   } catch (e) {
     if ((e as Error).message === 'UNAUTHORIZED') redirect('/login')
     redirect('/')
   }
+  const accounts = session.isSuperAdmin ? await getAllAccounts() : []
 
   // Fetch dashboard stats
   const accountId = session.accountId
@@ -39,7 +42,7 @@ export default async function DashboardPage() {
   const statsByType = Object.fromEntries(activityStats.map(r => [r.event_type, r.cnt]))
 
   return (
-    <AdminShell email={session.email} accountName={session.accountName} isSuperAdmin={session.isSuperAdmin}>
+    <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
       <h1 className="text-xl font-bold mb-6">Dashboard</h1>
 
       {/* Stats cards */}
