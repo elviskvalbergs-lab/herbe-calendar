@@ -12,7 +12,7 @@ interface Member {
   source: string | null
 }
 
-export default function MembersClient({ members: initial, accountId }: { members: Member[]; accountId: string }) {
+export default function MembersClient({ members: initial, accountId, isSuperAdmin }: { members: Member[]; accountId: string; isSuperAdmin?: boolean }) {
   const [members, setMembers] = useState(initial)
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
@@ -72,6 +72,7 @@ export default function MembersClient({ members: initial, accountId }: { members
               <th className="px-4 py-2">Role</th>
               <th className="px-4 py-2 hidden md:table-cell">Last Login</th>
               <th className="px-4 py-2">Status</th>
+              {isSuperAdmin && <th className="px-4 py-2"></th>}
             </tr>
           </thead>
           <tbody>
@@ -120,6 +121,19 @@ export default function MembersClient({ members: initial, accountId }: { members
                     {m.active ? 'active' : 'inactive'}
                   </button>
                 </td>
+                {isSuperAdmin && (
+                  <td className="px-4 py-2">
+                    <button
+                      onClick={() => {
+                        document.cookie = `impersonateAs=${encodeURIComponent(m.email)}|${accountId};path=/;max-age=3600`
+                        window.open('/cal', '_blank')
+                      }}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-colors"
+                    >
+                      View as
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

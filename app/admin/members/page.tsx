@@ -29,7 +29,7 @@ export default async function MembersPage() {
   return (
     <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
       <h1 className="text-xl font-bold mb-6">Members</h1>
-      <MembersClient members={members} accountId={session.accountId} />
+      <MembersClient members={members} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} />
     </AdminShell>
   )
 }
