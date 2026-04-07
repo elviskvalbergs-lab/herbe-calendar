@@ -124,6 +124,17 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </span>
       </div>
 
+      {/* Admin — desktop only */}
+      <a
+        href="/admin"
+        className="hidden lg:flex items-center gap-1 text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        title="Admin panel"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 4.354a4 4 0 1 1 0 7.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/>
+        </svg>
+      </a>
+
       {/* Sign out — desktop only (mobile: in hamburger menu) */}
       <button
         onClick={() => signOut()}
