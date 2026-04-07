@@ -11,7 +11,7 @@ export default async function DashboardPage() {
     session = await requireAdminSession('admin', overrideAccountId)
   } catch (e) {
     if ((e as Error).message === 'UNAUTHORIZED') redirect('/login')
-    redirect('/')
+    redirect('/cal')
   }
   const accounts = session.isSuperAdmin ? await getAllAccounts() : []
 

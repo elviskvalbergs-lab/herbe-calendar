@@ -486,13 +486,29 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
                         <input value={editErpForm.apiBaseUrl} onChange={e => setEditErpForm(f => ({ ...f, apiBaseUrl: e.target.value }))}
                           className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" autoComplete="off" />
                       </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Server UUID <span className="text-text-muted">(for hansa:// links, optional)</span></label>
+                        <input value={editErpForm.serpUuid} onChange={e => setEditErpForm(f => ({ ...f, serpUuid: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" autoComplete="off" />
+                      </div>
+                      <p className="text-[10px] text-text-muted font-bold sm:col-span-2 pt-1">Authentication</p>
                       <div>
-                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Username <span className="text-text-muted">(blank to keep)</span></label>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">OAuth Client ID</label>
+                        <input value={editErpForm.clientId} onChange={e => setEditErpForm(f => ({ ...f, clientId: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm font-mono" autoComplete="off" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">OAuth Client Secret <span className="text-text-muted">(blank to keep)</span></label>
+                        <input type="password" value={editErpForm.clientSecret} onChange={e => setEditErpForm(f => ({ ...f, clientSecret: e.target.value }))}
+                          className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm" autoComplete="new-password" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Basic Auth Username</label>
                         <input value={editErpForm.username} onChange={e => setEditErpForm(f => ({ ...f, username: e.target.value }))}
                           className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm" autoComplete="off" />
                       </div>
                       <div>
-                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Password <span className="text-text-muted">(blank to keep)</span></label>
+                        <label className="text-[10px] text-text-muted uppercase block mb-0.5">Basic Auth Password <span className="text-text-muted">(blank to keep)</span></label>
                         <input type="password" value={editErpForm.password} onChange={e => setEditErpForm(f => ({ ...f, password: e.target.value }))}
                           className="w-full bg-surface border border-border rounded-lg px-2 py-1 text-sm" autoComplete="new-password" />
                       </div>
@@ -504,8 +520,11 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
                         if (editErpForm.name !== conn.name) payload.name = editErpForm.name
                         if (editErpForm.apiBaseUrl !== conn.api_base_url) payload.apiBaseUrl = editErpForm.apiBaseUrl
                         if (editErpForm.companyCode !== conn.company_code) payload.companyCode = editErpForm.companyCode
+                        if (editErpForm.clientId !== conn.client_id) payload.clientId = editErpForm.clientId
+                        if (editErpForm.clientSecret) payload.clientSecret = editErpForm.clientSecret
                         if (editErpForm.username) payload.username = editErpForm.username
                         if (editErpForm.password) payload.password = editErpForm.password
+                        if (editErpForm.serpUuid !== ((conn as any).serp_uuid || '')) payload.serpUuid = editErpForm.serpUuid
                         await fetch('/api/admin/erp-connections', {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },

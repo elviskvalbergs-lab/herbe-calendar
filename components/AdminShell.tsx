@@ -28,7 +28,7 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
       {/* Sidebar — desktop */}
       <aside className="hidden lg:flex flex-col w-56 bg-surface border-r border-border shrink-0">
         <div className="p-4 border-b border-border">
-          <Link href="/" className="font-bold text-base">
+          <Link href="/cal" className="font-bold text-base">
             herbe<span className="text-primary">.</span>calendar
           </Link>
           {isSuperAdmin && accounts && accounts.length > 1 ? (
@@ -89,7 +89,7 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
               Super Admin
             </span>
           )}
-          <Link href="/" className="block mt-2 text-xs text-text-muted hover:text-primary">
+          <Link href="/cal" className="block mt-2 text-xs text-text-muted hover:text-primary">
             ← Back to Calendar
           </Link>
         </div>
@@ -98,7 +98,7 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
       {/* Mobile header */}
       <div className="flex flex-col flex-1 min-w-0">
         <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-surface border-b border-border">
-          <Link href="/" className="font-bold text-sm">
+          <Link href="/cal" className="font-bold text-sm">
             herbe<span className="text-primary">.</span>calendar
           </Link>
           {isSuperAdmin && accounts && accounts.length > 1 ? (
@@ -140,7 +140,7 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
               )
             })}
             <Link
-              href="/"
+              href="/cal"
               className="px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/30 text-primary"
             >
               ← Calendar

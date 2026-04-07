@@ -28,10 +28,10 @@ const FEATURES = [
   },
   {
     tag: 'MOD_003',
-    title: 'ICS Feeds',
-    desc: 'Attach any ICS feed — Apple Calendar, Airbnb, booking systems — to any person. Cached and auto-refreshed.',
-    color: ORANGE,
-    status: 'FEEDS ONLINE',
+    title: 'Google Calendar & Meet',
+    desc: 'Google Workspace integration with Calendar API and Meet. Service account delegation for full team visibility across your domain.',
+    color: '#4285f4',
+    status: 'WORKSPACE LINKED',
   },
   {
     tag: 'MOD_004',
@@ -49,19 +49,22 @@ const FEATURES = [
   },
   {
     tag: 'MOD_006',
-    title: 'PWA & Mobile',
-    desc: 'Install as a native app on any device. Offline-capable with smart caching. Works on phones, tablets, and desktops.',
-    color: TEAL,
-    status: 'CROSS-PLATFORM',
+    title: 'ICS Feeds',
+    desc: 'Attach any ICS feed — Airbnb, booking systems, external calendars — to any person. Cached with 5-minute TTL and manual sync.',
+    color: ORANGE,
+    status: 'FEEDS ONLINE',
   },
 ]
+
+const GOOGLE = '#4285f4'
 
 const SOURCES = [
   { name: 'Standard ERP', color: TEAL },
   { name: 'Excellent Books', color: TEAL },
   { name: 'Microsoft Outlook', color: OUTLOOK },
   { name: 'Microsoft Teams', color: OUTLOOK },
-  { name: 'Apple Calendar', color: ORANGE },
+  { name: 'Google Calendar', color: GOOGLE },
+  { name: 'Google Meet', color: GOOGLE },
   { name: 'Any ICS Feed', color: ORANGE },
 ]
 
@@ -79,8 +82,8 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm" style={{ background: `${BG}e6` }}>
         <div className="max-w-[1440px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="text-2xl font-bold tracking-tighter uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>
-            herbe<span className="text-white">.</span>calendar
+          <div className="text-2xl font-bold tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            herbe<span style={{ color: PRIMARY }}>.</span>calendar
           </div>
           <div className="hidden md:flex items-center gap-8">
             {['Features', 'Integrations', 'How It Works'].map(label => (
@@ -97,7 +100,7 @@ export default function LandingPage() {
             ))}
           </div>
           <Link
-            href="/login"
+            href="/cal"
             className="px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
             style={{ fontFamily: "'Space Grotesk', sans-serif", background: PRIMARY }}
           >
@@ -121,13 +124,13 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg max-w-md leading-relaxed" style={{ color: MUTED }}>
-              Stop switching between Standard ERP activities, Outlook meetings, and ICS feeds.
+              Stop switching between Standard ERP activities, Outlook meetings, and Google Calendar.
               See your entire team&apos;s schedule in a single, unified view.
             </p>
 
             <div className="flex flex-wrap gap-4">
               <Link
-                href="/login"
+                href="/cal"
                 className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
                 style={{ fontFamily: "'Space Grotesk', sans-serif", background: PRIMARY }}
               >
@@ -175,7 +178,7 @@ export default function LandingPage() {
               <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ORANGE }}>The Problem</span>
               <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendars Everywhere, Visibility Nowhere</h3>
               <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                Your team uses Standard ERP for activity tracking, Outlook for meetings, ICS feeds for external bookings.
+                Your team uses Standard ERP for activity tracking, Outlook for meetings, maybe Google Calendar for some departments.
                 Each person&apos;s schedule lives in a different system. Checking availability means opening three apps and mentally merging the results.
               </p>
             </div>
@@ -183,7 +186,7 @@ export default function LandingPage() {
               <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>The Solution</span>
               <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>One Calendar, All Sources, Real-Time</h3>
               <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                herbe.calendar pulls activities from Standard ERP, events from Outlook, and feeds from any ICS source
+                herbe.calendar pulls activities from Standard ERP, events from Outlook and Google Calendar, and feeds from any ICS source
                 into a single multi-person view. Create, edit, and manage events across all systems from one place.
               </p>
             </div>
@@ -322,7 +325,7 @@ export default function LandingPage() {
                   'No more switching between ERP and email calendar apps',
                   'See your whole team at a glance across all calendar systems',
                   'Create activities in Standard ERP directly from the calendar',
-                  'Schedule Outlook meetings with Teams join links',
+                  'Schedule Outlook/Google meetings with Teams or Meet links',
                   'Share calendar views with clients via secure anonymous links',
                   'Works on any device with native-like PWA experience',
                   'Self-hosted on your Vercel account with full data control',
@@ -353,7 +356,7 @@ export default function LandingPage() {
               Set up in minutes. Connect your Standard ERP and cloud calendars. See your team like never before.
             </p>
             <Link
-              href="/login"
+              href="/cal"
               className="inline-block px-12 py-6 text-sm font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
               style={{ fontFamily: "'Space Grotesk', sans-serif", background: PRIMARY }}
             >
@@ -365,8 +368,8 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="w-full px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4" style={{ background: '#1a1718' }}>
-        <div className="font-black uppercase tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>
-          herbe<span className="text-white">.</span>calendar
+        <div className="font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          herbe<span style={{ color: PRIMARY }}>.</span>calendar
         </div>
         <div className="text-white/30 uppercase tracking-widest text-[10px]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
           Unified Calendar Systems
