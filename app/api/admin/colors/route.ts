@@ -13,7 +13,7 @@ export async function GET() {
   }
 
   const { rows } = await pool.query(
-    `SELECT id, connection_id, class_group_code, color
+    `SELECT id, user_email, connection_id, class_group_code, color
      FROM color_overrides
      WHERE account_id = $1 AND user_email IS NULL
      ORDER BY connection_id NULLS LAST`,
