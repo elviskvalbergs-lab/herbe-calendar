@@ -1325,11 +1325,14 @@ export default function ActivityForm({
                         className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
                           isSelected ? 'border-current' : 'border-border text-text-muted hover:border-primary/50'
                         }`}
-                        style={c ? {
-                          borderColor: isSelected ? readableAccentColor(c, isDarkTheme) : c + '44',
-                          color: readableAccentColor(c, isDarkTheme),
-                          background: isSelected ? c + '22' : c + '11',
-                        } : undefined}
+                        style={c ? (() => {
+                          const rc = readableAccentColor(c, isDarkTheme)
+                          return {
+                            borderColor: isSelected ? rc : rc + '44',
+                            color: rc,
+                            background: isSelected ? c + '22' : c + '11',
+                          }
+                        })() : undefined}
                       >
                         {code}
                       </button>
@@ -1388,8 +1391,8 @@ export default function ActivityForm({
                         const c = getTypeColor?.(t.code)
                         return (
                           <span
-                            className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center"
-                            style={c ? { background: c + '33', color: readableAccentColor(c, isDarkTheme) } : { color: 'var(--color-primary)' }}
+                            className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center border"
+                            style={c ? { background: c + '22', color: readableAccentColor(c, isDarkTheme), borderColor: readableAccentColor(c, isDarkTheme) + '33' } : { color: 'var(--color-primary)', borderColor: 'transparent' }}
                           >
                             {t.code}
                           </span>

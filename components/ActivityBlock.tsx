@@ -2,7 +2,7 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import { Activity, ShareVisibility } from '@/types'
 import { timeToTopPx } from '@/lib/time'
-import { readableAccentColor } from '@/lib/activityColors'
+import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
   return (
@@ -300,8 +300,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               )}
               {!visibility && (
                 <button
-                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: color }}
+                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold"
+                  style={{ background: color, color: textOnAccent(color) }}
                   onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
                 >
                   {canEdit ? 'Edit' : 'View details'}

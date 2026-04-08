@@ -3,7 +3,7 @@ import { Activity, ShareVisibility } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
-import { readableAccentColor } from '@/lib/activityColors'
+import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
 import { useRef, useState, useCallback, useLayoutEffect } from 'react'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
@@ -204,8 +204,8 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               )}
               {!visibility && (
                 <button
-                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: color }}
+                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold"
+                  style={{ background: color, color: textOnAccent(color) }}
                   onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
                 >
                   View details

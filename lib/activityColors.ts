@@ -51,6 +51,14 @@ export function readableAccentColor(accentHex: string, isDarkTheme: boolean): st
   return accentHex
 }
 
+/**
+ * Returns white or dark text color for use ON a solid accent background (buttons).
+ * Uses WCAG contrast ratio to decide.
+ */
+export function textOnAccent(accentHex: string): string {
+  return luminance(accentHex) > 0.35 ? '#1a1a1a' : '#ffffff'
+}
+
 /** 20 brand-compatible colors for dark theme. Index 0-based. */
 export const BRAND_PALETTE = [
   '#00ABCE', // 0  cyan — brand primary
