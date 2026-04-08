@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/admin/members', label: 'Members', icon: '👥' },
   { href: '/admin/config', label: 'Connections', icon: '⚙' },
   { href: '/admin/analytics', label: 'Analytics', icon: '📊' },
+  { href: '/admin/tokens', label: 'API Tokens', icon: '🔑' },
 ]
 
 export default function AdminShell({ email, accountName, accountId, isSuperAdmin, accounts, children }: Props) {
