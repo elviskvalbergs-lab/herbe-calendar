@@ -138,7 +138,12 @@ export async function GET(
     const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` })
 
     if (!hiddenCalendarsSet.has('herbe')) {
-      for (const record of raw) {
+      // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
+      const calendarRecords = raw.filter(r => {
+        const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
+        return todoFlag === '0' || todoFlag === ''
+      })
+      for (const record of calendarRecords) {
         const r = record as Record<string, unknown>
         const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
         for (const p of mainPersons) {

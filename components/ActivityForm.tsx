@@ -1178,7 +1178,21 @@ export default function ActivityForm({
               />
             </div>
             <div className="min-w-0">
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
+                To
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => {
+                    const now = new Date()
+                    setTimeTo(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+                  }}
+                  title="Set to current time"
+                  className="text-text-muted/60 hover:text-primary transition-colors text-[11px] leading-none"
+                >
+                  ⏱
+                </button>
+              </label>
               <input
                 type="time"
                 value={timeTo}

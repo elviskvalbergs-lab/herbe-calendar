@@ -90,7 +90,13 @@ export async function GET(req: Request) {
           range: `${dateFrom}:${dateTo}`,
         }, 100, conn)
 
-        const results: Activity[] = raw.flatMap(r => {
+        // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
+        const calendarRecords = raw.filter(r => {
+          const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
+          return todoFlag === '0' || todoFlag === ''
+        })
+
+        const results: Activity[] = calendarRecords.flatMap(r => {
           const rec = r as Record<string, unknown>
           const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
           return mainPersons
@@ -99,7 +105,7 @@ export async function GET(req: Request) {
         })
 
         // Emit CC rows
-        for (const record of raw) {
+        for (const record of calendarRecords) {
           const r = record as Record<string, unknown>
           const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
           const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
