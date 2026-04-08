@@ -104,7 +104,7 @@ export default function AccountsClient() {
 
       <div className="space-y-2">
         {accounts.map(a => (
-          <div key={a.id} className={`bg-surface border border-border rounded-xl p-4 flex items-center justify-between ${a.suspended_at ? 'opacity-60' : ''}`}>
+          <div key={a.id} className={`bg-surface border border-border rounded-xl p-4 flex items-center justify-between transition-colors hover:bg-border/20 ${a.suspended_at ? 'opacity-60' : ''}`}>
             <div>
               <a href={`/admin/accounts/${a.id}`} className="text-sm font-bold hover:text-primary transition-colors">{a.display_name}</a>
               <p className="text-[10px] text-text-muted font-mono">{a.slug}</p>
