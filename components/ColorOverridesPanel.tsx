@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ActivityClassGroup } from '@/types'
 import { BRAND_PALETTE, calColNrToColor } from '@/lib/activityColors'
 import type { ColorOverrideRow } from '@/lib/activityColors'
@@ -72,6 +72,19 @@ export default function ColorOverridesPanel({ classGroups, connections, override
     setSaving(null)
   }
 
+  const [openPicker, setOpenPicker] = useState<string | null>(null)
+  const pickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setOpenPicker(null)
+      }
+    }
+    if (openPicker) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [openPicker])
+
   function renderColumn(connectionId: string | null, label: string, isPrimary: boolean) {
     return (
       <div className="flex-1 min-w-[140px]">
@@ -83,29 +96,59 @@ export default function ColorOverridesPanel({ classGroups, connections, override
             const inherited = isInherited(g.code, connectionId)
             const { color } = resolvedColor(g.code, connectionId, idx)
             const savingKey = `${g.code}-${connectionId ?? 'global'}`
+            const pickerKey = `${g.code}-${connectionId ?? 'global'}`
 
             return (
               <div
                 key={g.code}
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors ${
-                  inherited ? 'border-dashed border-border/60 opacity-50' : 'border-border'
+                  inherited ? 'border-dashed border-border/60 opacity-60' : 'border-border'
                 }`}
               >
-                <label className="relative cursor-pointer shrink-0">
-                  <div
-                    className="w-5 h-5 rounded"
+                <div className="relative shrink-0">
+                  <button
+                    className="w-5 h-5 rounded cursor-pointer"
                     style={{ background: color, border: `2px solid ${color}44` }}
-                  />
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={e => handleColorPick(g.code, e.target.value, connectionId)}
-                    className="sr-only"
+                    onClick={() => setOpenPicker(openPicker === pickerKey ? null : pickerKey)}
                     disabled={saving === savingKey}
                   />
-                </label>
+                  {openPicker === pickerKey && (
+                    <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]">
+                      <div className="grid grid-cols-5 gap-1.5 mb-2">
+                        {BRAND_PALETTE.map((preset) => (
+                          <button
+                            key={preset}
+                            className="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                            style={{
+                              background: preset,
+                              outline: color.toLowerCase() === preset.toLowerCase() ? '2px solid var(--color-text)' : 'none',
+                              outlineOffset: '1px',
+                            }}
+                            onClick={() => {
+                              handleColorPick(g.code, preset, connectionId)
+                              setOpenPicker(null)
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-1.5 pt-1.5 border-t border-border cursor-pointer">
+                        <div className="w-5 h-5 rounded" style={{ background: color, border: `2px solid ${color}44` }} />
+                        <span className="text-[10px] text-text-muted">Custom...</span>
+                        <input
+                          type="color"
+                          value={color}
+                          onChange={e => {
+                            handleColorPick(g.code, e.target.value, connectionId)
+                            setOpenPicker(null)
+                          }}
+                          className="sr-only"
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
                 <span className={`text-xs truncate flex-1 ${inherited ? 'italic text-text-muted' : ''}`}>
-                  {inherited ? 'inherited' : (g.name || g.code)}
+                  {g.name || g.code}{inherited ? ' (inherited)' : ''}
                 </span>
                 {!inherited && (
                   <button
