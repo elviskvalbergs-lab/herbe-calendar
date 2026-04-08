@@ -167,21 +167,22 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                   className="sr-only"
                 />
               </label>
-              {stagedColor && (
-                <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-border">
-                  <button
-                    className="flex-1 text-[10px] font-bold py-1 rounded bg-primary text-white hover:opacity-90"
-                    onClick={() => {
+              <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-border">
+                <button
+                  className={`flex-1 text-[10px] font-bold py-1 rounded ${stagedColor ? 'bg-primary text-white hover:opacity-90' : 'bg-border/50 text-text-muted cursor-not-allowed'}`}
+                  disabled={!stagedColor}
+                  onClick={() => {
+                    if (stagedColor) {
                       handleColorPick(groupCode, stagedColor, connectionId)
                       setOpenPicker(null); setStagedColor(null); stagedTarget.current = null
-                    }}
-                  >Apply</button>
-                  <button
-                    className="flex-1 text-[10px] font-bold py-1 rounded border border-border text-text-muted hover:bg-border/30"
-                    onClick={() => { setOpenPicker(null); setStagedColor(null); stagedTarget.current = null }}
-                  >Cancel</button>
-                </div>
-              )}
+                    }
+                  }}
+                >Apply</button>
+                <button
+                  className="flex-1 text-[10px] font-bold py-1 rounded border border-border text-text-muted hover:bg-border/30"
+                  onClick={() => { setOpenPicker(null); setStagedColor(null); stagedTarget.current = null }}
+                >Cancel</button>
+              </div>
             </div>
           )}
         </div>
@@ -310,21 +311,22 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                               className="sr-only"
                             />
                           </label>
-                          {stagedColor && (
-                            <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-border">
-                              <button
-                                className="flex-1 text-[10px] font-bold py-1 rounded bg-primary text-white hover:opacity-90"
-                                onClick={() => {
+                          <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-border">
+                            <button
+                              className={`flex-1 text-[10px] font-bold py-1 rounded ${stagedColor ? 'bg-primary text-white hover:opacity-90' : 'bg-border/50 text-text-muted cursor-not-allowed'}`}
+                              disabled={!stagedColor}
+                              onClick={() => {
+                                if (stagedColor) {
                                   handleColorPick(code, stagedColor, null)
                                   setOpenPicker(null); setStagedColor(null); stagedTarget.current = null
-                                }}
-                              >Apply</button>
-                              <button
-                                className="flex-1 text-[10px] font-bold py-1 rounded border border-border text-text-muted hover:bg-border/30"
-                                onClick={() => { setOpenPicker(null); setStagedColor(null); stagedTarget.current = null }}
-                              >Cancel</button>
-                            </div>
-                          )}
+                                }
+                              }}
+                            >Apply</button>
+                            <button
+                              className="flex-1 text-[10px] font-bold py-1 rounded border border-border text-text-muted hover:bg-border/30"
+                              onClick={() => { setOpenPicker(null); setStagedColor(null); stagedTarget.current = null }}
+                            >Cancel</button>
+                          </div>
                         </div>
                       )}
                     </div>

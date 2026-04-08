@@ -283,6 +283,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   function typeGroupColor(typeCode: string): string {
     const grp = typeToClassGroup.get(typeCode)
     if (!grp) return ''
+    if (dbColorOverrides.length > 0) {
+      const groupIndex = classGroups.findIndex(g => g.code === grp)
+      return resolveColorWithOverrides(grp, null, classGroups, groupIndex >= 0 ? groupIndex : 0, dbColorOverrides)
+    }
     return classGroupToColor.get(grp) ?? ''
   }
 
