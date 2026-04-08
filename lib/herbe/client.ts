@@ -65,7 +65,10 @@ async function herbeFetchRaw(url: string, init: RequestInit = {}): Promise<Respo
 async function herbeAuthHeader(conn?: ErpConnection): Promise<string> {
   // If explicit connection config provided, use it
   if (conn) {
-    if (conn.accessToken) return `Bearer ${conn.accessToken}`
+    // Only use access token if it hasn't expired (with 60s buffer)
+    if (conn.accessToken && conn.tokenExpiresAt > Date.now() / 1000 + 60) {
+      return `Bearer ${conn.accessToken}`
+    }
     if (conn.username && conn.password) {
       return `Basic ${Buffer.from(`${conn.username}:${conn.password}`).toString('base64')}`
     }
