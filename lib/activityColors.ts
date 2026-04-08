@@ -89,3 +89,48 @@ export function getActivityColor(
   if (!grp) return FALLBACK_COLOR
   return classGroupToColor.get(grp) ?? FALLBACK_COLOR
 }
+
+export interface ColorOverrideRow {
+  user_email: string | null
+  connection_id: string | null
+  class_group_code: string
+  color: string
+}
+
+/**
+ * Resolve the color for a class group code using the 6-level override hierarchy:
+ * 1. user per-connection → 2. user global → 3. admin per-connection →
+ * 4. admin global → 5. ERP CalColNr → 6. palette fallback
+ */
+export function resolveColorWithOverrides(
+  classGroupCode: string,
+  connectionId: string | null,
+  classGroups: { code: string; calColNr?: string | number }[],
+  groupIndex: number,
+  overrides: ColorOverrideRow[],
+): string {
+  // 1. User per-connection
+  if (connectionId) {
+    const match = overrides.find(o => o.class_group_code === classGroupCode && o.user_email !== null && o.connection_id === connectionId)
+    if (match) return match.color
+  }
+  // 2. User global
+  const userGlobal = overrides.find(o => o.class_group_code === classGroupCode && o.user_email !== null && o.connection_id === null)
+  if (userGlobal) return userGlobal.color
+  // 3. Admin per-connection
+  if (connectionId) {
+    const match = overrides.find(o => o.class_group_code === classGroupCode && o.user_email === null && o.connection_id === connectionId)
+    if (match) return match.color
+  }
+  // 4. Admin global
+  const adminGlobal = overrides.find(o => o.class_group_code === classGroupCode && o.user_email === null && o.connection_id === null)
+  if (adminGlobal) return adminGlobal.color
+  // 5. ERP CalColNr
+  const group = classGroups.find(g => g.code === classGroupCode)
+  if (group) {
+    const erpColor = calColNrToColor(group.calColNr)
+    if (erpColor) return erpColor
+  }
+  // 6. Palette fallback
+  return BRAND_PALETTE[groupIndex % BRAND_PALETTE.length]
+}

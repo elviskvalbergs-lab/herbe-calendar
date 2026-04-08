@@ -8,6 +8,7 @@ import {
   getActivityColor,
   loadColorOverrides,
   saveColorOverride,
+  resolveColorWithOverrides,
 } from '@/lib/activityColors'
 import type { Activity } from '@/types'
 
@@ -291,5 +292,75 @@ describe('saveColorOverride', () => {
     saveColorOverride('GRP1', '#ff0000')
     saveColorOverride('GRP1', '#0000ff')
     expect(loadColorOverrides()).toEqual({ GRP1: '#0000ff' })
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  resolveColorWithOverrides                                           */
+/* ------------------------------------------------------------------ */
+describe('resolveColorWithOverrides', () => {
+  const classGroups = [
+    { code: 'MTG', calColNr: 'Sky Blue' as string | number | undefined },
+    { code: 'INT', calColNr: undefined },
+  ]
+
+  it('returns ERP color when no overrides exist', () => {
+    const result = resolveColorWithOverrides('MTG', null, classGroups, 0, [])
+    expect(result).toBe('#00ABCE') // Sky Blue
+  })
+
+  it('returns palette fallback when no calColNr and no overrides', () => {
+    const result = resolveColorWithOverrides('INT', null, classGroups, 1, [])
+    expect(result).toBe(BRAND_PALETTE[1])
+  })
+
+  it('user global override beats ERP color', () => {
+    const overrides = [
+      { user_email: 'user@test.com', connection_id: null, class_group_code: 'MTG', color: '#ff0000' },
+    ]
+    const result = resolveColorWithOverrides('MTG', null, classGroups, 0, overrides)
+    expect(result).toBe('#ff0000')
+  })
+
+  it('user per-connection override beats user global', () => {
+    const overrides = [
+      { user_email: 'user@test.com', connection_id: null, class_group_code: 'MTG', color: '#ff0000' },
+      { user_email: 'user@test.com', connection_id: 'conn-1', class_group_code: 'MTG', color: '#00ff00' },
+    ]
+    const result = resolveColorWithOverrides('MTG', 'conn-1', classGroups, 0, overrides)
+    expect(result).toBe('#00ff00')
+  })
+
+  it('admin global override beats ERP color', () => {
+    const overrides = [
+      { user_email: null, connection_id: null, class_group_code: 'MTG', color: '#0000ff' },
+    ]
+    const result = resolveColorWithOverrides('MTG', null, classGroups, 0, overrides)
+    expect(result).toBe('#0000ff')
+  })
+
+  it('user global beats admin global', () => {
+    const overrides = [
+      { user_email: null, connection_id: null, class_group_code: 'MTG', color: '#0000ff' },
+      { user_email: 'user@test.com', connection_id: null, class_group_code: 'MTG', color: '#ff0000' },
+    ]
+    const result = resolveColorWithOverrides('MTG', null, classGroups, 0, overrides)
+    expect(result).toBe('#ff0000')
+  })
+
+  it('admin per-connection beats admin global', () => {
+    const overrides = [
+      { user_email: null, connection_id: null, class_group_code: 'MTG', color: '#0000ff' },
+      { user_email: null, connection_id: 'conn-1', class_group_code: 'MTG', color: '#00ff00' },
+    ]
+    const result = resolveColorWithOverrides('MTG', 'conn-1', classGroups, 0, overrides)
+    expect(result).toBe('#00ff00')
+  })
+
+  it('falls back through hierarchy correctly: user-conn > user-global > admin-conn > admin-global > ERP > palette', () => {
+    const overrides = [
+      { user_email: null, connection_id: null, class_group_code: 'MTG', color: '#admin' },
+    ]
+    expect(resolveColorWithOverrides('MTG', 'conn-1', classGroups, 0, overrides)).toBe('#admin')
   })
 })
