@@ -1,5 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import ColorOverridesPanel from '@/components/ColorOverridesPanel'
+import type { ColorOverrideRow } from '@/lib/activityColors'
 
 interface AzureConfig {
   tenant_id: string
@@ -48,6 +50,18 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
   const [editingErpId, setEditingErpId] = useState<string | null>(null)
   const [editErpForm, setEditErpForm] = useState({ name: '', apiBaseUrl: '', companyCode: '', clientId: '', clientSecret: '', username: '', password: '', serpUuid: '' })
   const [testResult, setTestResult] = useState<Record<string, string | null>>({})
+  const [adminColorOverrides, setAdminColorOverrides] = useState<ColorOverrideRow[]>([])
+  const [adminClassGroups, setAdminClassGroups] = useState<{ code: string; name: string; calColNr?: string | number }[]>([])
+  const [colorSectionOpen, setColorSectionOpen] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/colors').then(r => r.json()).then(rows => {
+      setAdminColorOverrides(Array.isArray(rows) ? rows : [])
+    }).catch(() => {})
+    fetch('/api/activity-class-groups').then(r => r.json()).then(groups => {
+      setAdminClassGroups(Array.isArray(groups) ? groups : [])
+    }).catch(() => {})
+  }, [])
 
   // Azure config form
   const [azureTenantId, setAzureTenantId] = useState(azure?.tenant_id ?? '')
@@ -553,6 +567,50 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
           </div>
         )}
       </section>
+
+      {/* Activity Color Defaults */}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button
+          onClick={() => setColorSectionOpen(o => !o)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
+        >
+          <span className="text-sm font-bold">Activity Color Defaults</span>
+          <span className="text-text-muted text-xs">{colorSectionOpen ? '▼' : '▶'}</span>
+        </button>
+        {colorSectionOpen && (
+          <div className="p-4 border-t border-border">
+            <p className="text-xs text-text-muted mb-4">Set default colors for activity groups across this account. Users can override these in their personal settings.</p>
+            {adminClassGroups.length === 0 ? (
+              <p className="text-xs text-text-muted">No class groups loaded. Connect an ERP first.</p>
+            ) : (
+              <ColorOverridesPanel
+                classGroups={adminClassGroups}
+                connections={erpConnections}
+                overrides={adminColorOverrides}
+                mode="admin"
+                onSave={async (code, color, connId) => {
+                  await fetch('/api/admin/colors', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classGroupCode: code, color, connectionId: connId }),
+                  })
+                  const res = await fetch('/api/admin/colors')
+                  setAdminColorOverrides(await res.json())
+                }}
+                onDelete={async (code, connId) => {
+                  await fetch('/api/admin/colors', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classGroupCode: code, connectionId: connId }),
+                  })
+                  const res = await fetch('/api/admin/colors')
+                  setAdminColorOverrides(await res.json())
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
