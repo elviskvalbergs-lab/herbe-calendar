@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { ActivityClassGroup } from '@/types'
 import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR, saveColorOverride } from '@/lib/activityColors'
+import ColorOverridesPanel from './ColorOverridesPanel'
+import type { ColorOverrideRow } from '@/lib/activityColors'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -23,16 +25,19 @@ function applyTheme(t: Theme) {
 
 interface Props {
   classGroups: ActivityClassGroup[]
-  colorMap: Map<string, string>          // classGroupCode → current hex
-  persons: { code: string; name: string }[] // For ICS assignment
+  colorMap: Map<string, string>
+  persons: { code: string; name: string }[]
+  connections: { id: string; name: string }[]
+  colorOverrides: ColorOverrideRow[]
   error?: string | null
   onClose: () => void
   onColorChange: (groupCode: string, color: string) => void
+  onColorOverridesChange: () => void
 }
 
-type Tab = 'style' | 'calendars'
+type Tab = 'style' | 'calendars' | 'colors'
 
-export default function SettingsModal({ classGroups, colorMap, persons, error, onClose, onColorChange }: Props) {
+export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string }
@@ -181,6 +186,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
               className={`pb-2 px-1 ${activeTab === 'calendars' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
               Calendars
+            </button>
+            <button
+              onClick={() => setActiveTab('colors')}
+              className={`pb-2 px-1 ${activeTab === 'colors' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+            >
+              Colors
             </button>
           </div>
         </div>
@@ -433,6 +444,35 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'colors' && (
+            <div className="space-y-4">
+              <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Colors</p>
+              <p className="text-xs text-text-muted">Click a color swatch to change it. Colors sync across all your devices.</p>
+              <ColorOverridesPanel
+                classGroups={classGroups}
+                connections={connections}
+                overrides={colorOverrides}
+                mode="user"
+                onSave={async (code, color, connId) => {
+                  await fetch('/api/settings/colors', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classGroupCode: code, color, connectionId: connId }),
+                  })
+                  onColorOverridesChange()
+                }}
+                onDelete={async (code, connId) => {
+                  await fetch('/api/settings/colors', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classGroupCode: code, connectionId: connId }),
+                  })
+                  onColorOverridesChange()
+                }}
+              />
             </div>
           )}
         </div>

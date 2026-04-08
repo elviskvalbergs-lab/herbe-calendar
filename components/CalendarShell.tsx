@@ -618,10 +618,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           classGroups={classGroups}
           colorMap={classGroupToColor}
           persons={people}
+          connections={erpConnections}
+          colorOverrides={dbColorOverrides}
           error={classGroupsError}
           onClose={() => setColorSettingsOpen(false)}
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
+          }}
+          onColorOverridesChange={() => {
+            fetch('/api/settings/colors').then(r => r.json()).then(rows => {
+              setDbColorOverrides(Array.isArray(rows) ? rows : [])
+            }).catch(() => {})
           }}
         />
       )}
