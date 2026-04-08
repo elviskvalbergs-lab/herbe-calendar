@@ -25,6 +25,7 @@ export interface Activity {
   mainPersons?: string[]  // Herbe: all persons on the activity
   accessGroup?: string    // comma-separated person codes (Herbe)
   planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
+  okFlag?: boolean         // Herbe: OKFlag=1 means approved/locked, read-only
   location?: string        // Outlook: meeting location
   isOrganizer?: boolean   // Outlook only
   isOnlineMeeting?: boolean // Outlook: whether it's a Teams meeting

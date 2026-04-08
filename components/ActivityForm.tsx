@@ -1240,18 +1240,26 @@ export default function ActivityForm({
                   )
                 })}
                 {isErpSource && (
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setPlanned(p => !p)}
-                    className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
-                      planned
-                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
-                    }`}
-                  >
-                    {planned ? '○ Planned' : '● Actual'}
-                  </button>
+                  <>
+                    {initial?.okFlag && (
+                      <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border bg-green-500/15 border-green-500/40 text-green-500">
+                        ✓ OK'd
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPlanned(p => !p)}
+                      disabled={canEdit === false}
+                      className={`${initial?.okFlag ? '' : 'ml-auto '}text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                        planned
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                          : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                      } ${canEdit === false ? 'opacity-50 cursor-default' : ''}`}
+                    >
+                      {planned ? '○ Planned' : '● Actual'}
+                    </button>
+                  </>
                 )}
               </div>
             )

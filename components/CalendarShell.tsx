@@ -141,6 +141,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   }, [])
 
   function canEditActivity(activity: Activity): boolean {
+    if (activity.okFlag) return false
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false

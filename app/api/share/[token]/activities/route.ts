@@ -33,6 +33,7 @@ function mapHerbeActivity(r: Record<string, unknown>, personCode: string): Recor
     mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
     ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
     planned: String(r['CalTimeFlag'] ?? '1') === '2',
+    okFlag: String(r['OKFlag'] ?? '0') === '1',
   }
 }
 

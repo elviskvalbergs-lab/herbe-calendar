@@ -45,6 +45,7 @@ function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
     textInMatrix: finalTextValue,
     accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
     planned: String(r['CalTimeFlag'] ?? '1') === '2',
+    okFlag: String(r['OKFlag'] ?? '0') === '1',
   }
 }
 
