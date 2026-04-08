@@ -73,6 +73,9 @@ export default function ColorOverridesPanel({ classGroups, connections, override
   }
 
   const [openPicker, setOpenPicker] = useState<string | null>(null)
+  const [stagedColor, setStagedColor] = useState<string | null>(null)
+  // Track what the staged color is for so Apply knows where to save
+  const stagedTarget = useRef<{ groupCode: string; connectionId: string | null } | null>(null)
   const [pickerAbove, setPickerAbove] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLDivElement>(null)
@@ -81,6 +84,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
     function handleClick(e: MouseEvent) {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setOpenPicker(null)
+        setStagedColor(null)
       }
     }
     if (openPicker) {
@@ -113,45 +117,71 @@ export default function ColorOverridesPanel({ classGroups, connections, override
         className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors cursor-pointer hover:bg-bg ${
           inherited ? 'border-dashed border-border/60' : 'border-border'
         }`}
-        onClick={() => { if (saving !== savingKey) setOpenPicker(openPicker === pickerKey ? null : pickerKey) }}
+        onClick={() => {
+          if (saving !== savingKey) {
+            if (openPicker === pickerKey) {
+              setOpenPicker(null); setStagedColor(null); stagedTarget.current = null
+            } else {
+              setOpenPicker(pickerKey); setStagedColor(null); stagedTarget.current = { groupCode, connectionId }
+            }
+          }
+        }}
       >
         <div className="relative shrink-0">
           <div
             className="w-5 h-5 rounded"
-            style={{ background: color, border: `2px solid ${color}44` }}
+            style={{ background: (openPicker === pickerKey && stagedColor) ? stagedColor : color, border: `2px solid ${((openPicker === pickerKey && stagedColor) ? stagedColor : color)}44` }}
           />
           {openPicker === pickerKey && (
-            <div ref={pickerRef} className={`absolute left-0 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px] ${pickerAbove ? 'bottom-7' : 'top-7'}`} onClick={e => e.stopPropagation()}>
+            <div ref={pickerRef} className={`absolute left-0 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[180px] ${pickerAbove ? 'bottom-7' : 'top-7'}`} onClick={e => e.stopPropagation()}>
+              {stagedColor && (
+                <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-border">
+                  <div className="w-5 h-5 rounded" style={{ background: stagedColor }} />
+                  <span className="text-[10px] font-mono text-text-muted">{stagedColor}</span>
+                </div>
+              )}
               <div className="grid grid-cols-5 gap-1.5 mb-2">
-                {BRAND_PALETTE.map((preset) => (
-                  <button
-                    key={preset}
-                    className="w-6 h-6 rounded-md transition-transform hover:scale-110"
-                    style={{
-                      background: preset,
-                      outline: color.toLowerCase() === preset.toLowerCase() ? '2px solid var(--color-text)' : 'none',
-                      outlineOffset: '1px',
-                    }}
-                    onClick={() => {
-                      handleColorPick(groupCode, preset, connectionId)
-                      setOpenPicker(null)
-                    }}
-                  />
-                ))}
+                {BRAND_PALETTE.map((preset) => {
+                  const active = (stagedColor ?? color).toLowerCase() === preset.toLowerCase()
+                  return (
+                    <button
+                      key={preset}
+                      className="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                      style={{
+                        background: preset,
+                        outline: active ? '2px solid var(--color-text)' : 'none',
+                        outlineOffset: '1px',
+                      }}
+                      onClick={() => setStagedColor(preset)}
+                    />
+                  )
+                })}
               </div>
               <label className="flex items-center gap-1.5 pt-1.5 border-t border-border cursor-pointer">
-                <div className="w-5 h-5 rounded" style={{ background: color, border: `2px solid ${color}44` }} />
+                <div className="w-5 h-5 rounded" style={{ background: stagedColor ?? color, border: `2px solid ${(stagedColor ?? color)}44` }} />
                 <span className="text-[10px] text-text-muted">Custom...</span>
                 <input
                   type="color"
-                  value={color}
-                  onChange={e => {
-                    handleColorPick(groupCode, e.target.value, connectionId)
-                    setOpenPicker(null)
-                  }}
+                  value={stagedColor ?? color}
+                  onChange={e => setStagedColor(e.target.value)}
                   className="sr-only"
                 />
               </label>
+              {stagedColor && (
+                <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-border">
+                  <button
+                    className="flex-1 text-[10px] font-bold py-1 rounded bg-primary text-white hover:opacity-90"
+                    onClick={() => {
+                      handleColorPick(groupCode, stagedColor, connectionId)
+                      setOpenPicker(null); setStagedColor(null); stagedTarget.current = null
+                    }}
+                  >Apply</button>
+                  <button
+                    className="flex-1 text-[10px] font-bold py-1 rounded border border-border text-text-muted hover:bg-border/30"
+                    onClick={() => { setOpenPicker(null); setStagedColor(null); stagedTarget.current = null }}
+                  >Cancel</button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -230,45 +260,71 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                     className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors cursor-pointer hover:bg-bg ${
                       inherited ? 'border-dashed border-border/60' : 'border-border'
                     }`}
-                    onClick={() => { if (saving !== savingKey) setOpenPicker(openPicker === pickerKey ? null : pickerKey) }}
+                    onClick={() => {
+                      if (saving !== savingKey) {
+                        if (openPicker === pickerKey) {
+                          setOpenPicker(null); setStagedColor(null); stagedTarget.current = null
+                        } else {
+                          setOpenPicker(pickerKey); setStagedColor(null); stagedTarget.current = { groupCode: code, connectionId: null }
+                        }
+                      }
+                    }}
                   >
                     <div className="relative shrink-0">
                       <div
                         className="w-5 h-5 rounded"
-                        style={{ background: color, border: `2px solid ${color}44` }}
+                        style={{ background: (openPicker === pickerKey && stagedColor) ? stagedColor : color, border: `2px solid ${((openPicker === pickerKey && stagedColor) ? stagedColor : color)}44` }}
                       />
                       {openPicker === pickerKey && (
-                        <div ref={pickerRef} className={`absolute left-0 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px] ${pickerAbove ? 'bottom-7' : 'top-7'}`} onClick={e => e.stopPropagation()}>
+                        <div ref={pickerRef} className={`absolute left-0 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[180px] ${pickerAbove ? 'bottom-7' : 'top-7'}`} onClick={e => e.stopPropagation()}>
+                          {stagedColor && (
+                            <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-border">
+                              <div className="w-5 h-5 rounded" style={{ background: stagedColor }} />
+                              <span className="text-[10px] font-mono text-text-muted">{stagedColor}</span>
+                            </div>
+                          )}
                           <div className="grid grid-cols-5 gap-1.5 mb-2">
-                            {BRAND_PALETTE.map((preset) => (
-                              <button
-                                key={preset}
-                                className="w-6 h-6 rounded-md transition-transform hover:scale-110"
-                                style={{
-                                  background: preset,
-                                  outline: color.toLowerCase() === preset.toLowerCase() ? '2px solid var(--color-text)' : 'none',
-                                  outlineOffset: '1px',
-                                }}
-                                onClick={() => {
-                                  handleColorPick(code, preset, null)
-                                  setOpenPicker(null)
-                                }}
-                              />
-                            ))}
+                            {BRAND_PALETTE.map((preset) => {
+                              const active = (stagedColor ?? color).toLowerCase() === preset.toLowerCase()
+                              return (
+                                <button
+                                  key={preset}
+                                  className="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                                  style={{
+                                    background: preset,
+                                    outline: active ? '2px solid var(--color-text)' : 'none',
+                                    outlineOffset: '1px',
+                                  }}
+                                  onClick={() => setStagedColor(preset)}
+                                />
+                              )
+                            })}
                           </div>
                           <label className="flex items-center gap-1.5 pt-1.5 border-t border-border cursor-pointer">
-                            <div className="w-5 h-5 rounded" style={{ background: color, border: `2px solid ${color}44` }} />
+                            <div className="w-5 h-5 rounded" style={{ background: stagedColor ?? color, border: `2px solid ${(stagedColor ?? color)}44` }} />
                             <span className="text-[10px] text-text-muted">Custom...</span>
                             <input
                               type="color"
-                              value={color}
-                              onChange={e => {
-                                handleColorPick(code, e.target.value, null)
-                                setOpenPicker(null)
-                              }}
+                              value={stagedColor ?? color}
+                              onChange={e => setStagedColor(e.target.value)}
                               className="sr-only"
                             />
                           </label>
+                          {stagedColor && (
+                            <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-border">
+                              <button
+                                className="flex-1 text-[10px] font-bold py-1 rounded bg-primary text-white hover:opacity-90"
+                                onClick={() => {
+                                  handleColorPick(code, stagedColor, null)
+                                  setOpenPicker(null); setStagedColor(null); stagedTarget.current = null
+                                }}
+                              >Apply</button>
+                              <button
+                                className="flex-1 text-[10px] font-bold py-1 rounded border border-border text-text-muted hover:bg-border/30"
+                                onClick={() => { setOpenPicker(null); setStagedColor(null); stagedTarget.current = null }}
+                              >Cancel</button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

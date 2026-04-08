@@ -3,6 +3,7 @@ import { Activity, ShareVisibility } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
+import { readableAccentColor } from '@/lib/activityColors'
 import { useRef, useState, useCallback, useLayoutEffect } from 'react'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
@@ -55,7 +56,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('touchstart', () => { allDayIsTouchDevice = true }, { once: true })
 }
 
-function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose, getTypeName, visibility }: {
+function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose, getTypeName, visibility, isLightMode = false }: {
   activity: Activity
   color: string
   onClick: (a: Activity) => void
@@ -64,6 +65,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
   onMobileClose: () => void
   getTypeName?: (typeCode: string) => string
   visibility?: ShareVisibility
+  isLightMode?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
   const touchIsTapRef = useRef(true)
@@ -102,7 +104,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
     >
       <button
         className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-bold truncate cursor-pointer hover:brightness-125"
-        style={{ background: color + '33', color, borderLeft: `3px solid ${color}` }}
+        style={{ background: color + '33', color: readableAccentColor(color, !isLightMode), borderLeft: `3px solid ${color}` }}
         onClick={() => {
           if (wasTouchRef.current || allDayTouchActive) { wasTouchRef.current = false; return }
           if (visibility) return
@@ -399,6 +401,7 @@ export default function PersonColumn({
                   onMobileClose={() => setMobileSelectedId(null)}
                   getTypeName={getTypeName}
                   visibility={visibility}
+                  isLightMode={isLightMode}
                 />
               </div>
             )

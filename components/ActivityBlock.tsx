@@ -2,6 +2,7 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import { Activity, ShareVisibility } from '@/types'
 import { timeToTopPx } from '@/lib/time'
+import { readableAccentColor } from '@/lib/activityColors'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
   return (
@@ -69,6 +70,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
   }, [hovered, mobileSelected])
 
   const isLight = isLightMode
+  const textColor = readableAccentColor(color, !isLight)
   const fillNormal = isLight ? '55' : (isOutlook ? '28' : '33')
   const fillPlanned = isLight ? '22' : '18'
   const fillCC = isLight ? '1a' : '0a'
@@ -123,7 +125,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
     >
       {isCompact ? (
         <div className="px-1.5 flex items-center gap-1 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
-          <p className="text-[9px] font-bold truncate flex-1" style={{ color }}>
+          <p className="text-[9px] font-bold truncate flex-1" style={{ color: textColor }}>
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
           <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
@@ -131,7 +133,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       ) : (
         <div className="px-1.5 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
           <div className="flex items-start justify-between gap-1">
-            <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
+            <p className="text-[10px] font-bold truncate flex-1" style={{ color: textColor }}>
               {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
             </p>
             <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>

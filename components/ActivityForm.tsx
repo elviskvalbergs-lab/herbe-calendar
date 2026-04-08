@@ -1313,9 +1313,13 @@ export default function ActivityForm({
                           setCurrentGroup(getTypeGroup?.(type.code))
                         }}
                         className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
-                          isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-border text-text-muted hover:border-primary/50'
+                          isSelected ? 'border-current' : 'border-border text-text-muted hover:border-primary/50'
                         }`}
-                        style={!isSelected && c ? { borderColor: c + '44', color: c, background: c + '11' } : undefined}
+                        style={c ? {
+                          borderColor: isSelected ? c : c + '44',
+                          color: c,
+                          background: isSelected ? c + '22' : c + '11',
+                        } : undefined}
                       >
                         {code}
                       </button>
@@ -1368,6 +1372,7 @@ export default function ActivityForm({
                         projectInputRef.current?.focus()
                       }}
                       className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${tIdx === focusedTypeIdx ? 'bg-primary/20' : 'hover:bg-border'}`}
+                      style={tIdx === focusedTypeIdx ? (() => { const c = getTypeColor?.(t.code); return c ? { background: c + '18' } : undefined })() : undefined}
                     >
                       {(() => {
                         const c = getTypeColor?.(t.code)

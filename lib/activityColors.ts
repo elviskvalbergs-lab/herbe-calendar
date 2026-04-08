@@ -3,6 +3,54 @@ import type { Activity } from '@/types'
 export const OUTLOOK_COLOR = '#6264a7' // Teams purple
 export const FALLBACK_COLOR = '#6b7280' // gray — activity with no type or unknown class
 
+/** Parse hex color to RGB values */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  return {
+    r: parseInt(full.slice(0, 2), 16),
+    g: parseInt(full.slice(2, 4), 16),
+    b: parseInt(full.slice(4, 6), 16),
+  }
+}
+
+/** Relative luminance per WCAG 2.0 */
+function luminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex)
+  const [rs, gs, bs] = [r, g, b].map(c => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  })
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
+}
+
+/**
+ * Returns a readable text color for use with a given accent color.
+ * On dark backgrounds (dark theme), light accent colors get darkened text.
+ * On light backgrounds (light theme), light accent colors use a darkened version.
+ * For the accent-tinted background (color + '33'), ensures text is always readable.
+ */
+export function readableAccentColor(accentHex: string, isDarkTheme: boolean): string {
+  const lum = luminance(accentHex)
+  if (isDarkTheme) {
+    // Dark theme: text on dark bg with light tint. Very light colors are fine as-is.
+    // But extremely light colors (e.g. yellow) may lack contrast against white text in cards.
+    return accentHex
+  }
+  // Light theme: text on light bg with color tint.
+  // Light colors (high luminance) need darkening to be readable.
+  if (lum > 0.4) {
+    // Darken by mixing toward black
+    const { r, g, b } = hexToRgb(accentHex)
+    const factor = 0.45
+    const dr = Math.round(r * factor)
+    const dg = Math.round(g * factor)
+    const db = Math.round(b * factor)
+    return `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`
+  }
+  return accentHex
+}
+
 /** 20 brand-compatible colors for dark theme. Index 0-based. */
 export const BRAND_PALETTE = [
   '#00ABCE', // 0  cyan — brand primary
