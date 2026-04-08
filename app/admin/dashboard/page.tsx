@@ -47,7 +47,7 @@ export default async function DashboardPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Members" value={memberStats.active} sub={`${memberStats.total} total`} />
+        <a href="/admin/members"><StatCard label="Members" value={memberStats.active} sub={`${memberStats.total} total`} /></a>
         <StatCard label="Logins (30d)" value={statsByType['login'] ?? 0} />
         <StatCard label="Created (30d)" value={statsByType['activity_created'] ?? 0} />
         <StatCard label="Edited (30d)" value={statsByType['activity_edited'] ?? 0} />
