@@ -8,7 +8,9 @@ import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
-  buildClassGroupColorMap, getActivityColor, loadColorOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
+  buildClassGroupColorMap, getActivityColor, loadColorOverrides,
+  resolveColorWithOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
+  type ColorOverrideRow,
 } from '@/lib/activityColors'
 import {
   HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
@@ -24,6 +26,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
+  const [dbColorOverrides, setDbColorOverrides] = useState<ColorOverrideRow[]>([])
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
@@ -258,7 +261,18 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
   const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
   function colorForActivity(activity: Activity): string {
-    return getActivityColor(activity, typeToClassGroup, classGroupToColor)
+    if (activity.icsColor) return activity.icsColor
+    if (activity.source === 'outlook' && !activity.isExternal) return OUTLOOK_COLOR
+    if (!activity.activityTypeCode) return FALLBACK_COLOR
+    const grp = typeToClassGroup.get(activity.activityTypeCode)
+    if (!grp) return FALLBACK_COLOR
+
+    if (dbColorOverrides.length > 0) {
+      const groupIndex = classGroups.findIndex(g => g.code === grp)
+      return resolveColorWithOverrides(grp, activity.erpConnectionId ?? null, classGroups, groupIndex >= 0 ? groupIndex : 0, dbColorOverrides)
+    }
+
+    return classGroupToColor.get(grp) ?? FALLBACK_COLOR
   }
 
   function typeGroupColor(typeCode: string): string {
@@ -298,6 +312,34 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     setColorOverrides(loadColorOverrides())
     if (sources.herbe) reloadColorData()
   }, [sources.herbe]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch DB color overrides and migrate localStorage on mount
+  useEffect(() => {
+    fetch('/api/settings/colors')
+      .then(r => r.json())
+      .then(async (rows: ColorOverrideRow[]) => {
+        setDbColorOverrides(Array.isArray(rows) ? rows : [])
+
+        // One-time migration: move localStorage overrides to DB
+        const local = loadColorOverrides()
+        const localKeys = Object.keys(local)
+        if (localKeys.length > 0 && rows.filter((r: ColorOverrideRow) => r.user_email !== null).length === 0) {
+          await Promise.all(localKeys.map(code =>
+            fetch('/api/settings/colors', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ classGroupCode: code, color: local[code] }),
+            }).catch(() => {})
+          ))
+          try { localStorage.removeItem('activityClassGroupColors') } catch {}
+          // Refetch to get migrated overrides
+          const res = await fetch('/api/settings/colors')
+          const migrated = await res.json()
+          setDbColorOverrides(Array.isArray(migrated) ? migrated : [])
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Load people list on mount (with retry on empty result)
   const [usersRetry, setUsersRetry] = useState(0)
