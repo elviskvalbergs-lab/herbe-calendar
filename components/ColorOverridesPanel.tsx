@@ -97,19 +97,18 @@ export default function ColorOverridesPanel({ classGroups, connections, override
     return (
       <div
         key={connectionId ?? 'global'}
-        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors ${
+        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors cursor-pointer hover:bg-bg ${
           inherited ? 'border-dashed border-border/60' : 'border-border'
         }`}
+        onClick={() => { if (saving !== savingKey) setOpenPicker(openPicker === pickerKey ? null : pickerKey) }}
       >
         <div className="relative shrink-0">
-          <button
-            className="w-5 h-5 rounded cursor-pointer"
+          <div
+            className="w-5 h-5 rounded"
             style={{ background: color, border: `2px solid ${color}44` }}
-            onClick={() => setOpenPicker(openPicker === pickerKey ? null : pickerKey)}
-            disabled={saving === savingKey}
           />
           {openPicker === pickerKey && (
-            <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]">
+            <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]" onClick={e => e.stopPropagation()}>
               <div className="grid grid-cols-5 gap-1.5 mb-2">
                 {BRAND_PALETTE.map((preset) => (
                   <button
@@ -148,7 +147,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
         </span>
         {!inherited && (
           <button
-            onClick={() => handleReset(groupCode, connectionId)}
+            onClick={e => { e.stopPropagation(); handleReset(groupCode, connectionId) }}
             className="text-[9px] text-text-muted hover:text-text shrink-0"
             disabled={saving === savingKey}
           >
@@ -213,18 +212,19 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                   {label}
                 </div>
                 <div className="pl-4">
-                  <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors ${
-                    inherited ? 'border-dashed border-border/60' : 'border-border'
-                  }`}>
+                  <div
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors cursor-pointer hover:bg-bg ${
+                      inherited ? 'border-dashed border-border/60' : 'border-border'
+                    }`}
+                    onClick={() => { if (saving !== savingKey) setOpenPicker(openPicker === pickerKey ? null : pickerKey) }}
+                  >
                     <div className="relative shrink-0">
-                      <button
-                        className="w-5 h-5 rounded cursor-pointer"
+                      <div
+                        className="w-5 h-5 rounded"
                         style={{ background: color, border: `2px solid ${color}44` }}
-                        onClick={() => setOpenPicker(openPicker === pickerKey ? null : pickerKey)}
-                        disabled={saving === savingKey}
                       />
                       {openPicker === pickerKey && (
-                        <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]">
+                        <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]" onClick={e => e.stopPropagation()}>
                           <div className="grid grid-cols-5 gap-1.5 mb-2">
                             {BRAND_PALETTE.map((preset) => (
                               <button
@@ -263,7 +263,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                     </span>
                     {!inherited && (
                       <button
-                        onClick={() => handleReset(code, null)}
+                        onClick={e => { e.stopPropagation(); handleReset(code, null) }}
                         className="text-[9px] text-text-muted hover:text-text shrink-0"
                         disabled={saving === savingKey}
                       >
