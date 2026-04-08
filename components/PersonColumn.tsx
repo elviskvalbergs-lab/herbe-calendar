@@ -134,14 +134,14 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               ✕
             </button>
           )}
-          {visibility === 'busy' ? (
+          {(() => { const tc = readableAccentColor(color, !isLightMode); return visibility === 'busy' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>Busy</p>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>Busy</p>
               <p className="text-xs text-text-muted">All day</p>
             </>
           ) : visibility === 'titles' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
               </p>
               <p className="text-xs text-text-muted">All day</p>
@@ -159,12 +159,12 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
             </>
           ) : (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
               </p>
               <p className="text-xs text-text-muted">All day</p>
               {activity.activityTypeCode && (
-                <p className="text-[10px] mt-1" style={{ color }}>
+                <p className="text-[10px] mt-1" style={{ color: tc }}>
                   <span className="font-mono">{activity.activityTypeCode}</span>
                   {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
                     <span className="ml-1 not-italic">
@@ -212,7 +212,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
                 </button>
               )}
             </>
-          )}
+          )})()}
         </div>
       )}
     </div>

@@ -201,12 +201,12 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           )}
           {visibility === 'busy' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>Busy</p>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>Busy</p>
               <p className="text-xs text-text-muted">{activity.timeFrom} – {activity.timeTo}</p>
             </>
           ) : visibility === 'titles' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
               </p>
               <p className="text-xs text-text-muted">
@@ -227,7 +227,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
             </>
           ) : (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
               </p>
               <p className="text-xs text-text-muted">
@@ -235,7 +235,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
               </p>
               {activity.activityTypeCode && (
-                <p className="text-[10px] mt-1" style={{ color }}>
+                <p className="text-[10px] mt-1" style={{ color: textColor }}>
                   <span className="font-mono">{activity.activityTypeCode}</span>
                   {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
                     <span className="ml-1 not-italic">

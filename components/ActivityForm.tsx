@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
 import ErrorBanner from './ErrorBanner'
+import { readableAccentColor } from '@/lib/activityColors'
 import { format } from 'date-fns'
 import { serpLink } from '@/lib/serpLink'
 import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons, getRecentCCPersons, saveRecentCCPersons } from '@/lib/recentItems'
@@ -106,6 +107,7 @@ export default function ActivityForm({
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [currentGroup, setCurrentGroup] = useState<ActivityClassGroup | undefined>()
   const [planned, setPlanned] = useState(initial?.planned ?? false)
+  const isDarkTheme = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') !== 'light' : true
   const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
   const [textInMatrix, setTextInMatrix] = useState(initial?.textInMatrix ?? '')
   const [projectResults, setProjectResults] = useState<SearchResult[]>([])
@@ -1324,8 +1326,8 @@ export default function ActivityForm({
                           isSelected ? 'border-current' : 'border-border text-text-muted hover:border-primary/50'
                         }`}
                         style={c ? {
-                          borderColor: isSelected ? c : c + '44',
-                          color: c,
+                          borderColor: isSelected ? readableAccentColor(c, isDarkTheme) : c + '44',
+                          color: readableAccentColor(c, isDarkTheme),
                           background: isSelected ? c + '22' : c + '11',
                         } : undefined}
                       >
@@ -1387,7 +1389,7 @@ export default function ActivityForm({
                         return (
                           <span
                             className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center"
-                            style={c ? { background: c + '33', color: c } : { color: 'var(--color-primary)' }}
+                            style={c ? { background: c + '33', color: readableAccentColor(c, isDarkTheme) } : { color: 'var(--color-primary)' }}
                           >
                             {t.code}
                           </span>
