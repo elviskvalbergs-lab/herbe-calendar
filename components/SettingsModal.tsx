@@ -182,16 +182,16 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
               Look & Feel
             </button>
             <button
-              onClick={() => setActiveTab('calendars')}
-              className={`pb-2 px-1 ${activeTab === 'calendars' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-            >
-              Calendars
-            </button>
-            <button
               onClick={() => setActiveTab('colors')}
               className={`pb-2 px-1 ${activeTab === 'colors' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
               Colors
+            </button>
+            <button
+              onClick={() => setActiveTab('calendars')}
+              className={`pb-2 px-1 ${activeTab === 'calendars' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+            >
+              Calendars
             </button>
           </div>
         </div>
@@ -379,16 +379,6 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             <div className="space-y-4">
               <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Colors</p>
               <p className="text-xs text-text-muted">Click a color swatch to change it. Colors sync across all your devices.</p>
-              <div className="flex gap-4 p-2.5 bg-bg rounded-lg border border-border">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: OUTLOOK_COLOR, background: OUTLOOK_COLOR + '33' }} />
-                  <span className="text-[11px]">Outlook / Teams</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: FALLBACK_COLOR, background: FALLBACK_COLOR + '33' }} />
-                  <span className="text-[11px] text-text-muted">Direct ERP entry</span>
-                </div>
-              </div>
               <ColorOverridesPanel
                 classGroups={classGroups}
                 connections={connections}

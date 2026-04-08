@@ -10,7 +10,7 @@ import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
   resolveColorWithOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
-  type ColorOverrideRow,
+  SOURCE_COLOR_CODES, type ColorOverrideRow,
 } from '@/lib/activityColors'
 import {
   HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
@@ -262,10 +262,14 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
   function colorForActivity(activity: Activity): string {
     if (activity.icsColor) return activity.icsColor
-    if (activity.source === 'outlook' && !activity.isExternal) return OUTLOOK_COLOR
-    if (!activity.activityTypeCode) return FALLBACK_COLOR
+    if (activity.source === 'outlook' && !activity.isExternal) {
+      return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
+    }
+    if (!activity.activityTypeCode) {
+      return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
+    }
     const grp = typeToClassGroup.get(activity.activityTypeCode)
-    if (!grp) return FALLBACK_COLOR
+    if (!grp) return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
 
     if (dbColorOverrides.length > 0) {
       const groupIndex = classGroups.findIndex(g => g.code === grp)

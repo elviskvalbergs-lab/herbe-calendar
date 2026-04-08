@@ -73,8 +73,17 @@ export function buildClassGroupColorMap(
     const base = calColNrToColor(g.calColNr) ?? BRAND_PALETTE[idx % BRAND_PALETTE.length]
     map.set(g.code, overrides[g.code] ?? base)
   })
+  // Source-level overrides
+  if (overrides[SOURCE_COLOR_CODES.outlook]) map.set(SOURCE_COLOR_CODES.outlook, overrides[SOURCE_COLOR_CODES.outlook])
+  if (overrides[SOURCE_COLOR_CODES.erp]) map.set(SOURCE_COLOR_CODES.erp, overrides[SOURCE_COLOR_CODES.erp])
   return map
 }
+
+/** Special class_group_code keys for source-level color overrides */
+export const SOURCE_COLOR_CODES = {
+  outlook: '__outlook__',
+  erp: '__erp__',
+} as const
 
 /** Resolve the display color for a single activity. */
 export function getActivityColor(
@@ -83,10 +92,10 @@ export function getActivityColor(
   classGroupToColor: Map<string, string>
 ): string {
   if (activity.icsColor) return activity.icsColor
-  if (activity.source === 'outlook') return OUTLOOK_COLOR
-  if (!activity.activityTypeCode) return FALLBACK_COLOR
+  if (activity.source === 'outlook') return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
+  if (!activity.activityTypeCode) return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
   const grp = typeToClassGroup.get(activity.activityTypeCode)
-  if (!grp) return FALLBACK_COLOR
+  if (!grp) return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
   return classGroupToColor.get(grp) ?? FALLBACK_COLOR
 }
 
@@ -109,6 +118,15 @@ export function resolveColorWithOverrides(
   groupIndex: number,
   overrides: ColorOverrideRow[],
 ): string {
+  // Source color codes resolve directly without connection hierarchy
+  if (classGroupCode === SOURCE_COLOR_CODES.outlook || classGroupCode === SOURCE_COLOR_CODES.erp) {
+    const defaultColor = classGroupCode === SOURCE_COLOR_CODES.outlook ? OUTLOOK_COLOR : FALLBACK_COLOR
+    const userOverride = overrides.find(o => o.class_group_code === classGroupCode && o.user_email !== null && o.connection_id === null)
+    if (userOverride) return userOverride.color
+    const adminOverride = overrides.find(o => o.class_group_code === classGroupCode && o.user_email === null && o.connection_id === null)
+    if (adminOverride) return adminOverride.color
+    return defaultColor
+  }
   // 1. User per-connection
   if (connectionId) {
     const match = overrides.find(o => o.class_group_code === classGroupCode && o.user_email !== null && o.connection_id === connectionId)
