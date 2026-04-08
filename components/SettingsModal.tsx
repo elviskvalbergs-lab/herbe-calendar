@@ -37,24 +37,6 @@ interface Props {
 
 type Tab = 'style' | 'calendars' | 'colors'
 
-function Accordion({ title, defaultOpen = false, count, children }: { title: string; defaultOpen?: boolean; count?: number; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-bg hover:bg-border/30 transition-colors"
-      >
-        <span className="text-xs font-bold flex items-center gap-2">
-          {title}
-          {count != null && <span className="text-[10px] text-text-muted font-normal">({count})</span>}
-        </span>
-        <span className="text-text-muted text-xs">{open ? '▾' : '▸'}</span>
-      </button>
-      {open && <div className="p-3 border-t border-border">{children}</div>}
-    </div>
-  )
-}
 
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
@@ -238,9 +220,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           )}
 
           {activeTab === 'calendars' && (
-            <div className="space-y-3">
+            <div className="space-y-6">
               {/* Add New Calendar */}
-              <Accordion title="+ Add External Calendar (ICS)">
+              <div className="space-y-3 p-4 bg-bg rounded-lg border border-border">
+                <h4 className="text-xs font-bold flex items-center gap-2">
+                  + Add External Calendar (ICS)
+                </h4>
                 <form onSubmit={handleAddCal} className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <select
@@ -276,10 +261,11 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                     Attach Calendar
                   </button>
                 </form>
-              </Accordion>
+              </div>
 
               {/* Existing calendars list */}
-              <Accordion title="Active External Feeds" defaultOpen count={customCals.length}>
+              <div className="space-y-3">
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Active External Feed Mappings</p>
                 {calLoading ? (
                   <div className="text-xs text-text-muted p-4 text-center animate-pulse">Loading calendars...</div>
                 ) : customCals.length === 0 ? (
@@ -386,15 +372,15 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                     ))}
                   </div>
                 )}
-              </Accordion>
+              </div>
             </div>
           )}
 
           {activeTab === 'colors' && (
-            <div className="space-y-3">
-              <Accordion title="Activity Group Colors" defaultOpen count={classGroups.length}>
-                <p className="text-xs text-text-muted mb-3">Click a row to change its color. Colors sync across all your devices.</p>
-                <ColorOverridesPanel
+            <div className="space-y-4">
+              <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Colors</p>
+              <p className="text-xs text-text-muted">Click a row to change its color. Colors sync across all your devices.</p>
+              <ColorOverridesPanel
                 classGroups={classGroups}
                 connections={connections}
                 overrides={colorOverrides}
@@ -416,7 +402,6 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                   onColorOverridesChange()
                 }}
               />
-              </Accordion>
             </div>
           )}
         </div>

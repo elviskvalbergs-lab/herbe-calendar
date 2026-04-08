@@ -53,6 +53,9 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
   const [adminColorOverrides, setAdminColorOverrides] = useState<ColorOverrideRow[]>([])
   const [adminClassGroups, setAdminClassGroups] = useState<{ code: string; name: string; calColNr?: string | number }[]>([])
   const [colorSectionOpen, setColorSectionOpen] = useState(false)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+  function toggleSection(key: string) { setOpenSections(prev => ({ ...prev, [key]: !prev[key] })) }
+  function isSectionOpen(key: string) { return !!openSections[key] }
 
   useEffect(() => {
     fetch('/api/admin/colors').then(r => r.json()).then(rows => {
@@ -139,11 +142,15 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       )}
 
       {/* Azure AD */}
-      <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          Azure AD / Microsoft 365
-          {azure && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-        </h2>
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('azure')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Azure AD / Microsoft 365
+            {azure && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('azure') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('azure') && <div className="p-4 border-t border-border space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-text-muted uppercase block mb-0.5">Tenant ID</label>
@@ -176,14 +183,19 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
             Test Connection
           </button>
         </div>
+        </div>}
       </section>
 
       {/* SMTP Email */}
-      <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          SMTP Email (for login magic links)
-          {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-        </h2>
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('smtp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            SMTP Email (for login magic links)
+            {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('smtp') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('smtp') && <div className="p-4 border-t border-border space-y-3">
         <p className="text-[10px] text-text-muted">Used when Azure AD is not configured. Sends magic link emails via SMTP.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -238,14 +250,19 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
             } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
           }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test SMTP</button>
         </div>
+        </div>}
       </section>
 
       {/* Google Workspace */}
-      <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          Google Workspace
-          {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-        </h2>
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('google')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Google Workspace
+            {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('google') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('google') && <div className="p-4 border-t border-border space-y-3">
         <p className="text-[10px] text-text-muted">Enables Google Calendar integration with Meet. Requires a service account with domain-wide delegation.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
@@ -290,12 +307,20 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
             } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
           }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
         </div>
+        </div>}
       </section>
 
       {/* ERP Connections */}
-      <section className="bg-surface border border-border rounded-xl p-4 space-y-3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-sm font-bold">Standard ERP Connections</h2>
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('erp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Standard ERP Connections
+            {erpConnections.length > 0 && <span className="text-[10px] font-normal text-text-muted">({erpConnections.length})</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('erp') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('erp') && <div className="p-4 border-t border-border space-y-3">
+        <div className="flex justify-end">
           <button
             onClick={() => setShowAddErp(o => !o)}
             className="px-3 py-1 bg-primary text-white rounded-lg text-[10px] font-bold"
@@ -566,6 +591,7 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
             ))}
           </div>
         )}
+        </div>}
       </section>
 
       {/* Activity Color Defaults */}

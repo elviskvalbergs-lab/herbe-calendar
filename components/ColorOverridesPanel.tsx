@@ -73,7 +73,9 @@ export default function ColorOverridesPanel({ classGroups, connections, override
   }
 
   const [openPicker, setOpenPicker] = useState<string | null>(null)
+  const [pickerAbove, setPickerAbove] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -81,7 +83,17 @@ export default function ColorOverridesPanel({ classGroups, connections, override
         setOpenPicker(null)
       }
     }
-    if (openPicker) document.addEventListener('mousedown', handleClick)
+    if (openPicker) {
+      document.addEventListener('mousedown', handleClick)
+      // Check if picker overflows viewport and flip if needed
+      requestAnimationFrame(() => {
+        if (triggerRef.current) {
+          const rect = triggerRef.current.getBoundingClientRect()
+          const spaceBelow = window.innerHeight - rect.bottom
+          setPickerAbove(spaceBelow < 220)
+        }
+      })
+    }
     return () => document.removeEventListener('mousedown', handleClick)
   }, [openPicker])
 
@@ -97,6 +109,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
     return (
       <div
         key={connectionId ?? 'global'}
+        ref={openPicker === pickerKey ? triggerRef : undefined}
         className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors cursor-pointer hover:bg-bg ${
           inherited ? 'border-dashed border-border/60' : 'border-border'
         }`}
@@ -108,7 +121,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
             style={{ background: color, border: `2px solid ${color}44` }}
           />
           {openPicker === pickerKey && (
-            <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]" onClick={e => e.stopPropagation()}>
+            <div ref={pickerRef} className={`absolute left-0 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px] ${pickerAbove ? 'bottom-7' : 'top-7'}`} onClick={e => e.stopPropagation()}>
               <div className="grid grid-cols-5 gap-1.5 mb-2">
                 {BRAND_PALETTE.map((preset) => (
                   <button
@@ -213,6 +226,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                 </div>
                 <div className="pl-4">
                   <div
+                    ref={openPicker === pickerKey ? triggerRef : undefined}
                     className={`flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors cursor-pointer hover:bg-bg ${
                       inherited ? 'border-dashed border-border/60' : 'border-border'
                     }`}
@@ -224,7 +238,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
                         style={{ background: color, border: `2px solid ${color}44` }}
                       />
                       {openPicker === pickerKey && (
-                        <div ref={pickerRef} className="absolute left-0 top-7 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px]" onClick={e => e.stopPropagation()}>
+                        <div ref={pickerRef} className={`absolute left-0 z-50 bg-surface border border-border rounded-lg shadow-lg p-2 w-[168px] ${pickerAbove ? 'bottom-7' : 'top-7'}`} onClick={e => e.stopPropagation()}>
                           <div className="grid grid-cols-5 gap-1.5 mb-2">
                             {BRAND_PALETTE.map((preset) => (
                               <button
