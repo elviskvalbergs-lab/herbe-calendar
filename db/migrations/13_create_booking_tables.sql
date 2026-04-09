@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   booked_time     TIME NOT NULL,
   duration_minutes INT NOT NULL,
   field_values    JSONB NOT NULL DEFAULT '{}',
-  cancel_token    TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
+  cancel_token    TEXT NOT NULL UNIQUE,
   status          TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled', 'rescheduled')),
   created_erp_ids JSONB DEFAULT '[]',
   created_outlook_id TEXT,
