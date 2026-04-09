@@ -99,4 +99,66 @@ export interface ShareLink {
   createdAt: string
   lastAccessedAt: string | null
   accessCount: number
+  bookingEnabled?: boolean
+  templateIds?: string[]
+}
+
+export interface AvailabilityWindow {
+  days: number[]        // 0=Sun, 1=Mon, ... 6=Sat
+  startTime: string     // "HH:mm"
+  endTime: string       // "HH:mm"
+}
+
+export interface CustomField {
+  label: string
+  type: 'text' | 'email'
+  required: boolean
+}
+
+export interface TemplateTargets {
+  erp?: {
+    connectionId: string
+    fields: Record<string, string>
+  }[]
+  outlook?: {
+    enabled: boolean
+    onlineMeeting: boolean
+    location?: string
+  }
+  google?: {
+    enabled: boolean
+    onlineMeeting: boolean
+    location?: string
+  }
+}
+
+export interface BookingTemplate {
+  id: string
+  name: string
+  duration_minutes: number
+  availability_windows: AvailabilityWindow[]
+  buffer_minutes: number
+  targets: TemplateTargets
+  custom_fields: CustomField[]
+  active: boolean
+  created_at: string
+  updated_at: string
+  linked_share_links?: { id: string; name: string }[]
+}
+
+export interface Booking {
+  id: string
+  template_id: string
+  share_link_id: string
+  booker_email: string
+  booked_date: string
+  booked_time: string
+  duration_minutes: number
+  field_values: Record<string, string>
+  cancel_token: string
+  status: 'confirmed' | 'cancelled' | 'rescheduled'
+  created_erp_ids: { connectionId: string; activityId: string }[]
+  created_outlook_id: string | null
+  created_google_id: string | null
+  created_at: string
 }
