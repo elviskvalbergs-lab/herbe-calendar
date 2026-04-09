@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import CalendarGrid from './CalendarGrid'
+import BookingPage from './BookingPage'
 import { OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
 import { personColor } from '@/lib/colors'
 
@@ -12,6 +13,8 @@ interface ShareConfig {
   visibility: ShareVisibility
   favoriteName: string
   hasPassword: boolean
+  bookingEnabled?: boolean
+  templates?: { id: string; name: string; duration_minutes: number; custom_fields: { label: string; type: string; required: boolean }[] }[]
 }
 
 interface Props {
@@ -29,6 +32,7 @@ export default function ShareCalendarShell({ token }: Props) {
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [subscribeCopied, setSubscribeCopied] = useState(false)
+  const [bookingMode, setBookingMode] = useState(false)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
   // Build person-to-color map based on personCodes order
@@ -166,6 +170,10 @@ export default function ShareCalendarShell({ token }: Props) {
     )
   }
 
+  if (bookingMode && config.bookingEnabled && config.templates) {
+    return <BookingPage token={token} templates={config.templates} onBack={() => setBookingMode(false)} />
+  }
+
   const state: CalendarState = {
     view: config.view,
     date,
@@ -249,6 +257,14 @@ export default function ShareCalendarShell({ token }: Props) {
             title="Copy ICS subscription URL"
           >
             {subscribeCopied ? 'Copied!' : 'Subscribe'}
+          </button>
+        )}
+        {config.bookingEnabled && config.templates && config.templates.length > 0 && (
+          <button
+            onClick={() => setBookingMode(true)}
+            className="px-2.5 lg:px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 ml-1"
+          >
+            Book a Meeting
           </button>
         )}
       </header>
