@@ -43,7 +43,7 @@ export default function LoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="you@burti.lv"
-              className="w-full bg-bg border border-border rounded-lg px-4 py-3 text-white placeholder-text-muted focus:outline-none focus:border-primary"
+              className="w-full bg-bg border border-border rounded-lg px-4 py-3 text-text placeholder-text-muted focus:outline-none focus:border-primary"
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
