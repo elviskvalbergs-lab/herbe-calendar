@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { ActivityClassGroup } from '@/types'
+import type { BookingTemplate } from '@/types'
 import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
 import ColorOverridesPanel from './ColorOverridesPanel'
 import type { ColorOverrideRow } from '@/lib/activityColors'
+import BookingTemplateEditor from './BookingTemplateEditor'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -35,7 +37,7 @@ interface Props {
   onColorOverridesChange: () => void
 }
 
-type Tab = 'style' | 'calendars' | 'colors'
+type Tab = 'style' | 'colors' | 'calendars' | 'templates'
 
 
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
@@ -47,6 +49,9 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [newCal, setNewCal] = useState({ personCode: '', name: '', icsUrl: '' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ name: '', icsUrl: '', personCode: '', color: '' })
+  const [templates, setTemplates] = useState<BookingTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<BookingTemplate | null | 'new'>(null)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
@@ -59,6 +64,15 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   useEffect(() => {
     if (activeTab === 'calendars') {
       fetchCustomCals()
+    }
+  }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'templates') {
+      setTemplatesLoading(true)
+      fetch('/api/settings/templates').then(r => r.json()).then(data => {
+        setTemplates(Array.isArray(data) ? data : [])
+      }).catch(() => {}).finally(() => setTemplatesLoading(false))
     }
   }, [activeTab])
 
@@ -193,6 +207,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
               className={`pb-2 px-1 ${activeTab === 'calendars' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
               Calendars
+            </button>
+            <button
+              onClick={() => setActiveTab('templates')}
+              className={`pb-2 px-1 ${activeTab === 'templates' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+            >
+              Templates
             </button>
           </div>
         </div>
@@ -373,6 +393,56 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'templates' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Booking Templates</p>
+                <button onClick={() => setEditingTemplate('new')} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-primary text-white hover:opacity-90">+ New</button>
+              </div>
+              {templatesLoading ? (
+                <p className="text-xs text-text-muted text-center py-4 animate-pulse">Loading...</p>
+              ) : templates.length === 0 ? (
+                <p className="text-xs text-text-muted text-center py-8 border border-dashed border-border rounded-lg">No templates yet. Create one to enable booking on shared links.</p>
+              ) : (
+                <div className="space-y-2">
+                  {templates.map(t => (
+                    <div key={t.id} className="p-3 bg-bg border border-border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold">{t.name}</p>
+                          <p className="text-[10px] text-text-muted">{t.duration_minutes} min{t.linked_share_links?.length ? ` · Used in ${t.linked_share_links.length} link${t.linked_share_links.length > 1 ? 's' : ''}` : ''}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => setEditingTemplate(t)} className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30">Edit</button>
+                          <button onClick={async () => {
+                            await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id, duplicate: true }) })
+                            const res = await fetch('/api/settings/templates'); setTemplates(await res.json())
+                          }} className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30">Copy</button>
+                          <button onClick={async () => {
+                            if (!confirm('Delete this template?')) return
+                            await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id }) })
+                            setTemplates(prev => prev.filter(x => x.id !== t.id))
+                          }} className="text-[10px] text-text-muted hover:text-red-400 px-1.5 py-0.5 rounded border border-border hover:border-red-400/30">Del</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {editingTemplate && (
+                <BookingTemplateEditor
+                  template={editingTemplate === 'new' ? null : editingTemplate}
+                  connections={connections}
+                  onSave={async () => {
+                    setEditingTemplate(null)
+                    const res = await fetch('/api/settings/templates'); setTemplates(await res.json())
+                  }}
+                  onCancel={() => setEditingTemplate(null)}
+                />
+              )}
             </div>
           )}
 
