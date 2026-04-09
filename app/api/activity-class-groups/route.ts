@@ -1,18 +1,38 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getErpConnections } from '@/lib/accountConfig'
 
-export async function GET() {
+const groupCache = new Map<string, { data: Record<string, unknown>[]; expiry: number }>()
+const CACHE_TTL = 60 * 60 * 1000
+
+export async function GET(req: NextRequest) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
+
+  const connectionId = new URL(req.url).searchParams.get('connectionId')
+
   try {
-    const raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100)
+    const connections = await getErpConnections(session.accountId)
+    const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+    const cacheKey = `${session.accountId}:${conn?.id ?? 'default'}`
+
+    const cached = groupCache.get(cacheKey)
+    let raw: Record<string, unknown>[]
+    if (cached && Date.now() < cached.expiry) {
+      raw = cached.data
+    } else {
+      raw = await herbeFetchAll(REGISTERS.activityClassGroups, {}, 100, conn) as Record<string, unknown>[]
+      groupCache.set(cacheKey, { data: raw, expiry: Date.now() + CACHE_TTL })
+    }
+
     const toBool = (v: unknown) => v === true || v === 1 || v === '1' || v === 'true'
-    const groups = (raw as Record<string, unknown>[]).map(g => ({
+    const groups = raw.map(g => ({
       code: String(g['Code'] ?? ''),
       name: String(g['Comment'] ?? g['Name'] ?? g['Code'] ?? ''),
       calColNr: g['CalColNr'] != null ? String(g['CalColNr']) : undefined,

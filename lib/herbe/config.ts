@@ -71,16 +71,26 @@ async function refreshAccessToken(refreshToken: string): Promise<HerbeTokens> {
   return tokens
 }
 
+// In-memory token cache to avoid DB query on every Herbe API call
+let tokenMemCache: HerbeTokens | null = null
+
 /** Returns a valid access token, refreshing if needed. Throws if not configured. */
 export async function getHerbeAccessToken(): Promise<string> {
+  // Check in-memory cache first (avoids DB round trip)
+  if (tokenMemCache && Date.now() < tokenMemCache.expiresAt - 60_000) {
+    return tokenMemCache.accessToken
+  }
+
   const stored = await getStoredTokens()
   if (!stored) throw new Error('HERBE_NOT_CONFIGURED')
 
   // Refresh 60 seconds before expiry
   if (Date.now() < stored.expiresAt - 60_000) {
+    tokenMemCache = stored
     return stored.accessToken
   }
 
   const refreshed = await refreshAccessToken(stored.refreshToken)
+  tokenMemCache = refreshed
   return refreshed.accessToken
 }

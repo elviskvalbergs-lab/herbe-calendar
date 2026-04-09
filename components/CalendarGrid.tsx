@@ -1,11 +1,11 @@
 'use client'
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
 import { addDays, format, parseISO, isToday } from 'date-fns'
-import { minutesToPx, GRID_START_HOUR, PX_PER_HOUR } from '@/lib/time'
+import { minutesToPx, timeToMinutes, GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
 
 interface Props {
@@ -36,6 +36,45 @@ export default function CalendarGrid({
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
   const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
+  const [expandedUp, setExpandedUp] = useState(false)
+  const [expandedDown, setExpandedDown] = useState(false)
+
+  // Reset expansion on date/view navigation
+  const viewKey = `${state.view}-${state.date}`
+  const prevViewKey = useRef(viewKey)
+  useEffect(() => {
+    if (prevViewKey.current !== viewKey) {
+      setExpandedUp(false)
+      setExpandedDown(false)
+      prevViewKey.current = viewKey
+    }
+  }, [viewKey])
+
+  // Compute off-grid activity stats for banners
+  const { earliestHour, latestHour, beforeCount, afterCount, allDayCount } = useMemo(() => {
+    const timed = activities.filter(a => !a.isAllDay)
+    let earliest = GRID_START_HOUR
+    let latest = GRID_END_HOUR
+    let before = 0
+    let after = 0
+    for (const a of timed) {
+      const fromMins = timeToMinutes(a.timeFrom)
+      const toMins = timeToMinutes(a.timeTo)
+      if (fromMins < GRID_START_HOUR * 60) {
+        before++
+        earliest = Math.min(earliest, Math.floor(fromMins / 60))
+      }
+      if (toMins > GRID_END_HOUR * 60) {
+        after++
+        latest = Math.max(latest, Math.ceil(toMins / 60))
+      }
+    }
+    const allDay = activities.filter(a => a.isAllDay).length
+    return { earliestHour: earliest, latestHour: latest, beforeCount: before, afterCount: after, allDayCount: allDay }
+  }, [activities])
+
+  const effectiveStartHour = expandedUp ? earliestHour : GRID_START_HOUR
+  const effectiveEndHour = expandedDown ? latestHour : GRID_END_HOUR
 
   // Responsive max visible columns
   const [maxVisibleCols, setMaxVisibleCols] = useState(2)
@@ -60,8 +99,22 @@ export default function CalendarGrid({
   useEffect(() => {
     if (!scrollRef.current) return
     const TARGET_HOUR = 8
-    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - GRID_START_HOUR) * 60, scale)
+    scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - effectiveStartHour) * 60, scale)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compensate scroll when grid range changes (expand/contract)
+  // useLayoutEffect runs synchronously before paint, preventing visible jump
+  const prevStartHourRef = useRef(effectiveStartHour)
+  useLayoutEffect(() => {
+    if (!scrollRef.current) return
+    const prevStart = prevStartHourRef.current
+    if (prevStart !== effectiveStartHour) {
+      const deltaHours = prevStart - effectiveStartHour // positive = expanded up (more hours added at top)
+      const deltaPx = minutesToPx(deltaHours * 60, scale)
+      scrollRef.current.scrollTop += deltaPx
+      prevStartHourRef.current = effectiveStartHour
+    }
+  }, [effectiveStartHour, scale])
 
   // Preserve scroll position proportionally when zoom changes
   useEffect(() => {
@@ -166,7 +219,20 @@ export default function CalendarGrid({
       )}
 
       <div className="flex">
-        <TimeColumn is3Day={state.view === '3day' || state.view === '5day'} scale={scale} />
+        <TimeColumn
+          is3Day={state.view === '3day' || state.view === '5day'}
+          scale={scale}
+          startHour={effectiveStartHour}
+          endHour={effectiveEndHour}
+          canExpandUp={!expandedUp && beforeCount > 0}
+          canExpandDown={!expandedDown && afterCount > 0}
+          canContractUp={expandedUp}
+          canContractDown={expandedDown}
+          onExpandUp={() => setExpandedUp(true)}
+          onExpandDown={() => setExpandedDown(true)}
+          onContractUp={() => setExpandedUp(false)}
+          onContractDown={() => setExpandedDown(false)}
+        />
 
         {dates.map((date, dateIdx) => {
           const isMultiDay = state.view === '3day' || state.view === '5day'
@@ -200,29 +266,38 @@ export default function CalendarGrid({
                     )}
                   </div>
                 )}
-                <div className="flex border-b border-border h-10">
-                  {state.selectedPersons.map((person, personIdx) => (
-                    <div
-                      key={person.code}
-                      className="flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0"
-                      style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
-                      title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
-                    >
-                      {!visibility && personCount > 1 ? (
-                        <button
-                          onClick={() => onDrillPerson?.(person.code)}
-                          className="underline decoration-border hover:decoration-current active:opacity-70"
-                        >
-                          {person.code}
-                        </button>
-                      ) : person.code}
-                    </div>
-                  ))}
+                <div className="flex h-10">
+                  {state.selectedPersons.map((person, personIdx) => {
+                    const pa = activities.filter(a => a.personCode === person.code && a.date === date)
+                    const hasOffGrid = pa.some(a => !a.isAllDay && (
+                      timeToMinutes(a.timeFrom) < effectiveStartHour * 60 ||
+                      timeToMinutes(a.timeTo) > effectiveEndHour * 60
+                    ))
+                    const hasAllDay = pa.some(a => a.isAllDay)
+                    const hasIndicator = hasOffGrid || hasAllDay
+                    return (
+                      <div
+                        key={person.code}
+                        className={`flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0 border-b ${hasIndicator ? 'border-b-red-500' : 'border-b-border'}`}
+                        style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
+                        title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
+                      >
+                        {!visibility && personCount > 1 ? (
+                          <button
+                            onClick={() => onDrillPerson?.(person.code)}
+                            className="underline decoration-border hover:decoration-current active:opacity-70"
+                          >
+                            {person.code}
+                          </button>
+                        ) : person.code}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
               <div className="flex flex-1 relative">
-                {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} />}
+                {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} startHour={effectiveStartHour} />}
                 {state.selectedPersons.map((person, personIdx) => {
                   const personActivities = activities.filter(
                     a => a.personCode === person.code && a.date === date
@@ -245,7 +320,28 @@ export default function CalendarGrid({
                       mobileSelectedId={mobileSelectedId}
                       onMobileSelect={setMobileSelectedId}
                       visibility={visibility}
+                      startHour={effectiveStartHour}
+                      endHour={effectiveEndHour}
                     />
+                  )
+                })}
+              </div>
+
+              {/* Bottom indicator bar — shows per person if they have activities past grid end */}
+              <div className="flex sticky bottom-0 z-20 bg-surface">
+                {state.selectedPersons.map((person) => {
+                  const pa = activities.filter(a => a.personCode === person.code && a.date === date)
+                  const hasAfter = pa.some(a => !a.isAllDay && timeToMinutes(a.timeTo) > effectiveEndHour * 60)
+                  return (
+                    <div
+                      key={person.code}
+                      className="flex-1 border-r border-border last:border-r-0 relative"
+                      style={colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : undefined}
+                    >
+                      {hasAfter && (
+                        <div className="h-px bg-red-500" />
+                      )}
+                    </div>
                   )
                 })}
               </div>

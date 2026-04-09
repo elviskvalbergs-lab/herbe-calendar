@@ -3,11 +3,18 @@ import { herbeFetchById, herbeWebExcellentDelete } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
+import { getErpConnections, type ErpConnection } from '@/lib/accountConfig'
+import { trackEvent } from '@/lib/analytics'
 import { toHerbeForm } from '../route'
 
-async function fetchActivity(id: string) {
-  // Path-based URL (/ActVc/id) fetches one record — query ?id=X may scan all records
-  const res = await herbeFetchById(REGISTERS.activities, id)
+async function resolveConnection(url: string, accountId: string): Promise<ErpConnection | undefined> {
+  const connectionId = new URL(url).searchParams.get('connectionId')
+  const connections = await getErpConnections(accountId)
+  return connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+}
+
+async function fetchActivity(id: string, conn?: ErpConnection) {
+  const res = await herbeFetchById(REGISTERS.activities, id, undefined, conn)
   if (!res.ok) return null
   const json = await res.json()
   // Handle both wrapped { data: { ActVc: [...] } } and direct record responses
@@ -33,7 +40,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return unauthorized()
   }
 
-  const activity = await fetchActivity(id)
+  const conn = await resolveConnection(req.url, session.accountId)
+  const activity = await fetchActivity(id, conn)
   if (!activity) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canEdit(activity, session.userCode)) return forbidden()
 
@@ -44,7 +52,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       method: 'PATCH',
       body: formBody,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-    })
+    }, conn)
     const data = await res.json().catch(() => null)
     console.log(`PATCH ActVc/${id} → ${res.status}`, JSON.stringify(data))
     if (!res.ok) {
@@ -55,13 +63,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
+    trackEvent(session.accountId, session.email, 'activity_edited').catch(() => {})
     return NextResponse.json(data ?? {}, { status: 200 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   let session
   try {
@@ -70,16 +79,18 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return unauthorized()
   }
 
-  const activity = await fetchActivity(id)
+  const conn = await resolveConnection(req.url, session.accountId)
+  const activity = await fetchActivity(id, conn)
   if (!activity) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!canEdit(activity, session.userCode)) return forbidden()
 
   try {
-    const res = await herbeWebExcellentDelete(REGISTERS.activities, id, session.userCode)
+    const res = await herbeWebExcellentDelete(REGISTERS.activities, id, session.userCode, conn)
     if (!res.ok) {
       const text = await res.text().catch(() => '')
       return NextResponse.json({ error: text || `Herbe error ${res.status}` }, { status: res.status })
     }
+    trackEvent(session.accountId, session.email, 'activity_deleted').catch(() => {})
     return new NextResponse(null, { status: 204 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

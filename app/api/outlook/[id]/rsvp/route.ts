@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getAzureConfig } from '@/lib/accountConfig'
 
 const VALID_ACTIONS = new Set(['accept', 'decline', 'tentativelyAccept'])
 
@@ -25,10 +26,12 @@ export async function POST(
 
   // email MUST come from session — never from request body
   const email = session.email
+  const azureConfig = await getAzureConfig(session.accountId)
+  if (!azureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
   const res = await graphFetch(`/users/${email}/events/${id}/${action}`, {
     method: 'POST',
     body: JSON.stringify({ sendResponse: true }),
-  })
+  }, azureConfig)
 
   if (!res.ok) {
     const err = await res.text()

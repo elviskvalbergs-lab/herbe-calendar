@@ -1,13 +1,16 @@
 import NextAuth from 'next-auth'
 import PostgresAdapter from '@auth/pg-adapter'
 import { pool } from '@/lib/db'
-import { herbeFetchAll } from '@/lib/herbe/client'
-import { REGISTERS } from '@/lib/herbe/constants'
-import { sendMail } from '@/lib/graph/client'
+import { sendMail as sendMailGraph } from '@/lib/graph/client'
+import { getAzureConfig } from '@/lib/accountConfig'
+import { getSmtpConfig, sendMailSmtp } from '@/lib/smtp'
 import type { EmailConfig } from 'next-auth/providers/email'
 import { AccessDenied } from '@auth/core/errors'
+import { getCodeByEmail, isEmailKnown } from '@/lib/personCodes'
 
-// Cache email → userCode lookups for 1 hour to avoid fetching all users on every session callback
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
+
+// Cache email → userCode lookups for 1 hour
 const userCache = new Map<string, { userCode: string; expiresAt: number }>()
 const USER_CACHE_TTL_MS = 60 * 60 * 1000
 
@@ -18,38 +21,32 @@ async function isEmailRegistered(email: string): Promise<{ registered: boolean; 
     return { registered: !!cached.userCode, userCode: cached.userCode }
   }
 
-  let users: unknown[]
   try {
-    users = await herbeFetchAll(REGISTERS.users, {}, 500)
-  } catch (e) {
-    const msg = String(e)
-    // 405 = UserVc endpoint not available on this server — can't validate against Herbe,
-    // so allow the request through (sign-in email link already provides security)
-    if (msg.includes('405') || msg.includes('HERBE_NOT_CONFIGURED')) {
-      console.warn('[auth] UserVc unavailable, skipping Herbe email check:', msg)
+    const code = await getCodeByEmail(lower)
+    if (code) {
+      userCache.set(lower, { userCode: code, expiresAt: Date.now() + USER_CACHE_TTL_MS })
+      return { registered: true, userCode: code }
+    }
+    // Not in person_codes yet — check if person_codes table has any records.
+    // If empty (first run, users not synced yet), allow login so user can trigger /api/users sync.
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS cnt FROM person_codes')
+    if (rows[0]?.cnt === 0) {
+      console.warn('[auth] person_codes table empty (first run), allowing login for:', lower)
       return { registered: true, userCode: '' }
     }
-    throw e
+    userCache.set(lower, { userCode: '', expiresAt: Date.now() + USER_CACHE_TTL_MS })
+    return { registered: false, userCode: '' }
+  } catch (e) {
+    console.warn('[auth] person_codes lookup failed, allowing login:', String(e))
+    return { registered: true, userCode: '' }
   }
-
-  const user = users.find((u) => {
-    const r = u as Record<string, unknown>
-    return (
-      String(r['emailAddr'] ?? '').toLowerCase() === lower ||
-      String(r['LoginEmailAddr'] ?? '').toLowerCase() === lower
-    )
-  }) as Record<string, unknown> | undefined
-  const userCode = user ? String(user['Code'] ?? '') : ''
-  userCache.set(lower, { userCode, expiresAt: Date.now() + USER_CACHE_TTL_MS })
-  if (!user) return { registered: false, userCode: '' }
-  return { registered: true, userCode }
 }
 
 const emailProvider: EmailConfig = {
   id: 'email',
   type: 'email',
   name: 'Email',
-  from: process.env.AZURE_SENDER_EMAIL!,
+  from: 'noreply@herbe.calendar',  // Overridden by actual sender in sendVerificationRequest
   maxAge: 24 * 60 * 60,
   async sendVerificationRequest({ identifier: email, url: rawUrl }) {
     let url = rawUrl
@@ -82,14 +79,24 @@ const emailProvider: EmailConfig = {
     if (!registered) {
       throw new AccessDenied()
     }
-    await sendMail(
-      email,
-      'Your Herbe Calendar sign-in link',
-      `<p>Click the link below to sign in to Herbe Calendar. The link expires in 24 hours.</p>
+    const subject = 'Your Herbe Calendar sign-in link'
+    const html = `<p>Click the link below to sign in to Herbe Calendar. The link expires in 24 hours.</p>
        <p><a href="${url}" style="background:#cd4c38;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;">Sign in</a></p>
        <p>If you did not request this, you can safely ignore this email.</p>
        <p style="font-size: 11px; color: #666;">Target environment: ${url}</p>`
-    )
+
+    // Try Azure Graph first, then SMTP fallback
+    const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    if (azureConfig) {
+      await sendMailGraph(email, subject, html, azureConfig)
+    } else {
+      const smtpConfig = await getSmtpConfig(DEFAULT_ACCOUNT_ID)
+      if (smtpConfig) {
+        await sendMailSmtp(smtpConfig, email, subject, html)
+      } else {
+        throw new Error('No email transport configured. Set up Azure AD or SMTP in admin settings.')
+      }
+    }
   },
 }
 
@@ -98,13 +105,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   adapter: PostgresAdapter(pool),
   providers: [emailProvider],
+  events: {
+    async signIn({ user }) {
+      if (user.email) {
+        const { trackEvent } = await import('@/lib/analytics')
+        trackEvent(DEFAULT_ACCOUNT_ID, user.email, 'login').catch(() => {})
+        // Update last_login in account_members
+        pool.query('UPDATE account_members SET last_login = now() WHERE LOWER(email) = LOWER($1)', [user.email]).catch(() => {})
+      }
+    },
+  },
   callbacks: {
     async session({ session, user }) {
       try {
         const { userCode } = await isEmailRegistered(user.email)
         session.user.userCode = userCode
       } catch (err) {
-        console.error('[auth] Failed to fetch userCode from Herbe ERP:', err)
+        console.error('[auth] Failed to fetch userCode:', err)
         session.user.userCode = ''
       }
       return session

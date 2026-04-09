@@ -18,7 +18,7 @@ function SetupContent({ authUrl }: { authUrl: string }) {
         {success && (
           <div className="bg-green-900/30 border border-green-700 rounded-lg px-4 py-3 mb-4 text-green-300 text-sm">
             Connected successfully.{' '}
-            <a href="/" className="underline">Go to calendar →</a>
+            <a href="/cal" className="underline">Go to calendar →</a>
           </div>
         )}
 

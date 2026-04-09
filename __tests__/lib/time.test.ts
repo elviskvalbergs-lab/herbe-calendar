@@ -19,10 +19,10 @@ describe('minutesToPx / pxToMinutes', () => {
 })
 
 describe('timeToTopPx', () => {
-  // Grid starts at 06:00. timeToTopPx('06:00') should be 0px
-  // timeToTopPx('08:00') = 2 hours * 56px = 112px
-  it('returns 0 for 06:00 (grid start)', () => expect(timeToTopPx('06:00')).toBe(0))
-  it('returns 112 for 08:00 (2 hours from grid start)', () => expect(timeToTopPx('08:00')).toBeCloseTo(112))
+  // Grid starts at 07:00. timeToTopPx('07:00') should be 0px
+  // timeToTopPx('09:00') = 2 hours * 56px = 112px
+  it('returns 0 for 07:00 (grid start)', () => expect(timeToTopPx('07:00')).toBe(0))
+  it('returns 112 for 09:00 (2 hours from grid start)', () => expect(timeToTopPx('09:00')).toBeCloseTo(112))
 })
 
 describe('durationToPx', () => {

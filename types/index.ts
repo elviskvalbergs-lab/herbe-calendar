@@ -1,4 +1,4 @@
-export type Source = 'herbe' | 'outlook'
+export type Source = 'herbe' | 'outlook' | 'google'
 
 export interface Person {
   code: string      // e.g. "EKS"
@@ -25,11 +25,17 @@ export interface Activity {
   mainPersons?: string[]  // Herbe: all persons on the activity
   accessGroup?: string    // comma-separated person codes (Herbe)
   planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
+  okFlag?: boolean         // Herbe: OKFlag=1 means approved/locked, read-only
+  location?: string        // Outlook: meeting location
   isOrganizer?: boolean   // Outlook only
+  isOnlineMeeting?: boolean // Outlook: whether it's a Teams meeting
+  attendees?: { email: string; name?: string; type: 'required' | 'optional'; responseStatus?: string }[]
   joinUrl?: string        // Outlook/Teams meeting join link
   webLink?: string        // Outlook web UI link that opens this specific event
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'
+  erpConnectionId?: string   // ID of the ERP connection this activity came from
+  erpConnectionName?: string // Name of the ERP connection this activity came from
   isExternal?: boolean   // ICS-backed external calendar
   isAllDay?: boolean     // All-day or multi-day event (no specific time)
   icsColor?: string      // Custom color from ICS calendar settings

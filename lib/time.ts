@@ -29,13 +29,13 @@ export function snapToQuarter(minutes: number): number {
 }
 
 /** Grid start and end hours */
-export const GRID_START_HOUR = 0
-export const GRID_END_HOUR = 24
+export const GRID_START_HOUR = 7
+export const GRID_END_HOUR = 19
 export const GRID_TOTAL_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60
 
 /** Offset in px from top of grid for a given "HH:mm" time */
-export function timeToTopPx(time: string, scale: number = 1): number {
-  return minutesToPx(timeToMinutes(time) - GRID_START_HOUR * 60, scale)
+export function timeToTopPx(time: string, scale: number = 1, startHour?: number): number {
+  return minutesToPx(timeToMinutes(time) - (startHour ?? GRID_START_HOUR) * 60, scale)
 }
 
 /** Height in px for a duration from timeFrom to timeTo */

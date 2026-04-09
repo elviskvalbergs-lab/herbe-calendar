@@ -8,7 +8,9 @@ import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import {
-  buildClassGroupColorMap, getActivityColor, loadColorOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
+  buildClassGroupColorMap, getActivityColor, loadColorOverrides,
+  resolveColorWithOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
+  SOURCE_COLOR_CODES, type ColorOverrideRow,
 } from '@/lib/activityColors'
 import {
   HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
@@ -19,9 +21,12 @@ interface Props { userCode: string; companyCode: string }
 export default function CalendarShell({ userCode, companyCode }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
+  const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean }>({ herbe: true, azure: true })
+  const [erpConnections, setErpConnections] = useState<{ id: string; name: string; companyCode?: string; serpUuid?: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
   const [colorOverrides, setColorOverrides] = useState<Record<string, string>>({})
+  const [dbColorOverrides, setDbColorOverrides] = useState<ColorOverrideRow[]>([])
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
@@ -29,8 +34,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     try {
       const saved = localStorage.getItem('calendarState')
       if (saved) {
-        const { view, date } = JSON.parse(saved)
-        if (view && date) return { view, date, selectedPersons: [] }
+        const { view, date, personCodes } = JSON.parse(saved)
+        // Restore person codes as stubs immediately so the calendar isn't empty while loading
+        const persons: Person[] = (personCodes as string[] | undefined)?.map(code => ({ code, name: code, email: '' })) ?? []
+        if (view && date) return { view, date, selectedPersons: persons }
       }
     } catch {}
     return { view: 'day', date: format(new Date(), 'yyyy-MM-dd'), selectedPersons: [] }
@@ -54,7 +61,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
   const calendarSources: CalendarSource[] = useMemo(() => [
-    { id: HERBE_ID, label: 'Herbe', color: HERBE_COLOR },
+    { id: HERBE_ID, label: 'ERP', color: HERBE_COLOR },
     { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
@@ -134,6 +141,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   }, [])
 
   function canEditActivity(activity: Activity): boolean {
+    if (activity.okFlag) return false
     if (activity.source === 'outlook') return !!activity.isOrganizer
     const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
     const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
@@ -254,12 +262,31 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const typeToClassGroup = new Map(activityTypes.map(t => [t.code, t.classGroupCode ?? '']))
   const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
   function colorForActivity(activity: Activity): string {
-    return getActivityColor(activity, typeToClassGroup, classGroupToColor)
+    if (activity.icsColor) return activity.icsColor
+    if (activity.source === 'outlook' && !activity.isExternal) {
+      return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
+    }
+    if (!activity.activityTypeCode) {
+      return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
+    }
+    const grp = typeToClassGroup.get(activity.activityTypeCode)
+    if (!grp) return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
+
+    if (dbColorOverrides.length > 0) {
+      const groupIndex = classGroups.findIndex(g => g.code === grp)
+      return resolveColorWithOverrides(grp, activity.erpConnectionId ?? null, classGroups, groupIndex >= 0 ? groupIndex : 0, dbColorOverrides)
+    }
+
+    return classGroupToColor.get(grp) ?? FALLBACK_COLOR
   }
 
   function typeGroupColor(typeCode: string): string {
     const grp = typeToClassGroup.get(typeCode)
     if (!grp) return ''
+    if (dbColorOverrides.length > 0) {
+      const groupIndex = classGroups.findIndex(g => g.code === grp)
+      return resolveColorWithOverrides(grp, null, classGroups, groupIndex >= 0 ? groupIndex : 0, dbColorOverrides)
+    }
     return classGroupToColor.get(grp) ?? ''
   }
 
@@ -289,31 +316,71 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     }).catch(e => setClassGroupsError(String(e)))
   }
 
-  // Load activity types + class groups for color mapping
+  // Load activity types + class groups for color mapping (Herbe only)
   useEffect(() => {
     setColorOverrides(loadColorOverrides())
-    reloadColorData()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (sources.herbe) reloadColorData()
+  }, [sources.herbe]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load people list on mount
+  // Fetch DB color overrides and migrate localStorage on mount
   useEffect(() => {
-    setStatus({ msg: 'Loading users from Herbe ERP…' })
-    fetch('/api/users')
+    fetch('/api/settings/colors')
+      .then(r => r.json())
+      .then(async (rows: ColorOverrideRow[]) => {
+        setDbColorOverrides(Array.isArray(rows) ? rows : [])
+
+        // One-time migration: move localStorage overrides to DB
+        const local = loadColorOverrides()
+        const localKeys = Object.keys(local)
+        if (localKeys.length > 0 && rows.filter((r: ColorOverrideRow) => r.user_email !== null).length === 0) {
+          await Promise.all(localKeys.map(code =>
+            fetch('/api/settings/colors', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ classGroupCode: code, color: local[code] }),
+            }).catch(() => {})
+          ))
+          try { localStorage.removeItem('activityClassGroupColors') } catch {}
+          // Refetch to get migrated overrides
+          const res = await fetch('/api/settings/colors')
+          const migrated = await res.json()
+          setDbColorOverrides(Array.isArray(migrated) ? migrated : [])
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // Load people list on mount (with retry on empty result)
+  const [usersRetry, setUsersRetry] = useState(0)
+  useEffect(() => {
+    setStatus({ msg: usersRetry > 0 ? `Retrying users (${usersRetry}/2)…` : 'Loading users…' })
+    fetch('/api/users' + (usersRetry > 0 ? '?bust=1' : ''))
       .then(async r => {
         const text = await r.text()
         let data: unknown
         try { data = JSON.parse(text) } catch {
           throw new Error(`Server error (${r.status}): ${text.slice(0, 120)}`)
         }
-        if (!Array.isArray(data)) throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
-        return data as Record<string, unknown>[]
+        // Handle both new { users, sources } format and legacy array format
+        const envelope = data as { users?: unknown[]; sources?: { herbe: boolean; azure: boolean } }
+        if (envelope.users && Array.isArray(envelope.users)) {
+          if (envelope.sources) setSources(envelope.sources)
+          if ((envelope as any).erpConnections) setErpConnections((envelope as any).erpConnections)
+          return envelope.users as Record<string, unknown>[]
+        }
+        if (Array.isArray(data)) return data as Record<string, unknown>[]
+        throw new Error((data as { error?: string }).error ?? JSON.stringify(data))
       })
       .then((users) => {
         const list: Person[] = users.map(u => ({
           code: u['Code'] as string,
           name: u['Name'] as string,
-          email: u['Email'] as string,
+          email: (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string,
         }))
+        if (list.length === 0 && usersRetry < 2) {
+          setTimeout(() => setUsersRetry(n => n + 1), 3000)
+          return
+        }
         setPeople(list)
         peopleLoadedRef.current = true
         setStatus({ msg: `Loaded ${list.length} users`, ok: true })
@@ -358,12 +425,15 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         }
         setStatus({ msg: `Failed to load users: ${e}`, ok: false })
       })
-  }, [userCode])
+  }, [userCode, usersRetry]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stable string of selected person codes — avoids refetching when stubs are replaced with full objects
+  const selectedCodesKey = state.selectedPersons.map(p => p.code).join(',')
 
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
-    if (!state.selectedPersons.length) return
+    if (!selectedCodesKey) return
     setLoading(true)
-    const codes = state.selectedPersons.map(p => p.code).join(',')
+    const codes = selectedCodesKey
     const dateFrom = state.date
     const dateTo = state.view === '5day'
       ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
@@ -376,41 +446,68 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
     setStatus({ msg: `Fetching activities for ${codes} (${dateFrom}${dateTo !== dateFrom ? ` – ${dateTo}` : ''})…` })
     try {
-      const [herbeRes, outlookRes] = await Promise.all([
-        fetch(`/api/activities?persons=${codes}&${dateParam}`),
-        fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`),
-      ])
+      const fetches: Promise<Response>[] = []
+      if (sources.herbe) fetches.push(fetch(`/api/activities?persons=${codes}&${dateParam}`))
+      if (sources.azure) fetches.push(fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`))
+      if (sources.google) fetches.push(fetch(`/api/google?persons=${codes}&${dateParam}`))
+
+      const responses = await Promise.all(fetches)
+      let idx = 0
+
       let herbe: Activity[] = []
       let herbeErrMsg = ''
-      if (herbeRes.ok) {
-        herbe = await herbeRes.json()
-      } else {
-        try {
-          const e = await herbeRes.json()
-          herbeErrMsg = e.error || e.message || JSON.stringify(e)
-        } catch {
-          herbeErrMsg = `HTTP ${herbeRes.status}`
+      if (sources.herbe) {
+        const herbeRes = responses[idx++]
+        if (herbeRes.ok) {
+          herbe = await herbeRes.json()
+        } else {
+          try {
+            const e = await herbeRes.json()
+            herbeErrMsg = e.error || e.message || JSON.stringify(e)
+          } catch {
+            herbeErrMsg = `HTTP ${herbeRes.status}`
+          }
         }
       }
       let outlook: Activity[] = []
       let outlookErrMsg = ''
-      if (outlookRes.ok) {
-        outlook = await outlookRes.json()
-      } else {
-        try {
-          const e = await outlookRes.json()
-          outlookErrMsg = String(e.error ?? JSON.stringify(e))
-        } catch {
-          outlookErrMsg = await outlookRes.text().catch(() => String(outlookRes.status))
+      if (sources.azure) {
+        const outlookRes = responses[idx++]
+        if (outlookRes.ok) {
+          outlook = await outlookRes.json()
+        } else {
+          try {
+            const e = await outlookRes.json()
+            outlookErrMsg = String(e.error ?? JSON.stringify(e))
+          } catch {
+            outlookErrMsg = await outlookRes.text().catch(() => String(outlookRes.status))
+          }
         }
       }
-      setActivities([...herbe, ...outlook])
+      let googleEvents: Activity[] = []
+      let googleErrMsg = ''
+      if (sources.google) {
+        const googleRes = responses[idx++]
+        if (googleRes.ok) {
+          googleEvents = await googleRes.json()
+        } else {
+          try {
+            const e = await googleRes.json()
+            googleErrMsg = String(e.error ?? JSON.stringify(e))
+          } catch {
+            googleErrMsg = await googleRes.text().catch(() => String(googleRes.status))
+          }
+        }
+      }
+      setActivities([...herbe, ...outlook, ...googleEvents])
 
-      const herbeErr = !herbeRes.ok ? ` | Herbe: ${herbeErrMsg}` : ''
-      const outlookErr = !outlookRes.ok ? ` | Outlook: ${outlookErrMsg}` : ''
+      const parts: string[] = []
+      if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
+      if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
+      if (sources.google) parts.push(`${googleEvents.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
       setStatus({
-        msg: `${herbe.length} Herbe + ${outlook.length} Outlook activities${herbeErr}${outlookErr}`,
-        ok: herbeRes.ok && outlookRes.ok,
+        msg: parts.join(' + ') + ' activities',
+        ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg,
       })
     } catch (e) {
       setStatus({ msg: `Fetch failed: ${e}`, ok: false })
@@ -418,20 +515,21 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [state.selectedPersons, state.date, state.view])
+  }, [selectedCodesKey, state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchActivities()
   }, [fetchActivities])
 
-  // Fetch full customer + project lists into client state for instant search
+  // Fetch full customer + project lists into client state for instant search (Herbe only)
   useEffect(() => {
+    if (!sources.herbe) return
     setStatus({ msg: 'Loading customers & projects…' })
     Promise.all([
       fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(setAllCustomers).catch(() => {}),
       fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(setAllProjects).catch(() => {}),
     ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
-  }, [])
+  }, [sources.herbe])
 
   // Fetch user's ICS calendars for the source list
   useEffect(() => {
@@ -529,10 +627,17 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           classGroups={classGroups}
           colorMap={classGroupToColor}
           persons={people}
+          connections={erpConnections}
+          colorOverrides={dbColorOverrides}
           error={classGroupsError}
           onClose={() => setColorSettingsOpen(false)}
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
+          }}
+          onColorOverridesChange={() => {
+            fetch('/api/settings/colors').then(r => r.json()).then(rows => {
+              setDbColorOverrides(Array.isArray(rows) ? rows : [])
+            }).catch(() => {})
           }}
         />
       )}
@@ -564,6 +669,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
           companyCode={companyCode}
           allCustomers={allCustomers}
           allProjects={allProjects}
+          erpConnections={erpConnections}
         />
       )}
 

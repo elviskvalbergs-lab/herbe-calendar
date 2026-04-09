@@ -3,6 +3,7 @@ import { Activity, ShareVisibility } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
+import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
 import { useRef, useState, useCallback, useLayoutEffect } from 'react'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
@@ -32,6 +33,8 @@ interface Props {
   mobileSelectedId?: string | null
   onMobileSelect?: (id: string | null) => void
   visibility?: ShareVisibility
+  startHour?: number
+  endHour?: number
 }
 
 interface DragState {
@@ -53,7 +56,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('touchstart', () => { allDayIsTouchDevice = true }, { once: true })
 }
 
-function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose, getTypeName, visibility }: {
+function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap, onMobileClose, getTypeName, visibility, isLightMode = false }: {
   activity: Activity
   color: string
   onClick: (a: Activity) => void
@@ -62,6 +65,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
   onMobileClose: () => void
   getTypeName?: (typeCode: string) => string
   visibility?: ShareVisibility
+  isLightMode?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
   const touchIsTapRef = useRef(true)
@@ -100,7 +104,7 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
     >
       <button
         className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-bold truncate cursor-pointer hover:brightness-125"
-        style={{ background: color + '33', color, borderLeft: `3px solid ${color}` }}
+        style={{ background: color + '33', color: readableAccentColor(color, !isLightMode), borderLeft: `3px solid ${color}` }}
         onClick={() => {
           if (wasTouchRef.current || allDayTouchActive) { wasTouchRef.current = false; return }
           if (visibility) return
@@ -130,14 +134,14 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               ✕
             </button>
           )}
-          {visibility === 'busy' ? (
+          {(() => { const tc = readableAccentColor(color, !isLightMode); return visibility === 'busy' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>Busy</p>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>Busy</p>
               <p className="text-xs text-text-muted">All day</p>
             </>
           ) : visibility === 'titles' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
               </p>
               <p className="text-xs text-text-muted">All day</p>
@@ -148,17 +152,19 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
                 <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
               )}
               {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+                <p className="text-[10px] mt-1 text-text-muted truncate">
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
+                </p>
               )}
             </>
           ) : (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
               </p>
               <p className="text-xs text-text-muted">All day</p>
               {activity.activityTypeCode && (
-                <p className="text-[10px] mt-1" style={{ color }}>
+                <p className="text-[10px] mt-1" style={{ color: tc }}>
                   <span className="font-mono">{activity.activityTypeCode}</span>
                   {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
                     <span className="ml-1 not-italic">
@@ -180,7 +186,9 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
                 <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
               )}
               {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+                <p className="text-[10px] mt-1 text-text-muted truncate">
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
+                </p>
               )}
               {activity.joinUrl && (
                 <a
@@ -196,15 +204,15 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
               )}
               {!visibility && (
                 <button
-                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: color }}
+                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold"
+                  style={{ background: color, color: textOnAccent(color) }}
                   onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
                 >
                   View details
                 </button>
               )}
             </>
-          )}
+          )})()}
         </div>
       )}
     </div>
@@ -214,7 +222,8 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
 export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
-  mobileSelectedId = null, onMobileSelect, visibility
+  mobileSelectedId = null, onMobileSelect, visibility,
+  startHour, endHour
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -222,7 +231,9 @@ export default function PersonColumn({
   const suppressClickRef = useRef(false)
   const setMobileSelectedId = onMobileSelect ?? (() => {})
 
-  const hours = Array.from({ length: GRID_END_HOUR - GRID_START_HOUR }, (_, i) => GRID_START_HOUR + i)
+  const effectiveStart = startHour ?? GRID_START_HOUR
+  const effectiveEnd = endHour ?? GRID_END_HOUR
+  const hours = Array.from({ length: effectiveEnd - effectiveStart }, (_, i) => effectiveStart + i)
 
   function canEdit(activity: Activity): boolean {
     if (activity.source === 'outlook') return !!activity.isOrganizer
@@ -261,12 +272,12 @@ export default function PersonColumn({
       if (type === 'move') {
         const fromMins = timeToMinutes(dragState.originalFrom) + rawDeltaMins
         const toMins = timeToMinutes(dragState.originalTo) + rawDeltaMins
-        dragState.currentFrom = minutesToTime(Math.max(GRID_START_HOUR * 60, fromMins))
-        dragState.currentTo = minutesToTime(Math.min(GRID_END_HOUR * 60, toMins))
+        dragState.currentFrom = minutesToTime(Math.max(effectiveStart * 60, fromMins))
+        dragState.currentTo = minutesToTime(Math.min(effectiveEnd * 60, toMins))
       } else {
         const toMins = timeToMinutes(dragState.originalTo) + rawDeltaMins
         dragState.currentTo = minutesToTime(
-          Math.max(timeToMinutes(dragState.originalFrom) + 15, Math.min(GRID_END_HOUR * 60, toMins))
+          Math.max(timeToMinutes(dragState.originalFrom) + 15, Math.min(effectiveEnd * 60, toMins))
         )
       }
       setDrag({ ...dragState })
@@ -326,7 +337,14 @@ export default function PersonColumn({
 
   // Separate all-day events from timed events
   const allDayActivities = activities.filter(a => a.isAllDay)
-  const timedActivities = activities.filter(a => !a.isAllDay)
+  // Only show timed activities that overlap with the visible grid range
+  const timedActivities = activities.filter(a => {
+    if (a.isAllDay) return false
+    const fromMins = timeToMinutes(a.timeFrom)
+    const toMins = timeToMinutes(a.timeTo)
+    return toMins > effectiveStart * 60 && fromMins < effectiveEnd * 60
+  })
+
 
   const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
   const outlookActivities = timedActivities.filter(a => a.source === 'outlook')
@@ -339,25 +357,6 @@ export default function PersonColumn({
 
   return (
     <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
-      {/* All-day event banners */}
-      {allDayActivities.length > 0 && (
-        <div className="border-b border-border bg-surface/50 px-1 py-0.5 space-y-0.5">
-          {allDayActivities.map(act => (
-            <AllDayBanner
-              key={act.id}
-              activity={act}
-              color={getActivityColor(act)}
-              onClick={onActivityClick}
-              isMobileSelected={mobileSelectedId === act.id}
-              onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
-              onMobileClose={() => setMobileSelectedId(null)}
-              getTypeName={getTypeName}
-              visibility={visibility}
-            />
-          ))}
-        </div>
-      )}
-
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
@@ -382,6 +381,31 @@ export default function PersonColumn({
               <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-border/20" />
             </div>
           ))}
+
+          {/* All-day events rendered as overlay blocks at the top of the grid */}
+          {allDayActivities.map((act, i) => {
+            const actColor = getActivityColor(act)
+            const bannerHeight = rowHeight / 2
+            return (
+              <div
+                key={act.id}
+                className="absolute left-0 right-0 z-15 pointer-events-auto"
+                style={{ top: i * bannerHeight, height: bannerHeight }}
+              >
+                <AllDayBanner
+                  activity={act}
+                  color={actColor}
+                  onClick={onActivityClick}
+                  isMobileSelected={mobileSelectedId === act.id}
+                  onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
+                  onMobileClose={() => setMobileSelectedId(null)}
+                  getTypeName={getTypeName}
+                  visibility={visibility}
+                  isLightMode={isLightMode}
+                />
+              </div>
+            )
+          })}
 
           {herbeLaned.map(({ activity: act, laneIndex, laneCount }) => {
             const isDragging = drag?.activity.id === act.id
@@ -423,11 +447,12 @@ export default function PersonColumn({
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                     : undefined}
                   visibility={visibility}
+                  startHour={effectiveStart}
                 />
                 {isDragging && (
                   <div
                     className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                    style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
+                    style={{ top: timeToTopPx(drag!.currentFrom, scale, effectiveStart) - 14, color: actColor }}
                   >
                     {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                   </div>
@@ -481,11 +506,12 @@ export default function PersonColumn({
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
                       : undefined}
                     visibility={visibility}
+                    startHour={effectiveStart}
                   />
                   {isDragging && (
                     <div
                       className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                      style={{ top: timeToTopPx(drag!.currentFrom, scale) - 14, color: actColor }}
+                      style={{ top: timeToTopPx(drag!.currentFrom, scale, effectiveStart) - 14, color: actColor }}
                     >
                       {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
                     </div>
@@ -496,6 +522,7 @@ export default function PersonColumn({
           </div>
         )}
       </div>
+
     </div>
   )
 }

@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { graphFetch } from '@/lib/graph/client'
+import { getAzureConfig } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchIcsEvents } from '@/lib/icsParser'
+
+const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
 import { compare } from 'bcryptjs'
 import type { Activity, ShareVisibility } from '@/types'
@@ -30,6 +33,7 @@ function mapHerbeActivity(r: Record<string, unknown>, personCode: string): Recor
     mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
     ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
     planned: String(r['CalTimeFlag'] ?? '1') === '2',
+    okFlag: String(r['OKFlag'] ?? '0') === '1',
   }
 }
 
@@ -89,7 +93,8 @@ export async function GET(
       sl.password_hash AS "passwordHash",
       f.person_codes AS "personCodes",
       f.hidden_calendars AS "hiddenCalendars",
-      f.user_email AS "ownerEmail"
+      f.user_email AS "ownerEmail",
+      f.account_id AS "accountId"
     FROM favorite_share_links sl
     JOIN user_favorites f ON f.id = sl.favorite_id
     WHERE sl.token = $1`,
@@ -125,6 +130,7 @@ export async function GET(
   const hiddenCalendarsSet = new Set<string>(link.hiddenCalendars ?? [])
   const visibility: ShareVisibility = link.visibility
   const ownerEmail: string = link.ownerEmail
+  const accountId: string = link.accountId ?? DEFAULT_ACCOUNT_ID
 
   const allActivities: Record<string, unknown>[] = []
 
@@ -133,7 +139,12 @@ export async function GET(
     const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` })
 
     if (!hiddenCalendarsSet.has('herbe')) {
-      for (const record of raw) {
+      // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
+      const calendarRecords = raw.filter(r => {
+        const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
+        return todoFlag === '0' || todoFlag === ''
+      })
+      for (const record of calendarRecords) {
         const r = record as Record<string, unknown>
         const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
         for (const p of mainPersons) {
@@ -157,7 +168,7 @@ export async function GET(
   // Fetch Outlook/ICS activities per person
   for (const code of personCodes) {
     try {
-      const email = await emailForCode(code)
+      const email = await emailForCode(code, accountId)
       if (!email) continue
 
       // ICS feeds — query using ownerEmail (not session)
@@ -187,9 +198,12 @@ export async function GET(
       try {
         const startDt = `${dateFrom}T00:00:00`
         const endDt = `${dateTo}T23:59:59`
+        const shareAzureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+        if (!shareAzureConfig) throw new Error('Azure not configured')
         const res = await graphFetch(
           `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
-          { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+          { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+          shareAzureConfig
         )
         if (res.ok) {
           const data = await res.json()

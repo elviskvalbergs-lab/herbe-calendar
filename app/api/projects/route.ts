@@ -2,33 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getErpConnections } from '@/lib/accountConfig'
 
-let projectCache: Record<string, unknown>[] | null = null
-let projectCacheExpiry = 0
-
-async function getAllProjects(): Promise<Record<string, unknown>[]> {
-  if (projectCache && Date.now() < projectCacheExpiry) return projectCache
-  const all = await herbeFetchAll(REGISTERS.projects, {}, 500)
-  projectCache = all as Record<string, unknown>[]
-  projectCacheExpiry = Date.now() + 5 * 60 * 1000
-  return projectCache
-}
+const projCache = new Map<string, { data: Record<string, unknown>[]; expiry: number }>()
+const CACHE_TTL = 5 * 60 * 1000
 
 export async function GET(req: NextRequest) {
+  let session
   try {
-    await requireSession()
+    session = await requireSession()
   } catch {
     return unauthorized()
   }
   const url = new URL(req.url)
   const q = url.searchParams.get('q') ?? ''
+  const connectionId = url.searchParams.get('connectionId')
+
+  const connections = await getErpConnections(session.accountId)
+  const conn = connectionId ? connections.find(c => c.id === connectionId) : connections[0]
+  const cacheKey = `${session.accountId}:${conn?.id ?? 'default'}`
+
+  async function getAllProjects(): Promise<Record<string, unknown>[]> {
+    const cached = projCache.get(cacheKey)
+    if (cached && Date.now() < cached.expiry) return cached.data
+    const raw = await herbeFetchAll(REGISTERS.projects, {}, 500, conn) as Record<string, unknown>[]
+    projCache.set(cacheKey, { data: raw, expiry: Date.now() + CACHE_TTL })
+    return raw
+  }
 
   if (url.searchParams.has('preload')) {
     getAllProjects().catch(() => {})
     return NextResponse.json({ ok: true })
   }
 
-  // Return all active projects for client-side caching
   if (url.searchParams.has('all')) {
     const all = await getAllProjects()
     const results = all
@@ -43,7 +49,7 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter(r => r.Code)
-    return NextResponse.json(results)
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
   }
 
   if (q.length < 2) return NextResponse.json([])
@@ -62,12 +68,11 @@ export async function GET(req: NextRequest) {
         return {
           Code: String(r['Code'] ?? r['PRCode'] ?? ''),
           Name: String(r['Name'] ?? ''),
-          // Try all known field name variants for the linked customer
           CUCode: String(r['CUCode'] ?? r['CustomerCode'] ?? r['CustCode'] ?? r['CU'] ?? '') || null,
           CUName: String(r['CUName'] ?? r['CustomerName'] ?? r['CustName'] ?? r['CUComment'] ?? '') || null,
         }
       })
-    return NextResponse.json(results)
+    return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

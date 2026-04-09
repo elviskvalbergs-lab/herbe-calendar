@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { getAzureConfig } from '@/lib/accountConfig'
 import type { Activity } from '@/types'
 import { pool } from '@/lib/db'
 import { fetchIcsEvents } from '@/lib/icsParser'
@@ -27,9 +28,11 @@ export async function GET(req: NextRequest) {
   const personList = persons.split(',').map(p => p.trim())
   const sessionEmail = session.email
 
+  const azureConfig = await getAzureConfig(session.accountId)
+
   try {
     const results = await Promise.all(personList.map(async code => {
-      const email = await emailForCode(code)
+      const email = await emailForCode(code, session.accountId)
       if (!email) return []
 
       // --- ICS feeds (DB-backed) — fetched in parallel with Graph ---
@@ -56,14 +59,20 @@ export async function GET(req: NextRequest) {
         console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
       }
 
+      // Skip Graph if Azure not configured — ICS events still returned
+      if (!azureConfig) {
+        return icsEventsPromise
+      }
+
       // calendarView expands recurring events automatically; no type filter needed
       const startDt = `${dateFrom}T00:00:00`
       const endDt = `${dateTo}T23:59:59`
       const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=100`
-      
+
       let res = await graphFetch(
         `/users/${email}/calendarView?${calendarViewParams}`,
-        { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+        { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+        azureConfig
       )
 
       if (!res.ok && res.status === 404) {
@@ -71,7 +80,7 @@ export async function GET(req: NextRequest) {
         // Search the logged-in user's own shared calendars list for a match.
         try {
           if (sessionEmail) {
-            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`)
+            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`, undefined, azureConfig)
             if (listRes.ok) {
               const listData = await listRes.json()
               const cals = listData.value as any[]
@@ -83,7 +92,8 @@ export async function GET(req: NextRequest) {
                 console.log(`[outlook] Fallback found calendar ID ${sharedCal.id} for ${email}`)
                 res = await graphFetch(
                   `/users/${sessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
-                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } }
+                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+                  azureConfig
                 )
               } else {
                 console.log(`[outlook] Fallback: No calendar owned by ${email} found in ${sessionEmail}'s list`)
@@ -119,6 +129,18 @@ export async function GET(req: NextRequest) {
         const rawRsvp = responseStatus?.['response']
         // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
         const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
+        // Map attendees
+        const rawAttendees = ev['attendees'] as Array<Record<string, unknown>> | undefined
+        const attendees = rawAttendees?.map(att => {
+          const emailAddr = att['emailAddress'] as Record<string, string> | undefined
+          const attResponse = att['status'] as Record<string, string> | undefined
+          return {
+            email: emailAddr?.['address'] ?? '',
+            name: emailAddr?.['name'] ?? undefined,
+            type: (att['type'] === 'optional' ? 'optional' : 'required') as 'required' | 'optional',
+            responseStatus: attResponse?.['response'] ?? undefined,
+          }
+        }).filter(a => a.email) ?? []
         return {
           id: String(ev['id'] ?? ''),
           source: 'outlook' as const,
@@ -127,7 +149,9 @@ export async function GET(req: NextRequest) {
           date: startDt.slice(0, 10),
           timeFrom: startDt.slice(11, 16),
           timeTo: endDt.slice(11, 16),
-          isOrganizer: organizerEmail.toLowerCase() === email.toLowerCase(),
+          isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
+          isOnlineMeeting: ev['isOnlineMeeting'] === true,
+          attendees,
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
           joinUrl,
@@ -162,10 +186,12 @@ export async function POST(req: NextRequest) {
       if (raw[key] !== undefined) body[key] = raw[key]
     }
     const email = session.email
+    const postAzureConfig = await getAzureConfig(session.accountId)
+    if (!postAzureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
     const res = await graphFetch(`/users/${email}/events`, {
       method: 'POST',
       body: JSON.stringify(body),
-    })
+    }, postAzureConfig)
     const data = await res.json()
     return NextResponse.json(data, { status: res.ok ? 201 : res.status })
   } catch (e) {

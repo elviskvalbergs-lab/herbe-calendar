@@ -7,6 +7,14 @@ jest.mock('@/lib/herbe/auth-guard', () => ({
   requireSession: jest.fn().mockResolvedValue({ email: 'eks@example.com' }),
   unauthorized: jest.fn().mockReturnValue(new Response('', { status: 401 })),
 }))
+jest.mock('@/lib/accountConfig', () => ({
+  getAzureConfig: jest.fn().mockResolvedValue({
+    tenantId: 'test-tenant', clientId: 'test-client',
+    clientSecret: 'test-secret', senderEmail: 'sender@example.com',
+  }),
+}))
+jest.mock('@/lib/db', () => ({ pool: { query: jest.fn().mockResolvedValue({ rows: [] }) } }))
+jest.mock('@/lib/auth', () => ({}))
 
 describe('POST /api/outlook/[id]/rsvp', () => {
   const params = Promise.resolve({ id: 'event-abc-123' })
@@ -40,7 +48,8 @@ describe('POST /api/outlook/[id]/rsvp', () => {
     expect(res.status).toBe(200)
     expect(graphFetch).toHaveBeenCalledWith(
       expect.stringContaining('/users/eks@example.com/events/event-abc-123/accept'),
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({ method: 'POST' }),
+      expect.any(Object)
     )
   })
 

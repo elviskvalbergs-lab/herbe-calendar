@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { ActivityClassGroup } from '@/types'
-import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR, saveColorOverride } from '@/lib/activityColors'
+import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
+import ColorOverridesPanel from './ColorOverridesPanel'
+import type { ColorOverrideRow } from '@/lib/activityColors'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -23,16 +25,20 @@ function applyTheme(t: Theme) {
 
 interface Props {
   classGroups: ActivityClassGroup[]
-  colorMap: Map<string, string>          // classGroupCode → current hex
-  persons: { code: string; name: string }[] // For ICS assignment
+  colorMap: Map<string, string>
+  persons: { code: string; name: string }[]
+  connections: { id: string; name: string }[]
+  colorOverrides: ColorOverrideRow[]
   error?: string | null
   onClose: () => void
   onColorChange: (groupCode: string, color: string) => void
+  onColorOverridesChange: () => void
 }
 
-type Tab = 'style' | 'calendars'
+type Tab = 'style' | 'calendars' | 'colors'
 
-export default function SettingsModal({ classGroups, colorMap, persons, error, onClose, onColorChange }: Props) {
+
+export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string }
@@ -177,6 +183,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
               Look & Feel
             </button>
             <button
+              onClick={() => setActiveTab('colors')}
+              className={`pb-2 px-1 ${activeTab === 'colors' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+            >
+              Colors
+            </button>
+            <button
               onClick={() => setActiveTab('calendars')}
               className={`pb-2 px-1 ${activeTab === 'calendars' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
@@ -204,63 +216,6 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                 </div>
               </div>
 
-              {/* Fixed sources */}
-              <div className="space-y-2">
-                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Source colors (fixed)</p>
-                <div className="flex gap-4 p-3 bg-bg rounded-lg border border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: OUTLOOK_COLOR, background: OUTLOOK_COLOR + '33' }} />
-                    <span className="text-xs">Outlook / Teams</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: FALLBACK_COLOR, background: FALLBACK_COLOR + '33' }} />
-                    <span className="text-xs text-text-muted">Direct herbe entry</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Class groups */}
-              <div className="space-y-3">
-                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Palette</p>
-                {error && (
-                  <p className="text-xs text-red-400 font-mono bg-red-900/20 rounded p-2 break-all">{error}</p>
-                )}
-                {!error && classGroups.length === 0 && (
-                  <p className="text-sm text-text-muted">No class groups loaded yet.</p>
-                )}
-                <div className="space-y-3">
-                  {classGroups.map(g => {
-                    const current = colorMap.get(g.code) ?? FALLBACK_COLOR
-                    return (
-                      <div key={g.code} className="p-3 bg-bg rounded-lg border border-border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2 h-2 rounded-full" style={{ background: current }} />
-                          <span className="text-xs font-bold">{g.name || g.code}</span>
-                          <span className="text-[10px] text-text-muted font-mono">{g.code}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {BRAND_PALETTE.map(hex => (
-                            <button
-                              key={hex}
-                              title={hex}
-                              onClick={() => {
-                                saveColorOverride(g.code, hex)
-                                onColorChange(g.code, hex)
-                              }}
-                              className="w-5 h-5 rounded-md hover:scale-110"
-                              style={{
-                                background: hex,
-                                border: current === hex ? `2px solid white` : 'none',
-                                opacity: current === hex ? 1 : 0.8,
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
             </>
           )}
 
@@ -377,7 +332,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                                 >✕</button>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50">
+                            <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50 items-center">
                               {BRAND_PALETTE.slice(0, 12).map(hex => (
                                 <button
                                   key={hex}
@@ -391,6 +346,18 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                                   }}
                                 />
                               ))}
+                              <label
+                                className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
+                                title="Custom color"
+                              >
+                                +
+                                <input
+                                  type="color"
+                                  value={c.color || OUTLOOK_COLOR}
+                                  onChange={e => handleColorChange(c.id, e.target.value)}
+                                  className="sr-only"
+                                />
+                              </label>
                               {c.color && (
                                 <button
                                   onClick={() => handleColorChange(c.id, '')}
@@ -406,6 +373,35 @@ export default function SettingsModal({ classGroups, colorMap, persons, error, o
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'colors' && (
+            <div className="space-y-4">
+              <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Activity Group Colors</p>
+              <p className="text-xs text-text-muted">Click a row to change its color. Colors sync across all your devices.</p>
+              <ColorOverridesPanel
+                classGroups={classGroups}
+                connections={connections}
+                overrides={colorOverrides}
+                mode="user"
+                onSave={async (code, color, connId) => {
+                  await fetch('/api/settings/colors', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classGroupCode: code, color, connectionId: connId }),
+                  })
+                  onColorOverridesChange()
+                }}
+                onDelete={async (code, connId) => {
+                  await fetch('/api/settings/colors', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classGroupCode: code, connectionId: connId }),
+                  })
+                  onColorOverridesChange()
+                }}
+              />
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
 import ErrorBanner from './ErrorBanner'
+import { readableAccentColor } from '@/lib/activityColors'
 import { format } from 'date-fns'
 import { serpLink } from '@/lib/serpLink'
 import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons, getRecentCCPersons, saveRecentCCPersons } from '@/lib/recentItems'
@@ -23,6 +24,7 @@ interface Props {
   companyCode?: string
   allCustomers?: { Code: string; Name: string }[]
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
+  erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
 }
 
 function SerpIcon() {
@@ -36,20 +38,61 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = []
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  const [source, setSource] = useState<'herbe' | 'outlook'>(initial?.source ?? 'herbe')
-  const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(
-    isEdit && initial?.mainPersons?.length
-      ? initial.mainPersons
-      : initial?.personCode
-      ? [initial.personCode]
-      : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
-  )
+  // Source: 'outlook' or an ERP connection ID (legacy 'herbe' maps to first connection)
+  const [source, setSource] = useState<string>(() => {
+    if (initial?.source === 'outlook') return 'outlook'
+    // For edit mode: use the activity's own connection ID if available
+    if (isEdit && initial?.erpConnectionId) return initial.erpConnectionId
+    // For ERP activities, use the first connection ID or 'herbe' as fallback
+    if (erpConnections.length > 0) return erpConnections[0].id
+    return 'herbe'
+  })
+  const isOutlookSource = source === 'outlook'
+  const isErpSource = !isOutlookSource
+  const activeErpConnection = erpConnections.find(c => c.id === source)
+  const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
+    if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
+    // For Outlook events: match attendees to internal people by email or name
+    if (isEdit && initial?.source === 'outlook' && initial?.attendees?.length) {
+      const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
+      // Group people by name for disambiguation
+      const internalNameGroups = new Map<string, typeof people>()
+      for (const p of people) {
+        if (!p.name) continue
+        const key = p.name.toLowerCase()
+        const group = internalNameGroups.get(key) ?? []
+        group.push(p)
+        internalNameGroups.set(key, group)
+      }
+      const codes = new Set<string>()
+      if (initial.personCode) codes.add(initial.personCode)
+      for (const att of initial.attendees) {
+        // Try email match first
+        const byEmail = att.email ? internalEmails.get(att.email.toLowerCase()) : undefined
+        if (byEmail) { codes.add(byEmail); continue }
+        // Name match: if multiple people share the name, prefer the one with matching email domain
+        if (att.name) {
+          const group = internalNameGroups.get(att.name.toLowerCase())
+          if (group?.length === 1) {
+            codes.add(group[0].code)
+          } else if (group && att.email) {
+            const attDomain = att.email.split('@')[1]?.toLowerCase()
+            const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
+            codes.add(domainMatch?.code ?? group[0].code)
+          }
+        }
+      }
+      if (codes.size > 0) return [...codes]
+    }
+    if (initial?.personCode) return [initial.personCode]
+    return defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode]
+  })
   const [description, setDescription] = useState(initial?.description ?? '')
   const [date, setDate] = useState(initial?.date ?? format(new Date(), 'yyyy-MM-dd'))
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom ?? smartDefaultStart())
@@ -64,6 +107,7 @@ export default function ActivityForm({
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [currentGroup, setCurrentGroup] = useState<ActivityClassGroup | undefined>()
   const [planned, setPlanned] = useState(initial?.planned ?? false)
+  const isDarkTheme = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') !== 'light' : true
   const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
   const [textInMatrix, setTextInMatrix] = useState(initial?.textInMatrix ?? '')
   const [projectResults, setProjectResults] = useState<SearchResult[]>([])
@@ -89,6 +133,22 @@ export default function ActivityForm({
   const [recentCCPersonCodes, setRecentCCPersonCodes] = useState<string[]>([])
   const [rsvpStatus, setRsvpStatus] = useState<Activity['rsvpStatus']>(initial?.rsvpStatus)
   const [rsvpLoading, setRsvpLoading] = useState(false)
+  // Outlook-specific: external attendees, location, Teams toggle
+  const [externalAttendees, setExternalAttendees] = useState<string[]>(() => {
+    if (!initial?.attendees) return []
+    // Match attendees as internal by email OR by name (case-insensitive)
+    const internalEmails = new Set(people.map(p => (p.email || '').toLowerCase()).filter(Boolean))
+    const internalNames = new Set(people.map(p => (p.name || '').toLowerCase()).filter(Boolean))
+    return initial.attendees
+      .filter(a => a.email
+        && !internalEmails.has(a.email.toLowerCase())
+        && !internalNames.has((a.name || '').toLowerCase())
+      )
+      .map(a => a.email)
+  })
+  const [externalAttendeeInput, setExternalAttendeeInput] = useState('')
+  const [location, setLocation] = useState(initial?.location ?? '')
+  const [isOnlineMeeting, setIsOnlineMeeting] = useState(initial?.isOnlineMeeting ?? !isEdit)
   const handleSaveRef = useRef<() => void>(() => {})
   const handleDuplicateRef = useRef<() => void>(() => {})
   const handleCloseRef = useRef<() => void>(() => {})
@@ -99,6 +159,7 @@ export default function ActivityForm({
   const dragStartY = useRef<number | null>(null)
   const isDragging = useRef(false)
   // Snapshot of values at form open / reset — used for dirty detection
+  // Must match the actual initial selectedPersonCodes to avoid false dirty
   const initialValuesRef = useRef({
     description: initial?.description ?? '',
     timeTo: initial?.timeTo ?? '',
@@ -108,17 +169,60 @@ export default function ActivityForm({
     planned: initial?.planned ?? false,
     itemCode: initial?.itemCode ?? '',
     textInMatrix: initial?.textInMatrix ?? '',
-    selectedPersonCodes: (
-      isEdit && initial?.mainPersons?.length ? initial.mainPersons
-        : initial?.personCode ? [initial.personCode]
-        : (defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode])
-    ) as string[],
+    selectedPersonCodes: selectedPersonCodes as string[],
     selectedCCPersonCodes: [...(initial?.ccPersons ?? [])] as string[],
   })
   const projectSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const customerSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
+
+  // Recalculate Outlook attendee matching when people emails become available
+  // (initial render may have stubs with empty emails from localStorage)
+  const peopleEmailsKey = people.filter(p => p.email).map(p => p.email.toLowerCase()).sort().join(',')
+  const attendeeRecalcDone = useRef(false)
+  useEffect(() => {
+    if (attendeeRecalcDone.current) return
+    if (!isEdit || initial?.source !== 'outlook' || !initial?.attendees?.length) return
+    if (!peopleEmailsKey) return // still stubs
+    attendeeRecalcDone.current = true
+
+    const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
+    const internalNameGroups = new Map<string, typeof people>()
+    for (const p of people) {
+      if (!p.name) continue
+      const key = p.name.toLowerCase()
+      const group = internalNameGroups.get(key) ?? []
+      group.push(p)
+      internalNameGroups.set(key, group)
+    }
+
+    // Recalculate person codes from attendees
+    const codes = new Set<string>()
+    if (initial.personCode) codes.add(initial.personCode)
+    const external: string[] = []
+    for (const att of initial.attendees) {
+      if (!att.email) continue
+      const byEmail = internalEmails.get(att.email.toLowerCase())
+      if (byEmail) { codes.add(byEmail); continue }
+      // Name match
+      if (att.name) {
+        const group = internalNameGroups.get(att.name.toLowerCase())
+        if (group?.length === 1) { codes.add(group[0].code); continue }
+        if (group && att.email) {
+          const attDomain = att.email.split('@')[1]?.toLowerCase()
+          const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
+          if (domainMatch || group[0]) { codes.add((domainMatch ?? group[0]).code); continue }
+        }
+      }
+      external.push(att.email)
+    }
+    if (codes.size > 0) {
+      setSelectedPersonCodes([...codes])
+      initialValuesRef.current.selectedPersonCodes = [...codes]
+    }
+    setExternalAttendees(external)
+  }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load recent items from localStorage
   useEffect(() => {
@@ -152,13 +256,18 @@ export default function ActivityForm({
     return () => window.removeEventListener('keydown', handler)
   }, [isEdit, editId, companyCode, canEdit])
 
-  // Load activity types on mount
+  // Per-connection data: projects and customers
+  const [connProjects, setConnProjects] = useState<{ Code: string; Name: string; CUCode: string | null; CUName: string | null }[]>(allProjects ?? [])
+  const [connCustomers, setConnCustomers] = useState<{ Code: string; Name: string }[]>(allCustomers ?? [])
+
+  // Load activity types when source/connection changes
+  const connParam = activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
   useEffect(() => {
-    fetch('/api/activity-types')
+    if (!isErpSource) return
+    fetch(`/api/activity-types${connParam}`)
       .then(r => r.json())
       .then((types: ActivityType[]) => {
         setActivityTypes(types)
-        // Set display name + group requirements for pre-selected type (edit mode)
         if (initial?.activityTypeCode) {
           const found = types.find(t => t.code === initial.activityTypeCode)
           if (found) {
@@ -168,7 +277,17 @@ export default function ActivityForm({
         }
       })
       .catch(console.error)
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Load per-connection projects and customers
+    fetch(`/api/projects?all=1${connParam ? '&' + connParam.slice(1) : ''}`)
+      .then(r => r.ok ? r.json() : []).then(setConnProjects).catch(() => {})
+    fetch(`/api/customers?all=1${connParam ? '&' + connParam.slice(1) : ''}`)
+      .then(r => r.ok ? r.json() : []).then(setConnCustomers).catch(() => {})
+
+    // Load recent types for this connection
+    const connKey = activeErpConnection?.id ?? 'default'
+    setRecentTypes(getRecentTypes(connKey))
+  }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function filterActivityTypes(q: string) {
     const lower = q.toLowerCase()
@@ -234,9 +353,9 @@ export default function ActivityForm({
   async function searchProjects(q: string) {
     if (q.length < 2) { setProjectResults([]); setProjectSearchMsg(null); return }
     // Use client-side data if available
-    if (allProjects?.length) {
+    if (connProjects?.length) {
       const lower = q.toLowerCase()
-      const results = allProjects
+      const results = connProjects
         .filter(p => p.Name.toLowerCase().includes(lower) || p.Code.toLowerCase().includes(lower))
         .slice(0, 20)
         .map(p => ({ code: p.Code, name: p.Name, customerCode: p.CUCode || undefined, customerName: p.CUName || undefined }))
@@ -268,9 +387,9 @@ export default function ActivityForm({
   async function searchCustomers(q: string) {
     if (q.length < 2) { setCustomerResults([]); setCustomerSearchMsg(null); return }
     // Use client-side data if available
-    if (allCustomers?.length) {
+    if (connCustomers?.length) {
       const lower = q.toLowerCase()
-      const results = allCustomers
+      const results = connCustomers
         .filter(c => c.Name.toLowerCase().includes(lower) || c.Code.toLowerCase().includes(lower))
         .slice(0, 20)
         .map(c => ({ code: c.Code, name: c.Name }))
@@ -297,6 +416,23 @@ export default function ActivityForm({
     }
   }
 
+  function addExternalAttendee() {
+    const email = externalAttendeeInput.trim().toLowerCase()
+    if (!email || !email.includes('@')) return
+    // If email matches an internal person, add them as a person chip instead
+    const internalMatch = people.find(p => p.email && p.email.toLowerCase() === email)
+    if (internalMatch) {
+      if (!selectedPersonCodes.includes(internalMatch.code)) {
+        setSelectedPersonCodes(prev => [...prev, internalMatch.code])
+      }
+      setExternalAttendeeInput('')
+      return
+    }
+    if (externalAttendees.includes(email)) return
+    setExternalAttendees(prev => [...prev, email])
+    setExternalAttendeeInput('')
+  }
+
   function buildHerbePayload() {
     return {
       Comment: description,
@@ -315,17 +451,28 @@ export default function ActivityForm({
   }
 
   function buildOutlookPayload() {
-    return {
+    const internalAttendees = selectedPersonCodes
+      .map(code => people.find(p => p.code === code))
+      .filter((p): p is Person => !!p && !!p.email)
+      .map(p => ({ emailAddress: { address: p.email, name: p.name }, type: 'required' as const }))
+    const external = externalAttendees.map(email => ({
+      emailAddress: { address: email },
+      type: 'required' as const,
+    }))
+    const payload: Record<string, unknown> = {
       subject: description,
       start: { dateTime: `${date}T${timeFrom}:00`, timeZone: 'Europe/Riga' },
       end: { dateTime: `${date}T${timeTo}:00`, timeZone: 'Europe/Riga' },
-      isOnlineMeeting: true,
-      onlineMeetingProvider: 'teamsForBusiness',
-      attendees: selectedPersonCodes
-        .map(code => people.find(p => p.code === code))
-        .filter((p): p is Person => !!p && !!p.email)
-        .map(p => ({ emailAddress: { address: p.email }, type: 'required' })),
+      attendees: [...internalAttendees, ...external],
     }
+    if (location.trim()) {
+      payload.location = { displayName: location.trim() }
+    }
+    if (!isEdit) {
+      payload.isOnlineMeeting = isOnlineMeeting
+      if (isOnlineMeeting) payload.onlineMeetingProvider = 'teamsForBusiness'
+    }
+    return payload
   }
 
   async function handleSave() {
@@ -334,21 +481,22 @@ export default function ActivityForm({
     if (!timeFrom) errs.push('Start time is required')
     if (!timeTo) errs.push('End time is required')
     if (timeFrom && timeTo && timeFrom >= timeTo) errs.push('End time must be after start time')
-    if (source === 'herbe' && currentGroup?.forceProj && !projectCode) errs.push('Project is required for this activity type')
-    if (source === 'herbe' && currentGroup?.forceCust && !customerCode) errs.push('Customer is required for this activity type')
-    if (source === 'herbe' && currentGroup?.forceItem && !itemCode.trim()) errs.push('Item code is required for this activity type')
-    if (source === 'herbe' && currentGroup?.forceTextInMatrix && !textInMatrix.trim()) errs.push('Additional text is required for this activity type')
+    if (isErpSource && currentGroup?.forceProj && !projectCode) errs.push('Project is required for this activity type')
+    if (isErpSource && currentGroup?.forceCust && !customerCode) errs.push('Customer is required for this activity type')
+    if (isErpSource && currentGroup?.forceItem && !itemCode.trim()) errs.push('Item code is required for this activity type')
+    if (isErpSource && currentGroup?.forceTextInMatrix && !textInMatrix.trim()) errs.push('Additional text is required for this activity type')
     if (errs.length) { setErrors(errs); return }
 
     setSaving(true)
     setErrors([])
 
     try {
-      const url = source === 'herbe'
-        ? (isEdit ? `/api/activities/${editId}` : '/api/activities')
+      const connParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+      const url = isErpSource
+        ? (isEdit ? `/api/activities/${editId}${connParam}` : `/api/activities${connParam}`)
         : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
       const method = isEdit ? 'PUT' : 'POST'
-      const body = source === 'herbe' ? buildHerbePayload() : buildOutlookPayload()
+      const body = isErpSource ? buildHerbePayload() : buildOutlookPayload()
 
       const res = await fetch(url, {
         method,
@@ -372,7 +520,7 @@ export default function ActivityForm({
         : ''
 
       onSaved()
-      if (activityTypeCode) saveRecentType(activityTypeCode)
+      if (activityTypeCode) saveRecentType(activityTypeCode, activeErpConnection?.id)
       saveRecentPersons(selectedPersonCodes)
       saveRecentCCPersons(selectedCCPersonCodes)
       setRecentTypes(getRecentTypes())
@@ -380,7 +528,7 @@ export default function ActivityForm({
       setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
         id: createdId,
-        source, personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
+        source: isOutlookSource ? 'outlook' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
         activityTypeCode, projectCode, projectName, customerCode, customerName,
       })
       setSaving(false)
@@ -392,12 +540,13 @@ export default function ActivityForm({
 
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(source === 'outlook' ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
+    if (!confirm(isOutlookSource ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
 
     setSaving(true)
     setErrors([])
     try {
-      const url = source === 'herbe' ? `/api/activities/${editId}` : `/api/outlook/${editId}`
+      const delConnParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+      const url = isErpSource ? `/api/activities/${editId}${delConnParam}` : `/api/outlook/${editId}`
       const res = await fetch(url, { method: 'DELETE' })
       if (!res.ok) {
         const body = await res.json().catch(() => null)
@@ -444,7 +593,7 @@ export default function ActivityForm({
   function handleDuplicate() {
     onClose()
     onDuplicate({
-      source,
+      source: isOutlookSource ? 'outlook' : 'herbe',
       personCode: selectedPersonCodes[0],
       description,
       date,
@@ -537,16 +686,24 @@ export default function ActivityForm({
         >
           <h2 className="font-bold flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
+            {/* ERP connection badge */}
+            {isEdit && isErpSource && activeErpConnection && activeErpConnection.name !== 'Default (env)' && (
+              <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-border bg-border/20 text-text-muted">
+                {activeErpConnection.name}
+              </span>
+            )}
             {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
             {isEdit && editId && (() => {
-              const herbeLink = source === 'herbe' ? serpLink('ActVc', editId, companyCode) : null
+              const connUuid = activeErpConnection?.serpUuid
+              const connCompany = activeErpConnection?.companyCode || companyCode
+              const herbeLink = isErpSource && connUuid ? `hansa://${connUuid}/v1/${connCompany}/ActVc/${editId}` : null
               // Outlook: open in Outlook web calendar in a new tab
-              const outlookCalLink = source === 'outlook'
+              const outlookCalLink = isOutlookSource
                 ? (initial?.webLink || `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`)
                 : null
               const openLink = herbeLink ?? outlookCalLink
               // For Outlook copy: prefer joinUrl (Teams link) so recipient can join; fall back to calendar web URL
-              const copyText = source === 'outlook'
+              const copyText = isOutlookSource
                 ? (initial?.joinUrl ?? outlookCalLink ?? '')
                 : (herbeLink ?? '')
               const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors hover:border-primary hover:bg-primary/20'
@@ -556,11 +713,11 @@ export default function ActivityForm({
                     href={openLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={source === 'outlook' ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
+                    title={isOutlookSource ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
                     tabIndex={-1}
                     className={cls}
                   >
-                    {source === 'outlook' ? (
+                    {isOutlookSource ? (
                       <>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
                         <span>Calendar</span>
@@ -573,7 +730,7 @@ export default function ActivityForm({
                     <button
                       type="button"
                       tabIndex={-1}
-                      title={erpLinkCopied ? 'Copied!' : (source === 'outlook' ? 'Copy Teams/meeting link' : 'Copy ERP link')}
+                      title={erpLinkCopied ? 'Copied!' : (isOutlookSource ? 'Copy Teams/meeting link' : 'Copy ERP link')}
                       onClick={async (e) => {
                         e.stopPropagation()
                         await navigator.clipboard.writeText(copyText)
@@ -590,7 +747,7 @@ export default function ActivityForm({
                       )}
                     </button>
                   )}
-                  {canEdit !== false && source === 'outlook' && (
+                  {canEdit !== false && isOutlookSource && (
                     <button
                       type="button"
                       tabIndex={-1}
@@ -606,7 +763,7 @@ export default function ActivityForm({
                     </button>
                   )}
                 </span>
-              ) : source === 'herbe' ? (
+              ) : isErpSource ? (
                 <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{editId}</span>
               ) : null
             })()}
@@ -686,7 +843,7 @@ export default function ActivityForm({
           )}
 
           {/* RSVP buttons (Outlook Graph only, not ICS) */}
-          {source === 'outlook' && !initial?.isExternal && rsvpStatus !== 'organizer' && (
+          {isOutlookSource && !initial?.isExternal && rsvpStatus !== 'organizer' && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
               <div className="flex gap-2">
@@ -751,16 +908,23 @@ export default function ActivityForm({
 
           {/* Source toggle (create only) */}
           {!isEdit && (
-            <div className="flex rounded overflow-hidden border border-border text-sm font-bold">
-              {(['herbe', 'outlook'] as const).map(s => (
+            <div className="flex rounded overflow-hidden border border-border divide-x divide-border text-sm font-bold">
+              {erpConnections.map(conn => (
                 <button
-                  key={s}
-                  onClick={() => setSource(s)}
-                  className={`flex-1 py-2 ${source === s ? 'bg-primary text-white' : 'text-text-muted'}`}
+                  key={conn.id}
+                  onClick={() => setSource(conn.id)}
+                  className={`flex-1 py-2 truncate px-1 ${source === conn.id ? 'bg-primary text-white' : 'text-text-muted'}`}
                 >
-                  {s === 'herbe' ? 'Herbe ERP' : 'Outlook'}
+                  {conn.name === 'Default (env)' ? 'ERP' : conn.name}
                 </button>
               ))}
+              <button
+                key="outlook"
+                onClick={() => setSource('outlook')}
+                className={`flex-1 py-2 ${isOutlookSource ? 'bg-primary text-white' : 'text-text-muted'}`}
+              >
+                Outlook
+              </button>
             </div>
           )}
 
@@ -778,8 +942,8 @@ export default function ActivityForm({
                 if (bi !== -1) return 1
                 return 0
               })
-            const visibleUnselected = personsExpanded ? unselected : unselected.slice(0, 3)
-            const hiddenCount = personsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            const visibleUnselected = canEdit ? (personsExpanded ? unselected : unselected.slice(0, 3)) : []
+            const hiddenCount = canEdit ? (personsExpanded ? 0 : Math.max(0, unselected.length - 3)) : 0
             return (
               <div>
                 <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
@@ -788,8 +952,8 @@ export default function ActivityForm({
                     <button
                       key={p.code}
                       tabIndex={-1}
-                      onClick={() => setSelectedPersonCodes(prev => prev.filter(c => c !== p.code))}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary hover:bg-primary/30 transition-colors"
+                      onClick={() => { if (!canEdit) return; setSelectedPersonCodes(prev => prev.filter(c => c !== p.code)) }}
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary ${canEdit ? 'hover:bg-primary/30 cursor-pointer' : 'cursor-default'} transition-colors`}
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
@@ -811,7 +975,7 @@ export default function ActivityForm({
                       type="button"
                       tabIndex={-1}
                       onClick={() => setPersonsExpanded(true)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       +{hiddenCount} more
                     </button>
@@ -821,7 +985,7 @@ export default function ActivityForm({
                       type="button"
                       tabIndex={-1}
                       onClick={() => setPersonsExpanded(false)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       Collapse
                     </button>
@@ -832,7 +996,7 @@ export default function ActivityForm({
           })()}
 
           {/* CC Person(s) — Herbe only */}
-          {source === 'herbe' && (() => {
+          {isErpSource && (() => {
             const unselected = people
               .filter(p => !selectedCCPersonCodes.includes(p.code))
               .sort((a, b) => {
@@ -843,16 +1007,16 @@ export default function ActivityForm({
                 if (bi !== -1) return 1
                 return 0
               })
-            const visibleUnselected = ccPersonsExpanded ? unselected : unselected.slice(0, 3)
-            const hiddenCount = ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)
+            const visibleUnselected = canEdit ? (ccPersonsExpanded ? unselected : unselected.slice(0, 3)) : []
+            const hiddenCount = canEdit ? (ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)) : 0
             return (
               <div>
                 <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">CC Person(s)</label>
                 <div className="flex flex-wrap gap-1">
                   {people.filter(p => selectedCCPersonCodes.includes(p.code)).map(p => (
                     <button key={p.code} tabIndex={-1}
-                      onClick={() => setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code))}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border transition-colors"
+                      onClick={() => { if (!canEdit) return; setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code)) }}
+                      className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
                       style={{ borderStyle: 'dashed', borderColor: 'var(--color-primary)', background: 'rgba(var(--color-primary-rgb, 205 76 56) / 0.1)', color: 'var(--color-primary)', opacity: 0.8 }}
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
@@ -871,7 +1035,7 @@ export default function ActivityForm({
                   {hiddenCount > 0 && (
                     <button type="button" tabIndex={-1}
                       onClick={() => setCCPersonsExpanded(true)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       +{hiddenCount} more
                     </button>
@@ -879,7 +1043,7 @@ export default function ActivityForm({
                   {ccPersonsExpanded && unselected.length > 3 && (
                     <button type="button" tabIndex={-1}
                       onClick={() => setCCPersonsExpanded(false)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
                     >
                       Collapse
                     </button>
@@ -888,6 +1052,57 @@ export default function ActivityForm({
               </div>
             )
           })()}
+
+          {/* External attendees (Outlook only) */}
+          {isOutlookSource && externalAttendees.length > 0 && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
+              <div className="flex flex-wrap gap-1">
+                {externalAttendees.map(email => (
+                  <span
+                    key={email}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border border-border bg-border/30 text-text-muted"
+                  >
+                    {email}
+                    {canEdit && (
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setExternalAttendees(prev => prev.filter(e => e !== email))}
+                        className="text-text-muted/60 hover:text-text leading-none"
+                      >×</button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {isOutlookSource && canEdit && (
+            <div>
+              {externalAttendees.length === 0 && (
+                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
+              )}
+              <div className="flex gap-1.5">
+                <input
+                  value={externalAttendeeInput}
+                  onChange={e => setExternalAttendeeInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addExternalAttendee()
+                    }
+                  }}
+                  className="flex-1 bg-bg border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary"
+                  placeholder="Add external email..."
+                />
+                <button
+                  type="button"
+                  onClick={addExternalAttendee}
+                  className="px-4 py-1.5 rounded-lg border border-border text-sm font-bold text-text-muted hover:border-primary/50 hover:text-text active:bg-border transition-colors shrink-0"
+                >+</button>
+              </div>
+            </div>
+          )}
 
           {/* Description — and all editable fields below; disabled visually when canEdit is false */}
           <div
@@ -965,7 +1180,21 @@ export default function ActivityForm({
               />
             </div>
             <div className="min-w-0">
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">To</label>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
+                To
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => {
+                    const now = new Date()
+                    setTimeTo(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+                  }}
+                  title="Set to current time"
+                  className="text-text-muted/60 hover:text-primary transition-colors text-[11px] leading-none"
+                >
+                  ⏱
+                </button>
+              </label>
               <input
                 type="time"
                 value={timeTo}
@@ -1012,26 +1241,64 @@ export default function ActivityForm({
                     </button>
                   )
                 })}
-                {source === 'herbe' && (
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setPlanned(p => !p)}
-                    className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
-                      planned
-                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-                        : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
-                    }`}
-                  >
-                    {planned ? '○ Planned' : '● Actual'}
-                  </button>
+                {isErpSource && (
+                  <>
+                    {initial?.okFlag && (
+                      <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border bg-green-500/15 border-green-500/40 text-green-500">
+                        ✓ OK'd
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setPlanned(p => !p)}
+                      disabled={canEdit === false}
+                      className={`${initial?.okFlag ? '' : 'ml-auto '}text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                        planned
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                          : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
+                      } ${canEdit === false ? 'opacity-50 cursor-default' : ''}`}
+                    >
+                      {planned ? '○ Planned' : '● Actual'}
+                    </button>
+                  </>
                 )}
               </div>
             )
           })()}
 
+          {/* Teams meeting toggle (Outlook create only) */}
+          {isOutlookSource && !isEdit && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isOnlineMeeting}
+                onChange={e => setIsOnlineMeeting(e.target.checked)}
+                className="accent-primary w-4 h-4"
+              />
+              <span className="text-xs font-bold text-text-muted">Teams meeting</span>
+            </label>
+          )}
+
+          {/* Location (Outlook only) */}
+          {isOutlookSource && (location || canEdit) && (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
+              {canEdit ? (
+                <input
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  placeholder="Add a location..."
+                />
+              ) : (
+                <p className="text-sm text-text-muted">{location}</p>
+              )}
+            </div>
+          )}
+
           {/* Activity type (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 Activity Type
@@ -1056,9 +1323,16 @@ export default function ActivityForm({
                           setCurrentGroup(getTypeGroup?.(type.code))
                         }}
                         className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
-                          isSelected ? 'border-primary bg-primary/20 text-primary' : 'border-border text-text-muted hover:border-primary/50'
+                          isSelected ? 'border-current' : 'border-border text-text-muted hover:border-primary/50'
                         }`}
-                        style={!isSelected && c ? { borderColor: c + '44', color: c, background: c + '11' } : undefined}
+                        style={c ? (() => {
+                          const rc = readableAccentColor(c, isDarkTheme)
+                          return {
+                            borderColor: isSelected ? rc : rc + '44',
+                            color: rc,
+                            background: isSelected ? c + '22' : c + '11',
+                          }
+                        })() : undefined}
                       >
                         {code}
                       </button>
@@ -1111,13 +1385,14 @@ export default function ActivityForm({
                         projectInputRef.current?.focus()
                       }}
                       className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${tIdx === focusedTypeIdx ? 'bg-primary/20' : 'hover:bg-border'}`}
+                      style={tIdx === focusedTypeIdx ? (() => { const c = getTypeColor?.(t.code); return c ? { background: c + '18' } : undefined })() : undefined}
                     >
                       {(() => {
                         const c = getTypeColor?.(t.code)
                         return (
                           <span
-                            className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center"
-                            style={c ? { background: c + '33', color: c } : { color: 'var(--color-primary)' }}
+                            className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center border"
+                            style={c ? { background: c + '22', color: readableAccentColor(c, isDarkTheme), borderColor: readableAccentColor(c, isDarkTheme) + '33' } : { color: 'var(--color-primary)', borderColor: 'transparent' }}
                           >
                             {t.code}
                           </span>
@@ -1132,13 +1407,13 @@ export default function ActivityForm({
           )}
 
           {/* Project (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 Project{currentGroup?.forceProj && <span className="text-red-400">*</span>}
                 {projectCode && <span className="font-mono text-primary normal-case text-[11px]">{projectCode}</span>}
                 {projectCode && (() => {
-                  const link = serpLink('PRVc', projectCode, companyCode)
+                  const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/PRVc/${projectCode}` : serpLink('PRVc', projectCode, companyCode)
                   return link ? (
                     <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
@@ -1204,13 +1479,13 @@ export default function ActivityForm({
           )}
 
           {/* Customer (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
                 Customer{currentGroup?.forceCust && <span className="text-red-400">*</span>}
                 {customerCode && <span className="font-mono text-primary normal-case text-[11px]">{customerCode}</span>}
                 {customerCode && (() => {
-                  const link = serpLink('CUVc', customerCode, companyCode)
+                  const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/CUVc/${customerCode}` : serpLink('CUVc', customerCode, companyCode)
                   return link ? (
                     <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
                       <SerpIcon />
@@ -1266,7 +1541,7 @@ export default function ActivityForm({
           )}
 
           {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
-          {source === 'herbe' && (currentGroup?.forceItem || itemCode) && (
+          {isErpSource && (currentGroup?.forceItem || itemCode) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
                 Item Code{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
@@ -1281,7 +1556,7 @@ export default function ActivityForm({
           )}
 
           {/* Additional text (Herbe only) */}
-          {source === 'herbe' && (
+          {isErpSource && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
                 Additional Text{currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}

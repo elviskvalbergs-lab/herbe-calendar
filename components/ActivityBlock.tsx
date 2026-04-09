@@ -2,6 +2,7 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import { Activity, ShareVisibility } from '@/types'
 import { timeToTopPx } from '@/lib/time'
+import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
   return (
@@ -46,10 +47,11 @@ interface Props {
   onMobileTap?: (id: string) => void
   onMobileClose?: () => void
   visibility?: ShareVisibility
+  startHour?: number
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility }: Props) {
-  const top = timeToTopPx(activity.timeFrom, scale)
+export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility, startHour }: Props) {
+  const top = timeToTopPx(activity.timeFrom, scale, startHour)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
   const isPlanned = activity.planned === true
@@ -68,6 +70,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
   }, [hovered, mobileSelected])
 
   const isLight = isLightMode
+  const textColor = readableAccentColor(color, !isLight)
   const fillNormal = isLight ? '55' : (isOutlook ? '28' : '33')
   const fillPlanned = isLight ? '22' : '18'
   const fillCC = isLight ? '1a' : '0a'
@@ -122,7 +125,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
     >
       {isCompact ? (
         <div className="px-1.5 flex items-center gap-1 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
-          <p className="text-[9px] font-bold truncate flex-1" style={{ color }}>
+          <p className="text-[9px] font-bold truncate flex-1" style={{ color: textColor }}>
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
           <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
@@ -130,7 +133,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
       ) : (
         <div className="px-1.5 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
           <div className="flex items-start justify-between gap-1">
-            <p className="text-[10px] font-bold truncate flex-1" style={{ color }}>
+            <p className="text-[10px] font-bold truncate flex-1" style={{ color: textColor }}>
               {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
             </p>
             <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
@@ -198,12 +201,12 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
           )}
           {visibility === 'busy' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>Busy</p>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>Busy</p>
               <p className="text-xs text-text-muted">{activity.timeFrom} – {activity.timeTo}</p>
             </>
           ) : visibility === 'titles' ? (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
               </p>
               <p className="text-xs text-text-muted">
@@ -217,12 +220,14 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
               )}
               {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+                <p className="text-[10px] mt-1 text-text-muted truncate">
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
+                </p>
               )}
             </>
           ) : (
             <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color }}>
+              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>
                 {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
               </p>
               <p className="text-xs text-text-muted">
@@ -230,7 +235,7 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
               </p>
               {activity.activityTypeCode && (
-                <p className="text-[10px] mt-1" style={{ color }}>
+                <p className="text-[10px] mt-1" style={{ color: textColor }}>
                   <span className="font-mono">{activity.activityTypeCode}</span>
                   {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
                     <span className="ml-1 not-italic">
@@ -245,6 +250,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               {activity.customerName && (
                 <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
               )}
+              {activity.location && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📍 {activity.location}</p>
+              )}
               {activity.icsCalendarName && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
               )}
@@ -252,10 +260,28 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
               )}
               {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">Herbe ERP</p>
+                <p className="text-[10px] mt-1 text-text-muted truncate">
+                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
+                </p>
               )}
               {isCC && (
                 <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
+              )}
+              {activity.attendees && activity.attendees.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 mt-1.5">
+                  {activity.attendees.slice(0, 6).map(att => (
+                    <span
+                      key={att.email}
+                      className="px-1.5 py-0 rounded-full text-[9px] font-bold border border-border/50 text-text-muted bg-border/20 truncate max-w-[80px]"
+                      title={`${att.name || att.email}${att.responseStatus ? ` (${att.responseStatus})` : ''}`}
+                    >
+                      {att.email.split('@')[0]}
+                    </span>
+                  ))}
+                  {activity.attendees.length > 6 && (
+                    <span className="text-[9px] text-text-muted">+{activity.attendees.length - 6}</span>
+                  )}
+                </div>
               )}
               {activity.joinUrl && (
                 <a
@@ -274,8 +300,8 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               )}
               {!visibility && (
                 <button
-                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: color }}
+                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold"
+                  style={{ background: color, color: textOnAccent(color) }}
                   onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
                 >
                   {canEdit ? 'Edit' : 'View details'}
