@@ -38,6 +38,8 @@ function mapRow(row: Record<string, unknown>) {
     createdAt: row.created_at,
     lastAccessedAt: row.last_accessed_at ?? null,
     accessCount: row.access_count,
+    bookingEnabled: row.booking_enabled ?? false,
+    templateIds: row.template_ids ?? [],
   }
 }
 
@@ -59,7 +61,9 @@ export async function GET(req: NextRequest) {
     if (!favRows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const { rows } = await pool.query(
-      'SELECT * FROM favorite_share_links WHERE favorite_id = $1 ORDER BY created_at DESC',
+      `SELECT sl.*,
+        COALESCE((SELECT json_agg(slt.template_id) FROM share_link_templates slt WHERE slt.share_link_id = sl.id), '[]') AS template_ids
+       FROM favorite_share_links sl WHERE sl.favorite_id = $1 ORDER BY sl.created_at DESC`,
       [favoriteId]
     )
     return NextResponse.json(rows.map(mapRow))
@@ -113,7 +117,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     await ensureTable()
-    const { id, name, visibility, expiresAt, password } = await req.json()
+    const { id, name, visibility, expiresAt, password, bookingEnabled, templateIds } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     // Verify ownership
@@ -143,12 +147,34 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    if (!updates.length) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    if (bookingEnabled !== undefined) { updates.push(`booking_enabled = $${idx++}`); values.push(!!bookingEnabled) }
 
-    values.push(id)
+    if (!updates.length && !templateIds) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+
+    if (updates.length) {
+      values.push(id)
+      await pool.query(
+        `UPDATE favorite_share_links SET ${updates.join(', ')} WHERE id = $${idx}`,
+        values
+      )
+    }
+
+    // Sync template links if provided
+    if (Array.isArray(templateIds)) {
+      await pool.query('DELETE FROM share_link_templates WHERE share_link_id = $1', [id])
+      for (const tid of templateIds) {
+        await pool.query(
+          'INSERT INTO share_link_templates (share_link_id, template_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [id, tid]
+        )
+      }
+    }
+
     const { rows } = await pool.query(
-      `UPDATE favorite_share_links SET ${updates.join(', ')} WHERE id = $${idx} RETURNING *`,
-      values
+      `SELECT sl.*,
+        COALESCE((SELECT json_agg(slt.template_id) FROM share_link_templates slt WHERE slt.share_link_id = sl.id), '[]') AS template_ids
+       FROM favorite_share_links sl WHERE sl.id = $1`,
+      [id]
     )
     return NextResponse.json(mapRow(rows[0]))
   } catch (e) {

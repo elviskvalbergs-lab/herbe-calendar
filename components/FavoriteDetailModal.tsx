@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import type { Favorite, ShareLink, ShareVisibility } from '@/types'
+import type { Favorite, ShareLink, ShareVisibility, BookingTemplate } from '@/types'
 import { loadShareLinks, createShareLink, removeShareLink, removeAllShareLinks, updateShareLink } from '@/lib/shareLinks'
 
 interface Props {
@@ -34,6 +34,16 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
   const [editExpiry, setEditExpiry] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [editRemovePassword, setEditRemovePassword] = useState(false)
+  const [editBookingEnabled, setEditBookingEnabled] = useState(false)
+  const [editTemplateIds, setEditTemplateIds] = useState<string[]>([])
+  const [availableTemplates, setAvailableTemplates] = useState<BookingTemplate[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    fetch('/api/settings/templates').then(r => r.json()).then(data => {
+      setAvailableTemplates(Array.isArray(data) ? data : [])
+    }).catch(() => {})
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -94,6 +104,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     setEditExpiry(link.expiresAt ? new Date(link.expiresAt).toISOString().slice(0, 10) : '')
     setEditPassword('')
     setEditRemovePassword(false)
+    setEditBookingEnabled(link.bookingEnabled ?? false)
+    setEditTemplateIds(link.templateIds ?? [])
   }
 
   function cancelEdit() {
@@ -111,6 +123,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
       visibility: editVisibility,
       expiresAt: editExpiry || null,
       ...passwordPayload,
+      bookingEnabled: editBookingEnabled,
+      templateIds: editTemplateIds,
     })
     setLinks(prev => prev.map(l => l.id === editingId ? updated : l))
     setEditingId(null)
@@ -219,6 +233,37 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                     className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                   />
                 )}
+                {/* Booking toggle */}
+                {availableTemplates.length > 0 && (
+                  <div className="mb-2 p-2 rounded border border-border bg-bg space-y-2">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBookingEnabled}
+                        onChange={e => setEditBookingEnabled(e.target.checked)}
+                      />
+                      <span className="font-bold">Enable booking</span>
+                    </label>
+                    {editBookingEnabled && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-text-muted">Select templates to offer:</p>
+                        {availableTemplates.map(t => (
+                          <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editTemplateIds.includes(t.id)}
+                              onChange={e => {
+                                if (e.target.checked) setEditTemplateIds(prev => [...prev, t.id])
+                                else setEditTemplateIds(prev => prev.filter(id => id !== t.id))
+                              }}
+                            />
+                            {t.name} ({t.duration_minutes} min)
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -249,6 +294,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                 <p className="text-[10px] text-text-muted mt-0.5">
                   {visibilityLabel[link.visibility]}
                   {link.hasPassword && ' · 🔒'}
+                  {link.bookingEnabled && ' · 📅 Booking'}
                   {link.expiresAt && ` · Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
                 </p>
                 <div className="flex gap-2 mt-2">
