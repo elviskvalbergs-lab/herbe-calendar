@@ -28,6 +28,7 @@ export default function ShareCalendarShell({ token }: Props) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [subscribeCopied, setSubscribeCopied] = useState(false)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
   // Build person-to-color map based on personCodes order
@@ -235,6 +236,21 @@ export default function ShareCalendarShell({ token }: Props) {
         >
           Today
         </button>
+        {/* Subscribe */}
+        {!config.hasPassword && (
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/api/share/${token}/feed.ics`
+              navigator.clipboard.writeText(url)
+              setSubscribeCopied(true)
+              setTimeout(() => setSubscribeCopied(false), 2000)
+            }}
+            className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold ml-1"
+            title="Copy ICS subscription URL"
+          >
+            {subscribeCopied ? 'Copied!' : 'Subscribe'}
+          </button>
+        )}
       </header>
 
       {/* Calendar */}
