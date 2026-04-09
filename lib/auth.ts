@@ -85,15 +85,35 @@ const emailProvider: EmailConfig = {
        <p>If you did not request this, you can safely ignore this email.</p>
        <p style="font-size: 11px; color: #666;">Target environment: ${url}</p>`
 
-    // Try Azure Graph first, then SMTP fallback
-    const azureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+    // Resolve which account this email belongs to, then use that account's mail config
+    let emailAccountId = DEFAULT_ACCOUNT_ID
+    try {
+      const { rows: memberRows } = await pool.query(
+        `SELECT am.account_id FROM account_members am
+         JOIN tenant_accounts a ON a.id = am.account_id
+         WHERE LOWER(am.email) = $1 AND am.active = true AND a.suspended_at IS NULL
+         LIMIT 1`,
+        [email.toLowerCase()]
+      )
+      if (memberRows[0]) emailAccountId = memberRows[0].account_id
+    } catch {}
+
+    // Try Azure Graph first, then SMTP, using the resolved account's config
+    const azureConfig = await getAzureConfig(emailAccountId)
     if (azureConfig) {
       await sendMailGraph(email, subject, html, azureConfig)
     } else {
-      const smtpConfig = await getSmtpConfig(DEFAULT_ACCOUNT_ID)
+      const smtpConfig = await getSmtpConfig(emailAccountId)
       if (smtpConfig) {
         await sendMailSmtp(smtpConfig, email, subject, html)
       } else {
+        // Fallback: try default account if different
+        if (emailAccountId !== DEFAULT_ACCOUNT_ID) {
+          const fallbackAzure = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+          if (fallbackAzure) { await sendMailGraph(email, subject, html, fallbackAzure); return }
+          const fallbackSmtp = await getSmtpConfig(DEFAULT_ACCOUNT_ID)
+          if (fallbackSmtp) { await sendMailSmtp(fallbackSmtp, email, subject, html); return }
+        }
         throw new Error('No email transport configured. Set up Azure AD or SMTP in admin settings.')
       }
     }
