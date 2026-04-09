@@ -25,9 +25,11 @@ interface Props {
   onApplyFavorite: (view: CalendarState['view'], personCodes: string[], hiddenCalendars?: string[]) => void
   zoom: 1 | 2
   onToggleZoom: () => void
+  accountName?: string
+  onAccountSwitch?: () => void
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
@@ -43,9 +45,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   return (
     <header className="flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
       {/* Title */}
-      <span className="font-bold text-base mr-auto pr-0.5 lg:pr-1">
+      <span className="font-bold text-base pr-0.5 lg:pr-1">
         herbe<span className="text-primary">.</span>calendar
       </span>
+      {accountName && (
+        <button
+          onClick={onAccountSwitch}
+          className="text-[10px] text-text-muted bg-border/40 hover:bg-border px-1.5 py-0.5 rounded mr-auto transition-colors"
+          title="Switch account (⌃⌘A)"
+        >
+          {accountName}
+        </button>
+      )}
 
       {/* Date navigation */}
       {viewStep > 1 && (

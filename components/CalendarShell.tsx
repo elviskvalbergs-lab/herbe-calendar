@@ -7,6 +7,7 @@ import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
+import AccountSwitcher from './AccountSwitcher'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
   resolveColorWithOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
@@ -16,9 +17,9 @@ import {
   HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
 } from '@/lib/calendarVisibility'
 
-interface Props { userCode: string; companyCode: string }
+interface Props { userCode: string; companyCode: string; accountId?: string }
 
-export default function CalendarShell({ userCode, companyCode }: Props) {
+export default function CalendarShell({ userCode, companyCode, accountId = '' }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
   const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean }>({ herbe: true, azure: true })
@@ -29,6 +30,16 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   const [dbColorOverrides, setDbColorOverrides] = useState<ColorOverrideRow[]>([])
   const [colorSettingsOpen, setColorSettingsOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false)
+  const [accountName, setAccountName] = useState<string>('')
+  // Fetch account name on mount
+  useEffect(() => {
+    if (!accountId) return
+    fetch('/api/settings/accounts').then(r => r.json()).then(data => {
+      const current = (data.accounts ?? []).find((a: { id: string }) => a.id === accountId)
+      if (current) setAccountName(current.display_name)
+    }).catch(() => {})
+  }, [accountId])
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
   const [state, setState] = useState<CalendarState>(() => {
     try {
@@ -165,12 +176,21 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
   // Global keyboard shortcuts (N/⌘N, T, ←, →, ?, Esc)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // ⌃⌘A — Account switcher (works from anywhere)
+      if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault()
+        setAccountSwitcherOpen(o => !o)
+        return
+      }
       // Esc closes color settings (form/shortcuts handle their own Esc)
+      if (e.key === 'Escape' && accountSwitcherOpen) {
+        setAccountSwitcherOpen(false); return
+      }
       if (e.key === 'Escape' && colorSettingsOpen) {
         setColorSettingsOpen(false); return
       }
       // Skip if any modal/form is open
-      if (formState.open || colorSettingsOpen || shortcutsOpen) return
+      if (formState.open || colorSettingsOpen || shortcutsOpen || accountSwitcherOpen) return
 
       const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
       const inInput = tag === 'input' || tag === 'textarea' || tag === 'select'
@@ -223,7 +243,7 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [formState.open, colorSettingsOpen, shortcutsOpen, state.view, state.date])
+  }, [formState.open, colorSettingsOpen, shortcutsOpen, accountSwitcherOpen, state.view, state.date])
 
   // Drill-down: push current state to browser history, then change view
   function drillToDate(date: string) {
@@ -567,6 +587,8 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
         }}
         zoom={zoom}
         onToggleZoom={toggleZoom}
+        accountName={accountName}
+        onAccountSwitch={() => setAccountSwitcherOpen(true)}
       />
       <CalendarGrid
         state={state}
@@ -620,6 +642,10 @@ export default function CalendarShell({ userCode, companyCode }: Props) {
 
       {shortcutsOpen && (
         <KeyboardShortcutsModal onClose={() => setShortcutsOpen(false)} />
+      )}
+
+      {accountSwitcherOpen && (
+        <AccountSwitcher currentAccountId={accountId} onClose={() => setAccountSwitcherOpen(false)} />
       )}
 
       {colorSettingsOpen && (

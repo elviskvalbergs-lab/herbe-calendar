@@ -48,13 +48,67 @@ export async function requireSession(): Promise<SessionUser> {
     }
   } catch {}
 
+  // Check activeAccountId cookie — allows switching between accounts
+  let activeAccountOverride: string | undefined
+  try {
+    const { cookies } = await import('next/headers')
+    const cookieStore = await cookies()
+    activeAccountOverride = cookieStore.get('activeAccountId')?.value || undefined
+  } catch {}
+
   // Resolve account from membership (cached)
-  const cached = accountCache.get(email)
+  const cacheKey = activeAccountOverride ? `${email}:${activeAccountOverride}` : email
+  const cached = accountCache.get(cacheKey)
   if (cached && Date.now() - cached.ts < ACCOUNT_CACHE_TTL) {
+    // Re-resolve userCode from the active account's person_codes
+    if (activeAccountOverride && cached.accountId === activeAccountOverride) {
+      const { rows: pcRows } = await pool.query<{ generated_code: string }>(
+        'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
+        [cached.accountId, email]
+      ).catch(() => ({ rows: [] }))
+      return { userCode: pcRows[0]?.generated_code ?? userCode, email: session.user.email, accountId: cached.accountId }
+    }
     return { userCode, email: session.user.email, accountId: cached.accountId }
   }
 
   try {
+    // If activeAccountId is set, verify user is a member of that account (or super admin)
+    if (activeAccountOverride) {
+      const superAdmins = (process.env.SUPER_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+      const isSuperAdmin = superAdmins.includes(email)
+
+      if (isSuperAdmin) {
+        // Super admins can access any account
+        const { rows: accRows } = await pool.query('SELECT id FROM tenant_accounts WHERE id = $1 AND suspended_at IS NULL', [activeAccountOverride])
+        if (accRows.length > 0) {
+          accountCache.set(cacheKey, { accountId: activeAccountOverride, ts: Date.now() })
+          // Resolve userCode from this account's person_codes
+          const { rows: pcRows } = await pool.query<{ generated_code: string }>(
+            'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
+            [activeAccountOverride, email]
+          ).catch(() => ({ rows: [] }))
+          return { userCode: pcRows[0]?.generated_code ?? userCode, email: session.user.email, accountId: activeAccountOverride }
+        }
+      } else {
+        // Regular user — must be a member
+        const { rows: memberRows } = await pool.query<{ account_id: string }>(
+          `SELECT am.account_id FROM account_members am
+           JOIN tenant_accounts a ON a.id = am.account_id
+           WHERE am.account_id = $1 AND LOWER(am.email) = $2 AND am.active = true AND a.suspended_at IS NULL`,
+          [activeAccountOverride, email]
+        )
+        if (memberRows.length > 0) {
+          accountCache.set(cacheKey, { accountId: activeAccountOverride, ts: Date.now() })
+          const { rows: pcRows } = await pool.query<{ generated_code: string }>(
+            'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
+            [activeAccountOverride, email]
+          ).catch(() => ({ rows: [] }))
+          return { userCode: pcRows[0]?.generated_code ?? userCode, email: session.user.email, accountId: activeAccountOverride }
+        }
+      }
+      // Fall through to default resolution if override account is invalid
+    }
+
     const { rows } = await pool.query<{ account_id: string }>(
       `SELECT am.account_id FROM account_members am
        JOIN tenant_accounts a ON a.id = am.account_id
@@ -67,7 +121,7 @@ export async function requireSession(): Promise<SessionUser> {
       throw new Error(`No account membership for ${email}`)
     }
     const accountId = rows[0].account_id
-    accountCache.set(email, { accountId, ts: Date.now() })
+    accountCache.set(cacheKey, { accountId, ts: Date.now() })
     return { userCode, email: session.user.email, accountId }
   } catch (e) {
     console.error(`[auth-guard] Account lookup failed for ${email}:`, String(e))
