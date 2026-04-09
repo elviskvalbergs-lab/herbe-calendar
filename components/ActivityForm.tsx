@@ -224,9 +224,8 @@ export default function ActivityForm({
     setExternalAttendees(external)
   }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load recent items from localStorage
+  // Load recent persons from localStorage (types loaded per-connection below)
   useEffect(() => {
-    setRecentTypes(getRecentTypes())
     setRecentPersonCodes(getRecentPersons())
     setRecentCCPersonCodes(getRecentCCPersons())
   }, [])
@@ -523,7 +522,7 @@ export default function ActivityForm({
       if (activityTypeCode) saveRecentType(activityTypeCode, activeErpConnection?.id)
       saveRecentPersons(selectedPersonCodes)
       saveRecentCCPersons(selectedCCPersonCodes)
-      setRecentTypes(getRecentTypes())
+      setRecentTypes(getRecentTypes(activeErpConnection?.id ?? 'default'))
       setRecentPersonCodes(getRecentPersons())
       setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
