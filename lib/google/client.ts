@@ -9,6 +9,22 @@ export interface GoogleConfig {
   domain: string
 }
 
+/** Normalize a PEM private key — handle literal \n strings and stripped newlines */
+function normalizePemKey(key: string): string {
+  // Replace literal \n strings with actual newlines
+  let normalized = key.replace(/\\n/g, '\n').trim()
+  // If it now has real newlines, it's fine
+  if (normalized.includes('\n')) return normalized
+  // Extract the base64 body between header/footer and re-chunk at 64 chars
+  const match = normalized.match(/^(-----BEGIN [A-Z ]+-----)(.+)(-----END [A-Z ]+-----)$/)
+  if (!match) return normalized
+  const header = match[1]
+  const body = match[2]
+  const footer = match[3]
+  const lines = body.match(/.{1,64}/g) ?? []
+  return [header, ...lines, footer].join('\n')
+}
+
 const configCache = new Map<string, { data: GoogleConfig | null; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
@@ -28,7 +44,7 @@ export async function getGoogleConfig(accountId: string): Promise<GoogleConfig |
       }
       const config: GoogleConfig = {
         serviceAccountEmail: rows[0].service_account_email,
-        privateKey: key,
+        privateKey: normalizePemKey(key),
         adminEmail: rows[0].admin_email,
         domain: rows[0].domain,
       }
