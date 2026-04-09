@@ -33,15 +33,11 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') { onClose(); return }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedIdx(i => Math.min(i + 1, accounts.length)); return }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedIdx(i => Math.min(i + 1, accounts.length - 1)); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedIdx(i => Math.max(i - 1, 0)); return }
-      if (e.key === 'Enter' && focusedIdx >= 0) {
+      if (e.key === 'Enter' && focusedIdx >= 0 && focusedIdx < accounts.length) {
         e.preventDefault()
-        if (focusedIdx < accounts.length) {
-          switchTo(accounts[focusedIdx].id)
-        } else {
-          addAccount()
-        }
+        switchTo(accounts[focusedIdx].id)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -52,10 +48,6 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
     if (accountId === currentAccountId) { onClose(); return }
     document.cookie = `activeAccountId=${accountId};path=/;max-age=${30 * 24 * 3600}`
     window.location.reload()
-  }
-
-  function addAccount() {
-    window.location.href = '/login?addAccount=1'
   }
 
   const currentName = accounts.find(a => a.id === currentAccountId)?.display_name
@@ -96,17 +88,11 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
                 </button>
               )
             })}
-            <button
-              onClick={addAccount}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors mt-1 border-t border-border pt-3 ${
-                focusedIdx === accounts.length ? 'bg-primary/15' : 'hover:bg-border/30'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-border/50 text-text-muted">
-                +
-              </div>
-              <p className="text-xs text-text-muted">Add another account...</p>
-            </button>
+            {accounts.length <= 1 && (
+              <p className="text-[10px] text-text-muted text-center py-2 mt-1 border-t border-border pt-3">
+                To switch accounts, your email must be added as a member in the other account.
+              </p>
+            )}
           </div>
         )}
 
