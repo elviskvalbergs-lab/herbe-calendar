@@ -129,8 +129,11 @@ export async function POST(req: NextRequest) {
       try {
         const users = await listGoogleUsers(config)
         return NextResponse.json({ ok: true, userCount: users.length })
-      } catch (e) {
-        return NextResponse.json({ ok: false, error: String(e) })
+      } catch (e: unknown) {
+        const err = e as { message?: string; response?: { data?: unknown; status?: number } }
+        const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message ?? String(e)
+        console.error('[admin/config] Google test failed:', detail)
+        return NextResponse.json({ ok: false, error: detail })
       }
     }
 
