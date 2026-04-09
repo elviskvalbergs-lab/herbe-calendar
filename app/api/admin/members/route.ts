@@ -5,6 +5,7 @@ import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { graphFetch } from '@/lib/graph/client'
+import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
 
 function getAccountIdFromCookie(req: NextRequest): string | undefined {
   return req.cookies.get('adminAccountId')?.value || undefined
@@ -117,6 +118,20 @@ export async function PUT(req: NextRequest) {
         }
       } catch (e) {
         console.warn('[members sync] Azure failed:', String(e))
+      }
+    }
+
+    // Fetch from Google Workspace
+    const googleConfig = await getGoogleConfig(session.accountId)
+    if (googleConfig) {
+      try {
+        const users = await listGoogleUsers(googleConfig)
+        for (const u of users) {
+          const email = u.email.toLowerCase().trim()
+          if (email && email.includes('@')) emails.add(email)
+        }
+      } catch (e) {
+        console.warn('[members sync] Google failed:', String(e))
       }
     }
 
