@@ -50,7 +50,9 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok) {
-      setMessage(`Synced ${data.added ?? 0} new members`)
+      const parts = [`Synced ${data.added ?? 0} new members`]
+      if (data.deactivated) parts.push(`${data.deactivated} deactivated`)
+      setMessage(parts.join(', '))
       window.location.reload()
     } else {
       setMessage(`Sync failed: ${data.error || res.status}`)
@@ -152,13 +154,17 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                 <td className="px-4 py-2 truncate max-w-[150px]">{m.display_name ?? m.email.split('@')[0]}</td>
                 <td className="px-4 py-2 hidden sm:table-cell text-text-muted text-xs truncate max-w-[200px]">{m.email}</td>
                 <td className="px-4 py-2 hidden md:table-cell">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    m.source === 'both' ? 'bg-green-500/10 text-green-500' :
-                    m.source === 'azure' ? 'bg-blue-500/10 text-blue-500' :
-                    'bg-amber-500/10 text-amber-500'
-                  }`}>
-                    {m.source ?? 'erp'}
-                  </span>
+                  <div className="flex gap-1 flex-wrap">
+                    {(m.source ?? 'erp').split('+').map(s => (
+                      <span key={s} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        s === 'google' ? 'bg-emerald-500/10 text-emerald-500' :
+                        s === 'azure' ? 'bg-blue-500/10 text-blue-500' :
+                        'bg-amber-500/10 text-amber-500'
+                      }`}>
+                        {s === 'azure' ? 'microsoft' : s}
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td className="px-4 py-2">
                   <button

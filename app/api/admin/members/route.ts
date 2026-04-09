@@ -87,7 +87,8 @@ export async function PUT(req: NextRequest) {
   if (action !== 'sync') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 
   try {
-    const emails = new Set<string>()
+    const activeEmails = new Set<string>()
+    const closedErpEmails = new Set<string>()
 
     // Fetch from ERP connections
     const erpConnections = await getErpConnections(session.accountId)
@@ -95,9 +96,13 @@ export async function PUT(req: NextRequest) {
       try {
         const users = await herbeFetchAll(REGISTERS.users, {}, 1000, conn)
         for (const u of users as Record<string, unknown>[]) {
-          if (String(u['Closed'] ?? '0') !== '0') continue
           const email = ((u['emailAddr'] || u['LoginEmailAddr'] || '') as string).toLowerCase().trim()
-          if (email && email.includes('@')) emails.add(email)
+          if (!email || !email.includes('@')) continue
+          if (String(u['Closed'] ?? '0') !== '0') {
+            closedErpEmails.add(email)
+          } else {
+            activeEmails.add(email)
+          }
         }
       } catch (e) {
         console.warn(`[members sync] ERP "${conn.name}" failed:`, String(e))
@@ -113,7 +118,7 @@ export async function PUT(req: NextRequest) {
           const data = await res.json()
           for (const u of (data.value ?? []) as Record<string, unknown>[]) {
             const email = ((u['mail'] || u['userPrincipalName'] || '') as string).toLowerCase().trim()
-            if (email && email.includes('@') && !email.includes('#EXT#')) emails.add(email)
+            if (email && email.includes('@') && !email.includes('#EXT#')) activeEmails.add(email)
           }
         }
       } catch (e) {
@@ -128,16 +133,16 @@ export async function PUT(req: NextRequest) {
         const users = await listGoogleUsers(googleConfig)
         for (const u of users) {
           const email = u.email.toLowerCase().trim()
-          if (email && email.includes('@')) emails.add(email)
+          if (email && email.includes('@')) activeEmails.add(email)
         }
       } catch (e) {
         console.warn('[members sync] Google failed:', String(e))
       }
     }
 
-    // Insert new members
+    // Insert new active members
     let added = 0
-    for (const email of emails) {
+    for (const email of activeEmails) {
       const { rowCount } = await pool.query(
         `INSERT INTO account_members (account_id, email, role)
          VALUES ($1, $2, 'member')
@@ -147,7 +152,18 @@ export async function PUT(req: NextRequest) {
       if (rowCount && rowCount > 0) added++
     }
 
-    return NextResponse.json({ ok: true, added, total: emails.size })
+    // Deactivate members whose ERP user is closed (and not active in another source)
+    let deactivated = 0
+    for (const email of closedErpEmails) {
+      if (activeEmails.has(email)) continue // still active in Azure/Google
+      const { rowCount } = await pool.query(
+        `UPDATE account_members SET active = false WHERE account_id = $1 AND LOWER(email) = $2 AND active = true`,
+        [session.accountId, email]
+      )
+      if (rowCount && rowCount > 0) deactivated++
+    }
+
+    return NextResponse.json({ ok: true, added, deactivated, total: activeEmails.size })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

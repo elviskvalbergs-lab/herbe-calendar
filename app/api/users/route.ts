@@ -107,8 +107,8 @@ export async function GET(req: NextRequest) {
           rawUsers.push({
             email: u.email,
             displayName: u.name,
-            source: 'azure', // Treat as 'azure' source type for person_codes (external provider)
-            azureObjectId: `google-${u.id}`,
+            source: 'google',
+            googleId: u.id,
           })
         }
       } catch (e) {
