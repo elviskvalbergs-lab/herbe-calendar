@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
+import { verifyCookieValue } from '@/lib/signedCookie'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -27,21 +28,24 @@ export async function requireSession(): Promise<SessionUser> {
   try {
     const { cookies } = await import('next/headers')
     const cookieStore = await cookies()
-    const impCookie = cookieStore.get('impersonateAs')?.value
-    if (impCookie) {
+    const impCookieRaw = cookieStore.get('impersonateAs')?.value
+    if (impCookieRaw) {
       const superAdmins = (process.env.SUPER_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
       if (superAdmins.includes(email)) {
-        const [rawEmail, targetAccountId] = impCookie.split('|')
-        const targetEmail = decodeURIComponent(rawEmail)
-        if (targetEmail && targetAccountId) {
-          const { rows } = await pool.query<{ generated_code: string }>(
-            'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) AND account_id = $2',
-            [targetEmail, targetAccountId]
-          )
-          return {
-            userCode: rows[0]?.generated_code ?? '',
-            email: targetEmail,
-            accountId: targetAccountId,
+        const impCookie = verifyCookieValue(impCookieRaw)
+        if (impCookie) {
+          const [rawEmail, targetAccountId] = impCookie.split('|')
+          const targetEmail = decodeURIComponent(rawEmail)
+          if (targetEmail && targetAccountId) {
+            const { rows } = await pool.query<{ generated_code: string }>(
+              'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) AND account_id = $2',
+              [targetEmail, targetAccountId]
+            )
+            return {
+              userCode: rows[0]?.generated_code ?? '',
+              email: targetEmail,
+              accountId: targetAccountId,
+            }
           }
         }
       }

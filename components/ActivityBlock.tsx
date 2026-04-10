@@ -290,13 +290,13 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
                   className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
+                  style={{ background: activity.videoProvider === 'meet' ? '#1a73e8' : activity.videoProvider === 'teams' ? '#464EB8' : '#2563eb' }}
                 >
-                  {activity.icsCalendarName
-                    ? <>🔗 Join meeting</>
-                    : activity.source === 'google'
-                      ? <>🔗 Join Google Meet</>
-                      : <><TeamsIcon size={12} /> Join in Teams</>
+                  {activity.videoProvider === 'meet'
+                    ? <>🔗 Join Google Meet</>
+                    : activity.videoProvider === 'teams'
+                      ? <><TeamsIcon size={12} /> Join in Teams</>
+                      : <>🔗 Join meeting</>
                   }
                 </a>
               )}

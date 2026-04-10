@@ -5,6 +5,8 @@ import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
 import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
 import { useRef, useState, useCallback, useLayoutEffect } from 'react'
+import ConfirmDialog from './ConfirmDialog'
+import { useConfirm } from '@/lib/useConfirm'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
   return (
@@ -229,6 +231,7 @@ export default function PersonColumn({
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragError, setDragError] = useState<string | null>(null)
   const suppressClickRef = useRef(false)
+  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirm()
   const setMobileSelectedId = onMobileSelect ?? (() => {})
 
   const effectiveStart = startHour ?? GRID_START_HOUR
@@ -294,44 +297,40 @@ export default function PersonColumn({
       }
 
       const action = type === 'move' ? 'move' : 'resize'
-      const msg = `Are you sure you want to ${action} this activity to ${dragState.currentFrom}-${dragState.currentTo}?`
-      if (!window.confirm(msg)) {
-        setDrag(null)
+      const msg = `${action === 'move' ? 'Move' : 'Resize'} this activity to ${dragState.currentFrom}-${dragState.currentTo}?`
+      const capturedDragState = { ...dragState }
+      confirm(msg, async () => {
         suppressClickRef.current = true
         setTimeout(() => { suppressClickRef.current = false }, 300)
-        return
-      }
 
-      suppressClickRef.current = true
-      setTimeout(() => { suppressClickRef.current = false }, 300)
+        setDrag({ ...capturedDragState, saving: true })
+        const source = activity.source
+        const url = source === 'herbe'
+          ? `/api/activities/${activity.id}`
+          : source === 'google'
+            ? `/api/google/${activity.id}`
+            : `/api/outlook/${activity.id}`
+        const body = source === 'herbe'
+          ? { StartTime: capturedDragState.currentFrom, EndTime: capturedDragState.currentTo }
+          : {
+              subject: activity.description,
+              start: { dateTime: `${date}T${capturedDragState.currentFrom}:00`, timeZone: 'Europe/Riga' },
+              end: { dateTime: `${date}T${capturedDragState.currentTo}:00`, timeZone: 'Europe/Riga' },
+            }
 
-      setDrag({ ...dragState, saving: true })
-      const source = activity.source
-      const url = source === 'herbe'
-        ? `/api/activities/${activity.id}`
-        : source === 'google'
-          ? `/api/google/${activity.id}`
-          : `/api/outlook/${activity.id}`
-      const body = source === 'herbe'
-        ? { StartTime: dragState.currentFrom, EndTime: dragState.currentTo }
-        : {
-            subject: activity.description,
-            start: { dateTime: `${date}T${dragState.currentFrom}:00`, timeZone: 'Europe/Riga' },
-            end: { dateTime: `${date}T${dragState.currentTo}:00`, timeZone: 'Europe/Riga' },
-          }
-
-      const res = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: res.statusText }))
-        setDragError(data.error ?? res.statusText ?? 'Could not save time change')
-        setTimeout(() => setDragError(null), 4000)
-      }
-      setDrag(null)
-      onActivityUpdate()
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: res.statusText }))
+          setDragError(data.error ?? res.statusText ?? 'Could not save time change')
+          setTimeout(() => setDragError(null), 4000)
+        }
+        setDrag(null)
+        onActivityUpdate()
+      }, { confirmLabel: action === 'move' ? 'Move' : 'Resize' })
     }
 
     window.addEventListener('pointermove', onMove)
@@ -526,6 +525,20 @@ export default function PersonColumn({
         )}
       </div>
 
+      {confirmState && (
+        <ConfirmDialog
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          destructive={confirmState.destructive}
+          onConfirm={handleConfirm}
+          onCancel={() => {
+            setDrag(null)
+            suppressClickRef.current = true
+            setTimeout(() => { suppressClickRef.current = false }, 300)
+            handleCancel()
+          }}
+        />
+      )}
     </div>
   )
 }

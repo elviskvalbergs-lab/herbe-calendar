@@ -1,11 +1,22 @@
 import { cookies } from 'next/headers'
+import type { NextRequest } from 'next/server'
 import { pool } from '@/lib/db'
+import { verifyCookieValue } from '@/lib/signedCookie'
 
-/** Read the selected admin account ID from cookie, or return undefined */
+/** Read the selected admin account ID from signed cookie (route handler variant) */
+export function getAccountIdFromCookie(req: NextRequest): string | undefined {
+  const raw = req.cookies.get('adminAccountId')?.value
+  if (!raw) return undefined
+  return verifyCookieValue(raw) ?? undefined
+}
+
+/** Read the selected admin account ID from signed cookie, or return undefined */
 export async function getAdminAccountId(): Promise<string | undefined> {
   try {
     const cookieStore = await cookies()
-    return cookieStore.get('adminAccountId')?.value || undefined
+    const raw = cookieStore.get('adminAccountId')?.value
+    if (!raw) return undefined
+    return verifyCookieValue(raw) ?? undefined
   } catch {
     return undefined
   }

@@ -6,10 +6,7 @@ import { pool } from '@/lib/db'
 import { encrypt } from '@/lib/crypto'
 import { getSmtpConfig, sendMailSmtp } from '@/lib/smtp'
 import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
-
-function getAccountIdFromCookie(req: NextRequest): string | undefined {
-  return req.cookies.get('adminAccountId')?.value || undefined
-}
+import { getAccountIdFromCookie } from '@/lib/adminAccountId'
 
 export async function PUT(req: NextRequest) {
   let session

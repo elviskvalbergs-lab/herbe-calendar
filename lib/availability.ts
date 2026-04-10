@@ -1,4 +1,13 @@
 import { getDay, parseISO } from 'date-fns'
+import { herbeFetchAll } from '@/lib/herbe/client'
+import { graphFetch } from '@/lib/graph/client'
+import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
+import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
+import { REGISTERS } from '@/lib/herbe/constants'
+import { fetchIcsEvents } from '@/lib/icsParser'
+import { toTime, isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
+import { emailForCode } from '@/lib/emailForCode'
+import { pool } from '@/lib/db'
 import type { AvailabilityWindow } from '@/types'
 
 export interface BusyBlock {
@@ -12,13 +21,13 @@ export interface TimeSlot {
 }
 
 /** Convert "HH:mm" to total minutes since midnight */
-function toMinutes(time: string): number {
+export function toMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number)
   return h * 60 + m
 }
 
 /** Convert total minutes since midnight to "HH:mm" */
-function fromMinutes(mins: number): string {
+export function fromMinutes(mins: number): string {
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
@@ -88,4 +97,143 @@ export function computeAvailableSlots(
   }
 
   return slots
+}
+
+/**
+ * Collect all busy blocks for a set of person codes on a given date range.
+ * Fetches from ERP, Outlook, ICS, and Google Calendar.
+ */
+export async function collectBusyBlocks(
+  personCodes: string[],
+  ownerEmail: string,
+  accountId: string,
+  dateFrom: string,
+  dateTo: string,
+  hiddenCalendars?: Set<string>,
+): Promise<Map<string, BusyBlock[]>> {
+  const busyByDate = new Map<string, BusyBlock[]>()
+
+  function addBusy(date: string, block: BusyBlock) {
+    const existing = busyByDate.get(date)
+    if (existing) existing.push(block)
+    else busyByDate.set(date, [block])
+  }
+
+  const personSet = new Set(personCodes)
+
+  // ERP activities
+  if (!hiddenCalendars?.has('herbe'))
+  try {
+    const connections = await getErpConnections(accountId)
+    for (const conn of connections) {
+      try {
+        const raw = await herbeFetchAll(REGISTERS.activities, {
+          sort: 'TransDate', range: `${dateFrom}:${dateTo}`,
+        }, 100, conn)
+        for (const record of raw) {
+          const r = record as Record<string, unknown>
+          if (!isCalendarRecord(r)) continue
+          const { main, cc } = parsePersons(r)
+          if ([...main, ...cc].some(p => personSet.has(p))) {
+            const date = String(r['TransDate'] ?? '')
+            const start = toTime(String(r['StartTime'] ?? ''))
+            const end = toTime(String(r['EndTime'] ?? ''))
+            if (date && start && end) addBusy(date, { start, end })
+          }
+        }
+      } catch (e) {
+        console.warn(`[availability] ERP "${conn.name}" busy fetch failed:`, String(e))
+      }
+    }
+  } catch (e) {
+    console.warn('[availability] ERP connections lookup failed:', String(e))
+  }
+
+  // Outlook + ICS + Google per person
+  for (const code of personCodes) {
+    try {
+      const email = await emailForCode(code, accountId)
+      if (!email) continue
+
+      // Outlook Graph
+      if (!hiddenCalendars?.has('outlook'))
+      try {
+        const azureConfig = await getAzureConfig(accountId)
+        if (azureConfig) {
+          const startDt = `${dateFrom}T00:00:00`
+          const endDt = `${dateTo}T23:59:59`
+          const res = await graphFetch(
+            `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$select=start,end`,
+            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+            azureConfig
+          )
+          if (res.ok) {
+            const data = await res.json()
+            for (const ev of data.value ?? []) {
+              const startStr = (ev.start as { dateTime?: string })?.dateTime ?? ''
+              const endStr = (ev.end as { dateTime?: string })?.dateTime ?? ''
+              const date = startStr.slice(0, 10)
+              const startTime = startStr.slice(11, 16)
+              const endTime = endStr.slice(11, 16)
+              if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[availability] Outlook busy fetch failed for ${code}:`, String(e))
+      }
+
+      // ICS feeds
+      try {
+        const { rows: icsRows } = await pool.query(
+          'SELECT ics_url FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
+          [ownerEmail, code]
+        )
+        for (const row of icsRows) {
+          try {
+            const icsResult = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
+            for (const ev of icsResult.events) {
+              const start = String(ev.timeFrom ?? '')
+              const end = String(ev.timeTo ?? '')
+              const date = String(ev.date ?? '')
+              if (date && start && end) addBusy(date, { start, end })
+            }
+          } catch { /* ICS parse failures are non-fatal — skip feed */ }
+        }
+      } catch (e) {
+        console.warn(`[availability] ICS busy fetch failed for ${code}:`, String(e))
+      }
+
+      // Google Calendar
+      if (!hiddenCalendars?.has('google'))
+      try {
+        const googleConfig = await getGoogleConfig(accountId)
+        if (googleConfig) {
+          const calendar = getCalendarClient(googleConfig, email)
+          const res = await calendar.events.list({
+            calendarId: 'primary',
+            timeMin: `${dateFrom}T00:00:00Z`,
+            timeMax: `${dateTo}T23:59:59Z`,
+            singleEvents: true,
+            fields: 'items(start,end)',
+          })
+          for (const ev of res.data.items ?? []) {
+            const startStr = ev.start?.dateTime ?? ''
+            const endStr = ev.end?.dateTime ?? ''
+            if (!startStr || !endStr) continue
+            const date = startStr.slice(0, 10)
+            const startTime = startStr.slice(11, 16)
+            const endTime = endStr.slice(11, 16)
+            if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
+          }
+        }
+      } catch (e) {
+        console.warn(`[availability] Google busy fetch failed for ${code}:`, String(e))
+      }
+    } catch (e) {
+      console.warn(`[availability] Busy fetch failed for ${code}:`, String(e))
+    }
+  }
+
+  return busyByDate
 }

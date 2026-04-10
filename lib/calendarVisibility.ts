@@ -1,5 +1,6 @@
 export const HERBE_ID = 'herbe'
 export const OUTLOOK_ID = 'outlook'
+export const GOOGLE_ID = 'google'
 export const HERBE_COLOR = '#228B22'
 
 export function icsId(name: string): string {

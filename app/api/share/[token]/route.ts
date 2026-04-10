@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { compare } from 'bcryptjs'
+import { isRateLimited } from '@/lib/rateLimit'
 
 const LINK_QUERY = `
   SELECT
@@ -94,6 +95,11 @@ export async function POST(
   }
 
   if (link.passwordHash) {
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const rateLimitKey = `share-pw:${token}:${clientIp}`
+    if (isRateLimited(rateLimitKey)) {
+      return NextResponse.json({ error: 'Too many attempts, try again later' }, { status: 429 })
+    }
     const valid = await compare(password ?? '', link.passwordHash)
     if (!valid) {
       return NextResponse.json({ error: 'Invalid password' }, { status: 403 })

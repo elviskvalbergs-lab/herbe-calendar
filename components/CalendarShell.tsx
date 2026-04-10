@@ -14,7 +14,7 @@ import {
   SOURCE_COLOR_CODES, type ColorOverrideRow,
 } from '@/lib/activityColors'
 import {
-  HERBE_ID, OUTLOOK_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
+  HERBE_ID, OUTLOOK_ID, GOOGLE_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
 } from '@/lib/calendarVisibility'
 
 interface Props { userCode: string; companyCode: string; accountId?: string }
@@ -100,7 +100,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const calendarSources: CalendarSource[] = useMemo(() => [
     ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
     ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: resolvedOutlookColor }] : []),
-    ...(sources.google ? [{ id: 'google', label: 'Google', color: resolvedGoogleColor }] : []),
+    ...(sources.google ? [{ id: GOOGLE_ID, label: 'Google', color: resolvedGoogleColor }] : []),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
@@ -111,9 +111,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     return activities.filter(a => {
       if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
       if (a.source === 'outlook' && !a.isExternal) return !hiddenCalendars.has(OUTLOOK_ID)
-      if (a.source === 'google' && !a.isExternal) return !hiddenCalendars.has('google')
+      if (a.source === 'google' && !a.isExternal) return !hiddenCalendars.has(GOOGLE_ID)
       if (a.source === 'herbe') return !hiddenCalendars.has(HERBE_ID)
-      return true
+      // Unknown source — check by source name as calendar ID
+      return !hiddenCalendars.has(a.source)
     })
   }, [activities, hiddenCalendars])
 
@@ -181,11 +182,17 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   function canEditActivity(activity: Activity): boolean {
     if (activity.okFlag) return false
-    if (activity.source === 'outlook') return !!activity.isOrganizer
-    const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
-    const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
-    const inCCPersons = activity.ccPersons?.includes(userCode) ?? false
-    return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
+    // External calendar sources: only the organizer can edit
+    if (activity.source === 'outlook' || activity.source === 'google') return !!activity.isOrganizer
+    // ERP activities: check person assignment
+    if (activity.source === 'herbe') {
+      const inMainPersons = activity.mainPersons?.includes(userCode) ?? false
+      const inAccessGroup = activity.accessGroup?.split(',').map(s => s.trim()).includes(userCode) ?? false
+      const inCCPersons = activity.ccPersons?.includes(userCode) ?? false
+      return activity.personCode === userCode || inMainPersons || inAccessGroup || inCCPersons
+    }
+    // Unknown source — default to read-only
+    return false
   }
 
   // Persist state to localStorage + keep current history entry in sync
@@ -528,10 +535,18 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       }
       let outlook: Activity[] = []
       let outlookErrMsg = ''
+      const icsWarnings: string[] = []
       if (sources.azure) {
         const outlookRes = responses[idx++]
         if (outlookRes.ok) {
-          outlook = await outlookRes.json()
+          const data = await outlookRes.json()
+          // New format: { activities, warnings } or legacy flat array
+          if (Array.isArray(data)) {
+            outlook = data
+          } else {
+            outlook = data.activities ?? []
+            if (data.warnings?.length) icsWarnings.push(...data.warnings)
+          }
         } else {
           try {
             const e = await outlookRes.json()
@@ -570,9 +585,11 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
       if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
       if (sources.google) parts.push(`${uniqueGoogle.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
+      let statusMsg = parts.join(' + ') + ' activities'
+      if (icsWarnings.length > 0) statusMsg += ` | ⚠ ${icsWarnings.join('; ')}`
       setStatus({
-        msg: parts.join(' + ') + ' activities',
-        ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg,
+        msg: statusMsg,
+        ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg && icsWarnings.length === 0,
       })
     } catch (e) {
       setStatus({ msg: `Fetch failed: ${e}`, ok: false })

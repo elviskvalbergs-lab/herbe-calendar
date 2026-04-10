@@ -5,15 +5,12 @@ import { graphFetch } from '@/lib/graph/client'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchIcsEvents } from '@/lib/icsParser'
+import { toTime, isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import ICAL from 'ical.js'
 import type { ShareVisibility } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
-
-function toTime(raw: string): string {
-  return (raw ?? '').slice(0, 5)
-}
 
 export async function GET(
   req: NextRequest,
@@ -96,15 +93,11 @@ export async function GET(
       for (const conn of connections) {
         try {
           const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
-          // Filter to calendar entries only (TodoFlag 0 or empty)
-          const calendarRecords = raw.filter(r => {
-            const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
-            return todoFlag === '0' || todoFlag === ''
-          })
-          for (const record of calendarRecords) {
+          for (const record of raw) {
             const r = record as Record<string, unknown>
-            const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-            for (const p of mainPersons) {
+            if (!isCalendarRecord(r)) continue
+            const { main } = parsePersons(r)
+            for (const p of main) {
               if (personSet.has(p)) {
                 allActivities.push({
                   id: `erp-${conn.id}-${r['SerNr']}`,
@@ -146,8 +139,8 @@ export async function GET(
             const icsKey = calName ? `ics:${calName}` : 'ics'
             if (hiddenCalendarsSet.has(icsKey)) continue
             try {
-              const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
-              for (const ev of events) {
+              const icsResult = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
+              for (const ev of icsResult.events) {
                 allActivities.push({
                   ...ev as RawActivity,
                   id: `ics-${code}-${ev.id}`,

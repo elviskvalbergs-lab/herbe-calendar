@@ -1,4 +1,12 @@
-export type Source = 'herbe' | 'outlook' | 'google'
+/** Known calendar sources. Use string (not a closed union) so new sources can be added without touching this type. */
+export type Source = 'herbe' | 'outlook' | 'google' | (string & {})
+
+/** Well-known source identifiers */
+export const SOURCES = {
+  herbe: 'herbe',
+  outlook: 'outlook',
+  google: 'google',
+} as const
 
 export interface Person {
   code: string      // e.g. "EKS"
@@ -30,7 +38,8 @@ export interface Activity {
   isOrganizer?: boolean   // Outlook only
   isOnlineMeeting?: boolean // Outlook: whether it's a Teams meeting
   attendees?: { email: string; name?: string; type: 'required' | 'optional'; responseStatus?: string }[]
-  joinUrl?: string        // Outlook/Teams meeting join link
+  videoProvider?: 'teams' | 'meet' | 'zoom' | (string & {})  // Video call provider (extensible)
+  joinUrl?: string        // Video meeting join link
   webLink?: string        // Outlook web UI link that opens this specific event
   ccPersons?: string[]    // Herbe CCPersons field — comma-split
   rsvpStatus?: 'accepted' | 'declined' | 'tentativelyAccepted' | 'notResponded' | 'organizer'

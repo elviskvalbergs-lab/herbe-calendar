@@ -27,7 +27,9 @@ export async function GET(
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   }
 
-  return NextResponse.json(rows[0])
+  // Strip internal fields from public response
+  const { account_id, ...booking } = rows[0]
+  return NextResponse.json(booking)
 }
 
 export async function DELETE(

@@ -1,53 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { herbeFetch, herbeFetchAll } from '@/lib/herbe/client'
-import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
+import { herbeFetch } from '@/lib/herbe/client'
+import { REGISTERS } from '@/lib/herbe/constants'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
+import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import type { Activity } from '@/types'
-
-function toTime(raw: string): string {
-  // "HH:mm:ss" or "HH:mm" → "HH:mm"
-  return (raw ?? '').slice(0, 5)
-}
-
-function mapActivity(r: Record<string, unknown>, personCode: string): Activity {
-  const mainPersonsRaw = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  const ccPersonsRaw = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  // Text lives in row 0 of the Herbe record — may come back flat as r['Text']
-  // or nested under r['rows']?.[0]?.['Text'] depending on the API endpoint
-  const rows = r['rows'] as Record<string, unknown>[] | undefined
-  let textValue = String(r['Text'] ?? '')
-  if (!textValue && rows && rows.length > 0) {
-    textValue = rows
-      .map(row => String(row['Text'] ?? ''))
-      .filter(s => s !== '')
-      .join('\n')
-  }
-  const finalTextValue = textValue || undefined
-  return {
-    id: String(r['SerNr'] ?? ''),
-    source: 'herbe',
-    personCode,
-    mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
-    ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
-    description: String(r['Comment'] ?? ''),
-    date: String(r['TransDate'] ?? ''),
-    timeFrom: toTime(String(r['StartTime'] ?? '')),
-    timeTo: toTime(String(r['EndTime'] ?? '')),
-    activityTypeCode: String(r['ActType'] ?? '') || undefined,
-    customerCode: String(r['CUCode'] ?? '') || undefined,
-    customerName: String(r['CUName'] ?? '') || undefined,
-    projectCode: String(r['PRCode'] ?? '') || undefined,
-    projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
-    itemCode: String(r['ItemCode'] ?? '') || undefined,
-    textInMatrix: finalTextValue,
-    accessGroup: String(r[ACTIVITY_ACCESS_GROUP_FIELD] ?? '') || undefined,
-    planned: String(r['CalTimeFlag'] ?? '1') === '2',
-    okFlag: String(r['OKFlag'] ?? '0') === '1',
-  }
-}
 
 export async function GET(req: Request) {
   let session
@@ -68,60 +27,11 @@ export async function GET(req: Request) {
 
   try {
     const personList = persons.split(',').map(p => p.trim())
-    const personSet = new Set(personList)
 
-    // Fetch from all active ERP connections
-    let connections: Awaited<ReturnType<typeof getErpConnections>> = []
-    try {
-      connections = await getErpConnections(session.accountId)
-    } catch (e) {
-      console.error('[activities] getErpConnections failed:', e)
-      return NextResponse.json({ error: `ERP config error: ${String(e)}` }, { status: 500 })
-    }
-    console.log(`[activities] Found ${connections.length} ERP connections, persons: ${persons}, date: ${dateFrom}`)
-    if (connections.length === 0) {
-      return NextResponse.json([], { headers: { 'Cache-Control': 'no-store' } })
-    }
-    const allResults: Activity[] = []
-
-    await Promise.all(connections.map(async (conn) => {
-      try {
-        const raw = await herbeFetchAll(REGISTERS.activities, {
-          sort: 'TransDate',
-          range: `${dateFrom}:${dateTo}`,
-        }, 100, conn)
-
-        // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
-        const calendarRecords = raw.filter(r => {
-          const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
-          return todoFlag === '0' || todoFlag === ''
-        })
-
-        const results: Activity[] = calendarRecords.flatMap(r => {
-          const rec = r as Record<string, unknown>
-          const mainPersons = String(rec['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-          return mainPersons
-            .filter(p => personSet.has(p))
-            .map(p => ({ ...mapActivity(rec, p), erpConnectionId: conn.id, erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined }))
-        })
-
-        // Emit CC rows
-        for (const record of calendarRecords) {
-          const r = record as Record<string, unknown>
-          const mainPersonsArr = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-          const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-          for (const ccCode of ccPersonsArr) {
-            if (personList.includes(ccCode) && !mainPersonsArr.includes(ccCode)) {
-              results.push({ ...mapActivity(r, ccCode), erpConnectionId: conn.id, erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined })
-            }
-          }
-        }
-
-        allResults.push(...results)
-      } catch (e) {
-        console.warn(`[activities] ERP connection "${conn.name}" failed:`, String(e))
-      }
-    }))
+    const allResults = await fetchErpActivities(
+      session.accountId, personList, dateFrom, dateTo ?? dateFrom,
+      { includePrivateFields: true }
+    )
 
     // Track day_viewed (fire-and-forget)
     if (dateFrom && session.email) {

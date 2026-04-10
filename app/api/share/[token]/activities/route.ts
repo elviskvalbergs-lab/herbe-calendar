@@ -1,41 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
-import { herbeFetchAll } from '@/lib/herbe/client'
 import { graphFetch } from '@/lib/graph/client'
-import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
-import { REGISTERS } from '@/lib/herbe/constants'
-import { fetchIcsEvents } from '@/lib/icsParser'
+import { getAzureConfig } from '@/lib/accountConfig'
+import { fetchIcsEvents, deduplicateIcsAgainstGraph } from '@/lib/icsParser'
+import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
 import { compare } from 'bcryptjs'
+import { isRateLimited } from '@/lib/rateLimit'
 import type { Activity, ShareVisibility } from '@/types'
-
-function toTime(raw: string): string {
-  return (raw ?? '').slice(0, 5)
-}
-
-function mapHerbeActivity(r: Record<string, unknown>, personCode: string): Record<string, unknown> {
-  const mainPersonsRaw = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  const ccPersonsRaw = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  return {
-    id: String(r['SerNr'] ?? ''),
-    source: 'herbe',
-    personCode,
-    description: String(r['Comment'] ?? ''),
-    date: String(r['TransDate'] ?? ''),
-    timeFrom: toTime(String(r['StartTime'] ?? '')),
-    timeTo: toTime(String(r['EndTime'] ?? '')),
-    activityTypeCode: String(r['ActType'] ?? '') || undefined,
-    activityTypeName: undefined,
-    customerName: String(r['CUName'] ?? '') || undefined,
-    projectName: String(r['PRName'] ?? r['PRComment'] ?? '') || undefined,
-    mainPersons: mainPersonsRaw.length ? mainPersonsRaw : undefined,
-    ccPersons: ccPersonsRaw.length ? ccPersonsRaw : undefined,
-    planned: String(r['CalTimeFlag'] ?? '1') === '2',
-    okFlag: String(r['OKFlag'] ?? '0') === '1',
-  }
-}
 
 function filterActivity(activity: Record<string, unknown>, visibility: ShareVisibility): Partial<Activity> {
   const base = {
@@ -110,8 +84,13 @@ export async function GET(
     return NextResponse.json({ error: 'Link expired' }, { status: 410 })
   }
 
-  // Password-protected: check x-share-auth header
+  // Password-protected: check x-share-auth header with rate limiting
   if (link.hasPassword) {
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const rateLimitKey = `share-pw:${token}:${clientIp}`
+    if (isRateLimited(rateLimitKey)) {
+      return NextResponse.json({ error: 'Too many attempts, try again later' }, { status: 429 })
+    }
     const headerPassword = req.headers.get('x-share-auth') ?? ''
     const valid = await compare(headerPassword, link.passwordHash)
     if (!valid) {
@@ -132,43 +111,12 @@ export async function GET(
   const ownerEmail: string = link.ownerEmail
   const accountId: string = link.accountId ?? DEFAULT_ACCOUNT_ID
 
-  const allActivities: Record<string, unknown>[] = []
+  const allActivities: (Record<string, unknown> | Activity)[] = []
 
   // Fetch Herbe activities from all ERP connections
   if (!hiddenCalendarsSet.has('herbe')) {
-    try {
-      const connections = await getErpConnections(accountId)
-      for (const conn of connections) {
-        try {
-          const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
-          // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
-          const calendarRecords = raw.filter(r => {
-            const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
-            return todoFlag === '0' || todoFlag === ''
-          })
-          for (const record of calendarRecords) {
-            const r = record as Record<string, unknown>
-            const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-            for (const p of mainPersons) {
-              if (personSet.has(p)) {
-                allActivities.push(mapHerbeActivity(r, p))
-              }
-            }
-            // CC rows
-            const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-            for (const ccCode of ccPersonsArr) {
-              if (personSet.has(ccCode) && !mainPersons.includes(ccCode)) {
-                allActivities.push(mapHerbeActivity(r, ccCode))
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(`[share/activities] ERP "${conn.name}" failed:`, String(e))
-        }
-      }
-    } catch (e) {
-      console.warn('[share/activities] ERP connections lookup failed:', String(e))
-    }
+    const erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, dateTo)
+    allActivities.push(...erpActivities)
   }
 
   // Fetch Outlook/ICS activities per person
@@ -186,8 +134,8 @@ export async function GET(
         )
         const icsResults = await Promise.all(
           icsRows.map(async (row) => {
-            const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
-            return events.map(ev => ({
+            const icsResult = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
+            return icsResult.events.map(ev => ({
               ...ev,
               ...(row.color ? { icsColor: row.color } : {}),
               icsCalendarName: row.name,
@@ -235,12 +183,7 @@ export async function GET(
       }
 
       // Deduplicate ICS vs Graph
-      const graphKeys = new Set(
-        graphEvents.map(e => `${e.date}|${e.timeFrom}|${e.timeTo}|${String(e.description).toLowerCase()}`)
-      )
-      const uniqueIcs = icsEvents.filter(
-        e => !graphKeys.has(`${e.date}|${e.timeFrom}|${e.timeTo}|${String(e.description).toLowerCase()}`)
-      )
+      const uniqueIcs = deduplicateIcsAgainstGraph(graphEvents, icsEvents)
 
       // Apply hidden calendars filter
       const outlookHidden = hiddenCalendarsSet.has('outlook')
@@ -262,7 +205,7 @@ export async function GET(
   }
 
   // Apply visibility filter
-  const filtered = allActivities.map(a => filterActivity(a, visibility))
+  const filtered = allActivities.map(a => filterActivity(a as Record<string, unknown>, visibility))
 
   return NextResponse.json(filtered, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import type { CalendarSource, Person } from '@/types'
 
 interface Props {
@@ -19,6 +20,13 @@ export default function CalendarSourcesDropdown({ sources, hidden, onToggle, onS
   const totalCount = sources.length
   const allVisible = visibleCount === totalCount
   const allHidden = visibleCount === 0
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange?.(false) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onOpenChange])
 
   // Split sources into global (herbe/outlook) and per-person ICS groups
   const globalSources = sources.filter(s => !s.personCode)

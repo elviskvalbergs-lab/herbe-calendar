@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { pool } from '@/lib/db'
-
-function getAccountIdFromCookie(req: NextRequest): string | undefined {
-  return req.cookies.get('adminAccountId')?.value || undefined
-}
+import { getAccountIdFromCookie } from '@/lib/adminAccountId'
 
 export async function GET(req: NextRequest) {
   let session

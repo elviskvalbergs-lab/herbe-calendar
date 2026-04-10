@@ -471,9 +471,12 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
                   </button>
                   {conn.client_id && (
                     <button
-                      onClick={() => {
+                      onClick={async () => {
+                        const res = await fetch('/api/admin/oauth-nonce', { method: 'POST' })
+                        if (!res.ok) return
+                        const { nonce } = await res.json()
                         const callbackUrl = `${window.location.origin}/api/herbe/callback`
-                        const state = conn.id // pass connection ID as state
+                        const state = `${nonce}:${conn.id}`
                         const authorizeUrl = `https://standard-id.hansaworld.com/oauth-authorize?client_id=${encodeURIComponent(conn.client_id)}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${encodeURIComponent(state)}`
                         window.open(authorizeUrl, '_blank')
                       }}

@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react'
 import type { Favorite, CalendarState } from '@/types'
 import { loadFavorites, addFavorite, removeFavorite } from '@/lib/favorites'
 import FavoriteDetailModal from './FavoriteDetailModal'
+import ConfirmDialog from './ConfirmDialog'
+import { useConfirm } from '@/lib/useConfirm'
 
 interface Props {
   state: CalendarState
@@ -22,6 +24,14 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
   const [detailFavorite, setDetailFavorite] = useState<Favorite | null>(null)
   const [linkCounts, setLinkCounts] = useState<Record<string, number>>({})
   const inputRef = useRef<HTMLInputElement>(null)
+  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirm()
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setNaming(false) } }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open])
 
   useEffect(() => {
     loadFavorites().then(favs => { setFavorites(favs); setLoading(false) })
@@ -44,11 +54,12 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
     setNaming(false)
   }
 
-  async function handleDelete(e: React.MouseEvent, id: string) {
+  function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation()
-    if (!confirm('Remove this favorite view?')) return
-    setFavorites(prev => prev.filter(f => f.id !== id))
-    await removeFavorite(id)
+    confirm('Remove this favorite view?', async () => {
+      setFavorites(prev => prev.filter(f => f.id !== id))
+      await removeFavorite(id)
+    }, { confirmLabel: 'Remove', destructive: true })
   }
 
   function handleApply(fav: Favorite) {
@@ -177,6 +188,15 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
         )}
       </div>
       {modal}
+      {confirmState && (
+        <ConfirmDialog
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          destructive={confirmState.destructive}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
     </>
   )
 }

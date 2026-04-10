@@ -2,10 +2,52 @@
 import { useState, useEffect, useRef } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
 import ErrorBanner from './ErrorBanner'
+import ConfirmDialog from './ConfirmDialog'
+import { useConfirm } from '@/lib/useConfirm'
 import { readableAccentColor } from '@/lib/activityColors'
 import { format } from 'date-fns'
 import { serpLink } from '@/lib/serpLink'
 import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons, getRecentCCPersons, saveRecentCCPersons } from '@/lib/recentItems'
+
+interface Attendee { email?: string; name?: string }
+
+/** Resolve Outlook/Google attendees to internal person codes by email, name, and domain matching */
+function resolveAttendeesToPersonCodes(
+  attendees: Attendee[],
+  people: Person[],
+  personCode?: string,
+): { codes: string[]; external: string[] } {
+  const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
+  const internalNameGroups = new Map<string, Person[]>()
+  for (const p of people) {
+    if (!p.name) continue
+    const key = p.name.toLowerCase()
+    const group = internalNameGroups.get(key) ?? []
+    group.push(p)
+    internalNameGroups.set(key, group)
+  }
+
+  const codes = new Set<string>()
+  if (personCode) codes.add(personCode)
+  const external: string[] = []
+
+  for (const att of attendees) {
+    const byEmail = att.email ? internalEmails.get(att.email.toLowerCase()) : undefined
+    if (byEmail) { codes.add(byEmail); continue }
+    if (att.name) {
+      const group = internalNameGroups.get(att.name.toLowerCase())
+      if (group?.length === 1) { codes.add(group[0].code); continue }
+      if (group && att.email) {
+        const attDomain = att.email.split('@')[1]?.toLowerCase()
+        const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
+        if (domainMatch || group[0]) { codes.add((domainMatch ?? group[0]).code); continue }
+      }
+    }
+    if (att.email) external.push(att.email)
+  }
+
+  return { codes: [...codes], external }
+}
 
 interface Props {
   initial?: Partial<Activity>
@@ -62,37 +104,9 @@ export default function ActivityForm({
   const activeErpConnection = erpConnections.find(c => c.id === source)
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
-    // For Outlook events: match attendees to internal people by email or name
     if (isEdit && (initial?.source === 'outlook' || initial?.source === 'google') && initial?.attendees?.length) {
-      const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
-      // Group people by name for disambiguation
-      const internalNameGroups = new Map<string, typeof people>()
-      for (const p of people) {
-        if (!p.name) continue
-        const key = p.name.toLowerCase()
-        const group = internalNameGroups.get(key) ?? []
-        group.push(p)
-        internalNameGroups.set(key, group)
-      }
-      const codes = new Set<string>()
-      if (initial.personCode) codes.add(initial.personCode)
-      for (const att of initial.attendees) {
-        // Try email match first
-        const byEmail = att.email ? internalEmails.get(att.email.toLowerCase()) : undefined
-        if (byEmail) { codes.add(byEmail); continue }
-        // Name match: if multiple people share the name, prefer the one with matching email domain
-        if (att.name) {
-          const group = internalNameGroups.get(att.name.toLowerCase())
-          if (group?.length === 1) {
-            codes.add(group[0].code)
-          } else if (group && att.email) {
-            const attDomain = att.email.split('@')[1]?.toLowerCase()
-            const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
-            codes.add(domainMatch?.code ?? group[0].code)
-          }
-        }
-      }
-      if (codes.size > 0) return [...codes]
+      const { codes } = resolveAttendeesToPersonCodes(initial.attendees, people, initial.personCode)
+      if (codes.length > 0) return codes
     }
     if (initial?.personCode) return [initial.personCode]
     return defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode]
@@ -162,6 +176,7 @@ export default function ActivityForm({
   const modalRef = useRef<HTMLDivElement>(null)
   const dragStartY = useRef<number | null>(null)
   const isDragging = useRef(false)
+  const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
   // Snapshot of values at form open / reset — used for dirty detection
   // Must match the actual initial selectedPersonCodes to avoid false dirty
   const initialValuesRef = useRef({
@@ -191,39 +206,10 @@ export default function ActivityForm({
     if (!peopleEmailsKey) return // still stubs
     attendeeRecalcDone.current = true
 
-    const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
-    const internalNameGroups = new Map<string, typeof people>()
-    for (const p of people) {
-      if (!p.name) continue
-      const key = p.name.toLowerCase()
-      const group = internalNameGroups.get(key) ?? []
-      group.push(p)
-      internalNameGroups.set(key, group)
-    }
-
-    // Recalculate person codes from attendees
-    const codes = new Set<string>()
-    if (initial.personCode) codes.add(initial.personCode)
-    const external: string[] = []
-    for (const att of initial.attendees) {
-      if (!att.email) continue
-      const byEmail = internalEmails.get(att.email.toLowerCase())
-      if (byEmail) { codes.add(byEmail); continue }
-      // Name match
-      if (att.name) {
-        const group = internalNameGroups.get(att.name.toLowerCase())
-        if (group?.length === 1) { codes.add(group[0].code); continue }
-        if (group && att.email) {
-          const attDomain = att.email.split('@')[1]?.toLowerCase()
-          const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
-          if (domainMatch || group[0]) { codes.add((domainMatch ?? group[0]).code); continue }
-        }
-      }
-      external.push(att.email)
-    }
-    if (codes.size > 0) {
-      setSelectedPersonCodes([...codes])
-      initialValuesRef.current.selectedPersonCodes = [...codes]
+    const { codes, external } = resolveAttendeesToPersonCodes(initial.attendees, people, initial.personCode)
+    if (codes.length > 0) {
+      setSelectedPersonCodes(codes)
+      initialValuesRef.current.selectedPersonCodes = codes
     }
     setExternalAttendees(external)
   }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -338,14 +324,18 @@ export default function ActivityForm({
       }
     }
     if (dy > 80 && isDragging.current) {
-      if (computeIsDirty() && !window.confirm('Discard unsaved changes?')) {
-        springBack()
-      } else {
+      const doClose = () => {
         if (modalRef.current) {
           modalRef.current.style.transition = 'transform 0.2s ease-out'
           modalRef.current.style.transform = `translateY(100%)`
         }
         setTimeout(() => onCloseRef.current(), 200)
+      }
+      if (computeIsDirty()) {
+        springBack()
+        showConfirm('Discard unsaved changes?', doClose, { confirmLabel: 'Discard', destructive: true })
+      } else {
+        doClose()
       }
     } else {
       springBack()
@@ -544,29 +534,36 @@ export default function ActivityForm({
     }
   }
 
-  async function handleDelete(e: React.MouseEvent) {
+  function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(isExternalCalSource ? `Are you sure you want to remove this activity from ${isGoogleSource ? 'Google Calendar' : 'Outlook'}?` : 'Are you sure you want to remove this activity?')) return
-
-    setSaving(true)
-    setErrors([])
-    try {
-      const delConnParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
-      const url = isErpSource ? `/api/activities/${editId}${delConnParam}` : `/api/outlook/${editId}`
-      const res = await fetch(url, { method: 'DELETE' })
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        const errMsg = body?.error || body?.errors?.[0]?.message || res.statusText || 'Deletion failed'
-        setErrors([`Failed to delete: ${errMsg}`])
+    const msg = isExternalCalSource
+      ? `Remove this activity from ${isGoogleSource ? 'Google Calendar' : 'Outlook'}?`
+      : 'Remove this activity?'
+    showConfirm(msg, async () => {
+      setSaving(true)
+      setErrors([])
+      try {
+        const delConnParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+        const url = isErpSource
+          ? `/api/activities/${editId}${delConnParam}`
+          : isGoogleSource
+            ? `/api/google/${editId}`
+            : `/api/outlook/${editId}`
+        const res = await fetch(url, { method: 'DELETE' })
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          const errMsg = body?.error || body?.errors?.[0]?.message || res.statusText || 'Deletion failed'
+          setErrors([`Failed to delete: ${errMsg}`])
+          setSaving(false)
+          return
+        }
+        onSaved()
+        onClose()
+      } catch (err) {
+        setErrors([String(err)])
         setSaving(false)
-        return
       }
-      onSaved()
-      onClose()
-    } catch (err) {
-      setErrors([String(err)])
-      setSaving(false)
-    }
+    }, { confirmLabel: 'Remove', destructive: true })
   }
 
   handleSaveRef.current = handleSave
@@ -591,7 +588,10 @@ export default function ActivityForm({
   }
 
   function handleClose() {
-    if (computeIsDirty() && !window.confirm('Discard unsaved changes?')) return
+    if (computeIsDirty()) {
+      showConfirm('Discard unsaved changes?', () => onCloseRef.current(), { confirmLabel: 'Discard', destructive: true })
+      return
+    }
     onCloseRef.current()
   }
   handleCloseRef.current = handleClose
@@ -814,9 +814,9 @@ export default function ActivityForm({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
-                style={{ background: savedActivity.source === 'google' ? '#1a73e8' : '#464EB8' }}
+                style={{ background: savedActivity.videoProvider === 'meet' ? '#1a73e8' : savedActivity.videoProvider === 'teams' ? '#464EB8' : '#2563eb' }}
               >
-                {savedActivity.source === 'google' ? 'Join Google Meet' : 'Join Teams call'}
+                {savedActivity.videoProvider === 'meet' ? 'Join Google Meet' : savedActivity.videoProvider === 'teams' ? 'Join Teams call' : 'Join meeting'}
               </a>
             )}
             <div className="w-full space-y-2 pt-2">
@@ -852,10 +852,10 @@ export default function ActivityForm({
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-bold text-sm"
-              style={{ background: isGoogleSource ? '#1a73e8' : '#464EB8' }}
+              style={{ background: initial?.videoProvider === 'meet' ? '#1a73e8' : initial?.videoProvider === 'teams' ? '#464EB8' : '#2563eb' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
-              {isGoogleSource ? 'Join Google Meet' : 'Join Teams call'}
+              {initial?.videoProvider === 'meet' ? 'Join Google Meet' : initial?.videoProvider === 'teams' ? 'Join Teams call' : 'Join meeting'}
             </a>
           )}
 
@@ -1685,6 +1685,15 @@ export default function ActivityForm({
           )}
         </div>}
       </div>
+      {confirmState && (
+        <ConfirmDialog
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          destructive={confirmState.destructive}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   )
 }

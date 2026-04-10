@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
+import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
+import { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData } from '@/lib/google/client'
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,6 +20,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json()
     const calendar = getCalendarClient(googleConfig, session.email)
 
+    // Verify ownership: only the organizer can edit
+    const existing = await calendar.events.get({ calendarId: 'primary', eventId: id })
+    if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
+      return forbidden()
+    }
+
     const event: Record<string, unknown> = {
       summary: body.subject,
       start: body.start,
@@ -37,12 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Handle online meeting toggle
     if (body.isOnlineMeeting) {
-      event.conferenceData = {
-        createRequest: {
-          requestId: `herbe-${Date.now()}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      }
+      event.conferenceData = buildGoogleMeetConferenceData()
     }
 
     const res = await calendar.events.patch({
@@ -74,6 +75,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   try {
     const calendar = getCalendarClient(googleConfig, session.email)
+
+    // Verify ownership: only the organizer can delete
+    const existing = await calendar.events.get({ calendarId: 'primary', eventId: id })
+    if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
+      return forbidden()
+    }
+
     await calendar.events.delete({ calendarId: 'primary', eventId: id })
     return NextResponse.json({ ok: true })
   } catch (e) {

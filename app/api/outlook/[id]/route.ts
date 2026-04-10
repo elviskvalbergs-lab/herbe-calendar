@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { getAzureConfig } from '@/lib/accountConfig'
+import type { AzureConfig } from '@/lib/accountConfig'
+
+/** Verify the session user is the organizer of the Outlook event */
+async function assertOrganizer(eventId: string, email: string, azureConfig: AzureConfig): Promise<NextResponse | null> {
+  const check = await graphFetch(`/users/${email}/events/${eventId}`, undefined, azureConfig)
+  if (!check.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const ev = await check.json() as Record<string, unknown>
+  const organizer = ev['organizer'] as { emailAddress?: { address?: string } } | undefined
+  if (organizer?.emailAddress?.address?.toLowerCase() !== email.toLowerCase()) {
+    return forbidden()
+  }
+  return null
+}
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,13 +29,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!azureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
 
   try {
-    const check = await graphFetch(`/users/${session.email}/events/${id}`, undefined, azureConfig)
-    if (!check.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    const ev = await check.json() as Record<string, unknown>
-    const organizer = ev['organizer'] as { emailAddress?: { address?: string } } | undefined
-    if (organizer?.emailAddress?.address?.toLowerCase() !== session.email.toLowerCase()) {
-      return forbidden()
-    }
+    const denied = await assertOrganizer(id, session.email, azureConfig)
+    if (denied) return denied
 
     const raw = await req.json()
     const ALLOWED_PUT_FIELDS = ['subject', 'body', 'start', 'end', 'location', 'attendees'] as const
@@ -54,13 +62,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!azureConfig) return NextResponse.json({ error: 'Azure not configured' }, { status: 400 })
 
   try {
-    const check = await graphFetch(`/users/${session.email}/events/${id}`, undefined, azureConfig)
-    if (!check.ok) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    const ev = await check.json() as Record<string, unknown>
-    const organizer = ev['organizer'] as { emailAddress?: { address?: string } } | undefined
-    if (organizer?.emailAddress?.address?.toLowerCase() !== session.email.toLowerCase()) {
-      return forbidden()
-    }
+    const denied = await assertOrganizer(id, session.email, azureConfig)
+    if (denied) return denied
 
     const res = await graphFetch(`/users/${session.email}/events/${id}`, { method: 'DELETE' }, azureConfig)
     return new NextResponse(null, { status: res.ok ? 204 : res.status })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
+import { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData } from '@/lib/google/client'
 import { emailForCode } from '@/lib/emailForCode'
 import type { Activity } from '@/types'
 
@@ -91,6 +91,7 @@ export async function GET(req: NextRequest) {
             webLink: ev.htmlLink ?? '',
             textInMatrix: ev.description ?? undefined,
             isOnlineMeeting: !!meetLink,
+            videoProvider: meetLink ? 'meet' as const : undefined,
             rsvpStatus: rsvpStatus as Activity['rsvpStatus'],
           }
         })
@@ -137,12 +138,7 @@ export async function POST(req: NextRequest) {
 
     // Add Google Meet if requested
     if (body.isOnlineMeeting) {
-      event.conferenceData = {
-        createRequest: {
-          requestId: `herbe-${Date.now()}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      }
+      event.conferenceData = buildGoogleMeetConferenceData()
     }
 
     const res = await calendar.events.insert({

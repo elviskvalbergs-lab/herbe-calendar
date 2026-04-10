@@ -19,12 +19,11 @@ export async function GET(req: NextRequest) {
     return unauthorized()
   }
 
-  const debug = new URL(req.url).searchParams.get('debug')
   const bustCache = new URL(req.url).searchParams.get('bust') === '1'
 
-  // Return cached result if fresh (skip for debug queries)
+  // Return cached result if fresh
   const cached = usersCache.get(session.accountId)
-  if (!debug && !bustCache && cached && Date.now() - cached.ts < USERS_CACHE_TTL) {
+  if (!bustCache && cached && Date.now() - cached.ts < USERS_CACHE_TTL) {
     return NextResponse.json(cached.response, { headers: { 'Cache-Control': 'private, max-age=300' } })
   }
 
@@ -42,11 +41,6 @@ export async function GET(req: NextRequest) {
         try {
           const users = await herbeFetchAll(REGISTERS.users, {}, 1000, conn)
           const active = users.filter(u => String((u as Record<string, unknown>)['Closed'] ?? '0') === '0')
-
-          if (debug) {
-            const record = (users as Record<string, unknown>[]).find(u => u['Code'] === debug)
-            if (record) return NextResponse.json(record)
-          }
 
           diagnostics.push(`erp:${conn.name}=${active.length}/${users.length}`)
           for (const u of active as Record<string, unknown>[]) {

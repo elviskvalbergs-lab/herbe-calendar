@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
+import { verifyCookieValue } from '@/lib/signedCookie'
 
 const IMPERSONATE_COOKIE = 'impersonateAs'
 
@@ -29,7 +30,10 @@ export async function getImpersonation(): Promise<ImpersonationInfo | null> {
     if (!getSuperAdminEmails().includes(email)) return null
 
     const cookieStore = await cookies()
-    const value = cookieStore.get(IMPERSONATE_COOKIE)?.value
+    const raw = cookieStore.get(IMPERSONATE_COOKIE)?.value
+    if (!raw) return null
+
+    const value = verifyCookieValue(raw)
     if (!value) return null
 
     const [targetEmail, targetAccountId] = value.split('|')

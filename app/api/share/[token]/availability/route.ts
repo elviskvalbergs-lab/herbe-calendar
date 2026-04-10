@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
-import { herbeFetchAll } from '@/lib/herbe/client'
-import { graphFetch } from '@/lib/graph/client'
-import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
-import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
-import { REGISTERS } from '@/lib/herbe/constants'
-import { emailForCode } from '@/lib/emailForCode'
-import { computeAvailableSlots, type BusyBlock } from '@/lib/availability'
+import { computeAvailableSlots, collectBusyBlocks, type BusyBlock } from '@/lib/availability'
+import { toTime } from '@/lib/herbe/recordUtils'
 import type { AvailabilityWindow } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
-function toTime(raw: string): string {
-  return (raw ?? '').slice(0, 5)
-}
 
 export async function GET(
   req: NextRequest,
@@ -87,19 +78,10 @@ export async function GET(
   const windows: AvailabilityWindow[] = template.availability_windows ?? []
   const customFields = template.custom_fields ?? []
 
-  // 5. Collect busy blocks from all sources
-  const busyByDate = new Map<string, BusyBlock[]>()
+  // 5. Collect busy blocks from all calendar sources
+  const busyByDate = await collectBusyBlocks(personCodes, link.ownerEmail, accountId, dateFrom, dateTo, hiddenCalendarsSet)
 
-  function addBusy(date: string, block: BusyBlock) {
-    const existing = busyByDate.get(date)
-    if (existing) {
-      existing.push(block)
-    } else {
-      busyByDate.set(date, [block])
-    }
-  }
-
-  // 5a. Existing bookings
+  // 5a. Also add existing confirmed bookings as busy
   try {
     const { rows: bookingRows } = await pool.query(
       `SELECT booked_date, booked_time, duration_minutes
@@ -118,123 +100,12 @@ export async function GET(
       const endH = Math.floor(endMins / 60)
       const endM = endMins % 60
       const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
-      addBusy(date, { start: startTime, end: endTime })
+      const existing = busyByDate.get(date)
+      if (existing) existing.push({ start: startTime, end: endTime })
+      else busyByDate.set(date, [{ start: startTime, end: endTime }])
     }
   } catch (e) {
     console.warn('[availability] bookings query failed:', String(e))
-  }
-
-  // 5b. ERP activities
-  if (!hiddenCalendarsSet.has('herbe')) {
-    try {
-      const connections = await getErpConnections(accountId)
-      for (const conn of connections) {
-        try {
-          const raw = await herbeFetchAll(
-            REGISTERS.activities,
-            { sort: 'TransDate', range: `${dateFrom}:${dateTo}` },
-            100,
-            conn
-          )
-          const calendarRecords = raw.filter((r) => {
-            const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
-            return todoFlag === '0' || todoFlag === ''
-          })
-          for (const record of calendarRecords) {
-            const r = record as Record<string, unknown>
-            const mainPersons = String(r['MainPersons'] ?? '')
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean)
-            const hasMatchingPerson = mainPersons.some((p) => personSet.has(p))
-            if (hasMatchingPerson) {
-              const date = String(r['TransDate'] ?? '')
-              const startTime = toTime(String(r['StartTime'] ?? ''))
-              const endTime = toTime(String(r['EndTime'] ?? ''))
-              if (date && startTime && endTime) {
-                addBusy(date, { start: startTime, end: endTime })
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(`[availability] ERP fetch failed for connection ${conn.id}:`, String(e))
-        }
-      }
-    } catch (e) {
-      console.warn('[availability] ERP connections lookup failed:', String(e))
-    }
-  }
-
-  // 5c. Outlook calendar
-  if (!hiddenCalendarsSet.has('outlook')) {
-    const azureConfig = await getAzureConfig(accountId)
-    if (azureConfig) {
-      for (const code of personCodes) {
-        try {
-          const email = await emailForCode(code, accountId)
-          if (!email) continue
-          const startDt = `${dateFrom}T00:00:00`
-          const endDt = `${dateTo}T23:59:59`
-          const res = await graphFetch(
-            `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$select=start,end`,
-            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
-            azureConfig
-          )
-          if (res.ok) {
-            const data = await res.json()
-            for (const ev of data.value ?? []) {
-              const start = ev.start as { dateTime?: string } | undefined
-              const end = ev.end as { dateTime?: string } | undefined
-              const startStr = start?.dateTime ?? ''
-              const endStr = end?.dateTime ?? ''
-              const date = startStr.slice(0, 10)
-              const startTime = startStr.slice(11, 16)
-              const endTime = endStr.slice(11, 16)
-              if (date && startTime && endTime) {
-                addBusy(date, { start: startTime, end: endTime })
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(`[availability] Outlook fetch failed for ${code}:`, String(e))
-        }
-      }
-    }
-  }
-
-  // 5d. Google calendar
-  if (!hiddenCalendarsSet.has('google')) {
-    const googleConfig = await getGoogleConfig(accountId)
-    if (googleConfig) {
-      for (const code of personCodes) {
-        try {
-          const email = await emailForCode(code, accountId)
-          if (!email) continue
-          const calendar = getCalendarClient(googleConfig, email)
-          const res = await calendar.events.list({
-            calendarId: 'primary',
-            timeMin: `${dateFrom}T00:00:00Z`,
-            timeMax: `${dateTo}T23:59:59Z`,
-            singleEvents: true,
-            fields: 'items(start,end)',
-          })
-          for (const ev of res.data.items ?? []) {
-            const startStr = ev.start?.dateTime ?? ''
-            const endStr = ev.end?.dateTime ?? ''
-            // Skip all-day events (no dateTime, only date)
-            if (!startStr || !endStr) continue
-            const date = startStr.slice(0, 10)
-            const startTime = startStr.slice(11, 16)
-            const endTime = endStr.slice(11, 16)
-            if (date && startTime && endTime) {
-              addBusy(date, { start: startTime, end: endTime })
-            }
-          }
-        } catch (e) {
-          console.warn(`[availability] Google fetch failed for ${code}:`, String(e))
-        }
-      }
-    }
   }
 
   // 6. Compute slots per day

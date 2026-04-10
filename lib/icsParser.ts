@@ -44,7 +44,12 @@ function extractJoinUrl(comp: ICAL.Component, event: ICAL.Event): string | undef
   return teamsMatch?.[0]
 }
 
-export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string, bustCache = false): Promise<any[]> {
+export interface IcsResult {
+  events: any[]
+  error?: string
+}
+
+export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string, bustCache = false): Promise<IcsResult> {
   try {
     const icsText = await fetchIcsText(url, bustCache)
     const jcalData = ICAL.parse(icsText)
@@ -185,9 +190,21 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
         }
       }
     }
-    return events
+    return { events }
   } catch (e) {
-    console.error(`[outlook] ICS fetch/parse failed for ${url}:`, e)
-    return []
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[outlook] ICS fetch/parse failed for ${url}:`, msg)
+    return { events: [], error: msg }
   }
+}
+
+/** Build a dedup key for an event (date|timeFrom|timeTo|description) */
+function eventDedupKey(e: { date?: string; timeFrom?: string; timeTo?: string; description?: string }): string {
+  return `${e.date ?? ''}|${e.timeFrom ?? ''}|${e.timeTo ?? ''}|${String(e.description ?? '').toLowerCase()}`
+}
+
+/** Remove ICS events that duplicate Graph events (same date+time+subject) */
+export function deduplicateIcsAgainstGraph<T extends Record<string, unknown>>(graphEvents: T[], icsEvents: T[]): T[] {
+  const graphKeys = new Set(graphEvents.map(e => eventDedupKey(e as Record<string, unknown>)))
+  return icsEvents.filter(e => !graphKeys.has(eventDedupKey(e as Record<string, unknown>)))
 }

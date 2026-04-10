@@ -201,8 +201,11 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                   <td className="px-4 py-2">
                     <button
                       onClick={() => {
-                        document.cookie = `impersonateAs=${encodeURIComponent(m.email)}|${accountId};path=/;max-age=3600`
-                        window.open('/cal', '_blank')
+                        fetch('/api/admin/impersonate', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: m.email, accountId }),
+                        }).then(() => window.open('/cal', '_blank'))
                       }}
                       className="text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-colors"
                     >

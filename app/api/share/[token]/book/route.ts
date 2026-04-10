@@ -1,163 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { herbeFetch } from '@/lib/herbe/client'
-import { herbeFetchAll } from '@/lib/herbe/client'
 import { graphFetch, sendMail } from '@/lib/graph/client'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
-import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
+import { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData } from '@/lib/google/client'
 import { getSmtpConfig, sendMailSmtp } from '@/lib/smtp'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { emailForCode } from '@/lib/emailForCode'
-import { computeAvailableSlots, type BusyBlock } from '@/lib/availability'
+import { computeAvailableSlots, collectBusyBlocks, toMinutes, fromMinutes, type BusyBlock } from '@/lib/availability'
 import { buildBookingEmail, buildActivityText } from '@/lib/bookingEmail'
-import { fetchIcsEvents } from '@/lib/icsParser'
 import type { AvailabilityWindow, TemplateTargets } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
-
-/** Convert "HH:mm" to total minutes since midnight */
-function toMinutes(time: string): number {
-  const [h, m] = time.split(':').map(Number)
-  return h * 60 + m
-}
-
-/** Convert total minutes since midnight to "HH:mm" */
-function fromMinutes(mins: number): string {
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-/** Collect busy blocks for all person codes on a given date */
-async function collectBusyBlocks(
-  personCodes: string[],
-  ownerEmail: string,
-  accountId: string,
-  date: string
-): Promise<BusyBlock[]> {
-  const busy: BusyBlock[] = []
-
-  // Fetch ERP activities for the date from all connections
-  try {
-    const connections = await getErpConnections(accountId)
-    const personSet = new Set(personCodes)
-    for (const conn of connections) {
-      try {
-        const raw = await herbeFetchAll(REGISTERS.activities, {
-          sort: 'TransDate',
-          range: `${date}:${date}`,
-        }, 100, conn)
-        for (const record of raw) {
-          const r = record as Record<string, unknown>
-          const todoFlag = String(r['TodoFlag'] ?? '0')
-          if (todoFlag !== '0' && todoFlag !== '') continue
-          const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-          const ccPersons = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-          const allPersons = [...mainPersons, ...ccPersons]
-          if (allPersons.some(p => personSet.has(p))) {
-            const start = String(r['StartTime'] ?? '').slice(0, 5)
-            const end = String(r['EndTime'] ?? '').slice(0, 5)
-            if (start && end) {
-              busy.push({ start, end })
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`[book] ERP "${conn.name}" busy fetch failed:`, String(e))
-      }
-    }
-  } catch (e) {
-    console.warn('[book] ERP connections lookup failed:', String(e))
-  }
-
-  // Fetch Outlook + ICS events per person
-  for (const code of personCodes) {
-    try {
-      const email = await emailForCode(code, accountId)
-      if (!email) continue
-
-      // Graph calendar view
-      try {
-        const azureConfig = await getAzureConfig(accountId)
-        if (azureConfig) {
-          const startDt = `${date}T00:00:00`
-          const endDt = `${date}T23:59:59`
-          const res = await graphFetch(
-            `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
-            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
-            azureConfig
-          )
-          if (res.ok) {
-            const data = await res.json()
-            for (const ev of data.value ?? []) {
-              const start = (ev.start as Record<string, string> | undefined)?.dateTime ?? ''
-              const end = (ev.end as Record<string, string> | undefined)?.dateTime ?? ''
-              const startTime = start.slice(11, 16)
-              const endTime = end.slice(11, 16)
-              if (startTime && endTime) {
-                busy.push({ start: startTime, end: endTime })
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`[book] Graph busy fetch failed for ${code}:`, String(e))
-      }
-
-      // ICS feeds
-      try {
-        const { rows: icsRows } = await pool.query(
-          'SELECT ics_url FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
-          [ownerEmail, code]
-        )
-        for (const row of icsRows) {
-          try {
-            const events = await fetchIcsEvents(row.ics_url as string, code, date, date)
-            for (const ev of events) {
-              const start = String(ev.timeFrom ?? '')
-              const end = String(ev.timeTo ?? '')
-              if (start && end) {
-                busy.push({ start, end })
-              }
-            }
-          } catch {
-            // ICS error swallowing — known issue
-          }
-        }
-      } catch (e) {
-        console.warn(`[book] ICS busy fetch failed for ${code}:`, String(e))
-      }
-
-      // Google Calendar
-      try {
-        const googleConfig = await getGoogleConfig(accountId)
-        if (googleConfig) {
-          const calendar = getCalendarClient(googleConfig, email)
-          const res = await calendar.events.list({
-            calendarId: 'primary',
-            timeMin: `${date}T00:00:00+03:00`,
-            timeMax: `${date}T23:59:59+03:00`,
-            singleEvents: true,
-            maxResults: 100,
-          })
-          for (const ev of res.data.items ?? []) {
-            const startTime = (ev.start?.dateTime ?? '').slice(11, 16)
-            const endTime = (ev.end?.dateTime ?? '').slice(11, 16)
-            if (startTime && endTime) {
-              busy.push({ start: startTime, end: endTime })
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`[book] Google busy fetch failed for ${code}:`, String(e))
-      }
-    } catch (e) {
-      console.warn(`[book] Busy fetch failed for ${code}:`, String(e))
-    }
-  }
-
-  return busy
-}
 
 export async function POST(
   req: NextRequest,
@@ -247,7 +101,8 @@ export async function POST(
   const templateName: string = template.name
 
   // --- 3. Re-check availability ---
-  const busy = await collectBusyBlocks(personCodes, ownerEmail, accountId, date)
+  const busyByDate = await collectBusyBlocks(personCodes, ownerEmail, accountId, date, date)
+  const busy = busyByDate.get(date) ?? []
   const availableSlots = computeAvailableSlots(date, availabilityWindows, busy, durationMinutes, bufferMinutes)
 
   const slotExists = availableSlots.some(s => s.start === time)
@@ -275,10 +130,7 @@ export async function POST(
   const crypto = await import('crypto')
   const cancelToken = crypto.randomBytes(32).toString('hex')
 
-  const origin = req.headers.get('origin')
-    || (req.headers.get('x-forwarded-host')
-      ? `${req.headers.get('x-forwarded-proto') || 'https'}://${req.headers.get('x-forwarded-host')}`
-      : `https://${req.headers.get('host') || 'localhost'}`)
+  const origin = (process.env.NEXTAUTH_URL ?? 'https://herbe-calendar.vercel.app').replace(/\/$/, '')
   const cancelUrl = `${origin}/booking/cancel/${cancelToken}`
 
   const activityText = buildActivityText(bookerEmail, fieldValues ?? {}, cancelUrl)
@@ -415,9 +267,7 @@ export async function POST(
         }
 
         if (targets.google.onlineMeeting) {
-          requestBody.conferenceData = {
-            createRequest: { requestId: cancelToken },
-          }
+          requestBody.conferenceData = buildGoogleMeetConferenceData(cancelToken)
         }
 
         const res = await calendar.events.insert({
@@ -518,7 +368,7 @@ export async function POST(
 
   // --- 9. Return booking ---
   return NextResponse.json(
-    { booking, cancelUrl, notificationSent, ...(emailError ? { emailError } : {}) },
+    { booking, cancelUrl, notificationSent, ...(emailError ? { notificationFailed: true } : {}) },
     { status: 201, headers: { 'Cache-Control': 'no-store' } }
   )
 }

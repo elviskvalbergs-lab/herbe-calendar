@@ -6,6 +6,8 @@ import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColo
 import ColorOverridesPanel from './ColorOverridesPanel'
 import type { ColorOverrideRow } from '@/lib/activityColors'
 import BookingTemplateEditor from './BookingTemplateEditor'
+import ConfirmDialog from './ConfirmDialog'
+import { useConfirm } from '@/lib/useConfirm'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -53,6 +55,9 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<BookingTemplate | null | 'new'>(null)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
+  const [calError, setCalError] = useState<string | null>(null)
+  const [stagedIcsColor, setStagedIcsColor] = useState<{ id: string; color: string } | null>(null)
 
   useEffect(() => {
     try {
@@ -60,6 +65,18 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
       setTheme(stored === 'light' ? 'light' : stored === 'dark' ? 'dark' : 'system')
     } catch {}
   }, [])
+
+  // ESC: close template editor first, then the whole modal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingTemplate) {
+        e.stopPropagation()
+        setEditingTemplate(null)
+      }
+    }
+    window.addEventListener('keydown', handler, true) // capture phase to fire before CalendarShell
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [editingTemplate])
 
   useEffect(() => {
     if (activeTab === 'calendars') {
@@ -103,10 +120,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         fetchCustomCals()
       } else {
         const data = await res.json().catch(() => null)
-        alert(data?.error || `Failed to add calendar (HTTP ${res.status})`)
+        setCalError(data?.error || `Failed to add calendar (HTTP ${res.status})`)
       }
     } catch (e) {
-      alert('Failed to add calendar: ' + e)
+      setCalError('Failed to add calendar: ' + e)
     }
   }
 
@@ -274,8 +291,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                     onChange={e => setNewCal(p => ({ ...p, icsUrl: e.target.value }))}
                     required
                   />
+                  {calError && (
+                    <p className="text-red-400 text-xs">{calError}</p>
+                  )}
                   <button
                     type="submit"
+                    onClick={() => setCalError(null)}
                     className="w-full bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90"
                   >
                     Attach Calendar
@@ -353,38 +374,56 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50 items-center">
-                              {BRAND_PALETTE.slice(0, 12).map(hex => (
-                                <button
-                                  key={hex}
-                                  title={hex}
-                                  onClick={() => handleColorChange(c.id, hex)}
-                                  className="w-4 h-4 rounded hover:scale-125"
-                                  style={{
-                                    background: hex,
-                                    border: (c.color || '') === hex ? '2px solid white' : 'none',
-                                    opacity: (c.color || '') === hex ? 1 : 0.7,
-                                  }}
-                                />
-                              ))}
-                              <label
-                                className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
-                                title="Custom color"
-                              >
-                                +
-                                <input
-                                  type="color"
-                                  value={c.color || OUTLOOK_COLOR}
-                                  onChange={e => handleColorChange(c.id, e.target.value)}
-                                  className="sr-only"
-                                />
-                              </label>
-                              {c.color && (
-                                <button
-                                  onClick={() => handleColorChange(c.id, '')}
-                                  className="text-[9px] text-text-muted hover:text-text px-1"
-                                  title="Reset to default"
-                                >reset</button>
-                              )}
+                              {(() => {
+                                const isStaging = stagedIcsColor?.id === c.id
+                                const displayColor = isStaging ? stagedIcsColor.color : (c.color || '')
+                                return <>
+                                  {BRAND_PALETTE.slice(0, 12).map(hex => (
+                                    <button
+                                      key={hex}
+                                      title={hex}
+                                      onClick={() => setStagedIcsColor({ id: c.id, color: hex })}
+                                      className="w-4 h-4 rounded hover:scale-125"
+                                      style={{
+                                        background: hex,
+                                        border: displayColor === hex ? '2px solid white' : 'none',
+                                        opacity: displayColor === hex ? 1 : 0.7,
+                                      }}
+                                    />
+                                  ))}
+                                  <label
+                                    className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
+                                    title="Custom color"
+                                  >
+                                    +
+                                    <input
+                                      type="color"
+                                      value={displayColor || OUTLOOK_COLOR}
+                                      onChange={e => setStagedIcsColor({ id: c.id, color: e.target.value })}
+                                      className="sr-only"
+                                    />
+                                  </label>
+                                  {(displayColor || isStaging) && (
+                                    <button
+                                      onClick={() => setStagedIcsColor({ id: c.id, color: '' })}
+                                      className="text-[9px] text-text-muted hover:text-text px-1"
+                                      title="Reset to default"
+                                    >reset</button>
+                                  )}
+                                  {isStaging && (
+                                    <div className="flex gap-1 ml-auto">
+                                      <button
+                                        onClick={() => setStagedIcsColor(null)}
+                                        className="text-[9px] px-2 py-0.5 rounded border border-border text-text-muted hover:bg-border/30"
+                                      >Cancel</button>
+                                      <button
+                                        onClick={() => { handleColorChange(c.id, stagedIcsColor.color); setStagedIcsColor(null) }}
+                                        className="text-[9px] px-2 py-0.5 rounded bg-primary text-white font-bold hover:opacity-90"
+                                      >Apply</button>
+                                    </div>
+                                  )}
+                                </>
+                              })()}
                             </div>
                           </>
                         )}
@@ -421,10 +460,11 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                             await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id, duplicate: true }) })
                             const res = await fetch('/api/settings/templates'); setTemplates(await res.json())
                           }} className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30">Copy</button>
-                          <button onClick={async () => {
-                            if (!confirm('Delete this template?')) return
-                            await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id }) })
-                            setTemplates(prev => prev.filter(x => x.id !== t.id))
+                          <button onClick={() => {
+                            showConfirm('Delete this template?', async () => {
+                              await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id }) })
+                              setTemplates(prev => prev.filter(x => x.id !== t.id))
+                            }, { confirmLabel: 'Delete', destructive: true })
                           }} className="text-[10px] text-text-muted hover:text-red-400 px-1.5 py-0.5 rounded border border-border hover:border-red-400/30">Del</button>
                         </div>
                       </div>
@@ -482,6 +522,15 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           </button>
         </div>
       </div>
+      {confirmState && (
+        <ConfirmDialog
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          destructive={confirmState.destructive}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   )
 }

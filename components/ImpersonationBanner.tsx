@@ -2,8 +2,8 @@
 
 export default function ImpersonationBanner({ targetEmail, originalEmail }: { targetEmail: string; originalEmail: string }) {
   function exitImpersonation() {
-    document.cookie = 'impersonateAs=;path=/;max-age=0'
-    window.location.reload()
+    fetch('/api/admin/impersonate', { method: 'DELETE' })
+      .then(() => window.location.reload())
   }
 
   return (

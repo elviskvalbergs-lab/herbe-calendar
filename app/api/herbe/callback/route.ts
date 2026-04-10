@@ -1,70 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { saveTokens } from '@/lib/herbe/config'
 import { pool } from '@/lib/db'
 import { encrypt } from '@/lib/crypto'
+import { requireAdminSession } from '@/lib/adminAuth'
 
 const TOKEN_URL = 'https://standard-id.hansaworld.com/oauth-token'
+const OAUTH_NONCE_COOKIE = 'herbe_oauth_nonce'
 
 export async function GET(req: NextRequest) {
+  // SEC-9: Require authenticated admin session
+  try {
+    await requireAdminSession()
+  } catch {
+    return NextResponse.redirect(new URL('/admin/config?error=unauthorized', req.url))
+  }
+
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
   const error = searchParams.get('error')
-  const state = searchParams.get('state') // ERP connection ID
+  const state = searchParams.get('state')
 
   if (error || !code) {
     const msg = error ?? 'missing_code'
     return NextResponse.redirect(new URL(`/admin/config?error=${encodeURIComponent(msg)}`, req.url))
   }
 
-  // If state contains a connection ID, use per-connection flow
-  if (state && state.length > 10) {
-    return handlePerConnectionOAuth(req, code, state)
+  // SEC-1: Validate CSRF nonce from state parameter
+  const storedNonce = req.cookies.get(OAUTH_NONCE_COOKIE)?.value
+  if (!storedNonce || !state) {
+    return NextResponse.redirect(new URL('/admin/config?error=invalid_oauth_state', req.url))
   }
 
-  // Legacy flow: use env vars
-  const clientId = process.env.HERBE_CLIENT_ID
-  const clientSecret = process.env.HERBE_CLIENT_SECRET
-  const redirectUri = `${new URL(req.url).origin}/api/herbe/callback`
+  // State format: "nonce:connectionId" or just "nonce" for legacy flow
+  const separatorIdx = state.indexOf(':')
+  const stateNonce = separatorIdx >= 0 ? state.slice(0, separatorIdx) : state
+  const connectionId = separatorIdx >= 0 ? state.slice(separatorIdx + 1) : null
 
-  if (!clientId || !clientSecret) {
-    return NextResponse.redirect(new URL('/admin/config?error=missing_client_credentials', req.url))
+  if (stateNonce !== storedNonce) {
+    return NextResponse.redirect(new URL('/admin/config?error=invalid_oauth_state', req.url))
   }
 
-  try {
-    const res = await fetch(TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        code,
-      }),
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      console.error('[herbe/callback] token exchange failed:', res.status, text.substring(0, 200))
-      return NextResponse.redirect(new URL('/admin/config?error=token_exchange_failed', req.url))
-    }
-
-    const data = await res.json()
-    if (!data.access_token) {
-      return NextResponse.redirect(new URL('/admin/config?error=no_access_token', req.url))
-    }
-
-    await saveTokens({
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token ?? '',
-      expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
-    })
-
-    return NextResponse.redirect(new URL('/admin/config?success=herbe_connected', req.url))
-  } catch (e) {
-    console.error('[herbe/callback] error:', e)
-    return NextResponse.redirect(new URL('/admin/config?error=unexpected', req.url))
+  // Per-connection flow only — legacy global flow removed
+  if (!connectionId || connectionId.length <= 10) {
+    return NextResponse.redirect(new URL('/admin/config?error=missing_connection_id', req.url))
   }
+
+  return handlePerConnectionOAuth(req, code, connectionId)
 }
 
 async function handlePerConnectionOAuth(req: NextRequest, code: string, connectionId: string) {
@@ -130,7 +110,9 @@ async function handlePerConnectionOAuth(req: NextRequest, code: string, connecti
       [encAccess, encRefresh, expiresAt, connectionId]
     )
 
-    return NextResponse.redirect(new URL('/admin/config?success=herbe_connected', req.url))
+    const response = NextResponse.redirect(new URL('/admin/config?success=herbe_connected', req.url))
+    response.cookies.delete(OAUTH_NONCE_COOKIE)
+    return response
   } catch (e) {
     console.error('[herbe/callback] per-connection error:', e)
     return NextResponse.redirect(new URL('/admin/config?error=unexpected', req.url))

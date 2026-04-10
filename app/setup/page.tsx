@@ -1,16 +1,6 @@
-import SetupClient from './SetupClient'
+import { redirect } from 'next/navigation'
 
-const AUTHORIZE_URL = 'https://standard-id.hansaworld.com/oauth-authorize'
-
+// Legacy setup page — per-account ERP connections are now configured in /admin/config
 export default function SetupPage() {
-  const base = (process.env.NEXTAUTH_URL ?? 'https://herbe-calendar.vercel.app').replace(/\/$/, '')
-  const redirectUri = `${base}/api/herbe/callback`
-  const clientId = process.env.HERBE_CLIENT_ID ?? ''
-
-  const authUrl =
-    `${AUTHORIZE_URL}?client_id=${encodeURIComponent(clientId)}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&response_type=code&type=web_server`
-
-  return <SetupClient authUrl={authUrl} />
+  redirect('/admin/config')
 }

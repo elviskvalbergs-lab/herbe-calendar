@@ -4,7 +4,7 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { getAzureConfig } from '@/lib/accountConfig'
 import type { Activity } from '@/types'
 import { pool } from '@/lib/db'
-import { fetchIcsEvents } from '@/lib/icsParser'
+import { fetchIcsEvents, deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { emailForCode } from '@/lib/emailForCode'
 
 export async function GET(req: NextRequest) {
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       if (!email) return []
 
       // --- ICS feeds (DB-backed) — fetched in parallel with Graph ---
-      let icsEventsPromise: Promise<any[]> = Promise.resolve([])
+      let icsEventsPromise: Promise<{ events: any[]; warnings: string[] }> = Promise.resolve({ events: [], warnings: [] })
       try {
         const { rows: icsRows } = await pool.query(
           'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
@@ -46,14 +46,19 @@ export async function GET(req: NextRequest) {
           console.log(`[outlook] Found ${icsRows.length} ICS feed(s) for ${code}`)
           icsEventsPromise = Promise.all(
             icsRows.map(async row => {
-              const events = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo, bustIcsCache)
-              return events.map(ev => ({
+              const result = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo, bustIcsCache)
+              const events = result.events.map(ev => ({
                 ...ev,
                 ...(row.color ? { icsColor: row.color } : {}),
                 icsCalendarName: row.name,
               }))
+              const warning = result.error ? `ICS "${row.name}": ${result.error}` : undefined
+              return { events, warning }
             })
-          ).then(results => results.flat())
+          ).then(results => ({
+            events: results.flatMap(r => r.events),
+            warnings: results.map(r => r.warning).filter((w): w is string => !!w),
+          }))
         }
       } catch (e) {
         console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
@@ -61,7 +66,8 @@ export async function GET(req: NextRequest) {
 
       // Skip Graph if Azure not configured — ICS events still returned
       if (!azureConfig) {
-        return icsEventsPromise
+        const icsResult = await icsEventsPromise
+        return { events: icsResult.events, warnings: icsResult.warnings }
       }
 
       // calendarView expands recurring events automatically; no type filter needed
@@ -112,10 +118,11 @@ export async function GET(req: NextRequest) {
         const errText = await res.text()
         console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
         // Graph failed — still return any ICS events for this person
-        return icsEventsPromise
+        const icsResult = await icsEventsPromise
+        return { events: icsResult.events, warnings: [...icsResult.warnings, `Outlook: ${errText.slice(0, 200)}`] }
       }
       const data = await res.json()
-      const icsEvents = await icsEventsPromise
+      const icsResult = await icsEventsPromise
       const graphEvents = (data.value ?? []).map((ev: Record<string, unknown>) => {
         const start = (ev['start'] as Record<string, string> | undefined)
         const end = (ev['end'] as Record<string, string> | undefined)
@@ -151,6 +158,7 @@ export async function GET(req: NextRequest) {
           timeTo: endDt.slice(11, 16),
           isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
           isOnlineMeeting: ev['isOnlineMeeting'] === true,
+          videoProvider: ev['isOnlineMeeting'] === true ? 'teams' as const : undefined,
           attendees,
           location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
           bodyPreview: String(ev['bodyPreview'] ?? ''),
@@ -160,11 +168,14 @@ export async function GET(req: NextRequest) {
         }
       })
       // Deduplicate: if an ICS event matches a Graph event by date+time+subject, skip it
-      const graphKeys = new Set(graphEvents.map((e: any) => `${e.date}|${e.timeFrom}|${e.timeTo}|${e.description.toLowerCase()}`))
-      const uniqueIcs = icsEvents.filter((e: any) => !graphKeys.has(`${e.date}|${e.timeFrom}|${e.timeTo}|${e.description.toLowerCase()}`))
-      return [...graphEvents, ...uniqueIcs]
+      const uniqueIcs = deduplicateIcsAgainstGraph(graphEvents, icsResult.events)
+      return { events: [...graphEvents, ...uniqueIcs], warnings: icsResult.warnings }
     }))
-    return NextResponse.json(results.flat(), { headers: { 'Cache-Control': 'no-store' } })
+    const allEvents = results.flatMap(r => 'events' in r ? r.events : r)
+    const allWarnings = results.flatMap(r => 'warnings' in r ? r.warnings : [])
+    const response: Record<string, unknown> = { activities: allEvents }
+    if (allWarnings.length > 0) response.warnings = allWarnings
+    return NextResponse.json(response, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

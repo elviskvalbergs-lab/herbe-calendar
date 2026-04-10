@@ -111,3 +111,13 @@ export async function listGoogleUsers(config: GoogleConfig): Promise<{ email: st
 
   return users
 }
+
+/** Build Google Meet conference data for event creation/update */
+export function buildGoogleMeetConferenceData(requestId?: string) {
+  return {
+    createRequest: {
+      requestId: requestId ?? `herbe-${Date.now()}`,
+      conferenceSolutionKey: { type: 'hangoutsMeet' as const },
+    },
+  }
+}

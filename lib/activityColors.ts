@@ -130,10 +130,10 @@ export function buildClassGroupColorMap(
     const base = calColNrToColor(g.calColNr) ?? BRAND_PALETTE[idx % BRAND_PALETTE.length]
     map.set(g.code, overrides[g.code] ?? base)
   })
-  // Source-level overrides
-  if (overrides[SOURCE_COLOR_CODES.outlook]) map.set(SOURCE_COLOR_CODES.outlook, overrides[SOURCE_COLOR_CODES.outlook])
-  if (overrides[SOURCE_COLOR_CODES.google]) map.set(SOURCE_COLOR_CODES.google, overrides[SOURCE_COLOR_CODES.google])
-  if (overrides[SOURCE_COLOR_CODES.erp]) map.set(SOURCE_COLOR_CODES.erp, overrides[SOURCE_COLOR_CODES.erp])
+  // Source-level overrides (auto-extensible for new sources)
+  for (const code of Object.values(SOURCE_COLOR_CODES)) {
+    if (overrides[code]) map.set(code, overrides[code])
+  }
   return map
 }
 
@@ -143,6 +143,8 @@ export const SOURCE_COLOR_CODES = {
   google: '__google__',
   erp: '__erp__',
 } as const
+
+const SOURCE_COLOR_VALUES = new Set(Object.values(SOURCE_COLOR_CODES) as string[])
 
 /** Resolve the display color for a single activity. */
 export function getActivityColor(
@@ -179,7 +181,7 @@ export function resolveColorWithOverrides(
   overrides: ColorOverrideRow[],
 ): string {
   // Source color codes resolve directly without connection hierarchy
-  if (classGroupCode === SOURCE_COLOR_CODES.outlook || classGroupCode === SOURCE_COLOR_CODES.google || classGroupCode === SOURCE_COLOR_CODES.erp) {
+  if (SOURCE_COLOR_VALUES.has(classGroupCode)) {
     const defaultColor = classGroupCode === SOURCE_COLOR_CODES.outlook ? OUTLOOK_COLOR : classGroupCode === SOURCE_COLOR_CODES.google ? GOOGLE_COLOR : FALLBACK_COLOR
     const userOverride = overrides.find(o => o.class_group_code === classGroupCode && o.user_email !== null && o.connection_id === null)
     if (userOverride) return userOverride.color

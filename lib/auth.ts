@@ -37,8 +37,8 @@ async function isEmailRegistered(email: string): Promise<{ registered: boolean; 
     userCache.set(lower, { userCode: '', expiresAt: Date.now() + USER_CACHE_TTL_MS })
     return { registered: false, userCode: '' }
   } catch (e) {
-    console.warn('[auth] person_codes lookup failed, allowing login:', String(e))
-    return { registered: true, userCode: '' }
+    console.error('[auth] person_codes lookup failed, denying login:', String(e))
+    return { registered: false, userCode: '' }
   }
 }
 

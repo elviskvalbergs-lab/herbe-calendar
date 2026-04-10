@@ -4,10 +4,7 @@ import { pool } from '@/lib/db'
 import { encrypt, decrypt } from '@/lib/crypto'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import type { ErpConnection } from '@/lib/accountConfig'
-
-function getAccountIdFromCookie(req: NextRequest): string | undefined {
-  return req.cookies.get('adminAccountId')?.value || undefined
-}
+import { getAccountIdFromCookie } from '@/lib/adminAccountId'
 
 /** Test an ERP connection by fetching from UserVc */
 async function testErpConnection(conn: ErpConnection): Promise<{ ok: boolean; userCount?: number; error?: string }> {

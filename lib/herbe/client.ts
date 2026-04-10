@@ -2,7 +2,6 @@ import { request as httpsRequest } from 'node:https'
 import { request as httpRequest } from 'node:http'
 import { createGunzip } from 'node:zlib'
 import { Readable } from 'node:stream'
-import { getHerbeAccessToken } from './config'
 import type { ErpConnection } from '@/lib/accountConfig'
 import { pool } from '@/lib/db'
 import { encrypt } from '@/lib/crypto'
@@ -121,19 +120,12 @@ async function herbeAuthHeader(conn?: ErpConnection): Promise<string> {
       return `Basic ${Buffer.from(`${conn.username}:${conn.password}`).toString('base64')}`
     }
     if (conn.clientId && conn.clientSecret) {
-      // OAuth configured but no valid token — fall through to global config
+      // OAuth configured but no valid token yet — needs OAuth setup in admin
     }
+    throw new Error('HERBE_NOT_CONFIGURED: connection has no valid credentials')
   }
 
-  // Try OAuth tokens from DB first
-  try {
-    const token = await getHerbeAccessToken()
-    return `Bearer ${token}`
-  } catch (e) {
-    if ((e as Error).message !== 'HERBE_NOT_CONFIGURED') throw e
-  }
-
-  throw new Error('HERBE_NOT_CONFIGURED')
+  throw new Error('HERBE_NOT_CONFIGURED: no connection provided')
 }
 
 export function herbeUrl(register: string, query?: string, conn?: ErpConnection): string {

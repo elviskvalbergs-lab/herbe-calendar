@@ -1,7 +1,9 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Favorite, ShareLink, ShareVisibility, BookingTemplate } from '@/types'
 import { loadShareLinks, createShareLink, removeShareLink, removeAllShareLinks, updateShareLink } from '@/lib/shareLinks'
+import ConfirmDialog from './ConfirmDialog'
+import { useConfirm } from '@/lib/useConfirm'
 
 interface Props {
   favorite: Favorite
@@ -50,6 +52,16 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
   const [newVisibility, setNewVisibility] = useState<ShareVisibility>('busy')
   const [newExpiry, setNewExpiry] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const { confirmState, confirm, handleConfirm, handleCancel } = useConfirm()
+  const swipeStart = useRef<{ y: number } | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
   const [newBookingEnabled, setNewBookingEnabled] = useState(false)
   const [newTemplateIds, setNewTemplateIds] = useState<string[]>([])
 
@@ -121,11 +133,12 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     await removeShareLink(id)
   }
 
-  async function handleDeleteAll() {
-    if (!confirm('Remove all sharing links for this favorite?')) return
-    setLinks([])
-    onLinksChange?.(favorite.id, 0)
-    await removeAllShareLinks(favorite.id)
+  function handleDeleteAll() {
+    confirm('Remove all sharing links for this favorite?', async () => {
+      setLinks([])
+      onLinksChange?.(favorite.id, 0)
+      await removeAllShareLinks(favorite.id)
+    }, { confirmLabel: 'Remove all', destructive: true })
   }
 
   function startEdit(link: ShareLink) {
@@ -179,6 +192,11 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
       <div
         className="bg-surface border border-border rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-5"
         onClick={e => e.stopPropagation()}
+        onTouchStart={e => { swipeStart.current = { y: e.touches[0].clientY } }}
+        onTouchEnd={e => {
+          if (swipeStart.current && e.changedTouches[0].clientY - swipeStart.current.y > 80) onClose()
+          swipeStart.current = null
+        }}
       >
         {/* Header */}
         <div className="relative mb-1">
@@ -468,6 +486,15 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
           </button>
         )}
       </div>
+      {confirmState && (
+        <ConfirmDialog
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          destructive={confirmState.destructive}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
     </div>
   )
 }

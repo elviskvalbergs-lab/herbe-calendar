@@ -6,10 +6,7 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { graphFetch } from '@/lib/graph/client'
 import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
-
-function getAccountIdFromCookie(req: NextRequest): string | undefined {
-  return req.cookies.get('adminAccountId')?.value || undefined
-}
+import { getAccountIdFromCookie } from '@/lib/adminAccountId'
 
 export async function PATCH(req: NextRequest) {
   let session
