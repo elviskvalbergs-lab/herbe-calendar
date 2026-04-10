@@ -46,6 +46,8 @@ export async function updateShareLink(id: string, data: {
   visibility?: ShareVisibility
   expiresAt?: string | null
   password?: string
+  bookingEnabled?: boolean
+  templateIds?: string[]
 }): Promise<ShareLink> {
   const res = await fetch('/api/settings/share-links', {
     method: 'PUT',

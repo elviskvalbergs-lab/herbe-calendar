@@ -46,6 +46,7 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
 
   async function handleDelete(e: React.MouseEvent, id: string) {
     e.stopPropagation()
+    if (!confirm('Remove this favorite view?')) return
     setFavorites(prev => prev.filter(f => f.id !== id))
     await removeFavorite(id)
   }

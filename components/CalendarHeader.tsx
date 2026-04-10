@@ -25,9 +25,13 @@ interface Props {
   onApplyFavorite: (view: CalendarState['view'], personCodes: string[], hiddenCalendars?: string[]) => void
   zoom: 1 | 2
   onToggleZoom: () => void
+  accountName?: string
+  onAccountSwitch?: () => void
+  isAdmin?: boolean
+  userEmail?: string
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
@@ -43,9 +47,19 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   return (
     <header className="flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
       {/* Title */}
-      <span className="font-bold text-base mr-auto pr-0.5 lg:pr-1">
+      <span className="font-bold text-base pr-0.5 lg:pr-1">
         herbe<span className="text-primary">.</span>calendar
       </span>
+      {accountName && (
+        <button
+          onClick={onAccountSwitch}
+          className="hidden lg:inline-block text-[10px] text-text-muted bg-border/40 hover:bg-border px-1.5 py-0.5 rounded mr-auto transition-colors"
+          title="Switch account (⌃⌘A)"
+        >
+          {accountName}
+        </button>
+      )}
+      {!accountName && <span className="mr-auto" />}
 
       {/* Date navigation */}
       {viewStep > 1 && (
@@ -124,16 +138,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </span>
       </div>
 
-      {/* Admin — desktop only */}
-      <a
-        href="/admin"
-        className="hidden lg:flex items-center gap-1 text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Admin panel"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 4.354a4 4 0 1 1 0 7.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/>
-        </svg>
-      </a>
+      {/* Admin — desktop only, admin/superadmin only */}
+      {isAdmin && (
+        <a
+          href="/admin"
+          className="hidden lg:flex items-center gap-1 text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+          title="Admin panel"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 4.354a4 4 0 1 1 0 7.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/>
+          </svg>
+        </a>
+      )}
 
       {/* Sign out — desktop only (mobile: in hamburger menu) */}
       <button
@@ -198,19 +214,37 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 onClick={() => { setHamburgerOpen(false); onRefresh() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
               >↻ Refresh</button>
-              <a
-                href="/admin"
-                onClick={() => setHamburgerOpen(false)}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
-                  <path d="M12 4.354a4 4 0 1 1 0 7.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/>
-                </svg>
-                Admin
-              </a>
+              {accountName && onAccountSwitch && (
+                <button
+                  onClick={() => { setHamburgerOpen(false); onAccountSwitch() }}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
+                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
+                  </svg>
+                  {accountName}
+                </button>
+              )}
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  onClick={() => setHamburgerOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
+                    <path d="M12 4.354a4 4 0 1 1 0 7.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/>
+                  </svg>
+                  Admin
+                </a>
+              )}
+              {userEmail && (
+                <div className="px-4 py-2 border-t border-border">
+                  <p className="text-[10px] text-text-muted truncate">{userEmail}</p>
+                </div>
+              )}
               <button
                 onClick={() => { setHamburgerOpen(false); signOut() }}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5 ${userEmail ? '' : 'border-t border-border'}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

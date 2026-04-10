@@ -13,7 +13,12 @@ const LINK_QUERY = `
     f.view,
     f.person_codes AS "personCodes",
     f.hidden_calendars AS "hiddenCalendars",
-    f.user_email AS "ownerEmail"
+    f.user_email AS "ownerEmail",
+    sl.booking_enabled,
+    (SELECT json_agg(json_build_object(
+      'id', t.id, 'name', t.name, 'duration_minutes', t.duration_minutes, 'custom_fields', t.custom_fields
+    )) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
+    WHERE slt.share_link_id = sl.id AND t.active = true) AS templates
   FROM favorite_share_links sl
   JOIN user_favorites f ON f.id = sl.favorite_id
   WHERE sl.token = $1
@@ -31,7 +36,12 @@ const LINK_QUERY_WITH_HASH = `
     f.view,
     f.person_codes AS "personCodes",
     f.hidden_calendars AS "hiddenCalendars",
-    f.user_email AS "ownerEmail"
+    f.user_email AS "ownerEmail",
+    sl.booking_enabled,
+    (SELECT json_agg(json_build_object(
+      'id', t.id, 'name', t.name, 'duration_minutes', t.duration_minutes, 'custom_fields', t.custom_fields
+    )) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
+    WHERE slt.share_link_id = sl.id AND t.active = true) AS templates
   FROM favorite_share_links sl
   JOIN user_favorites f ON f.id = sl.favorite_id
   WHERE sl.token = $1
@@ -60,6 +70,8 @@ export async function GET(
     hiddenCalendars: link.hiddenCalendars ?? [],
     visibility: link.visibility,
     hasPassword: link.hasPassword,
+    bookingEnabled: !!link.booking_enabled,
+    templates: link.templates ?? [],
   })
 }
 
@@ -100,5 +112,7 @@ export async function POST(
     hiddenCalendars: link.hiddenCalendars ?? [],
     visibility: link.visibility,
     hasPassword: false,
+    bookingEnabled: !!link.booking_enabled,
+    templates: link.templates ?? [],
   })
 }

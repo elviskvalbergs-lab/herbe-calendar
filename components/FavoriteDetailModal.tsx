@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import type { Favorite, ShareLink, ShareVisibility } from '@/types'
+import type { Favorite, ShareLink, ShareVisibility, BookingTemplate } from '@/types'
 import { loadShareLinks, createShareLink, removeShareLink, removeAllShareLinks, updateShareLink } from '@/lib/shareLinks'
 
 interface Props {
@@ -16,17 +16,42 @@ const visibilityLabel: Record<ShareVisibility, string> = {
   full: 'Full details',
 }
 
+function FieldLabel({ label, info }: { label: string; info: string }) {
+  const [showInfo, setShowInfo] = useState(false)
+  return (
+    <label className="text-[10px] text-text-muted uppercase font-bold tracking-wide mb-1 flex items-center gap-1">
+      {label}
+      <span
+        className="relative cursor-help text-text-muted/50 hover:text-text-muted normal-case font-normal"
+        onMouseEnter={() => setShowInfo(true)}
+        onMouseLeave={() => setShowInfo(false)}
+        onClick={() => setShowInfo(s => !s)}
+      >
+        (i)
+        {showInfo && (
+          <span className="absolute left-0 bottom-full mb-1 z-50 bg-surface border border-border rounded-lg shadow-lg px-2.5 py-1.5 text-[10px] text-text normal-case font-normal tracking-normal w-48 whitespace-normal">
+            {info}
+          </span>
+        )}
+      </span>
+    </label>
+  )
+}
+
 export default function FavoriteDetailModal({ favorite, open, onClose, onLinksChange }: Props) {
   const [links, setLinks] = useState<ShareLink[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [copiedBooking, setCopiedBooking] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   const [newName, setNewName] = useState('')
   const [newVisibility, setNewVisibility] = useState<ShareVisibility>('busy')
   const [newExpiry, setNewExpiry] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newBookingEnabled, setNewBookingEnabled] = useState(false)
+  const [newTemplateIds, setNewTemplateIds] = useState<string[]>([])
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -34,6 +59,16 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
   const [editExpiry, setEditExpiry] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [editRemovePassword, setEditRemovePassword] = useState(false)
+  const [editBookingEnabled, setEditBookingEnabled] = useState(false)
+  const [editTemplateIds, setEditTemplateIds] = useState<string[]>([])
+  const [availableTemplates, setAvailableTemplates] = useState<BookingTemplate[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    fetch('/api/settings/templates').then(r => r.json()).then(data => {
+      setAvailableTemplates(Array.isArray(data) ? data : [])
+    }).catch(() => {})
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -51,13 +86,17 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     e.preventDefault()
     if (!newName.trim()) return
     setCreating(true)
-    const link = await createShareLink({
+    let link = await createShareLink({
       favoriteId: favorite.id,
       name: newName.trim(),
       visibility: newVisibility,
       expiresAt: newExpiry || undefined,
       password: newPassword || undefined,
     })
+    // Apply booking settings if enabled
+    if (newBookingEnabled && newTemplateIds.length > 0) {
+      link = await updateShareLink(link.id, { bookingEnabled: true, templateIds: newTemplateIds })
+    }
     setLinks(prev => {
       const updated = [link, ...prev]
       onLinksChange?.(favorite.id, updated.length)
@@ -67,6 +106,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     setNewVisibility('busy')
     setNewExpiry('')
     setNewPassword('')
+    setNewBookingEnabled(false)
+    setNewTemplateIds([])
     setShowForm(false)
     setCreating(false)
   }
@@ -94,6 +135,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     setEditExpiry(link.expiresAt ? new Date(link.expiresAt).toISOString().slice(0, 10) : '')
     setEditPassword('')
     setEditRemovePassword(false)
+    setEditBookingEnabled(link.bookingEnabled ?? false)
+    setEditTemplateIds(link.templateIds ?? [])
   }
 
   function cancelEdit() {
@@ -111,6 +154,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
       visibility: editVisibility,
       expiresAt: editExpiry || null,
       ...passwordPayload,
+      bookingEnabled: editBookingEnabled,
+      templateIds: editTemplateIds,
     })
     setLinks(prev => prev.map(l => l.id === editingId ? updated : l))
     setEditingId(null)
@@ -178,28 +223,32 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
           <div key={link.id} className="relative border border-border rounded-lg p-3 mb-2">
             {editingId === link.id ? (
               <form onSubmit={handleUpdate}>
+                <FieldLabel label="Link name" info="A label to help you remember who this link is shared with." />
                 <input
                   autoFocus
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
-                  placeholder="Who is this for?"
-                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+                  placeholder="e.g. Team lead, Client X"
+                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 />
+                <FieldLabel label="Visibility" info="Controls how much detail viewers can see. 'Busy' hides all info — viewers only see blocked time. 'Titles' shows event names. 'Full' shows all details including project, customer, and attendees." />
                 <select
                   value={editVisibility}
                   onChange={e => setEditVisibility(e.target.value as ShareVisibility)}
-                  className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+                  className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 >
                   <option value="busy">Busy/Available only</option>
                   <option value="titles">Show titles</option>
                   <option value="full">Full details</option>
                 </select>
+                <FieldLabel label="Expiration" info="The link will stop working after this date. Leave empty for no expiration." />
                 <input
                   type="date"
                   value={editExpiry}
                   onChange={e => setEditExpiry(e.target.value)}
-                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 />
+                <FieldLabel label="Password" info="If set, viewers must enter this password before seeing the calendar. Password-protected links cannot be used as ICS subscriptions or for booking." />
                 {link.hasPassword && (
                   <label className="flex items-center gap-2 text-xs text-text-muted mb-2 cursor-pointer">
                     <input
@@ -218,6 +267,37 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                     placeholder={link.hasPassword ? 'New password (leave empty to keep current)' : 'Set a password (optional)'}
                     className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                   />
+                )}
+                {/* Booking toggle */}
+                {availableTemplates.length > 0 && (
+                  <div className="mb-2 p-2 rounded border border-border bg-bg space-y-2">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editBookingEnabled}
+                        onChange={e => setEditBookingEnabled(e.target.checked)}
+                      />
+                      <span className="font-bold">Enable booking</span>
+                    </label>
+                    {editBookingEnabled && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-text-muted">Select templates to offer:</p>
+                        {availableTemplates.map(t => (
+                          <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editTemplateIds.includes(t.id)}
+                              onChange={e => {
+                                if (e.target.checked) setEditTemplateIds(prev => [...prev, t.id])
+                                else setEditTemplateIds(prev => prev.filter(id => id !== t.id))
+                              }}
+                            />
+                            {t.name} ({t.duration_minutes} min)
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
                 <div className="flex gap-2">
                   <button
@@ -249,15 +329,28 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                 <p className="text-[10px] text-text-muted mt-0.5">
                   {visibilityLabel[link.visibility]}
                   {link.hasPassword && ' · 🔒'}
+                  {link.bookingEnabled && ' · 📅 Booking'}
                   {link.expiresAt && ` · Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
                 </p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 flex-wrap">
                   <button
                     onClick={() => copyLink(link.token)}
                     className="text-xs px-2 py-1 rounded bg-primary text-white hover:opacity-90"
                   >
                     {copied === link.token ? 'Copied!' : 'Copy link'}
                   </button>
+                  {link.bookingEnabled && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/book/${link.token}`)
+                        setCopiedBooking(link.token)
+                        setTimeout(() => setCopiedBooking(null), 2000)
+                      }}
+                      className="text-xs px-2 py-1 rounded border border-primary/50 text-primary hover:bg-primary/10"
+                    >
+                      {copiedBooking === link.token ? 'Copied!' : 'Copy booking link'}
+                    </button>
+                  )}
                   <button
                     onClick={() => openLink(link.token)}
                     className="text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-primary"
@@ -285,29 +378,32 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
         {/* New link form */}
         {showForm ? (
           <form onSubmit={handleCreate} className="border border-border rounded-lg p-3 mt-1">
+            <FieldLabel label="Link name" info="A label to help you remember who this link is shared with." />
             <input
               autoFocus
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              placeholder="Who is this for?"
-              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+              placeholder="e.g. Team lead, Client X"
+              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            <FieldLabel label="Visibility" info="Controls how much detail viewers can see. 'Busy' hides all info — viewers only see blocked time. 'Titles' shows event names. 'Full' shows all details including project, customer, and attendees." />
             <select
               value={newVisibility}
               onChange={e => setNewVisibility(e.target.value as ShareVisibility)}
-              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             >
               <option value="busy">Busy/Available only</option>
               <option value="titles">Show titles</option>
               <option value="full">Full details</option>
             </select>
+            <FieldLabel label="Expiration" info="The link will stop working after this date. Leave empty for no expiration." />
             <input
               type="date"
               value={newExpiry}
               onChange={e => setNewExpiry(e.target.value)}
-              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
-              placeholder="Expiration date (optional)"
+              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            <FieldLabel label="Password" info="If set, viewers must enter this password before seeing the calendar. Password-protected links cannot be used as ICS subscriptions or for booking." />
             <input
               type="text"
               value={newPassword}
@@ -315,6 +411,37 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
               placeholder="Leave empty for no password"
               className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            {/* Booking toggle */}
+            {availableTemplates.length > 0 && (
+              <div className="mb-3 p-2 rounded border border-border bg-bg space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newBookingEnabled}
+                    onChange={e => setNewBookingEnabled(e.target.checked)}
+                  />
+                  <span className="font-bold">Enable booking</span>
+                </label>
+                {newBookingEnabled && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-text-muted">Select templates to offer:</p>
+                    {availableTemplates.map(t => (
+                      <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newTemplateIds.includes(t.id)}
+                          onChange={e => {
+                            if (e.target.checked) setNewTemplateIds(prev => [...prev, t.id])
+                            else setNewTemplateIds(prev => prev.filter(id => id !== t.id))
+                          }}
+                        />
+                        {t.name} ({t.duration_minutes} min)
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 type="submit"

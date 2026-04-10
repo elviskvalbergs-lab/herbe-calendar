@@ -9,6 +9,9 @@ import {
   loadColorOverrides,
   saveColorOverride,
   resolveColorWithOverrides,
+  readableAccentColor,
+  textOnAccent,
+  SOURCE_COLOR_CODES,
 } from '@/lib/activityColors'
 import type { Activity } from '@/types'
 
@@ -362,5 +365,131 @@ describe('resolveColorWithOverrides', () => {
       { user_email: null, connection_id: null, class_group_code: 'MTG', color: '#admin' },
     ]
     expect(resolveColorWithOverrides('MTG', 'conn-1', classGroups, 0, overrides)).toBe('#admin')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  readableAccentColor                                                */
+/* ------------------------------------------------------------------ */
+describe('readableAccentColor', () => {
+  it('dark theme: returns the original color for any input', () => {
+    expect(readableAccentColor('#f59e0b', true)).toBe('#f59e0b')
+    expect(readableAccentColor('#ffffff', true)).toBe('#ffffff')
+    expect(readableAccentColor('#000000', true)).toBe('#000000')
+    expect(readableAccentColor('#cd4c38', true)).toBe('#cd4c38')
+  })
+
+  it('light theme: returns original color for dark colors (e.g. #cd4c38 red)', () => {
+    // #cd4c38 has luminance ~0.11, well below 0.4 threshold
+    expect(readableAccentColor('#cd4c38', false)).toBe('#cd4c38')
+  })
+
+  it('light theme: darkens light colors (e.g. #f59e0b amber)', () => {
+    const result = readableAccentColor('#f59e0b', false)
+    // Should not return the original color — it should be darkened
+    expect(result).not.toBe('#f59e0b')
+    // Result should be a valid hex color
+    expect(result).toMatch(/^#[0-9a-f]{6}$/)
+    // The darkened color should have lower RGB values than the original
+    const parseHex = (h: string) => parseInt(h.replace('#', ''), 16)
+    expect(parseHex(result)).toBeLessThan(parseHex('#f59e0b'))
+  })
+
+  it('light theme: darkens yellow (#ffff00 — high luminance color)', () => {
+    const result = readableAccentColor('#ffff00', false)
+    expect(result).not.toBe('#ffff00')
+    expect(result).toMatch(/^#[0-9a-f]{6}$/)
+  })
+
+  it('light theme: does not darken medium colors unnecessarily', () => {
+    // #3b82f6 (blue) has luminance ~0.22, below 0.4 threshold
+    expect(readableAccentColor('#3b82f6', false)).toBe('#3b82f6')
+    // #6264a7 (Teams purple) has luminance ~0.13
+    expect(readableAccentColor('#6264a7', false)).toBe('#6264a7')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  textOnAccent                                                       */
+/* ------------------------------------------------------------------ */
+describe('textOnAccent', () => {
+  it('returns white for dark backgrounds', () => {
+    expect(textOnAccent('#000000')).toBe('#ffffff')
+    expect(textOnAccent('#cd4c38')).toBe('#ffffff')
+    expect(textOnAccent('#6264a7')).toBe('#ffffff')
+  })
+
+  it('returns dark for light backgrounds', () => {
+    expect(textOnAccent('#ffffff')).toBe('#1a1a1a')
+    expect(textOnAccent('#f59e0b')).toBe('#1a1a1a')
+    expect(textOnAccent('#ffff00')).toBe('#1a1a1a')
+  })
+
+  it('threshold is around 0.35 luminance', () => {
+    // A color with luminance just above 0.35 should return dark text
+    // #a0a0a0 has luminance ~0.36
+    expect(textOnAccent('#a0a0a0')).toBe('#1a1a1a')
+    // A color with luminance just below 0.35 should return white text
+    // #909090 has luminance ~0.30
+    expect(textOnAccent('#909090')).toBe('#ffffff')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  SOURCE_COLOR_CODES                                                 */
+/* ------------------------------------------------------------------ */
+describe('SOURCE_COLOR_CODES', () => {
+  it('outlook key equals __outlook__', () => {
+    expect(SOURCE_COLOR_CODES.outlook).toBe('__outlook__')
+  })
+
+  it('erp key equals __erp__', () => {
+    expect(SOURCE_COLOR_CODES.erp).toBe('__erp__')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  getActivityColor with source overrides                             */
+/* ------------------------------------------------------------------ */
+describe('getActivityColor with source overrides', () => {
+  const typeToClassGroup = new Map([['LESSON', 'TEACHING']])
+  const baseClassGroupToColor = new Map([['TEACHING', '#22c55e']])
+
+  function makeActivity(overrides: Partial<Activity>): Activity {
+    return {
+      id: '1',
+      source: 'herbe',
+      personCode: 'EKS',
+      description: 'Test',
+      date: '2026-04-02',
+      timeFrom: '08:00',
+      timeTo: '09:00',
+      ...overrides,
+    }
+  }
+
+  it('returns overridden outlook color when SOURCE_COLOR_CODES.outlook is in the color map', () => {
+    const colorMap = new Map(baseClassGroupToColor)
+    colorMap.set(SOURCE_COLOR_CODES.outlook, '#ff00ff')
+    const a = makeActivity({ source: 'outlook' })
+    expect(getActivityColor(a, typeToClassGroup, colorMap)).toBe('#ff00ff')
+  })
+
+  it('returns overridden erp color when SOURCE_COLOR_CODES.erp is in the color map', () => {
+    const colorMap = new Map(baseClassGroupToColor)
+    colorMap.set(SOURCE_COLOR_CODES.erp, '#00ffaa')
+    // Activity with no activityTypeCode falls back to erp source color
+    const a = makeActivity({ activityTypeCode: undefined })
+    expect(getActivityColor(a, typeToClassGroup, colorMap)).toBe('#00ffaa')
+  })
+
+  it('falls back to OUTLOOK_COLOR when no override exists', () => {
+    const a = makeActivity({ source: 'outlook' })
+    expect(getActivityColor(a, typeToClassGroup, baseClassGroupToColor)).toBe(OUTLOOK_COLOR)
+  })
+
+  it('falls back to FALLBACK_COLOR when no override exists', () => {
+    const a = makeActivity({ activityTypeCode: undefined })
+    expect(getActivityColor(a, typeToClassGroup, baseClassGroupToColor)).toBe(FALLBACK_COLOR)
   })
 })

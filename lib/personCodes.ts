@@ -4,9 +4,10 @@ import { pool } from '@/lib/db'
 export interface RawUser {
   email: string
   displayName: string
-  source: 'erp' | 'azure'
+  source: 'erp' | 'azure' | 'google'
   erpCode?: string         // Original ERP code (e.g. 'EKS')
   azureObjectId?: string   // Azure AD immutable object ID
+  googleId?: string        // Google Workspace user ID
 }
 
 /** Person code record from the DB */
@@ -82,13 +83,14 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
   const byErpCode = new Map(existing.filter(r => r.erp_code).map(r => [r.erp_code!, r]))
 
   // Merge users by email (case-insensitive), also match ERP users by code
-  const merged = new Map<string, { erp?: RawUser; azure?: RawUser }>()
+  const merged = new Map<string, { erp?: RawUser; azure?: RawUser; google?: RawUser }>()
   for (const u of users) {
     const key = u.email.toLowerCase()
     // Skip ERP users without real email addresses
     if (u.source === 'erp' && key.endsWith('@erp.local')) continue
     const entry = merged.get(key) ?? {}
     if (u.source === 'erp') entry.erp = u
+    else if (u.source === 'google') entry.google = u
     else entry.azure = u
     merged.set(key, entry)
   }
@@ -104,12 +106,13 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
 
   const results: PersonCodeRecord[] = []
 
-  for (const [emailKey, { erp, azure }] of merged) {
+  for (const [emailKey, { erp, azure, google }] of merged) {
     // Try to find existing record by email OR by ERP code
     const existingRecord = byEmail.get(emailKey) ?? (erp?.erpCode ? byErpCode.get(erp.erpCode) : undefined)
-    const displayName = erp?.displayName || azure?.displayName || ''
-    const email = erp?.email || azure?.email || ''
-    const source = erp && azure ? 'both' : erp ? 'erp' : 'azure'
+    const displayName = erp?.displayName || azure?.displayName || google?.displayName || ''
+    const email = erp?.email || azure?.email || google?.email || ''
+    const sources = [erp && 'erp', azure && 'azure', google && 'google'].filter(Boolean) as string[]
+    const source = sources.join('+')
     const azureObjectId = azure?.azureObjectId || null
     const erpCode = erp?.erpCode || null
 

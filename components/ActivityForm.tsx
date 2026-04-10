@@ -25,6 +25,7 @@ interface Props {
   allCustomers?: { Code: string; Name: string }[]
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
+  availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
 }
 
 function SerpIcon() {
@@ -38,7 +39,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = []
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -54,7 +55,9 @@ export default function ActivityForm({
     return 'herbe'
   })
   const isOutlookSource = source === 'outlook'
-  const isErpSource = !isOutlookSource
+  const isGoogleSource = source === 'google'
+  const isExternalCalSource = isOutlookSource || isGoogleSource
+  const isErpSource = !isExternalCalSource
   const activeErpConnection = erpConnections.find(c => c.id === source)
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
@@ -224,9 +227,8 @@ export default function ActivityForm({
     setExternalAttendees(external)
   }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load recent items from localStorage
+  // Load recent persons from localStorage (types loaded per-connection below)
   useEffect(() => {
-    setRecentTypes(getRecentTypes())
     setRecentPersonCodes(getRecentPersons())
     setRecentCCPersonCodes(getRecentCCPersons())
   }, [])
@@ -494,7 +496,9 @@ export default function ActivityForm({
       const connParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
       const url = isErpSource
         ? (isEdit ? `/api/activities/${editId}${connParam}` : `/api/activities${connParam}`)
-        : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
+        : isGoogleSource
+          ? (isEdit ? `/api/google/${editId}` : '/api/google')
+          : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
       const method = isEdit ? 'PUT' : 'POST'
       const body = isErpSource ? buildHerbePayload() : buildOutlookPayload()
 
@@ -523,12 +527,12 @@ export default function ActivityForm({
       if (activityTypeCode) saveRecentType(activityTypeCode, activeErpConnection?.id)
       saveRecentPersons(selectedPersonCodes)
       saveRecentCCPersons(selectedCCPersonCodes)
-      setRecentTypes(getRecentTypes())
+      setRecentTypes(getRecentTypes(activeErpConnection?.id ?? 'default'))
       setRecentPersonCodes(getRecentPersons())
       setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
         id: createdId,
-        source: isOutlookSource ? 'outlook' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
+        source: isOutlookSource ? 'outlook' : isGoogleSource ? 'google' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
         activityTypeCode, projectCode, projectName, customerCode, customerName,
       })
       setSaving(false)
@@ -918,13 +922,24 @@ export default function ActivityForm({
                   {conn.name === 'Default (env)' ? 'ERP' : conn.name}
                 </button>
               ))}
-              <button
-                key="outlook"
-                onClick={() => setSource('outlook')}
-                className={`flex-1 py-2 ${isOutlookSource ? 'bg-primary text-white' : 'text-text-muted'}`}
-              >
-                Outlook
-              </button>
+              {availableSources?.azure && (
+                <button
+                  key="outlook"
+                  onClick={() => setSource('outlook')}
+                  className={`flex-1 py-2 ${source === 'outlook' ? 'bg-primary text-white' : 'text-text-muted'}`}
+                >
+                  Outlook
+                </button>
+              )}
+              {availableSources?.google && (
+                <button
+                  key="google"
+                  onClick={() => setSource('google')}
+                  className={`flex-1 py-2 ${source === 'google' ? 'bg-primary text-white' : 'text-text-muted'}`}
+                >
+                  Google
+                </button>
+              )}
             </div>
           )}
 
@@ -1111,7 +1126,47 @@ export default function ActivityForm({
           >
           <div>
             <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
-              Description
+              <span className="flex items-center gap-1.5">
+                Description
+                {!isEdit && (
+                  <TemplateQuickPick
+                    activityTypes={activityTypes}
+                    onApply={(t) => {
+                      // ERP fields
+                      if (t.fields.ActType) {
+                        setActivityTypeCode(t.fields.ActType)
+                        const found = activityTypes.find(at => at.code === t.fields.ActType)
+                        setActivityTypeName(found?.name ?? '')
+                        setCurrentGroup(getTypeGroup?.(t.fields.ActType))
+                      }
+                      if (t.fields.PRCode) {
+                        setProjectCode(t.fields.PRCode)
+                        const proj = connProjects.find(p => p.Code === t.fields.PRCode)
+                        setProjectName(proj?.Name ?? t.fields.PRCode)
+                        if (!t.fields.CUCode && proj?.CUCode) {
+                          setCustomerCode(proj.CUCode)
+                          setCustomerName(proj.CUName ?? proj.CUCode)
+                        }
+                      }
+                      if (t.fields.CUCode) {
+                        setCustomerCode(t.fields.CUCode)
+                        const cust = connCustomers.find(c => c.Code === t.fields.CUCode)
+                        setCustomerName(cust?.Name ?? t.fields.CUCode)
+                      }
+                      // Duration
+                      if (t.duration) {
+                        const [h, m] = timeFrom.split(':').map(Number)
+                        const endMins = h * 60 + m + t.duration
+                        setTimeTo(`${String(Math.floor(endMins / 60) % 24).padStart(2, '0')}:${String(endMins % 60).padStart(2, '0')}`)
+                      }
+                      if (t.description) setDescription(t.description)
+                      // Outlook/Google fields
+                      if (t.location) setLocation(t.location)
+                      if (t.onlineMeeting !== undefined) setIsOnlineMeeting(t.onlineMeeting)
+                    }}
+                  />
+                )}
+              </span>
               <span className="normal-case font-normal text-[9px] tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
             </label>
             <div className="relative">
@@ -1613,5 +1668,92 @@ export default function ActivityForm({
         </div>}
       </div>
     </div>
+  )
+}
+
+/** Compact icon + dropdown for pre-filling activity from a template */
+function TemplateQuickPick({ onApply, activityTypes }: {
+  onApply: (t: { fields: Record<string, string>; duration?: number; description?: string; location?: string; onlineMeeting?: boolean }) => void
+  activityTypes: ActivityType[]
+}) {
+  const [templates, setTemplates] = useState<{ id: string; name: string; duration_minutes: number; targets: { erp?: { fields: Record<string, string> }[]; outlook?: { enabled?: boolean; onlineMeeting?: boolean; location?: string }; google?: { enabled?: boolean; onlineMeeting?: boolean; location?: string } } }[]>([])
+  const [open, setOpen] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handleMouseDown(e: MouseEvent) {
+      if (dropdownRef.current?.contains(e.target as Node)) return
+      if (buttonRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [open])
+
+  function toggle() {
+    if (!loaded) {
+      fetch('/api/settings/templates').then(r => r.json()).then(data => {
+        setTemplates(Array.isArray(data) ? data : [])
+        setLoaded(true)
+        setOpen(true)
+      }).catch(() => setLoaded(true))
+    } else {
+      setOpen(o => !o)
+    }
+  }
+
+  return (
+    <span className="relative inline-block">
+      <button
+        ref={buttonRef}
+        type="button"
+        tabIndex={-1}
+        onClick={toggle}
+        className="text-text-muted hover:text-primary transition-colors leading-none px-0.5"
+        title="Fill from template"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block" style={{ verticalAlign: 'middle' }}>
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M9 21V9"/>
+        </svg>
+      </button>
+      {open && (
+        <div ref={dropdownRef} className="absolute left-0 top-5 z-[70] bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+          {loaded && templates.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-text-muted">No templates. Create one in Settings &gt; Templates.</p>
+          ) : !loaded ? (
+            <p className="px-3 py-2 text-xs text-text-muted animate-pulse">Loading...</p>
+          ) : templates.map(t => {
+            const erpFields = t.targets?.erp?.[0]?.fields ?? {}
+            const typeName = erpFields.ActType ? activityTypes.find(at => at.code === erpFields.ActType)?.name : undefined
+            return (
+              <button
+                key={t.id}
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  setOpen(false)
+                  const outlookTarget = t.targets?.outlook
+                  const googleTarget = t.targets?.google
+                  const loc = outlookTarget?.location || googleTarget?.location || undefined
+                  const online = outlookTarget?.onlineMeeting ?? googleTarget?.onlineMeeting ?? undefined
+                  onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name, location: loc, onlineMeeting: online })
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
+              >
+                <span className="font-bold">{t.name}</span>
+                <span className="text-text-muted ml-1">({t.duration_minutes}min)</span>
+                {typeName && <span className="block text-[10px] text-text-muted mt-0.5">{erpFields.ActType} · {typeName}</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </span>
   )
 }

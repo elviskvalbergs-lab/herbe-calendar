@@ -42,10 +42,10 @@ const FEATURES = [
   },
   {
     tag: 'MOD_005',
-    title: 'Share Links',
-    desc: 'Generate anonymous, password-protected calendar links with configurable visibility levels. Perfect for clients and external teams.',
+    title: 'Share & Book',
+    desc: 'Share calendar views via secure links with configurable visibility. Let clients book time slots based on real availability across all your calendar sources — with templates, confirmations, and cancel/reschedule.',
     color: PRIMARY,
-    status: 'ENCRYPTION ACTIVE',
+    status: 'BOOKING LIVE',
   },
   {
     tag: 'MOD_006',
@@ -326,7 +326,7 @@ export default function LandingPage() {
                   'See your whole team at a glance across all calendar systems',
                   'Create activities in Standard ERP directly from the calendar',
                   'Schedule Outlook/Google meetings with Teams or Meet links',
-                  'Share calendar views with clients via secure anonymous links',
+                  'Let clients self-book meetings based on real-time availability',
                   'Works on any device with native-like PWA experience',
                   'Self-hosted on your Vercel account with full data control',
                   'Multi-company support for multiple ERP instances',

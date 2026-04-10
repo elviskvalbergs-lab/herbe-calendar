@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { graphFetch } from '@/lib/graph/client'
-import { getAzureConfig } from '@/lib/accountConfig'
+import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchIcsEvents } from '@/lib/icsParser'
 
@@ -134,35 +134,41 @@ export async function GET(
 
   const allActivities: Record<string, unknown>[] = []
 
-  // Fetch Herbe activities
-  try {
-    const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` })
-
-    if (!hiddenCalendarsSet.has('herbe')) {
-      // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
-      const calendarRecords = raw.filter(r => {
-        const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
-        return todoFlag === '0' || todoFlag === ''
-      })
-      for (const record of calendarRecords) {
-        const r = record as Record<string, unknown>
-        const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-        for (const p of mainPersons) {
-          if (personSet.has(p)) {
-            allActivities.push(mapHerbeActivity(r, p))
+  // Fetch Herbe activities from all ERP connections
+  if (!hiddenCalendarsSet.has('herbe')) {
+    try {
+      const connections = await getErpConnections(accountId)
+      for (const conn of connections) {
+        try {
+          const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
+          // Filter to calendar entries only (TodoFlag 0 or empty = calendar, 1 = task, 2 = done)
+          const calendarRecords = raw.filter(r => {
+            const todoFlag = String((r as Record<string, unknown>)['TodoFlag'] ?? '0')
+            return todoFlag === '0' || todoFlag === ''
+          })
+          for (const record of calendarRecords) {
+            const r = record as Record<string, unknown>
+            const mainPersons = String(r['MainPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+            for (const p of mainPersons) {
+              if (personSet.has(p)) {
+                allActivities.push(mapHerbeActivity(r, p))
+              }
+            }
+            // CC rows
+            const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
+            for (const ccCode of ccPersonsArr) {
+              if (personSet.has(ccCode) && !mainPersons.includes(ccCode)) {
+                allActivities.push(mapHerbeActivity(r, ccCode))
+              }
+            }
           }
-        }
-        // CC rows
-        const ccPersonsArr = String(r['CCPersons'] ?? '').split(',').map(s => s.trim()).filter(Boolean)
-        for (const ccCode of ccPersonsArr) {
-          if (personSet.has(ccCode) && !mainPersons.includes(ccCode)) {
-            allActivities.push(mapHerbeActivity(r, ccCode))
-          }
+        } catch (e) {
+          console.warn(`[share/activities] ERP "${conn.name}" failed:`, String(e))
         }
       }
+    } catch (e) {
+      console.warn('[share/activities] ERP connections lookup failed:', String(e))
     }
-  } catch (e) {
-    console.warn('[share/activities] Herbe fetch failed:', String(e))
   }
 
   // Fetch Outlook/ICS activities per person
@@ -198,7 +204,7 @@ export async function GET(
       try {
         const startDt = `${dateFrom}T00:00:00`
         const endDt = `${dateTo}T23:59:59`
-        const shareAzureConfig = await getAzureConfig(DEFAULT_ACCOUNT_ID)
+        const shareAzureConfig = await getAzureConfig(accountId)
         if (!shareAzureConfig) throw new Error('Azure not configured')
         const res = await graphFetch(
           `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
