@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
       const conn: ErpConnection = {
         id: r.id, name: r.name, apiBaseUrl: r.api_base_url, companyCode: r.company_code,
         clientId: r.client_id, clientSecret: r.client_secret ? decrypt(r.client_secret) : '',
-        accessToken: null, refreshToken: null, tokenExpiresAt: 0,
+        accessToken: r.access_token ? decrypt(r.access_token) : null,
+        refreshToken: r.refresh_token ? decrypt(r.refresh_token) : null,
+        tokenExpiresAt: Number(r.token_expires_at) || 0,
         username: r.username || null, password: r.password ? decrypt(r.password) : null, active: r.active,
       }
       const result = await testErpConnection(conn)
