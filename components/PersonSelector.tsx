@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Person } from '@/types'
 import { personColor } from '@/lib/colors'
 
@@ -14,6 +14,12 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
   const [query, setQuery] = useState('')
   const [local, setLocal] = useState<Person[]>(selected)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
 
   const filtered = people.filter(p =>
     p.code.toLowerCase().includes(query.toLowerCase()) ||

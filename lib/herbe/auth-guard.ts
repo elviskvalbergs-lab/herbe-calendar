@@ -54,7 +54,9 @@ export async function requireSession(): Promise<SessionUser> {
     const { cookies } = await import('next/headers')
     const cookieStore = await cookies()
     activeAccountOverride = cookieStore.get('activeAccountId')?.value || undefined
-  } catch {}
+  } catch (e) {
+    console.warn('[auth-guard] Failed to read activeAccountId cookie:', String(e))
+  }
 
   // Resolve account from membership (cached)
   const cacheKey = activeAccountOverride ? `${email}:${activeAccountOverride}` : email
