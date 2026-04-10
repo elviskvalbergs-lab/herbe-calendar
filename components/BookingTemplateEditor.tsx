@@ -323,8 +323,8 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
         <button type="button" onClick={addCustomField} className="text-xs text-primary hover:underline">+ Add field</button>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t border-border">
+      {/* Actions — sticky at bottom */}
+      <div className="flex gap-2 pt-2 border-t border-border sticky bottom-0 bg-bg pb-1">
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}
