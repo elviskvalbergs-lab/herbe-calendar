@@ -335,7 +335,7 @@ function SearchField({ label, value, onChange, items, inputClass }: {
   useEffect(() => { setQuery(value) }, [value])
 
   const filtered = query
-    ? items.filter(i => i.code.toLowerCase().includes(query.toLowerCase()) || i.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    ? items.filter(i => (i.code ?? '').toLowerCase().includes(query.toLowerCase()) || (i.name ?? '').toLowerCase().includes(query.toLowerCase())).slice(0, 8)
     : items.slice(0, 8)
 
   return (
