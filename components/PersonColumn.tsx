@@ -233,6 +233,8 @@ export default function PersonColumn({
   const suppressClickRef = useRef(false)
   const { confirmState, confirm, handleConfirm, handleCancel } = useConfirm()
   const setMobileSelectedId = onMobileSelect ?? (() => {})
+  /** Scope mobile selection to this column so multi-person activities only open one preview */
+  const mobileKey = (actId: string) => `${actId}:${personCode}`
 
   const effectiveStart = startHour ?? GRID_START_HOUR
   const effectiveEnd = endHour ?? GRID_END_HOUR
@@ -398,8 +400,8 @@ export default function PersonColumn({
                   activity={act}
                   color={actColor}
                   onClick={onActivityClick}
-                  isMobileSelected={mobileSelectedId === act.id}
-                  onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
+                  isMobileSelected={mobileSelectedId === mobileKey(act.id)}
+                  onMobileTap={(id) => { const k = mobileKey(id); setMobileSelectedId(mobileSelectedId === k ? null : k) }}
                   onMobileClose={() => setMobileSelectedId(null)}
                   getTypeName={getTypeName}
                   visibility={visibility}
@@ -442,8 +444,8 @@ export default function PersonColumn({
                   isLightMode={isLightMode}
                   getTypeName={getTypeName}
                   scale={scale}
-                  mobileSelected={mobileSelectedId === act.id}
-                  onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
+                  mobileSelected={mobileSelectedId === mobileKey(act.id)}
+                  onMobileTap={(id) => { const k = mobileKey(id); setMobileSelectedId(mobileSelectedId === k ? null : k) }}
                   onMobileClose={() => setMobileSelectedId(null)}
                   style={isDragging
                     ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
@@ -501,8 +503,8 @@ export default function PersonColumn({
                     canEdit={canEdit(act)}
                     isLightMode={isLightMode}
                     scale={scale}
-                    mobileSelected={mobileSelectedId === act.id}
-                    onMobileTap={(id) => setMobileSelectedId(mobileSelectedId === id ? null : id)}
+                    mobileSelected={mobileSelectedId === mobileKey(act.id)}
+                    onMobileTap={(id) => { const k = mobileKey(id); setMobileSelectedId(mobileSelectedId === k ? null : k) }}
                     onMobileClose={() => setMobileSelectedId(null)}
                     style={isDragging
                       ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
