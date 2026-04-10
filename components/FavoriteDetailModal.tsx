@@ -16,6 +16,28 @@ const visibilityLabel: Record<ShareVisibility, string> = {
   full: 'Full details',
 }
 
+function FieldLabel({ label, info }: { label: string; info: string }) {
+  const [showInfo, setShowInfo] = useState(false)
+  return (
+    <label className="text-[10px] text-text-muted uppercase font-bold tracking-wide mb-1 flex items-center gap-1">
+      {label}
+      <span
+        className="relative cursor-help text-text-muted/50 hover:text-text-muted normal-case font-normal"
+        onMouseEnter={() => setShowInfo(true)}
+        onMouseLeave={() => setShowInfo(false)}
+        onClick={() => setShowInfo(s => !s)}
+      >
+        (i)
+        {showInfo && (
+          <span className="absolute left-0 bottom-full mb-1 z-50 bg-surface border border-border rounded-lg shadow-lg px-2.5 py-1.5 text-[10px] text-text normal-case font-normal tracking-normal w-48 whitespace-normal">
+            {info}
+          </span>
+        )}
+      </span>
+    </label>
+  )
+}
+
 export default function FavoriteDetailModal({ favorite, open, onClose, onLinksChange }: Props) {
   const [links, setLinks] = useState<ShareLink[]>([])
   const [loading, setLoading] = useState(true)
@@ -192,28 +214,32 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
           <div key={link.id} className="relative border border-border rounded-lg p-3 mb-2">
             {editingId === link.id ? (
               <form onSubmit={handleUpdate}>
+                <FieldLabel label="Link name" info="A label to help you remember who this link is shared with." />
                 <input
                   autoFocus
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
-                  placeholder="Who is this for?"
-                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+                  placeholder="e.g. Team lead, Client X"
+                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 />
+                <FieldLabel label="Visibility" info="Controls how much detail viewers can see. 'Busy' hides all info — viewers only see blocked time. 'Titles' shows event names. 'Full' shows all details including project, customer, and attendees." />
                 <select
                   value={editVisibility}
                   onChange={e => setEditVisibility(e.target.value as ShareVisibility)}
-                  className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+                  className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 >
                   <option value="busy">Busy/Available only</option>
                   <option value="titles">Show titles</option>
                   <option value="full">Full details</option>
                 </select>
+                <FieldLabel label="Expiration" info="The link will stop working after this date. Leave empty for no expiration." />
                 <input
                   type="date"
                   value={editExpiry}
                   onChange={e => setEditExpiry(e.target.value)}
-                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+                  className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 />
+                <FieldLabel label="Password" info="If set, viewers must enter this password before seeing the calendar. Password-protected links cannot be used as ICS subscriptions or for booking." />
                 {link.hasPassword && (
                   <label className="flex items-center gap-2 text-xs text-text-muted mb-2 cursor-pointer">
                     <input
@@ -331,29 +357,32 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
         {/* New link form */}
         {showForm ? (
           <form onSubmit={handleCreate} className="border border-border rounded-lg p-3 mt-1">
+            <FieldLabel label="Link name" info="A label to help you remember who this link is shared with." />
             <input
               autoFocus
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              placeholder="Who is this for?"
-              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+              placeholder="e.g. Team lead, Client X"
+              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            <FieldLabel label="Visibility" info="Controls how much detail viewers can see. 'Busy' hides all info — viewers only see blocked time. 'Titles' shows event names. 'Full' shows all details including project, customer, and attendees." />
             <select
               value={newVisibility}
               onChange={e => setNewVisibility(e.target.value as ShareVisibility)}
-              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
+              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             >
               <option value="busy">Busy/Available only</option>
               <option value="titles">Show titles</option>
               <option value="full">Full details</option>
             </select>
+            <FieldLabel label="Expiration" info="The link will stop working after this date. Leave empty for no expiration." />
             <input
               type="date"
               value={newExpiry}
               onChange={e => setNewExpiry(e.target.value)}
-              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-2"
-              placeholder="Expiration date (optional)"
+              className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            <FieldLabel label="Password" info="If set, viewers must enter this password before seeing the calendar. Password-protected links cannot be used as ICS subscriptions or for booking." />
             <input
               type="text"
               value={newPassword}
