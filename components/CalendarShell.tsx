@@ -725,7 +725,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
           allActivities={activities}
           onClose={() => setFormState({ open: false })}
-          onSaved={fetchActivities}
+          onSaved={() => { fetchActivities(); setTimeout(fetchActivities, 2000) }}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
           onRsvp={(newStatus) => {
             // Update the activity in-state so re-opening the form shows the correct RSVP
