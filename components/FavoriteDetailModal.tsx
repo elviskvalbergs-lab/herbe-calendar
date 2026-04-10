@@ -50,6 +50,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
   const [newVisibility, setNewVisibility] = useState<ShareVisibility>('busy')
   const [newExpiry, setNewExpiry] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newBookingEnabled, setNewBookingEnabled] = useState(false)
+  const [newTemplateIds, setNewTemplateIds] = useState<string[]>([])
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -84,13 +86,17 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     e.preventDefault()
     if (!newName.trim()) return
     setCreating(true)
-    const link = await createShareLink({
+    let link = await createShareLink({
       favoriteId: favorite.id,
       name: newName.trim(),
       visibility: newVisibility,
       expiresAt: newExpiry || undefined,
       password: newPassword || undefined,
     })
+    // Apply booking settings if enabled
+    if (newBookingEnabled && newTemplateIds.length > 0) {
+      link = await updateShareLink(link.id, { bookingEnabled: true, templateIds: newTemplateIds })
+    }
     setLinks(prev => {
       const updated = [link, ...prev]
       onLinksChange?.(favorite.id, updated.length)
@@ -100,6 +106,8 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     setNewVisibility('busy')
     setNewExpiry('')
     setNewPassword('')
+    setNewBookingEnabled(false)
+    setNewTemplateIds([])
     setShowForm(false)
     setCreating(false)
   }
@@ -403,6 +411,37 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
               placeholder="Leave empty for no password"
               className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            {/* Booking toggle */}
+            {availableTemplates.length > 0 && (
+              <div className="mb-3 p-2 rounded border border-border bg-bg space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newBookingEnabled}
+                    onChange={e => setNewBookingEnabled(e.target.checked)}
+                  />
+                  <span className="font-bold">Enable booking</span>
+                </label>
+                {newBookingEnabled && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-text-muted">Select templates to offer:</p>
+                    {availableTemplates.map(t => (
+                      <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newTemplateIds.includes(t.id)}
+                          onChange={e => {
+                            if (e.target.checked) setNewTemplateIds(prev => [...prev, t.id])
+                            else setNewTemplateIds(prev => prev.filter(id => id !== t.id))
+                          }}
+                        />
+                        {t.name} ({t.duration_minutes} min)
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 type="submit"
