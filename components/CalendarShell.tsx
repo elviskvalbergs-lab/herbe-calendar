@@ -32,6 +32,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false)
   const [accountName, setAccountName] = useState<string>('')
+  const [accountLogo, setAccountLogo] = useState<string>('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [userEmail, setUserEmail] = useState<string>('')
   // Fetch account name + admin status + email on mount
@@ -39,7 +40,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     if (!accountId) return
     fetch('/api/settings/accounts').then(r => r.json()).then(data => {
       const current = (data.accounts ?? []).find((a: { id: string }) => a.id === accountId)
-      if (current) setAccountName(current.display_name)
+      if (current) {
+        setAccountName(current.display_name)
+        setAccountLogo(current.logo_url ?? '')
+      }
       setIsAdmin(!!data.isAdmin)
       if (data.email) setUserEmail(data.email)
     }).catch(() => {})
@@ -595,6 +599,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         onAccountSwitch={() => setAccountSwitcherOpen(true)}
         isAdmin={isAdmin}
         userEmail={userEmail}
+        accountLogo={accountLogo}
       />
       <CalendarGrid
         state={state}

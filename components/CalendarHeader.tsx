@@ -29,9 +29,10 @@ interface Props {
   onAccountSwitch?: () => void
   isAdmin?: boolean
   userEmail?: string
+  accountLogo?: string
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail, accountLogo }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
@@ -53,10 +54,12 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {accountName && (
         <button
           onClick={onAccountSwitch}
-          className="hidden lg:inline-block text-[10px] text-text-muted bg-border/40 hover:bg-border px-1.5 py-0.5 rounded mr-auto transition-colors"
-          title="Switch account (⌃⌘A)"
+          className="hidden lg:inline-flex items-center justify-center w-6 h-6 rounded-full overflow-hidden bg-primary/15 text-primary text-[10px] font-bold hover:bg-primary/25 mr-auto transition-colors"
+          title={`${accountName} — Switch account (⌃⌘A)`}
         >
-          {accountName}
+          {accountLogo
+            ? <img src={accountLogo} alt={accountName} className="w-full h-full object-cover" />
+            : accountName.charAt(0).toUpperCase()}
         </button>
       )}
       {!accountName && <span className="mr-auto" />}
@@ -217,11 +220,13 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               {accountName && onAccountSwitch && (
                 <button
                   onClick={() => { setHamburgerOpen(false); onAccountSwitch() }}
-                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+                  className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-2"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
-                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
-                  </svg>
+                  <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[9px] font-bold flex items-center justify-center shrink-0 overflow-hidden">
+                    {accountLogo
+                      ? <img src={accountLogo} alt="" className="w-full h-full object-cover" />
+                      : accountName.charAt(0).toUpperCase()}
+                  </span>
                   {accountName}
                 </button>
               )}

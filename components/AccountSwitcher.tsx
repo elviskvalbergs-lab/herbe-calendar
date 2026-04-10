@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 interface Account {
   id: string
   display_name: string
+  logo_url?: string
 }
 
 interface Props {
@@ -76,10 +77,12 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
                     focusedIdx === idx ? 'bg-primary/15' : 'hover:bg-border/30'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden ${
                     isCurrent ? 'bg-primary text-white' : 'bg-border text-text-muted'
                   }`}>
-                    {a.display_name.charAt(0).toUpperCase()}
+                    {a.logo_url
+                      ? <img src={a.logo_url} alt="" className="w-full h-full object-cover" />
+                      : a.display_name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-bold truncate ${isCurrent ? 'text-primary' : ''}`}>{a.display_name}</p>
