@@ -32,12 +32,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false)
   const [accountName, setAccountName] = useState<string>('')
-  // Fetch account name on mount
+  const [isAdmin, setIsAdmin] = useState(false)
+  // Fetch account name + admin status on mount
   useEffect(() => {
     if (!accountId) return
     fetch('/api/settings/accounts').then(r => r.json()).then(data => {
       const current = (data.accounts ?? []).find((a: { id: string }) => a.id === accountId)
       if (current) setAccountName(current.display_name)
+      setIsAdmin(!!data.isAdmin)
     }).catch(() => {})
   }, [accountId])
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
@@ -589,6 +591,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         onToggleZoom={toggleZoom}
         accountName={accountName}
         onAccountSwitch={() => setAccountSwitcherOpen(true)}
+        isAdmin={isAdmin}
       />
       <CalendarGrid
         state={state}
