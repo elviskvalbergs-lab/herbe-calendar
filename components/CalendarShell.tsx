@@ -702,6 +702,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           allCustomers={allCustomers}
           allProjects={allProjects}
           erpConnections={erpConnections}
+          availableSources={sources}
         />
       )}
 

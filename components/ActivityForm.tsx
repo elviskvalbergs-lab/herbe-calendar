@@ -25,6 +25,7 @@ interface Props {
   allCustomers?: { Code: string; Name: string }[]
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
+  availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
 }
 
 function SerpIcon() {
@@ -38,7 +39,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = []
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -54,7 +55,9 @@ export default function ActivityForm({
     return 'herbe'
   })
   const isOutlookSource = source === 'outlook'
-  const isErpSource = !isOutlookSource
+  const isGoogleSource = source === 'google'
+  const isExternalCalSource = isOutlookSource || isGoogleSource
+  const isErpSource = !isExternalCalSource
   const activeErpConnection = erpConnections.find(c => c.id === source)
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
@@ -493,7 +496,9 @@ export default function ActivityForm({
       const connParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
       const url = isErpSource
         ? (isEdit ? `/api/activities/${editId}${connParam}` : `/api/activities${connParam}`)
-        : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
+        : isGoogleSource
+          ? (isEdit ? `/api/google/${editId}` : '/api/google')
+          : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
       const method = isEdit ? 'PUT' : 'POST'
       const body = isErpSource ? buildHerbePayload() : buildOutlookPayload()
 
@@ -527,7 +532,7 @@ export default function ActivityForm({
       setRecentCCPersonCodes(getRecentCCPersons())
       setSavedActivity({
         id: createdId,
-        source: isOutlookSource ? 'outlook' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
+        source: isOutlookSource ? 'outlook' : isGoogleSource ? 'google' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
         activityTypeCode, projectCode, projectName, customerCode, customerName,
       })
       setSaving(false)
@@ -917,13 +922,24 @@ export default function ActivityForm({
                   {conn.name === 'Default (env)' ? 'ERP' : conn.name}
                 </button>
               ))}
-              <button
-                key="outlook"
-                onClick={() => setSource('outlook')}
-                className={`flex-1 py-2 ${isOutlookSource ? 'bg-primary text-white' : 'text-text-muted'}`}
-              >
-                Outlook
-              </button>
+              {availableSources?.azure && (
+                <button
+                  key="outlook"
+                  onClick={() => setSource('outlook')}
+                  className={`flex-1 py-2 ${source === 'outlook' ? 'bg-primary text-white' : 'text-text-muted'}`}
+                >
+                  Outlook
+                </button>
+              )}
+              {availableSources?.google && (
+                <button
+                  key="google"
+                  onClick={() => setSource('google')}
+                  className={`flex-1 py-2 ${source === 'google' ? 'bg-primary text-white' : 'text-text-muted'}`}
+                >
+                  Google
+                </button>
+              )}
             </div>
           )}
 
