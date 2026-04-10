@@ -69,9 +69,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         <button onClick={() => navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
       )}
       <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
-      <button
-        onClick={() => dateInputRef.current?.showPicker()}
-        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap relative"
+      <label
+        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap relative cursor-pointer inline-flex items-center"
         title="Pick a date"
       >
         {format(parseISO(state.date), 'd MMM yyyy')}
@@ -82,10 +81,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           onChange={e => {
             if (e.target.value) onStateChange({ ...state, date: e.target.value })
           }}
-          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer pointer-events-none"
+          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
           tabIndex={-1}
         />
-      </button>
+      </label>
       <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
       {viewStep > 1 && (
         <button onClick={() => navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
