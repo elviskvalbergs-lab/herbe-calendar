@@ -82,7 +82,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const calendarSources: CalendarSource[] = useMemo(() => [
     ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
     ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR }] : []),
-    ...(sources.google ? [{ id: 'google', label: 'Google', color: '#4285f4' }] : []),
+    ...(sources.google ? [{ id: 'google', label: 'Google', color: GOOGLE_COLOR }] : []),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
@@ -294,9 +294,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   function colorForActivity(activity: Activity): string {
     if (activity.icsColor) return activity.icsColor
     if (activity.source === 'google' && !activity.isExternal) {
+      if (dbColorOverrides.length > 0) {
+        return resolveColorWithOverrides(SOURCE_COLOR_CODES.google, null, classGroups, 0, dbColorOverrides)
+      }
       return classGroupToColor.get(SOURCE_COLOR_CODES.google) ?? GOOGLE_COLOR
     }
     if (activity.source === 'outlook' && !activity.isExternal) {
+      if (dbColorOverrides.length > 0) {
+        return resolveColorWithOverrides(SOURCE_COLOR_CODES.outlook, null, classGroups, 0, dbColorOverrides)
+      }
       return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
     }
     if (!activity.activityTypeCode) {
