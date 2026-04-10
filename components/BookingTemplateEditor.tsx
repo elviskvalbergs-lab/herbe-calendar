@@ -33,14 +33,14 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   const [allCustomers, setAllCustomers] = useState<SearchResult[]>([])
 
   useEffect(() => {
-    fetch('/api/activity-types').then(r => r.json()).then(d => setAllActivityTypes(Array.isArray(d) ? d : [])).catch(() => {})
-    fetch('/api/projects?all=1').then(r => r.json()).then(d => {
+    fetch('/api/activity-types').then(r => r.ok ? r.json() : []).then(d => setAllActivityTypes(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(d => {
       const items = Array.isArray(d) ? d : []
-      setAllProjects(items.map((p: Record<string, unknown>) => ({ code: String(p.Code ?? p.code ?? ''), name: String(p.Name ?? p.name ?? '') })))
+      setAllProjects(items.map((p: Record<string, unknown>) => ({ code: String(p.Code ?? p.code ?? ''), name: String(p.Name ?? p.name ?? '') })).filter(i => i.code))
     }).catch(() => {})
-    fetch('/api/customers?all=1').then(r => r.json()).then(d => {
+    fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(d => {
       const items = Array.isArray(d) ? d : []
-      setAllCustomers(items.map((c: Record<string, unknown>) => ({ code: String(c.Code ?? c.code ?? ''), name: String(c.Name ?? c.name ?? '') })))
+      setAllCustomers(items.map((c: Record<string, unknown>) => ({ code: String(c.Code ?? c.code ?? ''), name: String(c.Name ?? c.name ?? '') })).filter(i => i.code))
     }).catch(() => {})
   }, [])
 
@@ -381,8 +381,8 @@ function SearchField({ label, value, onChange, items, inputClass }: {
                 setOpen(false)
               }}
             >
-              <span className="font-mono text-[10px] text-primary w-10 shrink-0">{item.code}</span>
-              <span className="truncate">{item.name}</span>
+              <span className="font-mono text-[10px] text-primary w-10 shrink-0">{item.code ?? ''}</span>
+              <span className="truncate">{item.name ?? ''}</span>
             </button>
           ))}
         </div>
