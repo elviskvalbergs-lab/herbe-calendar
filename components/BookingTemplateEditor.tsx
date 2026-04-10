@@ -34,8 +34,14 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
 
   useEffect(() => {
     fetch('/api/activity-types').then(r => r.json()).then(d => setAllActivityTypes(Array.isArray(d) ? d : [])).catch(() => {})
-    fetch('/api/projects?all=1').then(r => r.json()).then(d => setAllProjects(Array.isArray(d) ? d : [])).catch(() => {})
-    fetch('/api/customers?all=1').then(r => r.json()).then(d => setAllCustomers(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/projects?all=1').then(r => r.json()).then(d => {
+      const items = Array.isArray(d) ? d : []
+      setAllProjects(items.map((p: Record<string, unknown>) => ({ code: String(p.Code ?? p.code ?? ''), name: String(p.Name ?? p.name ?? '') })))
+    }).catch(() => {})
+    fetch('/api/customers?all=1').then(r => r.json()).then(d => {
+      const items = Array.isArray(d) ? d : []
+      setAllCustomers(items.map((c: Record<string, unknown>) => ({ code: String(c.Code ?? c.code ?? ''), name: String(c.Name ?? c.name ?? '') })))
+    }).catch(() => {})
   }, [])
 
   // Targets — ERP
