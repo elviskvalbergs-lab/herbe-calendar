@@ -67,11 +67,12 @@ export async function DELETE(
         }
         try {
           // Update activity: set TodoFlag=1 (Task) to keep record but free calendar slot
-          await herbeFetchById('ActVc', serNr, {
-            method: 'PUT',
+          const res = await herbeFetchById('ActVc', serNr, {
+            method: 'PATCH',
             body: `set_field.TodoFlag=1&set_field.Comment=${encodeURIComponent('[CANCELLED] ' + booking.template_name)}`,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
           }, conn)
+          console.log(`[booking-cancel] ERP PATCH ActVc/${serNr} → ${res.status}`)
         } catch (e) {
           console.warn(`[booking-cancel] Failed to update ERP activity ${serNr}:`, String(e))
         }
