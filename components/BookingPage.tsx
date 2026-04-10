@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { format, addDays, parseISO } from 'date-fns'
+import { format, addDays, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths, isAfter, isBefore } from 'date-fns'
 
 interface Template {
   id: string
@@ -32,6 +32,7 @@ export default function BookingPage({ token, templates, onBack }: Props) {
   const [bookerEmail, setBookerEmail] = useState('')
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [error, setError] = useState<string | null>(null)
   const [confirmData, setConfirmData] = useState<{ cancelToken: string } | null>(null)
 
@@ -188,33 +189,77 @@ export default function BookingPage({ token, templates, onBack }: Props) {
             </div>
           )}
 
-          {/* Step 2: Date selection */}
+          {/* Step 2: Date selection — calendar month view */}
           {step === 'date' && (
-            <div className="space-y-2">
-              <p className="text-xs text-text-muted mb-3">Select a date:</p>
+            <div>
               {slotsLoading ? (
                 <p className="text-center text-text-muted text-sm py-8 animate-pulse">Loading availability...</p>
-              ) : availableDates.length === 0 ? (
-                <p className="text-center text-text-muted text-sm py-8">No available dates in the next 30 days.</p>
               ) : (
-                <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                  {availableDates.map(date => {
-                    const daySlots = slots[date] ?? []
-                    const parsed = parseISO(date)
-                    return (
-                      <button
-                        key={date}
-                        onClick={() => selectDate(date)}
-                        className="w-full text-left px-3 py-2.5 rounded-lg border border-border hover:border-primary/50 hover:bg-primary/5 transition-colors flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="text-sm font-bold">{format(parsed, 'EEEE, d MMMM')}</p>
-                          <p className="text-[10px] text-text-muted">{daySlots.length} available slots</p>
-                        </div>
-                        <span className="text-text-muted text-xs">›</span>
-                      </button>
-                    )
-                  })}
+                <div>
+                  {/* Month nav */}
+                  <div className="flex items-center justify-between mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setCalendarMonth(m => subMonths(m, 1))}
+                      disabled={isSameMonth(calendarMonth, new Date())}
+                      className="text-text-muted hover:text-text px-2 py-1 disabled:opacity-30"
+                    >‹</button>
+                    <span className="text-sm font-bold">{format(calendarMonth, 'MMMM yyyy')}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCalendarMonth(m => addMonths(m, 1))}
+                      className="text-text-muted hover:text-text px-2 py-1"
+                    >›</button>
+                  </div>
+                  {/* Day headers */}
+                  <div className="grid grid-cols-7 gap-0 mb-1">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+                      <div key={d} className="text-center text-[10px] text-text-muted font-bold py-1">{d}</div>
+                    ))}
+                  </div>
+                  {/* Calendar grid */}
+                  <div className="grid grid-cols-7 gap-0">
+                    {(() => {
+                      const monthStart = startOfMonth(calendarMonth)
+                      const monthEnd = endOfMonth(calendarMonth)
+                      const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+                      const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+                      const today = new Date()
+                      const days: React.ReactElement[] = []
+                      let day = gridStart
+                      while (day <= gridEnd) {
+                        const dateStr = format(day, 'yyyy-MM-dd')
+                        const inMonth = isSameMonth(day, calendarMonth)
+                        const isPast = isBefore(day, today) && !isSameDay(day, today)
+                        const hasSlots = availableDates.includes(dateStr)
+                        const isToday = isSameDay(day, today)
+                        const d = day // capture for closure
+                        days.push(
+                          <button
+                            key={dateStr}
+                            type="button"
+                            disabled={!hasSlots || isPast || !inMonth}
+                            onClick={() => { if (hasSlots && !isPast) selectDate(dateStr) }}
+                            className={`aspect-square flex items-center justify-center text-xs rounded-lg transition-colors relative ${
+                              !inMonth ? 'text-text-muted/20' :
+                              hasSlots && !isPast ? 'font-bold hover:bg-primary/15 cursor-pointer text-text' :
+                              'text-text-muted/40 cursor-default'
+                            } ${isToday ? 'ring-1 ring-primary/50' : ''}`}
+                          >
+                            {format(d, 'd')}
+                            {hasSlots && inMonth && !isPast && (
+                              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                            )}
+                          </button>
+                        )
+                        day = addDays(day, 1)
+                      }
+                      return days
+                    })()}
+                  </div>
+                  {availableDates.length === 0 && (
+                    <p className="text-center text-text-muted text-xs mt-4">No available dates in the next 30 days.</p>
+                  )}
                 </div>
               )}
             </div>
