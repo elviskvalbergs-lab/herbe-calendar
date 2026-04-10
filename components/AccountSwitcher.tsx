@@ -47,7 +47,8 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
   function switchTo(accountId: string) {
     if (accountId === currentAccountId) { onClose(); return }
     document.cookie = `activeAccountId=${accountId};path=/;max-age=${30 * 24 * 3600}`
-    window.location.reload()
+    // Navigate with cache bust to ensure fresh data for the new account
+    window.location.href = '/cal'
   }
 
   const currentName = accounts.find(a => a.id === currentAccountId)?.display_name
