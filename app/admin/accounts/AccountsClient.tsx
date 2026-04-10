@@ -5,6 +5,7 @@ interface Account {
   id: string
   slug: string
   display_name: string
+  logo_url: string | null
   created_at: string
   suspended_at: string | null
   member_count: number
@@ -104,13 +105,37 @@ export default function AccountsClient() {
 
       <div className="space-y-2">
         {accounts.map(a => (
-          <div key={a.id} className={`bg-surface border border-border rounded-xl p-4 flex items-center justify-between transition-colors hover:bg-border/20 ${a.suspended_at ? 'opacity-60' : ''}`}>
-            <div>
-              <a href={`/admin/accounts/${a.id}`} className="text-sm font-bold hover:text-primary transition-colors">{a.display_name}</a>
-              <p className="text-[10px] text-text-muted font-mono">{a.slug}</p>
-              <p className="text-[10px] text-text-muted">{a.member_count} members</p>
+          <div key={a.id} className={`bg-surface border border-border rounded-xl p-4 flex items-center justify-between transition-colors hover:bg-border/20 cursor-pointer ${a.suspended_at ? 'opacity-60' : ''}`} onClick={() => window.location.href = `/admin/accounts/${a.id}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-border flex items-center justify-center shrink-0 overflow-hidden text-sm font-bold text-text-muted">
+                {a.logo_url
+                  ? <img src={a.logo_url} alt="" className="w-full h-full object-cover" />
+                  : a.display_name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <span className="text-sm font-bold hover:text-primary transition-colors">{a.display_name}</span>
+                <p className="text-[10px] text-text-muted font-mono">{a.slug}</p>
+                <p className="text-[10px] text-text-muted">{a.member_count} members</p>
+                <div className="flex items-center gap-1 mt-1" onClick={e => e.stopPropagation()}>
+                  <input
+                    defaultValue={a.logo_url ?? ''}
+                    placeholder="Logo URL"
+                    onBlur={async (e) => {
+                      const url = e.target.value.trim()
+                      if (url === (a.logo_url ?? '')) return
+                      await fetch('/api/admin/accounts', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: a.id, logoUrl: url || null }),
+                      })
+                      setAccounts(prev => prev.map(x => x.id === a.id ? { ...x, logo_url: url || null } : x))
+                    }}
+                    className="bg-transparent border border-border/50 rounded text-[10px] px-1.5 py-0.5 w-48 outline-none focus:border-primary text-text-muted"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
               {a.suspended_at && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-500">suspended</span>
               )}

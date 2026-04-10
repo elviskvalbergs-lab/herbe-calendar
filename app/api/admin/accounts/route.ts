@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { rows } = await pool.query(
-    `SELECT a.id, a.slug, a.display_name, a.created_at, a.suspended_at,
+    `SELECT a.id, a.slug, a.display_name, a.logo_url, a.created_at, a.suspended_at,
             (SELECT COUNT(*)::int FROM account_members am WHERE am.account_id = a.id) AS member_count
      FROM tenant_accounts a ORDER BY a.display_name`
   )
@@ -56,7 +56,7 @@ export async function PATCH(req: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const { id, name, suspended } = await req.json()
+  const { id, name, suspended, logoUrl } = await req.json()
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   const updates: string[] = []
@@ -64,6 +64,7 @@ export async function PATCH(req: NextRequest) {
   let idx = 1
 
   if (name) { updates.push(`display_name = $${idx++}`); params.push(name) }
+  if (logoUrl !== undefined) { updates.push(`logo_url = $${idx++}`); params.push(logoUrl) }
   if (typeof suspended === 'boolean') {
     updates.push(`suspended_at = $${idx++}`)
     params.push(suspended ? new Date().toISOString() : null)

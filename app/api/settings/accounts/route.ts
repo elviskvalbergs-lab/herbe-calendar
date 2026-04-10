@@ -14,7 +14,7 @@ export async function GET() {
 
   // Show accounts where the user is a member (regardless of super admin status)
   const result = await pool.query(
-    `SELECT a.id, a.display_name, am.role FROM account_members am
+    `SELECT a.id, a.display_name, a.logo_url, am.role FROM account_members am
      JOIN tenant_accounts a ON a.id = am.account_id
      WHERE LOWER(am.email) = $1 AND am.active = true AND a.suspended_at IS NULL
      ORDER BY a.display_name`,

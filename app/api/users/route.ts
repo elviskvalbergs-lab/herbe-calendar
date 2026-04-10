@@ -9,7 +9,7 @@ import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
 
 // Per-account cache: avoids re-fetching ERP + Azure + DB sync on every page load
 const usersCache = new Map<string, { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number }>()
-const USERS_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const USERS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes (short for account switching)
 
 export async function GET(req: NextRequest) {
   let session

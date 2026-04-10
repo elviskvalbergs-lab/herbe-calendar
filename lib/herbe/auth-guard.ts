@@ -4,9 +4,9 @@ import { pool } from '@/lib/db'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 
-// Cache email → accountId for 10 minutes
+// Cache email → accountId for 2 minutes (short TTL to handle account switching)
 const accountCache = new Map<string, { accountId: string; ts: number }>()
-const ACCOUNT_CACHE_TTL = 10 * 60 * 1000
+const ACCOUNT_CACHE_TTL = 2 * 60 * 1000
 
 export interface SessionUser {
   userCode: string
