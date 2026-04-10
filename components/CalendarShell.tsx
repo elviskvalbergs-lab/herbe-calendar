@@ -80,18 +80,20 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
   const calendarSources: CalendarSource[] = useMemo(() => [
-    { id: HERBE_ID, label: 'ERP', color: HERBE_COLOR },
-    { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
+    ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
+    ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR }] : []),
+    ...(sources.google ? [{ id: 'google', label: 'Google', color: '#4285f4' }] : []),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
-  ], [userIcsCalendars, selectedCodes])
+  ], [sources, userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
     if (hiddenCalendars.size === 0) return activities
     return activities.filter(a => {
       if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
       if (a.source === 'outlook' && !a.isExternal) return !hiddenCalendars.has(OUTLOOK_ID)
+      if (a.source === 'google' && !a.isExternal) return !hiddenCalendars.has('google')
       if (a.source === 'herbe') return !hiddenCalendars.has(HERBE_ID)
       return true
     })
