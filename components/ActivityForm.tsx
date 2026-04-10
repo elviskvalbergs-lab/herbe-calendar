@@ -859,8 +859,8 @@ export default function ActivityForm({
             </a>
           )}
 
-          {/* RSVP buttons (Outlook Graph only, not ICS) */}
-          {isExternalCalSource && !initial?.isExternal && rsvpStatus !== 'organizer' && (
+          {/* RSVP buttons — only for your own event (not colleagues') */}
+          {isExternalCalSource && !initial?.isExternal && rsvpStatus !== 'organizer' && initial?.personCode === defaultPersonCode && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
               <div className="flex gap-2">
@@ -896,7 +896,10 @@ export default function ActivityForm({
                       if (!editId || rsvpLoading) return
                       setRsvpLoading(true)
                       try {
-                        const res = await fetch(`/api/outlook/${editId}/rsvp`, {
+                        const rsvpUrl = isGoogleSource
+                          ? `/api/google/${editId}/rsvp`
+                          : `/api/outlook/${editId}/rsvp`
+                        const res = await fetch(rsvpUrl, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ action }),
