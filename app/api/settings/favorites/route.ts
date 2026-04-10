@@ -32,7 +32,9 @@ export async function GET() {
   try {
     await ensureTable()
     const { rows } = await pool.query(
-      'SELECT id, name, view, person_codes as "personCodes", hidden_calendars as "hiddenCalendars" FROM user_favorites WHERE user_email = $1 AND account_id = $2 ORDER BY created_at',
+      `SELECT f.id, f.name, f.view, f.person_codes as "personCodes", f.hidden_calendars as "hiddenCalendars",
+        (SELECT COUNT(*)::int FROM favorite_share_links sl WHERE sl.favorite_id = f.id) AS "linkCount"
+       FROM user_favorites f WHERE f.user_email = $1 AND f.account_id = $2 ORDER BY f.created_at`,
       [session.email, session.accountId]
     )
     return NextResponse.json(rows)

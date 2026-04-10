@@ -34,7 +34,13 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
   }, [open])
 
   useEffect(() => {
-    loadFavorites().then(favs => { setFavorites(favs); setLoading(false) })
+    loadFavorites().then(favs => {
+      setFavorites(favs)
+      const counts: Record<string, number> = {}
+      for (const f of favs) if ((f as any).linkCount > 0) counts[f.id] = (f as any).linkCount
+      setLinkCounts(counts)
+      setLoading(false)
+    })
   }, [])
 
   useEffect(() => {
