@@ -178,6 +178,39 @@ Rename "Calendars" → "Integrations". Two sections:
 - Refresh token rotation: if Google returns a new refresh token during refresh, update DB
 - On disconnect: revoke token with Google before deleting from DB
 
+## Activity Creation — Unified Source Picker Redesign
+
+The source tabs in ActivityForm (ERP / Google / Outlook) become a unified multi-level picker. Each source type can have sub-destinations:
+
+### ERP
+When multiple ERP connections exist (e.g. Burti account), show a sub-selector:
+```
+ERP > Burti Production
+ERP > Burti Test
+```
+Currently the connection picker exists but is flat alongside the source tabs. This groups it under the ERP tab.
+
+### Google
+When user has per-user Google accounts, show nested account > calendar:
+```
+Google > elvis@gmail.com > Work
+Google > elvis@gmail.com > Personal
+Google > elvis@company.com > My Calendar
+```
+If only domain-wide delegation (no per-user tokens), behaves as today (primary calendar, no sub-pick).
+
+### Outlook
+Single destination — no sub-picker needed (unless multiple Outlook accounts added in the future).
+
+### Remembered Selection
+The last selected destination per source type is stored in localStorage:
+- `lastErpConnection` — connection ID
+- `lastGoogleCalendar` — `{googleEmail}:{calendarId}`
+- Restored on form open so user doesn't re-pick every time
+
+### Form Field Impact
+Selecting a different ERP connection changes available activity types, projects, customers (already works). Selecting a different Google calendar changes which OAuth token and calendarId are used for the API call but doesn't affect form fields.
+
 ## Scope
 
 ### In scope
@@ -187,6 +220,8 @@ Rename "Calendars" → "Integrations". Two sections:
 - Event fetching from enabled calendars
 - Full CRUD on per-user calendars
 - Calendar picker in activity creation form
+- Unified source picker with sub-destinations (ERP connections, Google calendars)
+- Remembered last selection per source type (localStorage)
 - Calendar sources dropdown integration
 - Integrations tab (renaming Calendars tab, moving ICS there)
 
@@ -195,3 +230,4 @@ Rename "Calendars" → "Integrations". Two sections:
 - Push notifications / webhook for real-time sync
 - Shared calendar management
 - Calendar-level permissions (all connected calendars are read-write)
+- Multiple Outlook accounts (future)
