@@ -331,17 +331,22 @@ export async function POST(
         if (res.ok) {
           try {
             const data = await res.json()
-            // Response typically: { data: { ActVc: [{ SerNr: "..." }] } }
-            const records = data?.data?.[REGISTERS.activities] ?? []
-            const serNr = String(records[0]?.SerNr ?? '')
+            console.log('[book] ERP create response:', JSON.stringify(data).slice(0, 500))
+            // Response: { data: { ActVc: [{ SerNr: "..." }] } }
+            const records = (data?.data?.[REGISTERS.activities] as Record<string, unknown>[] | undefined) ?? []
+            const serNr = String(records[0]?.SerNr ?? data?.SerNr ?? '')
             if (serNr) {
               createdErpIds.push({ connectionId: erpTarget.connectionId, serNr })
+              console.log(`[book] ERP activity created: SerNr=${serNr}`)
+            } else {
+              console.warn('[book] ERP activity created but no SerNr in response')
             }
-          } catch {
-            console.warn('[book] Failed to parse ERP create response')
+          } catch (parseErr) {
+            console.warn('[book] Failed to parse ERP create response:', String(parseErr))
           }
         } else {
-          console.warn(`[book] ERP activity create failed: ${res.status}`)
+          const errText = await res.text().catch(() => '')
+          console.warn(`[book] ERP activity create failed: ${res.status} ${errText.slice(0, 200)}`)
         }
       } catch (e) {
         console.warn(`[book] ERP activity create error for ${erpTarget.connectionId}:`, String(e))
