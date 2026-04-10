@@ -28,15 +28,19 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   )
 
   // Searchable data — fetched per connection
+  interface ProjectItem extends SearchResult { cuCode?: string; cuName?: string }
   const [allActivityTypes, setAllActivityTypes] = useState<ActivityType[]>([])
-  const [allProjects, setAllProjects] = useState<SearchResult[]>([])
+  const [allProjects, setAllProjects] = useState<ProjectItem[]>([])
   const [allCustomers, setAllCustomers] = useState<SearchResult[]>([])
 
   useEffect(() => {
     fetch('/api/activity-types').then(r => r.ok ? r.json() : []).then(d => setAllActivityTypes(Array.isArray(d) ? d : [])).catch(() => {})
     fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(d => {
       const items = Array.isArray(d) ? d : []
-      setAllProjects(items.map((p: Record<string, unknown>) => ({ code: String(p.Code ?? p.code ?? ''), name: String(p.Name ?? p.name ?? '') })).filter(i => i.code))
+      setAllProjects(items.map((p: Record<string, unknown>) => ({
+        code: String(p.Code ?? p.code ?? ''), name: String(p.Name ?? p.name ?? ''),
+        cuCode: String(p.CUCode ?? p.cuCode ?? '') || undefined, cuName: String(p.CUName ?? p.cuName ?? '') || undefined,
+      })).filter(i => i.code))
     }).catch(() => {})
     fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(d => {
       const items = Array.isArray(d) ? d : []
@@ -85,9 +89,18 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
 
   // ERP target helpers
   function updateErpField(connId: string, field: string, value: string) {
-    setErpTargets(prev => prev.map(t =>
-      t.connectionId === connId ? { ...t, fields: { ...t.fields, [field]: value } } : t
-    ))
+    setErpTargets(prev => prev.map(t => {
+      if (t.connectionId !== connId) return t
+      const newFields = { ...t.fields, [field]: value }
+      // Auto-fill customer from project
+      if (field === 'PRCode' && value) {
+        const proj = allProjects.find(p => p.code === value)
+        if (proj?.cuCode && !t.fields.CUCode) {
+          newFields.CUCode = proj.cuCode
+        }
+      }
+      return { ...t, fields: newFields }
+    }))
   }
   function toggleErp(connId: string, enabled: boolean) {
     setErpTargets(prev => prev.map(t => t.connectionId === connId ? { ...t, enabled } : t))

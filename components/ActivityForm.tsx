@@ -1122,8 +1122,21 @@ export default function ActivityForm({
                         setActivityTypeName(found?.name ?? '')
                         setCurrentGroup(getTypeGroup?.(t.fields.ActType))
                       }
-                      if (t.fields.PRCode) { setProjectCode(t.fields.PRCode); setProjectName('') }
-                      if (t.fields.CUCode) { setCustomerCode(t.fields.CUCode); setCustomerName('') }
+                      if (t.fields.PRCode) {
+                        setProjectCode(t.fields.PRCode)
+                        const proj = connProjects.find(p => p.Code === t.fields.PRCode)
+                        setProjectName(proj?.Name ?? t.fields.PRCode)
+                        // Auto-fill customer from project if not explicitly set
+                        if (!t.fields.CUCode && proj?.CUCode) {
+                          setCustomerCode(proj.CUCode)
+                          setCustomerName(proj.CUName ?? proj.CUCode)
+                        }
+                      }
+                      if (t.fields.CUCode) {
+                        setCustomerCode(t.fields.CUCode)
+                        const cust = connCustomers.find(c => c.Code === t.fields.CUCode)
+                        setCustomerName(cust?.Name ?? t.fields.CUCode)
+                      }
                       if (t.duration) {
                         const [h, m] = timeFrom.split(':').map(Number)
                         const endMins = h * 60 + m + t.duration
@@ -1702,9 +1715,10 @@ function TemplateQuickPick({ onApply, activityTypes }: {
                 key={t.id}
                 type="button"
                 tabIndex={-1}
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
-                  onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name })
                   setOpen(false)
+                  onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name })
                 }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
               >
