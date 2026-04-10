@@ -140,6 +140,17 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
                 </Link>
               )
             })}
+            {isSuperAdmin && (
+              <Link
+                href="/admin/accounts"
+                onClick={() => setMobileNavOpen(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+                  pathname.startsWith('/admin/accounts') ? 'bg-primary text-white' : 'bg-border/30 text-text-muted'
+                }`}
+              >
+                Accounts
+              </Link>
+            )}
             <Link
               href="/cal"
               className="px-3 py-1.5 rounded-lg text-xs font-bold border border-primary/30 text-primary"
