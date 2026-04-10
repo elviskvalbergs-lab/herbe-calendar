@@ -63,7 +63,7 @@ export default function ActivityForm({
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
     // For Outlook events: match attendees to internal people by email or name
-    if (isEdit && initial?.source === 'outlook' && initial?.attendees?.length) {
+    if (isEdit && (initial?.source === 'outlook' || initial?.source === 'google') && initial?.attendees?.length) {
       const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
       // Group people by name for disambiguation
       const internalNameGroups = new Map<string, typeof people>()
@@ -187,7 +187,7 @@ export default function ActivityForm({
   const attendeeRecalcDone = useRef(false)
   useEffect(() => {
     if (attendeeRecalcDone.current) return
-    if (!isEdit || initial?.source !== 'outlook' || !initial?.attendees?.length) return
+    if (!isEdit || (initial?.source !== 'outlook' && initial?.source !== 'google') || !initial?.attendees?.length) return
     if (!peopleEmailsKey) return // still stubs
     attendeeRecalcDone.current = true
 
@@ -471,10 +471,11 @@ export default function ActivityForm({
     if (location.trim()) {
       payload.location = { displayName: location.trim() }
     }
-    if (!isEdit) {
-      payload.isOnlineMeeting = isOnlineMeeting
-      if (isOnlineMeeting) payload.onlineMeetingProvider = 'teamsForBusiness'
+    if (textInMatrix.trim()) {
+      payload.body = { contentType: 'Text', content: textInMatrix.trim() }
     }
+    payload.isOnlineMeeting = isOnlineMeeting
+    if (isOnlineMeeting && !isGoogleSource) payload.onlineMeetingProvider = 'teamsForBusiness'
     return payload
   }
 
@@ -812,9 +813,10 @@ export default function ActivityForm({
                 href={savedActivity.joinUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
+                style={{ background: savedActivity.source === 'google' ? '#1a73e8' : '#464EB8' }}
               >
-                Join Teams call
+                {savedActivity.source === 'google' ? 'Join Google Meet' : 'Join Teams call'}
               </a>
             )}
             <div className="w-full space-y-2 pt-2">
@@ -843,16 +845,17 @@ export default function ActivityForm({
 
         {/* Scrollable body */}
         {!savedActivity && <div className="overflow-y-auto flex-1 p-4 space-y-3">
-          {/* Teams join button (Outlook meetings only) — original Join Teams call button */}
+          {/* Join meeting button (Outlook Teams / Google Meet) */}
           {initial?.joinUrl && (
             <a
               href={initial.joinUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-bold text-sm"
+              style={{ background: isGoogleSource ? '#1a73e8' : '#464EB8' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
-              Join Teams call
+              {isGoogleSource ? 'Join Google Meet' : 'Join Teams call'}
             </a>
           )}
 
@@ -1332,8 +1335,8 @@ export default function ActivityForm({
             )
           })()}
 
-          {/* Online meeting toggle (Outlook/Google create only) */}
-          {isExternalCalSource && !isEdit && (
+          {/* Online meeting toggle (Outlook/Google — create and edit) */}
+          {isExternalCalSource && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -1622,18 +1625,18 @@ export default function ActivityForm({
             </div>
           )}
 
-          {/* Additional text (Herbe only) */}
-          {isErpSource && (
+          {/* Additional text / Notes */}
+          {(isErpSource || isExternalCalSource) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Additional Text{currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
+                {isExternalCalSource ? 'Notes' : 'Additional Text'}{isErpSource && currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
               </label>
               <textarea
                 value={textInMatrix}
                 onChange={e => setTextInMatrix(e.target.value)}
                 rows={2}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
-                placeholder="Optional additional description…"
+                placeholder={isExternalCalSource ? 'Meeting notes...' : 'Optional additional description…'}
               />
             </div>
           )}

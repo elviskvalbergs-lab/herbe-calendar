@@ -89,6 +89,8 @@ export async function GET(req: NextRequest) {
             location: ev.location ?? undefined,
             joinUrl: meetLink ?? undefined,
             webLink: ev.htmlLink ?? '',
+            textInMatrix: ev.description ?? undefined,
+            isOnlineMeeting: !!meetLink,
             rsvpStatus: rsvpStatus as Activity['rsvpStatus'],
           }
         })
@@ -123,6 +125,7 @@ export async function POST(req: NextRequest) {
 
     const event: any = {
       summary: body.subject,
+      description: body.body?.content ?? undefined,
       start: body.start,
       end: body.end,
       location: body.location?.displayName,
