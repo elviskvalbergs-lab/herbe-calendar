@@ -1646,6 +1646,20 @@ function TemplateQuickPick({ onApply, activityTypes }: {
   const [templates, setTemplates] = useState<{ id: string; name: string; duration_minutes: number; targets: { erp?: { fields: Record<string, string> }[] } }[]>([])
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handleMouseDown(e: MouseEvent) {
+      if (dropdownRef.current?.contains(e.target as Node)) return
+      if (buttonRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [open])
 
   function toggle() {
     if (!loaded) {
@@ -1662,6 +1676,7 @@ function TemplateQuickPick({ onApply, activityTypes }: {
   return (
     <span className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         tabIndex={-1}
         onClick={toggle}
@@ -1674,36 +1689,32 @@ function TemplateQuickPick({ onApply, activityTypes }: {
         </svg>
       </button>
       {open && (
-        <>
-          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-5 z-[61] bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
-            {loaded && templates.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-text-muted">No templates. Create one in Settings &gt; Templates.</p>
-            ) : !loaded ? (
-              <p className="px-3 py-2 text-xs text-text-muted animate-pulse">Loading...</p>
-            ) : templates.map(t => {
-              const erpFields = t.targets?.erp?.[0]?.fields ?? {}
-              const typeName = erpFields.ActType ? activityTypes.find(at => at.code === erpFields.ActType)?.name : undefined
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => {
-                    onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name })
-                    setOpen(false)
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
-                >
-                  <span className="font-bold">{t.name}</span>
-                  <span className="text-text-muted ml-1">({t.duration_minutes}min)</span>
-                  {typeName && <span className="block text-[10px] text-text-muted mt-0.5">{erpFields.ActType} · {typeName}</span>}
-                </button>
-              )
-            })}
-          </div>
-
-        </>
+        <div ref={dropdownRef} className="absolute left-0 top-5 z-[70] bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+          {loaded && templates.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-text-muted">No templates. Create one in Settings &gt; Templates.</p>
+          ) : !loaded ? (
+            <p className="px-3 py-2 text-xs text-text-muted animate-pulse">Loading...</p>
+          ) : templates.map(t => {
+            const erpFields = t.targets?.erp?.[0]?.fields ?? {}
+            const typeName = erpFields.ActType ? activityTypes.find(at => at.code === erpFields.ActType)?.name : undefined
+            return (
+              <button
+                key={t.id}
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name })
+                  setOpen(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
+              >
+                <span className="font-bold">{t.name}</span>
+                <span className="text-text-muted ml-1">({t.duration_minutes}min)</span>
+                {typeName && <span className="block text-[10px] text-text-muted mt-0.5">{erpFields.ActType} · {typeName}</span>}
+              </button>
+            )
+          })}
+        </div>
       )}
     </span>
   )
