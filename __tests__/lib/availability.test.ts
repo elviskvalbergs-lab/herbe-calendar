@@ -93,4 +93,77 @@ describe('computeAvailableSlots', () => {
     expect(slots[0]).toEqual({ start: '09:00', end: '09:30' })
     expect(slots[11]).toEqual({ start: '14:30', end: '15:00' })
   })
+
+  it('returns empty for zero-duration slot', () => {
+    // Window where start equals end — no room for any slot
+    const zeroWindow: AvailabilityWindow = {
+      days: [1],
+      startTime: '10:00',
+      endTime: '10:00',
+    }
+    const slots = computeAvailableSlots('2026-04-06', [zeroWindow], [], 30, 0)
+    expect(slots).toHaveLength(0)
+  })
+
+  it('removes a slot when busy block exactly matches it', () => {
+    const busy: BusyBlock[] = [{ start: '10:00', end: '10:30' }]
+    const slots = computeAvailableSlots('2026-04-06', [WEEKDAY_WINDOW], busy, 30, 0)
+    // Exactly the 10:00-10:30 slot removed, 16 - 1 = 15
+    expect(slots).toHaveLength(15)
+    expect(slots.find((s) => s.start === '10:00')).toBeUndefined()
+    // Adjacent slots remain
+    expect(slots.find((s) => s.start === '09:30')).toBeDefined()
+    expect(slots.find((s) => s.start === '10:30')).toBeDefined()
+  })
+
+  it('adjacent busy blocks merge correctly and remove all overlapping slots', () => {
+    // Two adjacent busy blocks that together cover 11:00-13:00
+    const busy: BusyBlock[] = [
+      { start: '11:00', end: '12:00' },
+      { start: '12:00', end: '13:00' },
+    ]
+    const slots = computeAvailableSlots('2026-04-06', [WEEKDAY_WINDOW], busy, 30, 0)
+    // 4 slots removed: 11:00, 11:30, 12:00, 12:30
+    expect(slots).toHaveLength(12)
+    expect(slots.find((s) => s.start === '11:00')).toBeUndefined()
+    expect(slots.find((s) => s.start === '11:30')).toBeUndefined()
+    expect(slots.find((s) => s.start === '12:00')).toBeUndefined()
+    expect(slots.find((s) => s.start === '12:30')).toBeUndefined()
+  })
+
+  it('returns empty when busy block spans the entire window', () => {
+    const busy: BusyBlock[] = [{ start: '09:00', end: '17:00' }]
+    const slots = computeAvailableSlots('2026-04-06', [WEEKDAY_WINDOW], busy, 30, 0)
+    expect(slots).toHaveLength(0)
+  })
+
+  it('handles a very early morning window (06:00-08:00)', () => {
+    const earlyWindow: AvailabilityWindow = {
+      days: [1], // Monday
+      startTime: '06:00',
+      endTime: '08:00',
+    }
+    const slots = computeAvailableSlots('2026-04-06', [earlyWindow], [], 30, 0)
+    // 2 hours = 4 slots
+    expect(slots).toHaveLength(4)
+    expect(slots[0]).toEqual({ start: '06:00', end: '06:30' })
+    expect(slots[3]).toEqual({ start: '07:30', end: '08:00' })
+  })
+
+  it('removes all slots when buffer is larger than slot duration', () => {
+    // Single busy block at 12:00-12:30, buffer of 60 min
+    // Expanded busy: 11:00-13:30
+    // Overlapping 30-min slots: 11:00, 11:30, 12:00, 12:30, 13:00 = 5 removed
+    const busy: BusyBlock[] = [{ start: '12:00', end: '12:30' }]
+    const slots = computeAvailableSlots('2026-04-06', [WEEKDAY_WINDOW], busy, 30, 60)
+    expect(slots).toHaveLength(11) // 16 - 5
+    expect(slots.find((s) => s.start === '11:00')).toBeUndefined()
+    expect(slots.find((s) => s.start === '11:30')).toBeUndefined()
+    expect(slots.find((s) => s.start === '12:00')).toBeUndefined()
+    expect(slots.find((s) => s.start === '12:30')).toBeUndefined()
+    expect(slots.find((s) => s.start === '13:00')).toBeUndefined()
+    // Slots just outside the expanded range should remain
+    expect(slots.find((s) => s.start === '10:30')).toBeDefined()
+    expect(slots.find((s) => s.start === '13:30')).toBeDefined()
+  })
 })
