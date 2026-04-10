@@ -1659,24 +1659,29 @@ function TemplateQuickPick({ onApply, activityTypes }: {
     }
   }
 
-  if (loaded && templates.length === 0) return null
-
   return (
     <span className="relative inline-block">
       <button
         type="button"
         tabIndex={-1}
         onClick={toggle}
-        className="text-text-muted/60 hover:text-primary transition-colors text-[11px] leading-none"
+        className="text-text-muted hover:text-primary transition-colors leading-none px-0.5"
         title="Fill from template"
       >
-        ⎘
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block" style={{ verticalAlign: 'middle' }}>
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M3 9h18M9 21V9"/>
+        </svg>
       </button>
-      {open && templates.length > 0 && (
+      {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-5 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
-            {templates.map(t => {
+            {loaded && templates.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-text-muted">No templates. Create one in Settings &gt; Templates.</p>
+            ) : !loaded ? (
+              <p className="px-3 py-2 text-xs text-text-muted animate-pulse">Loading...</p>
+            ) : templates.map(t => {
               const erpFields = t.targets?.erp?.[0]?.fields ?? {}
               const typeName = erpFields.ActType ? activityTypes.find(at => at.code === erpFields.ActType)?.name : undefined
               return (
@@ -1697,6 +1702,7 @@ function TemplateQuickPick({ onApply, activityTypes }: {
               )
             })}
           </div>
+
         </>
       )}
     </span>
