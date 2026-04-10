@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
-import { herbeWebExcellentDelete } from '@/lib/herbe/client'
-import { graphFetch } from '@/lib/graph/client'
+import { herbeFetchById } from '@/lib/herbe/client'
+import { graphFetch, sendMail as sendMailGraph } from '@/lib/graph/client'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
 import { emailForCode } from '@/lib/emailForCode'
@@ -30,12 +30,11 @@ export async function GET(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ cancelToken: string }> }
 ) {
   const { cancelToken } = await params
 
-  // Fetch booking with all related data
   const { rows } = await pool.query(
     `SELECT b.*, t.name AS template_name, t.duration_minutes,
             f.person_codes AS "personCodes", f.user_email AS "ownerEmail", f.account_id AS "accountId"
@@ -48,47 +47,41 @@ export async function DELETE(
   )
 
   if (rows.length === 0) {
-    return NextResponse.json(
-      { error: 'Booking not found or already cancelled' },
-      { status: 404 }
-    )
+    return NextResponse.json({ error: 'Booking not found or already cancelled' }, { status: 404 })
   }
 
   const booking = rows[0]
-  const { accountId, ownerEmail } = booking
+  const accountId: string = booking.accountId
+  const ownerEmail: string = booking.ownerEmail
 
-  // 1. Cancel ERP activities
-  const erpIds: { connectionId: string; activityId: string }[] =
-    booking.created_erp_ids ?? []
+  // 1. ERP activities — convert to Task (TodoFlag=1) to keep CRM records but free the time slot
+  const erpIds: { connectionId: string; serNr: string }[] = booking.created_erp_ids ?? []
   if (erpIds.length > 0) {
     try {
       const connections = await getErpConnections(accountId)
-      for (const { connectionId, activityId } of erpIds) {
-        const conn = connections.find((c) => c.id === connectionId)
+      for (const { connectionId, serNr } of erpIds) {
+        const conn = connections.find(c => c.id === connectionId)
         if (!conn) {
-          console.warn(
-            `[booking-cancel] ERP connection ${connectionId} not found, skipping`
-          )
+          console.warn(`[booking-cancel] ERP connection ${connectionId} not found`)
           continue
         }
         try {
-          await herbeWebExcellentDelete('ActVc', activityId, '', conn)
+          // Update activity: set TodoFlag=1 (Task) to keep record but free calendar slot
+          await herbeFetchById('ActVc', serNr, {
+            method: 'PUT',
+            body: `set_field.TodoFlag=1&set_field.Comment=${encodeURIComponent('[CANCELLED] ' + booking.template_name)}`,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          }, conn)
         } catch (e) {
-          console.warn(
-            `[booking-cancel] Failed to delete ERP activity ${activityId}:`,
-            String(e)
-          )
+          console.warn(`[booking-cancel] Failed to update ERP activity ${serNr}:`, String(e))
         }
       }
     } catch (e) {
-      console.warn(
-        '[booking-cancel] Failed to fetch ERP connections:',
-        String(e)
-      )
+      console.warn('[booking-cancel] ERP connections lookup failed:', String(e))
     }
   }
 
-  // 2. Cancel Outlook event
+  // 2. Outlook event — delete
   if (booking.created_outlook_id) {
     try {
       const azureConfig = await getAzureConfig(accountId)
@@ -100,39 +93,27 @@ export async function DELETE(
         )
       }
     } catch (e) {
-      console.warn(
-        '[booking-cancel] Failed to delete Outlook event:',
-        String(e)
-      )
+      console.warn('[booking-cancel] Outlook delete failed:', String(e))
     }
   }
 
-  // 3. Cancel Google event
+  // 3. Google event — delete
   if (booking.created_google_id) {
     try {
       const googleConfig = await getGoogleConfig(accountId)
       if (googleConfig) {
         const calendar = getCalendarClient(googleConfig, ownerEmail)
-        await calendar.events.delete({
-          calendarId: 'primary',
-          eventId: booking.created_google_id,
-        })
+        await calendar.events.delete({ calendarId: 'primary', eventId: booking.created_google_id })
       }
     } catch (e) {
-      console.warn(
-        '[booking-cancel] Failed to delete Google event:',
-        String(e)
-      )
+      console.warn('[booking-cancel] Google delete failed:', String(e))
     }
   }
 
   // 4. Update booking status
-  await pool.query(
-    `UPDATE bookings SET status = 'cancelled' WHERE id = $1`,
-    [booking.id]
-  )
+  await pool.query('UPDATE bookings SET status = $1 WHERE id = $2', ['cancelled', booking.id])
 
-  // 5. Send cancellation email
+  // 5. Send cancellation emails
   try {
     const personCodes: string[] = booking.personCodes ?? []
     const participantEmails: string[] = []
@@ -141,11 +122,17 @@ export async function DELETE(
       if (email) participantEmails.push(email)
     }
 
-    const startTime = new Date(booking.start_time)
-    const emailData = buildBookingEmail({
+    const bookedDate = typeof booking.booked_date === 'string'
+      ? booking.booked_date.slice(0, 10)
+      : new Date(booking.booked_date).toISOString().slice(0, 10)
+    const bookedTime = typeof booking.booked_time === 'string'
+      ? booking.booked_time.slice(0, 5)
+      : ''
+
+    const { subject, html } = buildBookingEmail({
       templateName: booking.template_name,
-      date: startTime.toISOString().slice(0, 10),
-      time: startTime.toISOString().slice(11, 16),
+      date: bookedDate,
+      time: bookedTime,
       duration: booking.duration_minutes,
       bookerEmail: booking.booker_email,
       participants: participantEmails,
@@ -154,28 +141,33 @@ export async function DELETE(
       status: 'cancelled',
     })
 
+    const allRecipients = [...new Set([booking.booker_email, ...participantEmails])].filter(Boolean)
+
+    // Try SMTP first
+    let emailSent = false
     const smtpConfig = await getSmtpConfig(accountId)
     if (smtpConfig) {
-      const allRecipients = [
-        booking.booker_email,
-        ...participantEmails,
-      ].filter(Boolean)
-      for (const to of allRecipients) {
-        try {
-          await sendMailSmtp(smtpConfig, to, emailData.subject, emailData.html)
-        } catch (e) {
-          console.warn(
-            `[booking-cancel] Failed to send cancellation email to ${to}:`,
-            String(e)
-          )
+      try {
+        await Promise.all(allRecipients.map(to => sendMailSmtp(smtpConfig, to, subject, html)))
+        emailSent = true
+      } catch (e) {
+        console.warn('[booking-cancel] SMTP failed:', String(e))
+      }
+    }
+
+    // Fallback to Azure Graph
+    if (!emailSent) {
+      try {
+        const azureConfig = await getAzureConfig(accountId)
+        if (azureConfig) {
+          await Promise.all(allRecipients.map(to => sendMailGraph(to, subject, html, azureConfig)))
         }
+      } catch (e) {
+        console.warn('[booking-cancel] Graph sendMail failed:', String(e))
       }
     }
   } catch (e) {
-    console.warn(
-      '[booking-cancel] Failed to send cancellation emails:',
-      String(e)
-    )
+    console.warn('[booking-cancel] Email sending failed:', String(e))
   }
 
   return NextResponse.json({ ok: true, status: 'cancelled' })

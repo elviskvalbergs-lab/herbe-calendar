@@ -469,6 +469,7 @@ export async function POST(
   const { subject, html } = buildBookingEmail(emailData)
 
   let notificationSent = false
+  let emailError: string | null = null
 
   // Try SMTP first
   const smtpConfig = await getSmtpConfig(accountId)
@@ -479,6 +480,7 @@ export async function POST(
       )
       notificationSent = true
     } catch (e) {
+      emailError = `SMTP: ${String(e)}`
       console.warn('[book] SMTP send failed:', String(e))
     }
   }
@@ -492,8 +494,12 @@ export async function POST(
           allRecipients.map(to => sendMail(to, subject, html, azureConfig))
         )
         notificationSent = true
+        emailError = null
+      } else if (!smtpConfig) {
+        emailError = 'No email transport configured (neither SMTP nor Azure)'
       }
     } catch (e) {
+      emailError = `Graph: ${String(e)}`
       console.warn('[book] Graph sendMail failed:', String(e))
     }
   }
@@ -507,7 +513,7 @@ export async function POST(
 
   // --- 9. Return booking ---
   return NextResponse.json(
-    { booking, cancelUrl },
+    { booking, cancelUrl, notificationSent, ...(emailError ? { emailError } : {}) },
     { status: 201, headers: { 'Cache-Control': 'no-store' } }
   )
 }

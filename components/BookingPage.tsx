@@ -34,7 +34,7 @@ export default function BookingPage({ token, templates, onBack }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [error, setError] = useState<string | null>(null)
-  const [confirmData, setConfirmData] = useState<{ cancelToken: string } | null>(null)
+  const [confirmData, setConfirmData] = useState<{ cancelToken: string; emailError?: string | null } | null>(null)
 
   // Timezone
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
@@ -119,7 +119,7 @@ export default function BookingPage({ token, templates, onBack }: Props) {
         }
         return
       }
-      setConfirmData({ cancelToken: data.cancelToken ?? data.booking?.cancel_token })
+      setConfirmData({ cancelToken: data.cancelToken ?? data.booking?.cancel_token, emailError: data.emailError ?? null })
       setStep('confirm')
     } catch (e) {
       setError(String(e))
@@ -353,9 +353,13 @@ export default function BookingPage({ token, templates, onBack }: Props) {
                 <p><span className="text-text-muted">Date:</span> {format(parseISO(selectedDate), 'EEEE, d MMMM yyyy')}</p>
                 <p><span className="text-text-muted">Time:</span> {selectedSlot.start} – {selectedSlot.end} ({selectedTemplate.duration_minutes} min)</p>
               </div>
-              {confirmData?.cancelToken && (
+              {confirmData?.emailError ? (
+                <p className="text-[10px] text-amber-500">
+                  Note: confirmation email could not be sent. Save this page for your records.
+                </p>
+              ) : (
                 <p className="text-[10px] text-text-muted">
-                  Need to cancel? Check your email for the cancellation link.
+                  A confirmation email has been sent with a cancellation link.
                 </p>
               )}
               <button
