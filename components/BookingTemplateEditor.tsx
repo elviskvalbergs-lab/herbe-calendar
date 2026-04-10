@@ -11,7 +11,7 @@ interface Props {
 
 interface SearchResult { code: string; name: string }
 
-const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120]
+const DURATION_OPTIONS = [5, 10, 15, 30, 45, 60, 90, 120]
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function BookingTemplateEditor({ template, connections, onSave, onCancel }: Props) {
