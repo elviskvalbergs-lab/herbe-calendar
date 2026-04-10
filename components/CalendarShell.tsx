@@ -10,7 +10,7 @@ import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import AccountSwitcher from './AccountSwitcher'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
-  resolveColorWithOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
+  resolveColorWithOverrides, OUTLOOK_COLOR, GOOGLE_COLOR, FALLBACK_COLOR,
   SOURCE_COLOR_CODES, type ColorOverrideRow,
 } from '@/lib/activityColors'
 import {
@@ -293,6 +293,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
   function colorForActivity(activity: Activity): string {
     if (activity.icsColor) return activity.icsColor
+    if (activity.source === 'google' && !activity.isExternal) {
+      return classGroupToColor.get(SOURCE_COLOR_CODES.google) ?? GOOGLE_COLOR
+    }
     if (activity.source === 'outlook' && !activity.isExternal) {
       return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
     }
