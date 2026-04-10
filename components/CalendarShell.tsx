@@ -529,12 +529,19 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           }
         }
       }
-      setActivities([...herbe, ...outlook, ...googleEvents])
+      // Deduplicate Google events (same event appears in each person's calendar)
+      const seenGoogleIds = new Set<string>()
+      const uniqueGoogle = googleEvents.filter(a => {
+        if (seenGoogleIds.has(a.id)) return false
+        seenGoogleIds.add(a.id)
+        return true
+      })
+      setActivities([...herbe, ...outlook, ...uniqueGoogle])
 
       const parts: string[] = []
       if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
       if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
-      if (sources.google) parts.push(`${googleEvents.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
+      if (sources.google) parts.push(`${uniqueGoogle.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
       setStatus({
         msg: parts.join(' + ') + ' activities',
         ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg,

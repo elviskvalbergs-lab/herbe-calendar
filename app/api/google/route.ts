@@ -38,8 +38,9 @@ export async function GET(req: NextRequest) {
         const calendar = getCalendarClient(googleConfig, email)
         const res = await calendar.events.list({
           calendarId: 'primary',
-          timeMin: `${dateFrom}T00:00:00Z`,
-          timeMax: `${dateTo}T23:59:59Z`,
+          timeMin: `${dateFrom}T00:00:00+03:00`,
+          timeMax: `${dateTo}T23:59:59+03:00`,
+          timeZone: 'Europe/Riga',
           singleEvents: true, // Expand recurring events
           orderBy: 'startTime',
           maxResults: 200,
