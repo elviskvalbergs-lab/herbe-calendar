@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { ActivityClassGroup } from '@/types'
-import type { BookingTemplate } from '@/types'
+import type { BookingTemplate, UserGoogleAccount } from '@/types'
 import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
 import ColorOverridesPanel from './ColorOverridesPanel'
 import type { ColorOverrideRow } from '@/lib/activityColors'
@@ -39,7 +39,7 @@ interface Props {
   onColorOverridesChange: () => void
 }
 
-type Tab = 'style' | 'colors' | 'calendars' | 'templates'
+type Tab = 'style' | 'colors' | 'integrations' | 'templates'
 
 
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
@@ -48,6 +48,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string }
   const [customCals, setCustomCals] = useState<CustomCalendar[]>([])
   const [calLoading, setCalLoading] = useState(false)
+  const [googleAccounts, setGoogleAccounts] = useState<UserGoogleAccount[]>([])
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [newCal, setNewCal] = useState({ personCode: '', name: '', icsUrl: '' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ name: '', icsUrl: '', personCode: '', color: '' })
@@ -79,8 +81,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   }, [editingTemplate])
 
   useEffect(() => {
-    if (activeTab === 'calendars') {
+    if (activeTab === 'integrations') {
       fetchCustomCals()
+      setGoogleLoading(true)
+      fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setGoogleAccounts).catch(() => {}).finally(() => setGoogleLoading(false))
     }
   }, [activeTab])
 
@@ -220,10 +224,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
               Colors
             </button>
             <button
-              onClick={() => setActiveTab('calendars')}
-              className={`pb-2 px-1 ${activeTab === 'calendars' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+              onClick={() => setActiveTab('integrations')}
+              className={`pb-2 px-1 ${activeTab === 'integrations' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
-              Calendars
+              Integrations
             </button>
             <button
               onClick={() => setActiveTab('templates')}
@@ -256,8 +260,112 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             </>
           )}
 
-          {activeTab === 'calendars' && (
+          {activeTab === 'integrations' && (
             <div className="space-y-6">
+              {/* Google Accounts */}
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-text-muted uppercase tracking-wide mb-3">Google Calendar</h3>
+                {googleAccounts.map(account => (
+                  <div key={account.id} className="mb-3 border border-border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold">{account.googleEmail}</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            await fetch('/api/google/calendars', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ tokenId: account.id }),
+                            }).then(r => r.json()).then(setGoogleAccounts)
+                          }}
+                          className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30"
+                        >
+                          Refresh
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await fetch('/api/google/auth', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ googleEmail: account.googleEmail }),
+                            })
+                            setGoogleAccounts(prev => prev.filter(a => a.id !== account.id))
+                          }}
+                          className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded border border-border hover:border-red-400/30"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                    {account.calendars.map(cal => (
+                      <div key={cal.id} className="flex items-center gap-2 py-1.5 px-1">
+                        <input
+                          type="checkbox"
+                          checked={cal.enabled}
+                          onChange={async () => {
+                            // Optimistic update
+                            setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                              ...a,
+                              calendars: a.calendars.map(c => c.id === cal.id ? { ...c, enabled: !c.enabled } : c)
+                            } : a))
+                            await fetch('/api/google/calendars', {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ calendarDbId: cal.id, enabled: !cal.enabled }),
+                            })
+                          }}
+                          className="accent-primary"
+                        />
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ background: cal.color || '#4285f4' }}
+                        />
+                        <span className="text-sm flex-1 truncate">{cal.name}</span>
+                        {/* Color picker */}
+                        <div className="flex gap-1">
+                          {['#4285f4', '#0b8043', '#d50000', '#f4511e', '#f6bf26', '#33b679', '#7986cb', '#8e24aa'].map(hex => (
+                            <button
+                              key={hex}
+                              onClick={async () => {
+                                setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                  ...a,
+                                  calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
+                                } : a))
+                                await fetch('/api/google/calendars', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
+                                })
+                              }}
+                              className="w-3 h-3 rounded-full hover:scale-125 transition-transform"
+                              style={{
+                                background: hex,
+                                border: cal.color === hex ? '2px solid white' : 'none',
+                                opacity: cal.color === hex ? 1 : 0.6,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {googleAccounts.length === 0 && !googleLoading && (
+                  <p className="text-xs text-text-muted mb-2">No Google accounts connected.</p>
+                )}
+                <button
+                  onClick={() => { window.location.href = '/api/google/auth' }}
+                  className="text-sm text-primary font-semibold hover:underline"
+                >
+                  + Connect Google Account
+                </button>
+              </div>
+
+              <div className="h-px bg-border my-4" />
+
+              {/* ICS Feeds */}
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wide mb-3">ICS Calendar Feeds</h3>
+
               {/* Add New Calendar */}
               <div className="space-y-3 p-4 bg-bg rounded-lg border border-border">
                 <h4 className="text-xs font-bold flex items-center gap-2">
