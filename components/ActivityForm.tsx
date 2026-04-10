@@ -1322,8 +1322,8 @@ export default function ActivityForm({
             )
           })()}
 
-          {/* Teams meeting toggle (Outlook create only) */}
-          {isOutlookSource && !isEdit && (
+          {/* Online meeting toggle (Outlook/Google create only) */}
+          {isExternalCalSource && !isEdit && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -1331,12 +1331,14 @@ export default function ActivityForm({
                 onChange={e => setIsOnlineMeeting(e.target.checked)}
                 className="accent-primary w-4 h-4"
               />
-              <span className="text-xs font-bold text-text-muted">Teams meeting</span>
+              <span className="text-xs font-bold text-text-muted">
+                {isGoogleSource ? 'Google Meet' : 'Teams meeting'}
+              </span>
             </label>
           )}
 
-          {/* Location (Outlook only) */}
-          {isOutlookSource && (location || canEdit) && (
+          {/* Location (Outlook/Google) */}
+          {isExternalCalSource && (location || canEdit) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
               {canEdit ? (

@@ -12,6 +12,7 @@ interface BookingDetails {
   template_name: string
   custom_fields: { label: string; type: string; required: boolean }[]
   share_link_id: string
+  share_token: string
 }
 
 export default function BookingCancelPage({ cancelToken }: { cancelToken: string }) {
@@ -111,21 +112,53 @@ export default function BookingCancelPage({ cancelToken }: { cancelToken: string
         </div>
 
         {cancelled ? (
-          <div className="text-center py-4">
+          <div className="text-center py-4 space-y-3">
             <p className="text-green-500 font-bold">This booking has been cancelled.</p>
-            <p className="text-text-muted text-xs mt-2">All participants have been notified.</p>
+            <p className="text-text-muted text-xs">All participants have been notified.</p>
+            {booking.share_token && (
+              <a
+                href={`/book/${booking.share_token}`}
+                className="inline-block px-4 py-2 rounded-lg bg-primary text-white text-sm font-bold hover:opacity-90"
+              >
+                Book a new time
+              </a>
+            )}
           </div>
         ) : (
           <div className="space-y-2 pt-2">
+            {booking.share_token && (
+              <button
+                onClick={async () => {
+                  setCancelling(true)
+                  try {
+                    const res = await fetch(`/api/bookings/${cancelToken}`, { method: 'DELETE' })
+                    if (res.ok) {
+                      window.location.href = `/book/${booking.share_token}`
+                    } else {
+                      const data = await res.json().catch(() => ({}))
+                      setError(data.error || 'Failed to cancel')
+                      setCancelling(false)
+                    }
+                  } catch (e) {
+                    setError(String(e))
+                    setCancelling(false)
+                  }
+                }}
+                disabled={cancelling}
+                className="w-full py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:opacity-90 disabled:opacity-50"
+              >
+                {cancelling ? 'Rescheduling...' : 'Reschedule'}
+              </button>
+            )}
             <button
               onClick={handleCancel}
               disabled={cancelling}
-              className="w-full py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 disabled:opacity-50"
+              className="w-full py-2.5 rounded-lg border border-red-500/50 text-red-500 font-bold text-sm hover:bg-red-500/10 disabled:opacity-50"
             >
               {cancelling ? 'Cancelling...' : 'Cancel Booking'}
             </button>
             <p className="text-[10px] text-text-muted text-center">
-              Cancelling will remove the meeting from all calendars and notify participants.
+              Reschedule cancels this booking and lets you pick a new time. Cancel removes it entirely.
             </p>
           </div>
         )}
