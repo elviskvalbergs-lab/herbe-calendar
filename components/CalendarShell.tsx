@@ -79,14 +79,32 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
+  // Resolve source colors from DB overrides for calendar source labels
+  const resolvedOutlookColor = useMemo(() => {
+    if (dbColorOverrides.length > 0) {
+      const match = dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.outlook && o.user_email !== null && o.connection_id === null)
+        ?? dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.outlook && o.user_email === null && o.connection_id === null)
+      if (match) return match.color
+    }
+    return OUTLOOK_COLOR
+  }, [dbColorOverrides])
+  const resolvedGoogleColor = useMemo(() => {
+    if (dbColorOverrides.length > 0) {
+      const match = dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.google && o.user_email !== null && o.connection_id === null)
+        ?? dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.google && o.user_email === null && o.connection_id === null)
+      if (match) return match.color
+    }
+    return GOOGLE_COLOR
+  }, [dbColorOverrides])
+
   const calendarSources: CalendarSource[] = useMemo(() => [
     ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
-    ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR }] : []),
-    ...(sources.google ? [{ id: 'google', label: 'Google', color: GOOGLE_COLOR }] : []),
+    ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: resolvedOutlookColor }] : []),
+    ...(sources.google ? [{ id: 'google', label: 'Google', color: resolvedGoogleColor }] : []),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
-  ], [sources, userIcsCalendars, selectedCodes])
+  ], [sources, resolvedOutlookColor, resolvedGoogleColor, userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
     if (hiddenCalendars.size === 0) return activities
