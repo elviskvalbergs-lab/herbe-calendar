@@ -1112,10 +1112,11 @@ export default function ActivityForm({
             <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 Description
-                {!isEdit && isErpSource && (
+                {!isEdit && (
                   <TemplateQuickPick
                     activityTypes={activityTypes}
                     onApply={(t) => {
+                      // ERP fields
                       if (t.fields.ActType) {
                         setActivityTypeCode(t.fields.ActType)
                         const found = activityTypes.find(at => at.code === t.fields.ActType)
@@ -1126,7 +1127,6 @@ export default function ActivityForm({
                         setProjectCode(t.fields.PRCode)
                         const proj = connProjects.find(p => p.Code === t.fields.PRCode)
                         setProjectName(proj?.Name ?? t.fields.PRCode)
-                        // Auto-fill customer from project if not explicitly set
                         if (!t.fields.CUCode && proj?.CUCode) {
                           setCustomerCode(proj.CUCode)
                           setCustomerName(proj.CUName ?? proj.CUCode)
@@ -1137,12 +1137,16 @@ export default function ActivityForm({
                         const cust = connCustomers.find(c => c.Code === t.fields.CUCode)
                         setCustomerName(cust?.Name ?? t.fields.CUCode)
                       }
+                      // Duration
                       if (t.duration) {
                         const [h, m] = timeFrom.split(':').map(Number)
                         const endMins = h * 60 + m + t.duration
                         setTimeTo(`${String(Math.floor(endMins / 60) % 24).padStart(2, '0')}:${String(endMins % 60).padStart(2, '0')}`)
                       }
                       if (t.description) setDescription(t.description)
+                      // Outlook/Google fields
+                      if (t.location) setLocation(t.location)
+                      if (t.onlineMeeting !== undefined) setIsOnlineMeeting(t.onlineMeeting)
                     }}
                   />
                 )}
@@ -1653,10 +1657,10 @@ export default function ActivityForm({
 
 /** Compact icon + dropdown for pre-filling activity from a template */
 function TemplateQuickPick({ onApply, activityTypes }: {
-  onApply: (t: { fields: Record<string, string>; duration?: number; description?: string }) => void
+  onApply: (t: { fields: Record<string, string>; duration?: number; description?: string; location?: string; onlineMeeting?: boolean }) => void
   activityTypes: ActivityType[]
 }) {
-  const [templates, setTemplates] = useState<{ id: string; name: string; duration_minutes: number; targets: { erp?: { fields: Record<string, string> }[] } }[]>([])
+  const [templates, setTemplates] = useState<{ id: string; name: string; duration_minutes: number; targets: { erp?: { fields: Record<string, string> }[]; outlook?: { enabled?: boolean; onlineMeeting?: boolean; location?: string }; google?: { enabled?: boolean; onlineMeeting?: boolean; location?: string } } }[]>([])
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -1718,7 +1722,11 @@ function TemplateQuickPick({ onApply, activityTypes }: {
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   setOpen(false)
-                  onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name })
+                  const outlookTarget = t.targets?.outlook
+                  const googleTarget = t.targets?.google
+                  const loc = outlookTarget?.location || googleTarget?.location || undefined
+                  const online = outlookTarget?.onlineMeeting ?? googleTarget?.onlineMeeting ?? undefined
+                  onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name, location: loc, onlineMeeting: online })
                 }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
               >
