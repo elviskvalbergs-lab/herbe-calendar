@@ -28,9 +28,10 @@ interface Props {
   accountName?: string
   onAccountSwitch?: () => void
   isAdmin?: boolean
+  userEmail?: string
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
@@ -236,9 +237,14 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                   Admin
                 </a>
               )}
+              {userEmail && (
+                <div className="px-4 py-2 border-t border-border">
+                  <p className="text-[10px] text-text-muted truncate">{userEmail}</p>
+                </div>
+              )}
               <button
                 onClick={() => { setHamburgerOpen(false); signOut() }}
-                className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5 ${userEmail ? '' : 'border-t border-border'}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

@@ -21,7 +21,16 @@ export async function GET() {
     [email]
   )
   const rows = result.rows
-  const isAdmin = isSuperAdmin || rows.some((r: { role: string }) => r.role === 'admin')
+  // Check admin role for the active account (from cookie), not just any account
+  let activeAccountId: string | undefined
+  try {
+    const { cookies } = await import('next/headers')
+    activeAccountId = (await cookies()).get('activeAccountId')?.value || undefined
+  } catch {}
+  const activeAccount = activeAccountId
+    ? rows.find((r: { id: string }) => r.id === activeAccountId)
+    : rows[0]
+  const isAdmin = isSuperAdmin || (activeAccount as { role?: string })?.role === 'admin'
 
-  return NextResponse.json({ accounts: rows, isSuperAdmin, isAdmin })
+  return NextResponse.json({ accounts: rows, isSuperAdmin, isAdmin, email })
 }

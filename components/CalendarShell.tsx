@@ -33,13 +33,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false)
   const [accountName, setAccountName] = useState<string>('')
   const [isAdmin, setIsAdmin] = useState(false)
-  // Fetch account name + admin status on mount
+  const [userEmail, setUserEmail] = useState<string>('')
+  // Fetch account name + admin status + email on mount
   useEffect(() => {
     if (!accountId) return
     fetch('/api/settings/accounts').then(r => r.json()).then(data => {
       const current = (data.accounts ?? []).find((a: { id: string }) => a.id === accountId)
       if (current) setAccountName(current.display_name)
       setIsAdmin(!!data.isAdmin)
+      if (data.email) setUserEmail(data.email)
     }).catch(() => {})
   }, [accountId])
   const [classGroupsError, setClassGroupsError] = useState<string | null>(null)
@@ -592,6 +594,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         accountName={accountName}
         onAccountSwitch={() => setAccountSwitcherOpen(true)}
         isAdmin={isAdmin}
+        userEmail={userEmail}
       />
       <CalendarGrid
         state={state}
