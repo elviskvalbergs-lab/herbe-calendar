@@ -20,9 +20,9 @@ export async function GET() {
               '[]'::json
             ) AS linked_share_links
      FROM booking_templates bt
-     WHERE bt.account_id = $1 AND bt.user_email = $2
+     WHERE bt.account_id = $1
      ORDER BY bt.name`,
-    [session.accountId, session.email]
+    [session.accountId]
   )
 
   return NextResponse.json(rows)
@@ -40,10 +40,7 @@ export async function POST(req: NextRequest) {
     await req.json()
 
   if (!name || !duration_minutes) {
-    return NextResponse.json(
-      { error: 'name and duration_minutes are required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'name and duration_minutes are required' }, { status: 400 })
   }
 
   const { rows } = await pool.query(
@@ -51,16 +48,9 @@ export async function POST(req: NextRequest) {
        (account_id, user_email, name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [
-      session.accountId,
-      session.email,
-      name,
-      duration_minutes,
-      JSON.stringify(availability_windows ?? []),
-      buffer_minutes ?? 0,
-      JSON.stringify(targets ?? {}),
-      JSON.stringify(custom_fields ?? []),
-    ]
+    [session.accountId, session.email, name, duration_minutes,
+     JSON.stringify(availability_windows ?? []), buffer_minutes ?? 0,
+     JSON.stringify(targets ?? {}), JSON.stringify(custom_fields ?? [])]
   )
 
   return NextResponse.json(rows[0], { status: 201 })
@@ -76,9 +66,7 @@ export async function PUT(req: NextRequest) {
 
   const body = await req.json()
   const { id } = body
-  if (!id) {
-    return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  }
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
   const fieldMap: Record<string, { column: string; jsonb?: boolean }> = {
     name:                { column: 'name' },
@@ -105,25 +93,16 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  if (!updates.length) {
-    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
-  }
+  if (!updates.length) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
 
   updates.push(`updated_at = now()`)
-
-  values.push(id, session.accountId, session.email)
+  values.push(id, session.accountId)
   const { rows } = await pool.query(
-    `UPDATE booking_templates
-     SET ${updates.join(', ')}
-     WHERE id = $${idx} AND account_id = $${idx + 1} AND user_email = $${idx + 2}
-     RETURNING *`,
+    `UPDATE booking_templates SET ${updates.join(', ')} WHERE id = $${idx++} AND account_id = $${idx} RETURNING *`,
     values
   )
 
-  if (!rows.length) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
+  if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(rows[0])
 }
 
@@ -136,32 +115,21 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { id, duplicate } = await req.json()
-  if (!id) {
-    return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  }
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
   if (duplicate) {
     const { rows } = await pool.query(
       `INSERT INTO booking_templates
          (account_id, user_email, name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, active)
        SELECT account_id, user_email, name || ' (copy)', duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, active
-       FROM booking_templates
-       WHERE id = $1 AND account_id = $2 AND user_email = $3
+       FROM booking_templates WHERE id = $1 AND account_id = $2
        RETURNING *`,
-      [id, session.accountId, session.email]
+      [id, session.accountId]
     )
-
-    if (!rows.length) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
+    if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json(rows[0], { status: 201 })
   }
 
-  await pool.query(
-    `DELETE FROM booking_templates WHERE id = $1 AND account_id = $2 AND user_email = $3`,
-    [id, session.accountId, session.email]
-  )
-
+  await pool.query('DELETE FROM booking_templates WHERE id = $1 AND account_id = $2', [id, session.accountId])
   return NextResponse.json({ ok: true })
 }

@@ -1675,8 +1675,8 @@ function TemplateQuickPick({ onApply, activityTypes }: {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-5 z-50 bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-5 z-[61] bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
             {loaded && templates.length === 0 ? (
               <p className="px-3 py-2 text-xs text-text-muted">No templates. Create one in Settings &gt; Templates.</p>
             ) : !loaded ? (
