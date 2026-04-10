@@ -17,8 +17,8 @@ const LINK_QUERY = `
     sl.booking_enabled,
     (SELECT json_agg(json_build_object(
       'id', t.id, 'name', t.name, 'duration_minutes', t.duration_minutes, 'custom_fields', t.custom_fields
-    )) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
-    WHERE slt.share_link_id = sl.id AND t.active = true ORDER BY t.name) AS templates
+    ) ORDER BY t.name) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
+    WHERE slt.share_link_id = sl.id AND t.active = true) AS templates
   FROM favorite_share_links sl
   JOIN user_favorites f ON f.id = sl.favorite_id
   WHERE sl.token = $1
@@ -40,8 +40,8 @@ const LINK_QUERY_WITH_HASH = `
     sl.booking_enabled,
     (SELECT json_agg(json_build_object(
       'id', t.id, 'name', t.name, 'duration_minutes', t.duration_minutes, 'custom_fields', t.custom_fields
-    )) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
-    WHERE slt.share_link_id = sl.id AND t.active = true ORDER BY t.name) AS templates
+    ) ORDER BY t.name) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
+    WHERE slt.share_link_id = sl.id AND t.active = true) AS templates
   FROM favorite_share_links sl
   JOIN user_favorites f ON f.id = sl.favorite_id
   WHERE sl.token = $1
