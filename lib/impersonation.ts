@@ -36,8 +36,9 @@ export async function getImpersonation(): Promise<ImpersonationInfo | null> {
     const value = verifyCookieValue(raw)
     if (!value) return null
 
-    const [targetEmail, targetAccountId] = value.split('|')
-    if (!targetEmail || !targetAccountId) return null
+    const [rawEmail, targetAccountId] = value.split('|')
+    if (!rawEmail || !targetAccountId) return null
+    const targetEmail = decodeURIComponent(rawEmail)
 
     // Look up the target user's code
     const { rows } = await pool.query<{ generated_code: string }>(
