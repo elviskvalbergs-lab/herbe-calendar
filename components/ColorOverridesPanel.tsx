@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { ActivityClassGroup } from '@/types'
-import { BRAND_PALETTE, calColNrToColor, OUTLOOK_COLOR, FALLBACK_COLOR, SOURCE_COLOR_CODES } from '@/lib/activityColors'
+import { BRAND_PALETTE, calColNrToColor, OUTLOOK_COLOR, GOOGLE_COLOR, FALLBACK_COLOR, SOURCE_COLOR_CODES } from '@/lib/activityColors'
 import type { ColorOverrideRow } from '@/lib/activityColors'
 
 interface Connection { id: string; name: string }
@@ -204,6 +204,7 @@ export default function ColorOverridesPanel({ classGroups, connections, override
 
   const sourceEntries: { code: string; label: string; defaultColor: string }[] = [
     { code: SOURCE_COLOR_CODES.outlook, label: 'Outlook / Teams', defaultColor: OUTLOOK_COLOR },
+    { code: SOURCE_COLOR_CODES.google, label: 'Google Calendar', defaultColor: GOOGLE_COLOR },
     { code: SOURCE_COLOR_CODES.erp, label: 'Direct ERP entry', defaultColor: FALLBACK_COLOR },
   ]
 

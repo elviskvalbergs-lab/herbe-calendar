@@ -529,11 +529,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           }
         }
       }
-      // Deduplicate Google events (same event appears in each person's calendar)
-      const seenGoogleIds = new Set<string>()
+      // Deduplicate Google events per person (same event ID + same personCode = duplicate)
+      const seenGoogleKeys = new Set<string>()
       const uniqueGoogle = googleEvents.filter(a => {
-        if (seenGoogleIds.has(a.id)) return false
-        seenGoogleIds.add(a.id)
+        const key = `${a.id}:${a.personCode}`
+        if (seenGoogleKeys.has(key)) return false
+        seenGoogleKeys.add(key)
         return true
       })
       setActivities([...herbe, ...outlook, ...uniqueGoogle])
