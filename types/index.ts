@@ -8,6 +8,24 @@ export const SOURCES = {
   google: 'google',
 } as const
 
+/** A connected Google account for a user */
+export interface UserGoogleAccount {
+  id: string
+  googleEmail: string
+  calendars: UserGoogleCalendar[]
+}
+
+/** A single Google calendar within a connected account */
+export interface UserGoogleCalendar {
+  id: string
+  calendarId: string       // Google's calendar ID
+  name: string             // Display name from Google
+  color: string | null     // User-assigned hex color
+  enabled: boolean
+  googleEmail: string      // Parent account email
+  tokenId: string          // FK to user_google_tokens
+}
+
 export interface Person {
   code: string      // e.g. "EKS"
   name: string
@@ -85,6 +103,9 @@ export interface CalendarSource {
   label: string
   color: string
   personCode?: string  // for grouping ICS calendars by person
+  group?: string          // e.g. "Google (elvis@gmail.com)"
+  googleTokenId?: string  // for CRUD routing
+  googleCalendarId?: string
 }
 
 export interface Favorite {
