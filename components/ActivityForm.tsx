@@ -1103,6 +1103,23 @@ export default function ActivityForm({
             </div>
           )}
 
+          {/* From template — only for new activities */}
+          {!isEdit && isErpSource && (
+            <TemplateQuickPick
+              onApply={(t) => {
+                if (t.fields.ActType) { setActivityTypeCode(t.fields.ActType); setActivityTypeName(''); setCurrentGroup(getTypeGroup?.(t.fields.ActType)) }
+                if (t.fields.PRCode) setProjectCode(t.fields.PRCode)
+                if (t.fields.CUCode) setCustomerCode(t.fields.CUCode)
+                if (t.duration) {
+                  const [h, m] = timeFrom.split(':').map(Number)
+                  const endMins = h * 60 + m + t.duration
+                  setTimeTo(`${String(Math.floor(endMins / 60) % 24).padStart(2, '0')}:${String(endMins % 60).padStart(2, '0')}`)
+                }
+                if (t.description) setDescription(t.description)
+              }}
+            />
+          )}
+
           {/* Description — and all editable fields below; disabled visually when canEdit is false */}
           <div
             className={`space-y-3${canEdit === false ? ' pointer-events-none select-none opacity-50' : ''}`}
@@ -1611,6 +1628,57 @@ export default function ActivityForm({
           )}
         </div>}
       </div>
+    </div>
+  )
+}
+
+/** Small inline template picker for pre-filling activity fields */
+function TemplateQuickPick({ onApply }: { onApply: (t: { fields: Record<string, string>; duration?: number; description?: string }) => void }) {
+  const [templates, setTemplates] = useState<{ id: string; name: string; duration_minutes: number; targets: { erp?: { fields: Record<string, string> }[] } }[]>([])
+  const [open, setOpen] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  function load() {
+    if (loaded) { setOpen(o => !o); return }
+    fetch('/api/settings/templates').then(r => r.json()).then(data => {
+      setTemplates(Array.isArray(data) ? data : [])
+      setLoaded(true)
+      setOpen(true)
+    }).catch(() => setLoaded(true))
+  }
+
+  if (loaded && templates.length === 0) return null
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={load}
+        className="text-[10px] text-text-muted hover:text-primary transition-colors"
+      >
+        {open ? '▾ From template' : '▸ From template'}
+      </button>
+      {open && templates.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {templates.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                const erpFields = t.targets?.erp?.[0]?.fields ?? {}
+                onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name })
+                setOpen(false)
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded border border-border text-xs hover:border-primary/50 hover:bg-primary/5 transition-colors"
+            >
+              <span className="font-bold">{t.name}</span>
+              <span className="text-text-muted ml-1">({t.duration_minutes} min)</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

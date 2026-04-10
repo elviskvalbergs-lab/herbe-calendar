@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import type { BookingTemplate, AvailabilityWindow, CustomField } from '@/types'
+import { useState, useEffect } from 'react'
+import type { BookingTemplate, AvailabilityWindow, CustomField, ActivityType } from '@/types'
 
 interface Props {
   template: BookingTemplate | null
@@ -8,6 +8,8 @@ interface Props {
   onSave: () => void
   onCancel: () => void
 }
+
+interface SearchResult { code: string; name: string }
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120]
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -20,22 +22,27 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   const [duration, setDuration] = useState(template?.duration_minutes ?? 30)
   const [buffer, setBuffer] = useState(template?.buffer_minutes ?? 0)
 
-  // Availability windows
+  // Availability windows — empty by default
   const [windows, setWindows] = useState<AvailabilityWindow[]>(
-    template?.availability_windows?.length
-      ? template.availability_windows
-      : [{ days: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '17:00' }]
+    template?.availability_windows?.length ? template.availability_windows : []
   )
+
+  // Searchable data — fetched per connection
+  const [allActivityTypes, setAllActivityTypes] = useState<ActivityType[]>([])
+  const [allProjects, setAllProjects] = useState<SearchResult[]>([])
+  const [allCustomers, setAllCustomers] = useState<SearchResult[]>([])
+
+  useEffect(() => {
+    fetch('/api/activity-types').then(r => r.json()).then(d => setAllActivityTypes(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/projects?all=1').then(r => r.json()).then(d => setAllProjects(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch('/api/customers?all=1').then(r => r.json()).then(d => setAllCustomers(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
 
   // Targets — ERP
   const [erpTargets, setErpTargets] = useState<{ connectionId: string; enabled: boolean; fields: Record<string, string> }[]>(
     connections.map(c => {
       const existing = template?.targets?.erp?.find(e => e.connectionId === c.id)
-      return {
-        connectionId: c.id,
-        enabled: !!existing,
-        fields: existing?.fields ?? { ActType: '', PRCode: '', CUCode: '' },
-      }
+      return { connectionId: c.id, enabled: !!existing, fields: existing?.fields ?? {} }
     })
   )
 
@@ -60,7 +67,6 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   function updateWindow(idx: number, patch: Partial<AvailabilityWindow>) {
     setWindows(prev => prev.map((w, i) => i === idx ? { ...w, ...patch } : w))
   }
-
   function toggleDay(windowIdx: number, day: number) {
     setWindows(prev => prev.map((w, i) => {
       if (i !== windowIdx) return w
@@ -68,35 +74,25 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
       return { ...w, days }
     }))
   }
-
-  function removeWindow(idx: number) {
-    setWindows(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  function addWindow() {
-    setWindows(prev => [...prev, { days: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '17:00' }])
-  }
+  function removeWindow(idx: number) { setWindows(prev => prev.filter((_, i) => i !== idx)) }
+  function addWindow() { setWindows(prev => [...prev, { days: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '17:00' }]) }
 
   // ERP target helpers
-  function updateErpTarget(connId: string, patch: Partial<{ enabled: boolean; fields: Record<string, string> }>) {
-    setErpTargets(prev => prev.map(t => {
-      if (t.connectionId !== connId) return t
-      return { ...t, ...patch, fields: patch.fields ? { ...t.fields, ...patch.fields } : t.fields }
-    }))
+  function updateErpField(connId: string, field: string, value: string) {
+    setErpTargets(prev => prev.map(t =>
+      t.connectionId === connId ? { ...t, fields: { ...t.fields, [field]: value } } : t
+    ))
+  }
+  function toggleErp(connId: string, enabled: boolean) {
+    setErpTargets(prev => prev.map(t => t.connectionId === connId ? { ...t, enabled } : t))
   }
 
   // Custom field helpers
   function updateCustomField(idx: number, patch: Partial<CustomField>) {
     setCustomFields(prev => prev.map((f, i) => i === idx ? { ...f, ...patch } : f))
   }
-
-  function removeCustomField(idx: number) {
-    setCustomFields(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  function addCustomField() {
-    setCustomFields(prev => [...prev, { label: '', type: 'text', required: false }])
-  }
+  function removeCustomField(idx: number) { setCustomFields(prev => prev.filter((_, i) => i !== idx)) }
+  function addCustomField() { setCustomFields(prev => [...prev, { label: '', type: 'text', required: false }]) }
 
   // Save
   async function handleSave() {
@@ -153,27 +149,22 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
           <div>
             <label className="text-[10px] text-text-muted block mb-1">Duration</label>
             <select className={`${inputClass} w-full`} value={duration} onChange={e => setDuration(Number(e.target.value))}>
-              {DURATION_OPTIONS.map(d => (
-                <option key={d} value={d}>{d} min</option>
-              ))}
+              {DURATION_OPTIONS.map(d => <option key={d} value={d}>{d} min</option>)}
             </select>
           </div>
           <div>
             <label className="text-[10px] text-text-muted block mb-1">Buffer (min)</label>
-            <input
-              type="number"
-              min={0}
-              className={`${inputClass} w-full`}
-              value={buffer}
-              onChange={e => setBuffer(Number(e.target.value))}
-            />
+            <input type="number" min={0} className={`${inputClass} w-full`} value={buffer} onChange={e => setBuffer(Number(e.target.value))} />
           </div>
         </div>
       </div>
 
       {/* Availability Windows */}
       <div className="space-y-2">
-        <p className={labelClass}>Availability Windows</p>
+        <p className={labelClass}>Availability Windows <span className="font-normal normal-case">(for booking page)</span></p>
+        {windows.length === 0 && (
+          <p className="text-[10px] text-text-muted">No availability windows defined. Add one to enable time slot restrictions for bookings.</p>
+        )}
         {windows.map((w, wi) => (
           <div key={wi} className="p-3 border border-border rounded-lg space-y-2">
             <div className="flex items-center justify-between">
@@ -189,9 +180,7 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
                   </button>
                 ))}
               </div>
-              {windows.length > 1 && (
-                <button onClick={() => removeWindow(wi)} className="text-text-muted hover:text-red-400 text-xs px-1">✕</button>
-              )}
+              <button onClick={() => removeWindow(wi)} className="text-text-muted hover:text-red-400 text-xs px-1">✕</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -205,12 +194,12 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
             </div>
           </div>
         ))}
-        <button type="button" onClick={addWindow} className="text-xs text-primary hover:underline">+ Add window</button>
+        <button type="button" onClick={addWindow} className="text-xs text-primary hover:underline">+ Add availability window</button>
       </div>
 
       {/* Targets */}
       <div className="space-y-2">
-        <p className={labelClass}>Targets</p>
+        <p className={labelClass}>Create activity in</p>
 
         {/* ERP connections */}
         {erpTargets.map(t => {
@@ -218,29 +207,33 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
           return (
             <div key={t.connectionId} className="p-3 border border-border rounded-lg space-y-2">
               <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={t.enabled}
-                  onChange={e => updateErpTarget(t.connectionId, { enabled: e.target.checked })}
-                  className="accent-primary"
-                />
+                <input type="checkbox" checked={t.enabled} onChange={e => toggleErp(t.connectionId, e.target.checked)} className="accent-primary" />
                 <span className="font-bold">{conn?.name || t.connectionId}</span>
                 <span className="text-[10px] text-text-muted">ERP</span>
               </label>
               {t.enabled && (
-                <div className="grid grid-cols-3 gap-2 pl-5">
-                  <div>
-                    <label className="text-[10px] text-text-muted block mb-0.5">ActType</label>
-                    <input className={`${inputClass} w-full`} value={t.fields.ActType || ''} onChange={e => updateErpTarget(t.connectionId, { fields: { ActType: e.target.value } })} placeholder="e.g. MEETING" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-text-muted block mb-0.5">PRCode</label>
-                    <input className={`${inputClass} w-full`} value={t.fields.PRCode || ''} onChange={e => updateErpTarget(t.connectionId, { fields: { PRCode: e.target.value } })} placeholder="e.g. PR001" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-text-muted block mb-0.5">CUCode</label>
-                    <input className={`${inputClass} w-full`} value={t.fields.CUCode || ''} onChange={e => updateErpTarget(t.connectionId, { fields: { CUCode: e.target.value } })} placeholder="e.g. CU001" />
-                  </div>
+                <div className="space-y-2 pl-5">
+                  <SearchField
+                    label="Activity Type"
+                    value={t.fields.ActType || ''}
+                    onChange={v => updateErpField(t.connectionId, 'ActType', v)}
+                    items={allActivityTypes.map(at => ({ code: at.code, name: at.name }))}
+                    inputClass={inputClass}
+                  />
+                  <SearchField
+                    label="Project"
+                    value={t.fields.PRCode || ''}
+                    onChange={v => updateErpField(t.connectionId, 'PRCode', v)}
+                    items={allProjects}
+                    inputClass={inputClass}
+                  />
+                  <SearchField
+                    label="Customer"
+                    value={t.fields.CUCode || ''}
+                    onChange={v => updateErpField(t.connectionId, 'CUCode', v)}
+                    items={allCustomers}
+                    inputClass={inputClass}
+                  />
                 </div>
               )}
             </div>
@@ -290,7 +283,10 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
 
       {/* Custom Fields */}
       <div className="space-y-2">
-        <p className={labelClass}>Custom Fields</p>
+        <p className={labelClass}>Custom Fields <span className="font-normal normal-case">(booker fills these in)</span></p>
+        {customFields.length === 0 && (
+          <p className="text-[10px] text-text-muted">No custom fields. Booker email is always collected.</p>
+        )}
         {customFields.map((f, fi) => (
           <div key={fi} className="flex items-center gap-2">
             <input className={`${inputClass} flex-1`} placeholder="Label" value={f.label} onChange={e => updateCustomField(fi, { label: e.target.value })} />
@@ -319,6 +315,72 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
         </button>
         <button onClick={onCancel} className="text-text-muted text-xs px-4 py-2 rounded-lg hover:bg-border">Cancel</button>
       </div>
+    </div>
+  )
+}
+
+/** Searchable dropdown field for codes (activity types, projects, customers) */
+function SearchField({ label, value, onChange, items, inputClass }: {
+  label: string
+  value: string
+  onChange: (code: string) => void
+  items: SearchResult[]
+  inputClass: string
+}) {
+  const [query, setQuery] = useState(value)
+  const [open, setOpen] = useState(false)
+  const [focusedIdx, setFocusedIdx] = useState(-1)
+
+  // Sync external value
+  useEffect(() => { setQuery(value) }, [value])
+
+  const filtered = query
+    ? items.filter(i => i.code.toLowerCase().includes(query.toLowerCase()) || i.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    : items.slice(0, 8)
+
+  return (
+    <div className="relative">
+      <label className="text-[10px] text-text-muted block mb-0.5">{label}</label>
+      <input
+        className={`${inputClass} w-full`}
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); setFocusedIdx(-1) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={e => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedIdx(i => Math.min(i + 1, filtered.length - 1)) }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedIdx(i => Math.max(i - 1, -1)) }
+          else if (e.key === 'Enter' && focusedIdx >= 0) {
+            e.preventDefault()
+            const item = filtered[focusedIdx]
+            setQuery(item.code)
+            onChange(item.code)
+            setOpen(false)
+          }
+          else if (e.key === 'Escape') setOpen(false)
+        }}
+        placeholder={`Search ${label.toLowerCase()}...`}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-0.5 z-50 bg-surface border border-border rounded-lg shadow-lg max-h-32 overflow-y-auto">
+          {filtered.map((item, idx) => (
+            <button
+              key={item.code}
+              type="button"
+              className={`w-full text-left px-2 py-1.5 text-xs flex items-center gap-2 ${idx === focusedIdx ? 'bg-primary/15' : 'hover:bg-border/30'}`}
+              onMouseDown={e => {
+                e.preventDefault()
+                setQuery(item.code)
+                onChange(item.code)
+                setOpen(false)
+              }}
+            >
+              <span className="font-mono text-[10px] text-primary w-10 shrink-0">{item.code}</span>
+              <span className="truncate">{item.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
