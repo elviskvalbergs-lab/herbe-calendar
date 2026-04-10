@@ -28,8 +28,16 @@ export default function CalendarSourcesDropdown({ sources, hidden, onToggle, onS
     return () => window.removeEventListener('keydown', handler)
   }, [open, onOpenChange])
 
-  // Split sources into global (herbe/outlook) and per-person ICS groups
-  const globalSources = sources.filter(s => !s.personCode)
+  // Split sources into global (herbe/outlook), grouped Google, and per-person ICS groups
+  const globalSources = sources.filter(s => !s.personCode && !s.group)
+  // Group sources by their group field (e.g. per-user Google calendars)
+  const groupedSources = sources.filter(s => s.group)
+  const googleGroups = new Map<string, CalendarSource[]>()
+  for (const src of groupedSources) {
+    const list = googleGroups.get(src.group!) ?? []
+    list.push(src)
+    googleGroups.set(src.group!, list)
+  }
   const personGroups: { code: string; name: string; sources: CalendarSource[] }[] = []
   const icsSourcesByPerson = new Map<string, CalendarSource[]>()
   for (const src of sources) {
@@ -85,6 +93,14 @@ export default function CalendarSourcesDropdown({ sources, hidden, onToggle, onS
 
       {/* Global sources (Herbe, Outlook) */}
       {globalSources.map(renderRow)}
+
+      {/* Per-user Google calendar groups */}
+      {[...googleGroups.entries()].map(([group, srcs]) => (
+        <div key={group}>
+          <div className="px-3 py-1 text-[10px] text-text-muted uppercase tracking-wide font-bold mt-1">{group}</div>
+          {srcs.map(renderRow)}
+        </div>
+      ))}
 
       {/* Per-person ICS groups */}
       {personGroups.map(group => (

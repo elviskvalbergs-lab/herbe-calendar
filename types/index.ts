@@ -67,6 +67,9 @@ export interface Activity {
   isAllDay?: boolean     // All-day or multi-day event (no specific time)
   icsColor?: string      // Custom color from ICS calendar settings
   icsCalendarName?: string  // Name of the ICS calendar this event came from
+  googleAccountEmail?: string  // Per-user Google: the connected account email
+  googleCalendarId?: string    // Per-user Google: the specific calendar ID
+  googleTokenId?: string       // Per-user Google: token ID for CRUD routing
 }
 
 export interface ActivityType {

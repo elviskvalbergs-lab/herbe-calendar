@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
-import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource } from '@/types'
+import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource, UserGoogleAccount } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import ActivityForm from './ActivityForm'
@@ -76,6 +76,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   // Calendar visibility state
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
   const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string; personCode: string }[]>([])
+  const [userGoogleAccounts, setUserGoogleAccounts] = useState<UserGoogleAccount[]>([])
 
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
@@ -101,15 +102,30 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
     ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: resolvedOutlookColor }] : []),
     ...(sources.google ? [{ id: GOOGLE_ID, label: 'Google', color: resolvedGoogleColor }] : []),
+    ...userGoogleAccounts.flatMap(account =>
+      account.calendars.filter(c => c.enabled).map(cal => ({
+        id: `google-user:${account.googleEmail}:${cal.calendarId}`,
+        label: cal.name,
+        color: cal.color ?? '#4285f4',
+        group: `Google (${account.googleEmail})`,
+        googleTokenId: account.id,
+        googleCalendarId: cal.calendarId,
+      }))
+    ),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
-  ], [sources, resolvedOutlookColor, resolvedGoogleColor, userIcsCalendars, selectedCodes])
+  ], [sources, resolvedOutlookColor, resolvedGoogleColor, userGoogleAccounts, userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
     if (hiddenCalendars.size === 0) return activities
     return activities.filter(a => {
       if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
+      // For per-user Google events, check if their specific calendar is hidden
+      if (a.googleAccountEmail && a.googleCalendarId) {
+        const calSourceId = `google-user:${a.googleAccountEmail}:${a.googleCalendarId}`
+        return !hiddenCalendars.has(calSourceId)
+      }
       if (a.source === 'outlook' && !a.isExternal) return !hiddenCalendars.has(OUTLOOK_ID)
       if (a.source === 'google' && !a.isExternal) return !hiddenCalendars.has(GOOGLE_ID)
       if (a.source === 'herbe') return !hiddenCalendars.has(HERBE_ID)
@@ -561,7 +577,13 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       if (sources.google) {
         const googleRes = responses[idx++]
         if (googleRes.ok) {
-          googleEvents = await googleRes.json()
+          const data = await googleRes.json()
+          if (Array.isArray(data)) {
+            googleEvents = data
+          } else {
+            googleEvents = data.activities ?? []
+            if (data.warnings?.length) icsWarnings.push(...data.warnings)
+          }
         } else {
           try {
             const e = await googleRes.json()
@@ -619,6 +641,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       .then(r => r.ok ? r.json() : [])
       .then((cals: { name: string; color?: string; personCode: string }[]) => setUserIcsCalendars(cals))
       .catch(() => {})
+    fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setUserGoogleAccounts).catch(() => {})
   }, [])
 
   return (
