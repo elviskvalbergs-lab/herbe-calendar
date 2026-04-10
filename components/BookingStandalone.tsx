@@ -52,7 +52,7 @@ export default function BookingStandalone({ token }: { token: string }) {
     <BookingPage
       token={token}
       templates={templates}
-      onBack={() => window.close()}
+      onBack={() => window.location.reload()}
     />
   )
 }

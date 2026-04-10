@@ -366,7 +366,7 @@ export default function BookingPage({ token, templates, onBack }: Props) {
                 onClick={onBack}
                 className="text-xs text-text-muted hover:text-text"
               >
-                Back to calendar
+                Book another meeting
               </button>
             </div>
           )}
