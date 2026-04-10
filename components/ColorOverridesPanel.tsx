@@ -89,13 +89,19 @@ export default function ColorOverridesPanel({ classGroups, connections, override
     }
     if (openPicker) {
       document.addEventListener('mousedown', handleClick)
-      // Check if picker overflows viewport and flip if needed
+      // Check if picker overflows viewport and flip if needed, then scroll into view
       requestAnimationFrame(() => {
         if (triggerRef.current) {
           const rect = triggerRef.current.getBoundingClientRect()
           const spaceBelow = window.innerHeight - rect.bottom
           setPickerAbove(spaceBelow < 220)
         }
+        // Scroll the picker into view after it renders
+        requestAnimationFrame(() => {
+          if (pickerRef.current) {
+            pickerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          }
+        })
       })
     }
     return () => document.removeEventListener('mousedown', handleClick)
