@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
+import type { UserGoogleAccount } from '@/types'
 import ErrorBanner from './ErrorBanner'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
@@ -68,6 +69,7 @@ interface Props {
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
   availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
+  userGoogleAccounts?: UserGoogleAccount[]
 }
 
 function SerpIcon() {
@@ -81,7 +83,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources, userGoogleAccounts
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -93,8 +95,12 @@ export default function ActivityForm({
     if (initial?.source === 'google') return 'google'
     // For edit mode: use the activity's own connection ID if available
     if (isEdit && initial?.erpConnectionId) return initial.erpConnectionId
-    // For ERP activities, use the first connection ID or 'herbe' as fallback
-    if (erpConnections.length > 0) return erpConnections[0].id
+    // For ERP activities, prefer last-used connection from localStorage
+    if (erpConnections.length > 0) {
+      const savedErp = (() => { try { return localStorage.getItem('lastErpConnection') } catch { return null } })()
+      if (savedErp && erpConnections.some(c => c.id === savedErp)) return savedErp
+      return erpConnections[0].id
+    }
     return 'herbe'
   })
   const isOutlookSource = source === 'outlook'
@@ -151,6 +157,9 @@ export default function ActivityForm({
   const [recentCCPersonCodes, setRecentCCPersonCodes] = useState<string[]>([])
   const [rsvpStatus, setRsvpStatus] = useState<Activity['rsvpStatus']>(initial?.rsvpStatus)
   const [rsvpLoading, setRsvpLoading] = useState(false)
+  const [selectedGoogleCalendar, setSelectedGoogleCalendar] = useState<string>(() => {
+    try { return localStorage.getItem('lastGoogleCalendar') ?? '' } catch { return '' }
+  })
   // Outlook-specific: external attendees, location, Teams toggle
   const [externalAttendees, setExternalAttendees] = useState<string[]>(() => {
     if (!initial?.attendees) return []
@@ -213,6 +222,13 @@ export default function ActivityForm({
     }
     setExternalAttendees(external)
   }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist last-used ERP connection to localStorage
+  useEffect(() => {
+    if (activeErpConnection) {
+      try { localStorage.setItem('lastErpConnection', activeErpConnection.id) } catch {}
+    }
+  }, [activeErpConnection?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load recent persons from localStorage (types loaded per-connection below)
   useEffect(() => {
@@ -486,13 +502,23 @@ export default function ActivityForm({
 
     try {
       const connParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+      const googleEditParams = isGoogleSource && isEdit && initial?.googleTokenId
+        ? `?googleTokenId=${initial.googleTokenId}&googleCalendarId=${initial.googleCalendarId ?? 'primary'}`
+        : ''
       const url = isErpSource
         ? (isEdit ? `/api/activities/${editId}${connParam}` : `/api/activities${connParam}`)
         : isGoogleSource
-          ? (isEdit ? `/api/google/${editId}` : '/api/google')
+          ? (isEdit ? `/api/google/${editId}${googleEditParams}` : '/api/google')
           : (isEdit ? `/api/outlook/${editId}` : '/api/outlook')
       const method = isEdit ? 'PUT' : 'POST'
-      const body = isErpSource ? buildHerbePayload() : buildOutlookPayload()
+      const body: Record<string, unknown> = isErpSource ? buildHerbePayload() : buildOutlookPayload()
+
+      // For new per-user Google events, include token + calendar IDs
+      if (isGoogleSource && !isEdit && selectedGoogleCalendar) {
+        const [tokenId, calendarId] = selectedGoogleCalendar.split(':')
+        body.googleTokenId = tokenId
+        body.googleCalendarId = calendarId
+      }
 
       const res = await fetch(url, {
         method,
@@ -544,10 +570,13 @@ export default function ActivityForm({
       setErrors([])
       try {
         const delConnParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
+        const googleDelParams = isGoogleSource && initial?.googleTokenId
+          ? `?googleTokenId=${initial.googleTokenId}&googleCalendarId=${initial.googleCalendarId ?? 'primary'}`
+          : ''
         const url = isErpSource
           ? `/api/activities/${editId}${delConnParam}`
           : isGoogleSource
-            ? `/api/google/${editId}`
+            ? `/api/google/${editId}${googleDelParams}`
             : `/api/outlook/${editId}`
         const res = await fetch(url, { method: 'DELETE' })
         if (!res.ok) {
@@ -956,6 +985,32 @@ export default function ActivityForm({
                   Google
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Google calendar sub-picker (create only, when per-user accounts are available) */}
+          {!isEdit && isGoogleSource && userGoogleAccounts && userGoogleAccounts.length > 0 && (
+            <div className="mt-2">
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Calendar</label>
+              <select
+                value={selectedGoogleCalendar}
+                onChange={e => {
+                  setSelectedGoogleCalendar(e.target.value)
+                  try { localStorage.setItem('lastGoogleCalendar', e.target.value) } catch {}
+                }}
+                className="w-full bg-bg border border-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
+              >
+                <option value="">Primary (domain)</option>
+                {userGoogleAccounts.map(account => (
+                  <optgroup key={account.id} label={account.googleEmail}>
+                    {account.calendars.filter(c => c.enabled).map(cal => (
+                      <option key={cal.id} value={`${account.id}:${cal.calendarId}`}>
+                        {cal.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </div>
           )}
 
