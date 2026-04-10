@@ -148,7 +148,7 @@ export default function BookingPage({ token, templates, onBack }: Props) {
               }}
               className="text-text-muted text-xs hover:text-text"
             >
-              {step === 'template' || (step === 'date' && templates.length === 1) ? 'Back to calendar' : 'Back'}
+              Back
             </button>
           )}
         </div>

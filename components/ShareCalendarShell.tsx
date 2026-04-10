@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { format, addDays, subDays, parseISO } from 'date-fns'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import CalendarGrid from './CalendarGrid'
-import BookingPage from './BookingPage'
+// BookingPage is now a standalone route at /book/[token]
 import { OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
 import { personColor } from '@/lib/colors'
 
@@ -32,7 +32,7 @@ export default function ShareCalendarShell({ token }: Props) {
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [subscribeCopied, setSubscribeCopied] = useState(false)
-  const [bookingMode, setBookingMode] = useState(false)
+  // bookingMode removed — booking is now at /book/[token]
   const dateInputRef = useRef<HTMLInputElement>(null)
 
   // Build person-to-color map based on personCodes order
@@ -170,9 +170,7 @@ export default function ShareCalendarShell({ token }: Props) {
     )
   }
 
-  if (bookingMode && config.bookingEnabled && config.templates) {
-    return <BookingPage token={token} templates={config.templates} onBack={() => setBookingMode(false)} />
-  }
+  // bookingMode no longer used — booking is a separate page
 
   const state: CalendarState = {
     view: config.view,
@@ -254,18 +252,18 @@ export default function ShareCalendarShell({ token }: Props) {
               setTimeout(() => setSubscribeCopied(false), 2000)
             }}
             className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold ml-1"
-            title="Copy ICS subscription URL"
+            title="Copy ICS calendar subscription link — paste in Apple Calendar, Outlook, or Google Calendar to subscribe"
           >
-            {subscribeCopied ? 'Copied!' : 'Subscribe'}
+            {subscribeCopied ? 'ICS link copied!' : 'Subscribe (ICS)'}
           </button>
         )}
         {config.bookingEnabled && config.templates && config.templates.length > 0 && (
-          <button
-            onClick={() => setBookingMode(true)}
-            className="px-2.5 lg:px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 ml-1"
+          <a
+            href={`/book/${token}`}
+            className="px-2.5 lg:px-3 py-1 rounded-lg bg-primary text-white text-xs font-bold hover:opacity-90 ml-1 no-underline"
           >
             Book a Meeting
-          </button>
+          </a>
         )}
       </header>
 

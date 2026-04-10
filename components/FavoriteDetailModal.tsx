@@ -43,6 +43,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [copiedBooking, setCopiedBooking] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   const [newName, setNewName] = useState('')
@@ -323,13 +324,25 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                   {link.bookingEnabled && ' · 📅 Booking'}
                   {link.expiresAt && ` · Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
                 </p>
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 flex-wrap">
                   <button
                     onClick={() => copyLink(link.token)}
                     className="text-xs px-2 py-1 rounded bg-primary text-white hover:opacity-90"
                   >
                     {copied === link.token ? 'Copied!' : 'Copy link'}
                   </button>
+                  {link.bookingEnabled && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/book/${link.token}`)
+                        setCopiedBooking(link.token)
+                        setTimeout(() => setCopiedBooking(null), 2000)
+                      }}
+                      className="text-xs px-2 py-1 rounded border border-primary/50 text-primary hover:bg-primary/10"
+                    >
+                      {copiedBooking === link.token ? 'Copied!' : 'Copy booking link'}
+                    </button>
+                  )}
                   <button
                     onClick={() => openLink(link.token)}
                     className="text-xs px-2 py-1 rounded border border-border text-text-muted hover:text-primary"
