@@ -15,9 +15,10 @@ export async function GET(
   const { cancelToken } = await params
 
   const { rows } = await pool.query(
-    `SELECT b.*, t.name AS template_name, t.duration_minutes, t.custom_fields
+    `SELECT b.*, t.name AS template_name, t.duration_minutes, t.custom_fields, sl.token AS share_token
      FROM bookings b
      JOIN booking_templates t ON t.id = b.template_id
+     JOIN favorite_share_links sl ON sl.id = b.share_link_id
      WHERE b.cancel_token = $1`,
     [cancelToken]
   )

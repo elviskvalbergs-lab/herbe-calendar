@@ -10,7 +10,7 @@ import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import AccountSwitcher from './AccountSwitcher'
 import {
   buildClassGroupColorMap, getActivityColor, loadColorOverrides,
-  resolveColorWithOverrides, OUTLOOK_COLOR, FALLBACK_COLOR,
+  resolveColorWithOverrides, OUTLOOK_COLOR, GOOGLE_COLOR, FALLBACK_COLOR,
   SOURCE_COLOR_CODES, type ColorOverrideRow,
 } from '@/lib/activityColors'
 import {
@@ -79,19 +79,39 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
 
+  // Resolve source colors from DB overrides for calendar source labels
+  const resolvedOutlookColor = useMemo(() => {
+    if (dbColorOverrides.length > 0) {
+      const match = dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.outlook && o.user_email !== null && o.connection_id === null)
+        ?? dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.outlook && o.user_email === null && o.connection_id === null)
+      if (match) return match.color
+    }
+    return OUTLOOK_COLOR
+  }, [dbColorOverrides])
+  const resolvedGoogleColor = useMemo(() => {
+    if (dbColorOverrides.length > 0) {
+      const match = dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.google && o.user_email !== null && o.connection_id === null)
+        ?? dbColorOverrides.find(o => o.class_group_code === SOURCE_COLOR_CODES.google && o.user_email === null && o.connection_id === null)
+      if (match) return match.color
+    }
+    return GOOGLE_COLOR
+  }, [dbColorOverrides])
+
   const calendarSources: CalendarSource[] = useMemo(() => [
-    { id: HERBE_ID, label: 'ERP', color: HERBE_COLOR },
-    { id: OUTLOOK_ID, label: 'Outlook', color: OUTLOOK_COLOR },
+    ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
+    ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: resolvedOutlookColor }] : []),
+    ...(sources.google ? [{ id: 'google', label: 'Google', color: resolvedGoogleColor }] : []),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
-  ], [userIcsCalendars, selectedCodes])
+  ], [sources, resolvedOutlookColor, resolvedGoogleColor, userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
     if (hiddenCalendars.size === 0) return activities
     return activities.filter(a => {
       if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
       if (a.source === 'outlook' && !a.isExternal) return !hiddenCalendars.has(OUTLOOK_ID)
+      if (a.source === 'google' && !a.isExternal) return !hiddenCalendars.has('google')
       if (a.source === 'herbe') return !hiddenCalendars.has(HERBE_ID)
       return true
     })
@@ -291,7 +311,16 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const classGroupToColor = buildClassGroupColorMap(classGroups, colorOverrides)
   function colorForActivity(activity: Activity): string {
     if (activity.icsColor) return activity.icsColor
+    if (activity.source === 'google' && !activity.isExternal) {
+      if (dbColorOverrides.length > 0) {
+        return resolveColorWithOverrides(SOURCE_COLOR_CODES.google, null, classGroups, 0, dbColorOverrides)
+      }
+      return classGroupToColor.get(SOURCE_COLOR_CODES.google) ?? GOOGLE_COLOR
+    }
     if (activity.source === 'outlook' && !activity.isExternal) {
+      if (dbColorOverrides.length > 0) {
+        return resolveColorWithOverrides(SOURCE_COLOR_CODES.outlook, null, classGroups, 0, dbColorOverrides)
+      }
       return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
     }
     if (!activity.activityTypeCode) {
@@ -527,12 +556,20 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           }
         }
       }
-      setActivities([...herbe, ...outlook, ...googleEvents])
+      // Deduplicate Google events per person (same event ID + same personCode = duplicate)
+      const seenGoogleKeys = new Set<string>()
+      const uniqueGoogle = googleEvents.filter(a => {
+        const key = `${a.id}:${a.personCode}`
+        if (seenGoogleKeys.has(key)) return false
+        seenGoogleKeys.add(key)
+        return true
+      })
+      setActivities([...herbe, ...outlook, ...uniqueGoogle])
 
       const parts: string[] = []
       if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
       if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
-      if (sources.google) parts.push(`${googleEvents.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
+      if (sources.google) parts.push(`${uniqueGoogle.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
       setStatus({
         msg: parts.join(' + ') + ' activities',
         ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg,
@@ -688,7 +725,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
           allActivities={activities}
           onClose={() => setFormState({ open: false })}
-          onSaved={fetchActivities}
+          onSaved={() => { fetchActivities(); setTimeout(fetchActivities, 2000) }}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
           onRsvp={(newStatus) => {
             // Update the activity in-state so re-opening the form shows the correct RSVP

@@ -54,21 +54,16 @@ export async function requireSession(): Promise<SessionUser> {
     const { cookies } = await import('next/headers')
     const cookieStore = await cookies()
     activeAccountOverride = cookieStore.get('activeAccountId')?.value || undefined
-  } catch {}
+  } catch (e) {
+    console.warn('[auth-guard] Failed to read activeAccountId cookie:', String(e))
+  }
 
-  // Resolve account from membership (cached)
-  const cacheKey = activeAccountOverride ? `${email}:${activeAccountOverride}` : email
-  const cached = accountCache.get(cacheKey)
-  if (cached && Date.now() - cached.ts < ACCOUNT_CACHE_TTL) {
-    // Re-resolve userCode from the active account's person_codes
-    if (activeAccountOverride && cached.accountId === activeAccountOverride) {
-      const { rows: pcRows } = await pool.query<{ generated_code: string }>(
-        'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
-        [cached.accountId, email]
-      ).catch(() => ({ rows: [] }))
-      return { userCode: pcRows[0]?.generated_code ?? userCode, email: session.user.email, accountId: cached.accountId }
+  // Skip cache when activeAccountId is set — always resolve fresh for account switching
+  if (!activeAccountOverride) {
+    const cached = accountCache.get(email)
+    if (cached && Date.now() - cached.ts < ACCOUNT_CACHE_TTL) {
+      return { userCode, email: session.user.email, accountId: cached.accountId }
     }
-    return { userCode, email: session.user.email, accountId: cached.accountId }
   }
 
   try {
@@ -81,7 +76,7 @@ export async function requireSession(): Promise<SessionUser> {
         // Super admins can access any account
         const { rows: accRows } = await pool.query('SELECT id FROM tenant_accounts WHERE id = $1 AND suspended_at IS NULL', [activeAccountOverride])
         if (accRows.length > 0) {
-          accountCache.set(cacheKey, { accountId: activeAccountOverride, ts: Date.now() })
+          accountCache.set(email, { accountId: activeAccountOverride, ts: Date.now() })
           // Resolve userCode from this account's person_codes
           const { rows: pcRows } = await pool.query<{ generated_code: string }>(
             'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
@@ -98,7 +93,7 @@ export async function requireSession(): Promise<SessionUser> {
           [activeAccountOverride, email]
         )
         if (memberRows.length > 0) {
-          accountCache.set(cacheKey, { accountId: activeAccountOverride, ts: Date.now() })
+          accountCache.set(email, { accountId: activeAccountOverride, ts: Date.now() })
           const { rows: pcRows } = await pool.query<{ generated_code: string }>(
             'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
             [activeAccountOverride, email]
@@ -121,7 +116,7 @@ export async function requireSession(): Promise<SessionUser> {
       throw new Error(`No account membership for ${email}`)
     }
     const accountId = rows[0].account_id
-    accountCache.set(cacheKey, { accountId, ts: Date.now() })
+    accountCache.set(email, { accountId, ts: Date.now() })
     return { userCode, email: session.user.email, accountId }
   } catch (e) {
     console.error(`[auth-guard] Account lookup failed for ${email}:`, String(e))

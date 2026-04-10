@@ -45,9 +45,10 @@ export default function ActivityForm({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  // Source: 'outlook' or an ERP connection ID (legacy 'herbe' maps to first connection)
+  // Source: 'outlook', 'google', or an ERP connection ID
   const [source, setSource] = useState<string>(() => {
     if (initial?.source === 'outlook') return 'outlook'
+    if (initial?.source === 'google') return 'google'
     // For edit mode: use the activity's own connection ID if available
     if (isEdit && initial?.erpConnectionId) return initial.erpConnectionId
     // For ERP activities, use the first connection ID or 'herbe' as fallback
@@ -62,7 +63,7 @@ export default function ActivityForm({
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
     // For Outlook events: match attendees to internal people by email or name
-    if (isEdit && initial?.source === 'outlook' && initial?.attendees?.length) {
+    if (isEdit && (initial?.source === 'outlook' || initial?.source === 'google') && initial?.attendees?.length) {
       const internalEmails = new Map(people.filter(p => p.email).map(p => [p.email.toLowerCase(), p.code] as const))
       // Group people by name for disambiguation
       const internalNameGroups = new Map<string, typeof people>()
@@ -186,7 +187,7 @@ export default function ActivityForm({
   const attendeeRecalcDone = useRef(false)
   useEffect(() => {
     if (attendeeRecalcDone.current) return
-    if (!isEdit || initial?.source !== 'outlook' || !initial?.attendees?.length) return
+    if (!isEdit || (initial?.source !== 'outlook' && initial?.source !== 'google') || !initial?.attendees?.length) return
     if (!peopleEmailsKey) return // still stubs
     attendeeRecalcDone.current = true
 
@@ -470,10 +471,11 @@ export default function ActivityForm({
     if (location.trim()) {
       payload.location = { displayName: location.trim() }
     }
-    if (!isEdit) {
-      payload.isOnlineMeeting = isOnlineMeeting
-      if (isOnlineMeeting) payload.onlineMeetingProvider = 'teamsForBusiness'
+    if (textInMatrix.trim()) {
+      payload.body = { contentType: 'Text', content: textInMatrix.trim() }
     }
+    payload.isOnlineMeeting = isOnlineMeeting
+    if (isOnlineMeeting && !isGoogleSource) payload.onlineMeetingProvider = 'teamsForBusiness'
     return payload
   }
 
@@ -544,7 +546,7 @@ export default function ActivityForm({
 
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!confirm(isOutlookSource ? 'Are you sure you want to remove this activity from Outlook?' : 'Are you sure you want to remove this activity?')) return
+    if (!confirm(isExternalCalSource ? `Are you sure you want to remove this activity from ${isGoogleSource ? 'Google Calendar' : 'Outlook'}?` : 'Are you sure you want to remove this activity?')) return
 
     setSaving(true)
     setErrors([])
@@ -690,10 +692,20 @@ export default function ActivityForm({
         >
           <h2 className="font-bold flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
-            {/* ERP connection badge */}
+            {/* Source badge */}
             {isEdit && isErpSource && activeErpConnection && activeErpConnection.name !== 'Default (env)' && (
               <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-border bg-border/20 text-text-muted">
                 {activeErpConnection.name}
+              </span>
+            )}
+            {isEdit && isGoogleSource && (
+              <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-500">
+                Google Calendar
+              </span>
+            )}
+            {isEdit && isOutlookSource && (
+              <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-500">
+                Outlook
               </span>
             )}
             {/* Open-in-source button: Herbe → hansa:// deep link, Outlook → calendar web URL */}
@@ -702,13 +714,12 @@ export default function ActivityForm({
               const connCompany = activeErpConnection?.companyCode || companyCode
               const herbeLink = isErpSource && connUuid ? `hansa://${connUuid}/v1/${connCompany}/ActVc/${editId}` : null
               // Outlook: open in Outlook web calendar in a new tab
-              const outlookCalLink = isOutlookSource
-                ? (initial?.webLink || `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}`)
+              const externalCalLink = isExternalCalSource
+                ? (initial?.webLink || (isOutlookSource ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}` : null))
                 : null
-              const openLink = herbeLink ?? outlookCalLink
-              // For Outlook copy: prefer joinUrl (Teams link) so recipient can join; fall back to calendar web URL
-              const copyText = isOutlookSource
-                ? (initial?.joinUrl ?? outlookCalLink ?? '')
+              const openLink = herbeLink ?? externalCalLink
+              const copyText = isExternalCalSource
+                ? (initial?.joinUrl ?? externalCalLink ?? '')
                 : (herbeLink ?? '')
               const cls = 'font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary flex items-center gap-1 transition-colors hover:border-primary hover:bg-primary/20'
               return openLink ? (
@@ -717,14 +728,14 @@ export default function ActivityForm({
                     href={openLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={isOutlookSource ? 'Open in Outlook Calendar' : 'Open in Standard ERP (⌃⌘O)'}
+                    title={isExternalCalSource ? `Open in ${isGoogleSource ? 'Google' : 'Outlook'} Calendar` : 'Open in Standard ERP (⌃⌘O)'}
                     tabIndex={-1}
                     className={cls}
                   >
-                    {isOutlookSource ? (
+                    {isExternalCalSource ? (
                       <>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
-                        <span>Calendar</span>
+                        <span>{isGoogleSource ? 'Google' : 'Outlook'}</span>
                       </>
                     ) : (
                       <>#{editId} <SerpIcon /></>
@@ -734,7 +745,7 @@ export default function ActivityForm({
                     <button
                       type="button"
                       tabIndex={-1}
-                      title={erpLinkCopied ? 'Copied!' : (isOutlookSource ? 'Copy Teams/meeting link' : 'Copy ERP link')}
+                      title={erpLinkCopied ? 'Copied!' : (isExternalCalSource ? 'Copy meeting link' : 'Copy ERP link')}
                       onClick={async (e) => {
                         e.stopPropagation()
                         await navigator.clipboard.writeText(copyText)
@@ -751,7 +762,7 @@ export default function ActivityForm({
                       )}
                     </button>
                   )}
-                  {canEdit !== false && isOutlookSource && (
+                  {canEdit !== false && isExternalCalSource && (
                     <button
                       type="button"
                       tabIndex={-1}
@@ -802,9 +813,10 @@ export default function ActivityForm({
                 href={savedActivity.joinUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
+                style={{ background: savedActivity.source === 'google' ? '#1a73e8' : '#464EB8' }}
               >
-                Join Teams call
+                {savedActivity.source === 'google' ? 'Join Google Meet' : 'Join Teams call'}
               </a>
             )}
             <div className="w-full space-y-2 pt-2">
@@ -833,21 +845,22 @@ export default function ActivityForm({
 
         {/* Scrollable body */}
         {!savedActivity && <div className="overflow-y-auto flex-1 p-4 space-y-3">
-          {/* Teams join button (Outlook meetings only) — original Join Teams call button */}
+          {/* Join meeting button (Outlook Teams / Google Meet) */}
           {initial?.joinUrl && (
             <a
               href={initial.joinUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#464EB8] text-white font-bold text-sm"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-bold text-sm"
+              style={{ background: isGoogleSource ? '#1a73e8' : '#464EB8' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
-              Join Teams call
+              {isGoogleSource ? 'Join Google Meet' : 'Join Teams call'}
             </a>
           )}
 
-          {/* RSVP buttons (Outlook Graph only, not ICS) */}
-          {isOutlookSource && !initial?.isExternal && rsvpStatus !== 'organizer' && (
+          {/* RSVP buttons — only for your own event (not colleagues') */}
+          {isExternalCalSource && !initial?.isExternal && rsvpStatus !== 'organizer' && initial?.personCode === defaultPersonCode && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
               <div className="flex gap-2">
@@ -883,7 +896,10 @@ export default function ActivityForm({
                       if (!editId || rsvpLoading) return
                       setRsvpLoading(true)
                       try {
-                        const res = await fetch(`/api/outlook/${editId}/rsvp`, {
+                        const rsvpUrl = isGoogleSource
+                          ? `/api/google/${editId}/rsvp`
+                          : `/api/outlook/${editId}/rsvp`
+                        const res = await fetch(rsvpUrl, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ action }),
@@ -1069,7 +1085,7 @@ export default function ActivityForm({
           })()}
 
           {/* External attendees (Outlook only) */}
-          {isOutlookSource && externalAttendees.length > 0 && (
+          {isExternalCalSource && externalAttendees.length > 0 && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
               <div className="flex flex-wrap gap-1">
@@ -1092,7 +1108,7 @@ export default function ActivityForm({
               </div>
             </div>
           )}
-          {isOutlookSource && canEdit && (
+          {isExternalCalSource && canEdit && (
             <div>
               {externalAttendees.length === 0 && (
                 <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
@@ -1322,8 +1338,8 @@ export default function ActivityForm({
             )
           })()}
 
-          {/* Teams meeting toggle (Outlook create only) */}
-          {isOutlookSource && !isEdit && (
+          {/* Online meeting toggle (Outlook/Google — create and edit) */}
+          {isExternalCalSource && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -1331,12 +1347,14 @@ export default function ActivityForm({
                 onChange={e => setIsOnlineMeeting(e.target.checked)}
                 className="accent-primary w-4 h-4"
               />
-              <span className="text-xs font-bold text-text-muted">Teams meeting</span>
+              <span className="text-xs font-bold text-text-muted">
+                {isGoogleSource ? 'Google Meet' : 'Teams meeting'}
+              </span>
             </label>
           )}
 
-          {/* Location (Outlook only) */}
-          {isOutlookSource && (location || canEdit) && (
+          {/* Location (Outlook/Google) */}
+          {isExternalCalSource && (location || canEdit) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
               {canEdit ? (
@@ -1610,18 +1628,18 @@ export default function ActivityForm({
             </div>
           )}
 
-          {/* Additional text (Herbe only) */}
-          {isErpSource && (
+          {/* Additional text / Notes */}
+          {(isErpSource || isExternalCalSource) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Additional Text{currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
+                {isExternalCalSource ? 'Notes' : 'Additional Text'}{isErpSource && currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
               </label>
               <textarea
                 value={textInMatrix}
                 onChange={e => setTextInMatrix(e.target.value)}
                 rows={2}
                 className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
-                placeholder="Optional additional description…"
+                placeholder={isExternalCalSource ? 'Meeting notes...' : 'Optional additional description…'}
               />
             </div>
           )}

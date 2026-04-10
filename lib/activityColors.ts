@@ -1,6 +1,7 @@
 import type { Activity } from '@/types'
 
 export const OUTLOOK_COLOR = '#6264a7' // Teams purple
+export const GOOGLE_COLOR = '#4285f4'  // Google blue
 export const FALLBACK_COLOR = '#6b7280' // gray — activity with no type or unknown class
 
 /** Parse hex color to RGB values */
@@ -131,6 +132,7 @@ export function buildClassGroupColorMap(
   })
   // Source-level overrides
   if (overrides[SOURCE_COLOR_CODES.outlook]) map.set(SOURCE_COLOR_CODES.outlook, overrides[SOURCE_COLOR_CODES.outlook])
+  if (overrides[SOURCE_COLOR_CODES.google]) map.set(SOURCE_COLOR_CODES.google, overrides[SOURCE_COLOR_CODES.google])
   if (overrides[SOURCE_COLOR_CODES.erp]) map.set(SOURCE_COLOR_CODES.erp, overrides[SOURCE_COLOR_CODES.erp])
   return map
 }
@@ -138,6 +140,7 @@ export function buildClassGroupColorMap(
 /** Special class_group_code keys for source-level color overrides */
 export const SOURCE_COLOR_CODES = {
   outlook: '__outlook__',
+  google: '__google__',
   erp: '__erp__',
 } as const
 
@@ -148,6 +151,7 @@ export function getActivityColor(
   classGroupToColor: Map<string, string>
 ): string {
   if (activity.icsColor) return activity.icsColor
+  if (activity.source === 'google') return classGroupToColor.get(SOURCE_COLOR_CODES.google) ?? GOOGLE_COLOR
   if (activity.source === 'outlook') return classGroupToColor.get(SOURCE_COLOR_CODES.outlook) ?? OUTLOOK_COLOR
   if (!activity.activityTypeCode) return classGroupToColor.get(SOURCE_COLOR_CODES.erp) ?? FALLBACK_COLOR
   const grp = typeToClassGroup.get(activity.activityTypeCode)
@@ -175,8 +179,8 @@ export function resolveColorWithOverrides(
   overrides: ColorOverrideRow[],
 ): string {
   // Source color codes resolve directly without connection hierarchy
-  if (classGroupCode === SOURCE_COLOR_CODES.outlook || classGroupCode === SOURCE_COLOR_CODES.erp) {
-    const defaultColor = classGroupCode === SOURCE_COLOR_CODES.outlook ? OUTLOOK_COLOR : FALLBACK_COLOR
+  if (classGroupCode === SOURCE_COLOR_CODES.outlook || classGroupCode === SOURCE_COLOR_CODES.google || classGroupCode === SOURCE_COLOR_CODES.erp) {
+    const defaultColor = classGroupCode === SOURCE_COLOR_CODES.outlook ? OUTLOOK_COLOR : classGroupCode === SOURCE_COLOR_CODES.google ? GOOGLE_COLOR : FALLBACK_COLOR
     const userOverride = overrides.find(o => o.class_group_code === classGroupCode && o.user_email !== null && o.connection_id === null)
     if (userOverride) return userOverride.color
     const adminOverride = overrides.find(o => o.class_group_code === classGroupCode && o.user_email === null && o.connection_id === null)

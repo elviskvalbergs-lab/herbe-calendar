@@ -309,10 +309,13 @@ export default function PersonColumn({
       const source = activity.source
       const url = source === 'herbe'
         ? `/api/activities/${activity.id}`
-        : `/api/outlook/${activity.id}`
+        : source === 'google'
+          ? `/api/google/${activity.id}`
+          : `/api/outlook/${activity.id}`
       const body = source === 'herbe'
         ? { StartTime: dragState.currentFrom, EndTime: dragState.currentTo }
         : {
+            subject: activity.description,
             start: { dateTime: `${date}T${dragState.currentFrom}:00`, timeZone: 'Europe/Riga' },
             end: { dateTime: `${date}T${dragState.currentTo}:00`, timeZone: 'Europe/Riga' },
           }

@@ -178,42 +178,80 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
         </div>
       </div>
 
-      {/* Availability Windows */}
+      {/* Availability Windows — per day */}
       <div className="space-y-2">
-        <p className={labelClass}>Availability Windows <span className="font-normal normal-case">(for booking page)</span></p>
-        {windows.length === 0 && (
-          <p className="text-[10px] text-text-muted">No availability windows defined. Add one to enable time slot restrictions for bookings.</p>
-        )}
-        {windows.map((w, wi) => (
-          <div key={wi} className="p-3 border border-border rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1">
-                {DAY_LABELS.map((label, di) => (
-                  <button
-                    key={di}
-                    type="button"
-                    onClick={() => toggleDay(wi, di)}
-                    className={`w-7 h-7 text-[10px] rounded ${w.days.includes(di) ? 'bg-primary text-white font-bold' : 'bg-surface border border-border text-text-muted hover:border-primary/50'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
+        <p className={labelClass}>Availability <span className="font-normal normal-case">(per day for booking page)</span></p>
+        <div className="space-y-1.5">
+          {DAY_LABELS.map((label, dayIdx) => {
+            const dayWindow = windows.find(w => w.days.length === 1 && w.days[0] === dayIdx)
+            const multiWindow = !dayWindow ? windows.find(w => w.days.includes(dayIdx)) : undefined
+            const active = !!dayWindow || !!multiWindow
+            const startTime = dayWindow?.startTime ?? multiWindow?.startTime ?? '09:00'
+            const endTime = dayWindow?.endTime ?? multiWindow?.endTime ?? '17:00'
+
+            return (
+              <div key={dayIdx} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (dayWindow) {
+                      // Remove this day's window
+                      setWindows(prev => prev.filter(w => w !== dayWindow))
+                    } else if (multiWindow) {
+                      // Split: remove this day from multi-day window, create individual
+                      setWindows(prev => [
+                        ...prev.map(w => w === multiWindow ? { ...w, days: w.days.filter(d => d !== dayIdx) } : w).filter(w => w.days.length > 0),
+                        { days: [dayIdx], startTime: multiWindow.startTime, endTime: multiWindow.endTime },
+                      ])
+                    } else {
+                      // Add new window for this day
+                      setWindows(prev => [...prev, { days: [dayIdx], startTime: '09:00', endTime: '17:00' }])
+                    }
+                  }}
+                  className={`w-10 text-[10px] py-1 rounded font-bold ${active ? 'bg-primary text-white' : 'bg-surface border border-border text-text-muted hover:border-primary/50'}`}
+                >
+                  {label}
+                </button>
+                {active && (
+                  <>
+                    <input
+                      type="time"
+                      className={`${inputClass} w-24`}
+                      value={startTime}
+                      onChange={e => {
+                        if (dayWindow) {
+                          updateWindow(windows.indexOf(dayWindow), { startTime: e.target.value })
+                        } else if (multiWindow) {
+                          // Split off this day with new time
+                          setWindows(prev => [
+                            ...prev.map(w => w === multiWindow ? { ...w, days: w.days.filter(d => d !== dayIdx) } : w).filter(w => w.days.length > 0),
+                            { days: [dayIdx], startTime: e.target.value, endTime },
+                          ])
+                        }
+                      }}
+                    />
+                    <span className="text-text-muted text-[10px]">–</span>
+                    <input
+                      type="time"
+                      className={`${inputClass} w-24`}
+                      value={endTime}
+                      onChange={e => {
+                        if (dayWindow) {
+                          updateWindow(windows.indexOf(dayWindow), { endTime: e.target.value })
+                        } else if (multiWindow) {
+                          setWindows(prev => [
+                            ...prev.map(w => w === multiWindow ? { ...w, days: w.days.filter(d => d !== dayIdx) } : w).filter(w => w.days.length > 0),
+                            { days: [dayIdx], startTime, endTime: e.target.value },
+                          ])
+                        }
+                      }}
+                    />
+                  </>
+                )}
               </div>
-              <button onClick={() => removeWindow(wi)} className="text-text-muted hover:text-red-400 text-xs px-1">✕</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] text-text-muted block mb-0.5">Start</label>
-                <input type="time" className={`${inputClass} w-full`} value={w.startTime} onChange={e => updateWindow(wi, { startTime: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-[10px] text-text-muted block mb-0.5">End</label>
-                <input type="time" className={`${inputClass} w-full`} value={w.endTime} onChange={e => updateWindow(wi, { endTime: e.target.value })} />
-              </div>
-            </div>
-          </div>
-        ))}
-        <button type="button" onClick={addWindow} className="text-xs text-primary hover:underline">+ Add availability window</button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Targets */}
@@ -323,8 +361,8 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
         <button type="button" onClick={addCustomField} className="text-xs text-primary hover:underline">+ Add field</button>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t border-border">
+      {/* Actions — sticky at bottom */}
+      <div className="flex gap-2 pt-2 border-t border-border sticky bottom-0 bg-bg pb-1">
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}

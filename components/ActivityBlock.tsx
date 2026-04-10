@@ -294,7 +294,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
                 >
                   {activity.icsCalendarName
                     ? <>🔗 Join meeting</>
-                    : <><TeamsIcon size={12} /> Join in Teams</>
+                    : activity.source === 'google'
+                      ? <>🔗 Join Google Meet</>
+                      : <><TeamsIcon size={12} /> Join in Teams</>
                   }
                 </a>
               )}
