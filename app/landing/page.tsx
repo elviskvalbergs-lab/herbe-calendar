@@ -240,8 +240,8 @@ export default function LandingPage() {
                 <div>
                   <span className="text-[10px] uppercase tracking-widest mb-4 block" style={{ fontFamily: "'Space Grotesk', sans-serif", color: CYAN }}>Connected Systems</span>
                   <h2 className="text-5xl font-black tracking-tighter uppercase leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    Zero Latency <br />
-                    <span style={{ color: CYAN }}>Sync Architecture</span>
+                    Real-Time <br />
+                    <span style={{ color: CYAN }}>Multi-Source Sync</span>
                   </h2>
                 </div>
                 <div className="space-y-6">
@@ -262,8 +262,8 @@ export default function LandingPage() {
               {/* Stats panel */}
               <div className="p-10 border-l-4 space-y-8" style={{ background: SURFACE, borderColor: PRIMARY }}>
                 <div>
-                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>Cached Response Time</span>
-                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>&lt;200ms</span>
+                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>Data Sources</span>
+                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Live</span>
                 </div>
                 <div className="h-px" style={{ background: SURFACE_HIGH }} />
                 <div>
