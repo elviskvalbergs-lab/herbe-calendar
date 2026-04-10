@@ -1,4 +1,5 @@
 import { google, type calendar_v3 } from 'googleapis'
+import { OAuth2Client } from 'google-auth-library'
 import { pool } from '@/lib/db'
 import { decrypt } from '@/lib/crypto'
 
@@ -120,4 +121,20 @@ export function buildGoogleMeetConferenceData(requestId?: string) {
       conferenceSolutionKey: { type: 'hangoutsMeet' as const },
     },
   }
+}
+
+/** Create a Google Calendar client using a per-user OAuth access token */
+export function getOAuthCalendarClient(accessToken: string): calendar_v3.Calendar {
+  const auth = new OAuth2Client()
+  auth.setCredentials({ access_token: accessToken })
+  return google.calendar({ version: 'v3', auth })
+}
+
+/** Get the OAuth2Client configured with app credentials (for token exchange/refresh) */
+export function getOAuthAppClient(): OAuth2Client {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  const redirectUri = `${(process.env.NEXTAUTH_URL ?? 'https://herbe-calendar.vercel.app').replace(/\/$/, '')}/api/google/callback`
+  if (!clientId || !clientSecret) throw new Error('GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET required')
+  return new OAuth2Client(clientId, clientSecret, redirectUri)
 }
