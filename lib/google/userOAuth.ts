@@ -77,6 +77,43 @@ export async function getValidAccessToken(tokenId: string): Promise<string | nul
   }
 }
 
+/** Get a valid access token ONLY if it belongs to the specified user. Returns null if not found or not owned. */
+export async function getValidAccessTokenForUser(tokenId: string, userEmail: string, accountId: string): Promise<string | null> {
+  const { rows } = await pool.query(
+    'SELECT id, access_token, refresh_token, token_expires_at FROM user_google_tokens WHERE id = $1 AND user_email = $2 AND account_id = $3',
+    [tokenId, userEmail, accountId]
+  )
+  if (rows.length === 0) return null
+  const row = rows[0]
+
+  const accessToken = decrypt(row.access_token)
+  const refreshToken = decrypt(row.refresh_token)
+  const expiresAt = Number(row.token_expires_at)
+
+  // Still valid (60s buffer)
+  if (Date.now() < expiresAt - 60_000) return accessToken
+
+  // Refresh
+  try {
+    const client = getOAuthAppClient()
+    client.setCredentials({ refresh_token: refreshToken })
+    const { credentials } = await client.refreshAccessToken()
+    if (!credentials.access_token) return null
+
+    const newExpiresAt = credentials.expiry_date ?? Date.now() + 3600_000
+    await pool.query(
+      `UPDATE user_google_tokens
+       SET access_token = $1, refresh_token = COALESCE($2, refresh_token), token_expires_at = $3, updated_at = now()
+       WHERE id = $4`,
+      [encrypt(credentials.access_token), credentials.refresh_token ? encrypt(credentials.refresh_token) : null, newExpiresAt, tokenId]
+    )
+    return credentials.access_token
+  } catch (e) {
+    console.warn(`[google/userOAuth] token refresh failed for ${tokenId}:`, String(e))
+    return null
+  }
+}
+
 /** Fetch calendar list from Google and sync with DB. Preserves existing colors/enabled state. */
 export async function syncCalendarList(tokenId: string, accessToken: string): Promise<void> {
   const calendar = getOAuthCalendarClient(accessToken)

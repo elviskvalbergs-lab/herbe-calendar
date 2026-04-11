@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { getGoogleConfig, getCalendarClient, getOAuthCalendarClient, buildGoogleMeetConferenceData } from '@/lib/google/client'
-import { getValidAccessToken } from '@/lib/google/userOAuth'
+import { getValidAccessTokenForUser } from '@/lib/google/userOAuth'
 import type { calendar_v3 } from 'googleapis'
 
 async function getCalendarClientForRequest(
@@ -12,7 +12,7 @@ async function getCalendarClientForRequest(
   const calendarId = req.nextUrl.searchParams.get('googleCalendarId') ?? 'primary'
 
   if (tokenId) {
-    const accessToken = await getValidAccessToken(tokenId)
+    const accessToken = await getValidAccessTokenForUser(tokenId, session.email, session.accountId)
     if (!accessToken) return NextResponse.json({ error: 'Google token expired — reconnect in Settings' }, { status: 401 })
     return { calendar: getOAuthCalendarClient(accessToken), calendarId }
   }
