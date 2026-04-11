@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { computeAvailableSlots, collectBusyBlocks, type BusyBlock } from '@/lib/availability'
 import { toTime } from '@/lib/herbe/recordUtils'
+import { isRateLimited } from '@/lib/rateLimit'
 import type { AvailabilityWindow } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -11,6 +12,14 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
+
+  // Rate limit
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rateLimitKey = `avail:${token}:${clientIp}`
+  if (isRateLimited(rateLimitKey)) {
+    return NextResponse.json({ error: 'Too many requests, try again later' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(req.url)
   const templateId = searchParams.get('templateId')
   const dateFrom = searchParams.get('dateFrom')
@@ -22,6 +31,18 @@ export async function GET(
       { error: 'templateId, dateFrom, and dateTo are required' },
       { status: 400 }
     )
+  }
+
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  if (!dateRegex.test(dateFrom) || !dateRegex.test(dateTo)) {
+    return NextResponse.json({ error: 'Valid dateFrom and dateTo required (YYYY-MM-DD)' }, { status: 400 })
+  }
+  if (dateFrom > dateTo) {
+    return NextResponse.json({ error: 'dateFrom must be before dateTo' }, { status: 400 })
+  }
+  const daysDiff = (new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / (1000 * 60 * 60 * 24)
+  if (daysDiff > 90) {
+    return NextResponse.json({ error: 'Date range cannot exceed 90 days' }, { status: 400 })
   }
 
   // 2. Query share link

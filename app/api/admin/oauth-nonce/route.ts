@@ -19,6 +19,7 @@ export async function POST() {
     maxAge: 600,
     httpOnly: true,
     sameSite: 'lax',
+    secure: true,
   })
   return res
 }

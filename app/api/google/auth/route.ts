@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
     maxAge: 600,
     httpOnly: true,
     sameSite: 'lax',
+    secure: true,
   })
   return response
 }

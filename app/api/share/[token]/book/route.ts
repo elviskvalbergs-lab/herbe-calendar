@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { computeAvailableSlots, collectBusyBlocks } from '@/lib/availability'
 import { executeBooking } from '@/lib/bookingExecutor'
+import { isRateLimited } from '@/lib/rateLimit'
 import type { AvailabilityWindow, TemplateTargets } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -11,6 +12,13 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
+
+  // Rate limit
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rateLimitKey = `book:${token}:${clientIp}`
+  if (isRateLimited(rateLimitKey)) {
+    return NextResponse.json({ error: 'Too many requests, try again later' }, { status: 429 })
+  }
 
   // Parse request body
   let body: {
@@ -32,6 +40,11 @@ export async function POST(
       { error: 'templateId, date, time, and bookerEmail are required' },
       { status: 400 }
     )
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(bookerEmail)) {
+    return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
   }
 
   // --- 1. Validate share link ---
