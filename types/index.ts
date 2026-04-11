@@ -163,6 +163,9 @@ export interface TemplateTargets {
     onlineMeeting: boolean
     location?: string
   }
+  zoom?: {
+    enabled: boolean
+  }
 }
 
 export interface BookingTemplate {
