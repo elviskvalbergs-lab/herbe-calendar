@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Member {
   email: string
@@ -7,9 +7,11 @@ interface Member {
   active: boolean
   last_login: string | null
   created_at: string
+  person_code_id: number | null
   generated_code: string | null
   display_name: string | null
   source: string | null
+  holiday_country: string | null
 }
 
 export default function MembersClient({ members: initial, accountId, isSuperAdmin }: { members: Member[]; accountId: string; isSuperAdmin?: boolean }) {
@@ -20,6 +22,11 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
   const [addRole, setAddRole] = useState<'member' | 'admin'>('member')
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [holidayCountries, setHolidayCountries] = useState<{ code: string; name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/holidays/countries').then(r => r.json()).then(setHolidayCountries).catch(() => {})
+  }, [])
 
   async function addMember() {
     if (!addEmail.includes('@')) return
@@ -30,7 +37,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
       body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
     })
     if (res.ok) {
-      setMembers(prev => [...prev, { email: addEmail.trim(), role: addRole, active: true, last_login: null, created_at: new Date().toISOString(), generated_code: null, display_name: null, source: null }])
+      setMembers(prev => [...prev, { email: addEmail.trim(), role: addRole, active: true, last_login: null, created_at: new Date().toISOString(), person_code_id: null, generated_code: null, display_name: null, source: null, holiday_country: null }])
       setAddEmail('')
       setMessage('Member added')
     } else {
@@ -144,6 +151,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
               <th className="px-4 py-2">Role</th>
               <th className="px-4 py-2 hidden md:table-cell">Last Login</th>
               <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2 hidden md:table-cell">Holidays</th>
               {isSuperAdmin && <th className="px-4 py-2"></th>}
             </tr>
           </thead>
@@ -196,6 +204,27 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                   >
                     {m.active ? 'active' : 'inactive'}
                   </button>
+                </td>
+                <td className="px-4 py-2 hidden md:table-cell">
+                  <select
+                    value={m.holiday_country ?? ''}
+                    disabled={!m.person_code_id}
+                    onChange={async (e) => {
+                      const val = e.target.value
+                      setMembers(prev => prev.map(p => p.email === m.email ? { ...p, holiday_country: val || null } : p))
+                      await fetch('/api/admin/members', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: m.person_code_id, holidayCountry: val || null }),
+                      })
+                    }}
+                    className="bg-bg border border-border rounded text-[10px] px-1 py-0.5 max-w-[100px] disabled:opacity-40"
+                  >
+                    <option value="">Default</option>
+                    {holidayCountries.map(c => (
+                      <option key={c.code} value={c.code}>{c.code}</option>
+                    ))}
+                  </select>
                 </td>
                 {isSuperAdmin && (
                   <td className="px-4 py-2">
