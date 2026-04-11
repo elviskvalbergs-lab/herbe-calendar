@@ -298,7 +298,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                       </div>
                     </div>
                     {account.calendars.map(cal => (
-                      <div key={cal.id} className="flex items-center gap-2 py-1.5 px-1">
+                      <div key={cal.id} className="py-1.5 px-1">
+                        <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={cal.enabled}
@@ -321,31 +322,72 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                           style={{ background: cal.color || '#4285f4' }}
                         />
                         <span className="text-sm flex-1 truncate">{cal.name}</span>
-                        {/* Color picker */}
-                        <div className="flex gap-1">
-                          {['#4285f4', '#0b8043', '#d50000', '#f4511e', '#f6bf26', '#33b679', '#7986cb', '#8e24aa'].map(hex => (
-                            <button
-                              key={hex}
-                              onClick={async () => {
-                                setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
-                                  ...a,
-                                  calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
-                                } : a))
-                                await fetch('/api/google/calendars', {
-                                  method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
-                                })
-                              }}
-                              className="w-3 h-3 rounded-full hover:scale-125 transition-transform"
-                              style={{
-                                background: hex,
-                                border: cal.color === hex ? '2px solid white' : 'none',
-                                opacity: cal.color === hex ? 1 : 0.6,
-                              }}
-                            />
-                          ))}
-                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-1 pl-5 items-center">
+                        {BRAND_PALETTE.slice(0, 12).map(hex => (
+                          <button
+                            key={hex}
+                            title={hex}
+                            onClick={async () => {
+                              setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                ...a,
+                                calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
+                              } : a))
+                              await fetch('/api/google/calendars', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
+                              })
+                            }}
+                            className="w-4 h-4 rounded hover:scale-125"
+                            style={{
+                              background: hex,
+                              border: (cal.color || '') === hex ? '2px solid white' : 'none',
+                              opacity: (cal.color || '') === hex ? 1 : 0.7,
+                            }}
+                          />
+                        ))}
+                        <label
+                          className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
+                          title="Custom color"
+                        >
+                          +
+                          <input
+                            type="color"
+                            value={cal.color || '#4285f4'}
+                            onChange={async (e) => {
+                              const hex = e.target.value
+                              setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                ...a,
+                                calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
+                              } : a))
+                              await fetch('/api/google/calendars', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
+                              })
+                            }}
+                            className="sr-only"
+                          />
+                        </label>
+                        {cal.color && (
+                          <button
+                            onClick={async () => {
+                              setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                ...a,
+                                calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: null } : c)
+                              } : a))
+                              await fetch('/api/google/calendars', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ calendarDbId: cal.id, color: '' }),
+                              })
+                            }}
+                            className="text-[9px] text-text-muted hover:text-text px-1"
+                            title="Reset to default"
+                          >reset</button>
+                        )}
+                      </div>
                       </div>
                     ))}
                   </div>
