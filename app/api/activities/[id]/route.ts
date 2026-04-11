@@ -56,8 +56,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       body: formBody,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
     }, conn)
-    const data = await res.json().catch(() => null)
-    console.log(`PATCH ActVc/${id} → ${res.status}`, JSON.stringify(data))
+    const rawText = await res.text()
+    const sanitizedText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : ' ')
+    const data = (() => { try { return JSON.parse(sanitizedText) } catch { return null } })()
+    console.log(`PATCH ActVc/${id} → ${res.status}`)
     if (!res.ok) {
       const errMsg = data ? extractHerbeError(data) : `Herbe error ${res.status}`
       return NextResponse.json({ error: errMsg }, { status: res.status })
