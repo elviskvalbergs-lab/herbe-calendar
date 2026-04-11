@@ -228,7 +228,7 @@ export async function collectBusyBlocks(
           }
         }
       } catch (e) {
-        console.warn(`[availability] Google busy fetch failed for ${code}:`, String(e))
+        console.error(`[availability] Google busy fetch failed for ${code}:`, String(e))
       }
     } catch (e) {
       console.warn(`[availability] Busy fetch failed for ${code}:`, String(e))

@@ -102,6 +102,11 @@ export async function GET(
   // 5. Collect busy blocks from all calendar sources
   const busyByDate = await collectBusyBlocks(personCodes, link.ownerEmail, accountId, dateFrom, dateTo, hiddenCalendarsSet)
 
+  // Debug: log busy blocks for troubleshooting
+  for (const [d, blocks] of busyByDate) {
+    console.log(`[availability] ${d}: ${blocks.length} busy blocks:`, blocks.map(b => `${b.start}-${b.end}`).join(', '))
+  }
+
   // 5a. Also add existing confirmed bookings as busy
   try {
     const { rows: bookingRows } = await pool.query(
