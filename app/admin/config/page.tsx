@@ -46,6 +46,13 @@ export default async function ConfigPage() {
     ? { zoomAccountId: zoomRows[0].zoom_account_id as string, clientId: zoomRows[0].client_id as string }
     : null
 
+  const { rows: accountRows } = await pool.query(
+    'SELECT holiday_country FROM tenant_accounts WHERE id = $1',
+    [session.accountId]
+  ).catch(() => ({ rows: [] }))
+
+  const holidayCountry = (accountRows[0]?.holiday_country as string | null) ?? null
+
   return (
     <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
       <h1 className="text-xl font-bold mb-6">Connections</h1>
@@ -55,6 +62,7 @@ export default async function ConfigPage() {
         smtp={smtpRows[0] ?? null}
         google={googleRows[0] ?? null}
         zoom={zoomConfig}
+        holidayCountry={holidayCountry}
       />
     </AdminShell>
   )

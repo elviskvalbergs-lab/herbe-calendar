@@ -68,6 +68,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    if (body.type === 'holidays') {
+      await pool.query(
+        'UPDATE tenant_accounts SET holiday_country = $1 WHERE id = $2',
+        [body.holidayCountry || null, session.accountId]
+      )
+      return NextResponse.json({ ok: true })
+    }
+
     if (body.type === 'google') {
       const encKey = body.serviceAccountKey ? encrypt(body.serviceAccountKey) : null
       let keyToStore = encKey

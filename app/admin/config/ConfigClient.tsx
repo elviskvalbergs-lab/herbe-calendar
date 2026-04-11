@@ -40,7 +40,7 @@ interface ZoomConfigProp {
   clientId: string
 }
 
-export default function ConfigClient({ azure, erpConnections: initialErp, smtp: initialSmtp, google: initialGoogle, zoom: initialZoom }: { azure: AzureConfig | null; erpConnections: ErpConnection[]; smtp: SmtpConfig | null; google: GoogleConfig | null; zoom?: ZoomConfigProp | null }) {
+export default function ConfigClient({ azure, erpConnections: initialErp, smtp: initialSmtp, google: initialGoogle, zoom: initialZoom, holidayCountry }: { azure: AzureConfig | null; erpConnections: ErpConnection[]; smtp: SmtpConfig | null; google: GoogleConfig | null; zoom?: ZoomConfigProp | null; holidayCountry?: string | null }) {
   const [erpConnections, setErpConnections] = useState(initialErp)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(() => {
@@ -71,6 +71,13 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
     }).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (isSectionOpen('holidays') && holidayCountries.length === 0) {
+      fetch('/api/holidays/countries').then(r => r.json()).then(setHolidayCountries).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSections])
+
   // Azure config form
   const [azureTenantId, setAzureTenantId] = useState(azure?.tenant_id ?? '')
   const [azureClientId, setAzureClientId] = useState(azure?.client_id ?? '')
@@ -96,6 +103,11 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
   const [zoomClientId, setZoomClientId] = useState(initialZoom?.clientId ?? '')
   const [zoomClientSecret, setZoomClientSecret] = useState('')
   const [zoomStatus, setZoomStatus] = useState('')
+
+  // Holidays config form
+  const [holidayCountryValue, setHolidayCountryValue] = useState(holidayCountry ?? '')
+  const [holidayCountries, setHolidayCountries] = useState<{ code: string; name: string }[]>([])
+  const [holidayStatus, setHolidayStatus] = useState('')
 
   async function saveAzure() {
     setSaving(true)
@@ -375,6 +387,50 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
           }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
         </div>
         </div>}
+      </section>
+
+      {/* Public Holidays */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('holidays')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Public Holidays
+            {holidayCountry && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">{holidayCountry}</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('holidays') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('holidays') && (
+          <div className="p-4 border-t border-border space-y-3">
+            {holidayStatus && (
+              <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${holidayStatus.includes('Error') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+                {holidayStatus}
+              </div>
+            )}
+            <div>
+              <label className="text-[10px] text-text-muted uppercase block mb-0.5">Default Holiday Country</label>
+              <select
+                value={holidayCountryValue}
+                onChange={e => setHolidayCountryValue(e.target.value)}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">Disabled</option>
+                {holidayCountries.map(c => (
+                  <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
+                ))}
+              </select>
+            </div>
+            <button onClick={async () => {
+              setHolidayStatus('Saving...')
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'holidays', holidayCountry: holidayCountryValue || null }),
+              })
+              setHolidayStatus(res.ok ? 'Saved!' : 'Error')
+            }} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold">
+              Save Holiday Config
+            </button>
+          </div>
+        )}
       </section>
 
       {/* ERP Connections */}
