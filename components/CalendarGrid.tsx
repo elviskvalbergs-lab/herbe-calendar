@@ -26,12 +26,13 @@ interface Props {
   onDrillDate?: (date: string) => void
   onDrillPerson?: (personCode: string) => void
   visibility?: ShareVisibility
+  holidays?: Record<string, { name: string; country: string }[]>
 }
 
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
   scale = 1, isLightMode = false, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
-  onDrillDate, onDrillPerson, visibility
+  onDrillDate, onDrillPerson, visibility, holidays
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
@@ -244,28 +245,52 @@ export default function CalendarGrid({
               style={fitsOnScreen ? undefined : { minWidth: `${dateGroupMinW}vw` }}
             >
               <div className="sticky top-0 z-20 bg-surface">
-                {isMultiDay && (
-                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative">
-                    {visibility ? (
-                      <span className="text-text-muted">{format(parseISO(date), 'EEE dd/MM')}</span>
-                    ) : (
-                      <button
-                        onClick={() => onDrillDate?.(date)}
-                        className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
-                        title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
+                {isMultiDay && (() => {
+                    const dateHolidays = holidays?.[date]
+                    const isHoliday = dateHolidays && dateHolidays.length > 0
+                    return (
+                      <div className={`${isHoliday ? 'h-10' : 'h-6'} flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative${isHoliday ? ' bg-red-500/10' : ''}`}>
+                        {visibility ? (
+                          <span className="text-text-muted">{format(parseISO(date), 'EEE dd/MM')}</span>
+                        ) : (
+                          <button
+                            onClick={() => onDrillDate?.(date)}
+                            className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
+                            title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
+                          >
+                            {format(parseISO(date), 'EEE dd/MM')}
+                          </button>
+                        )}
+                        {!visibility && (
+                          <button
+                            onClick={() => onNewForDate?.(date)}
+                            className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
+                            title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
+                          >+</button>
+                        )}
+                        {isHoliday && (
+                          <span
+                            className="absolute bottom-0.5 left-0 right-0 text-center text-[8px] text-red-400 truncate px-1"
+                            title={dateHolidays.map(h => h.name).join(', ')}
+                          >
+                            {dateHolidays[0].name}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })()}
+                {!isMultiDay && (() => {
+                    const dateHolidays = holidays?.[date]
+                    if (!dateHolidays || dateHolidays.length === 0) return null
+                    return (
+                      <div
+                        className="h-5 flex items-center justify-center bg-red-500/10 border-b border-border/40 text-[9px] text-red-400 font-medium px-2 truncate"
+                        title={dateHolidays.map(h => h.name).join(', ')}
                       >
-                        {format(parseISO(date), 'EEE dd/MM')}
-                      </button>
-                    )}
-                    {!visibility && (
-                      <button
-                        onClick={() => onNewForDate?.(date)}
-                        className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
-                        title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
-                      >+</button>
-                    )}
-                  </div>
-                )}
+                        {dateHolidays[0].name}
+                      </div>
+                    )
+                  })()}
                 <div className="flex h-10">
                   {state.selectedPersons.map((person, personIdx) => {
                     const pa = activities.filter(a => a.personCode === person.code && a.date === date)

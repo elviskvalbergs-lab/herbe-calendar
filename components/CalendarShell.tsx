@@ -62,6 +62,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     return { view: 'day', date: format(new Date(), 'yyyy-MM-dd'), selectedPersons: [] }
   })
   const [activities, setActivities] = useState<Activity[]>([])
+  const [holidays, setHolidays] = useState<Record<string, { name: string; country: string }[]>>({})
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok?: boolean } | null>(null)
   const [allCustomers, setAllCustomers] = useState<{ Code: string; Name: string }[]>([])
@@ -631,6 +632,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       })
       setActivities([...herbe, ...outlook, ...uniqueGoogle])
 
+      // Fetch holidays for the visible date range
+      const personCodes = state.selectedPersons.map(p => p.code).join(',')
+      if (personCodes) {
+        fetch(`/api/holidays?persons=${personCodes}&dateFrom=${dateFrom}&dateTo=${dateTo}`)
+          .then(r => r.ok ? r.json() : {})
+          .then(setHolidays)
+          .catch(() => setHolidays({}))
+      }
+
       const parts: string[] = []
       if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
       if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
@@ -710,6 +720,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         state={state}
         activities={visibleActivities}
         loading={loading}
+        holidays={holidays}
         sessionUserCode={userCode}
         getActivityColor={colorForActivity}
         getTypeName={getTypeName}
