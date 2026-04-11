@@ -90,17 +90,16 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </button>
 
       {/* View toggle */}
-      <div className="flex rounded overflow-hidden border border-border text-xs font-bold divide-x divide-border">
-        {(['day', '3day', '5day', '7day'] as const).map(v => (
-          <button
-            key={v}
-            onClick={() => onStateChange({ ...state, view: v })}
-            className={`px-2 lg:px-3 py-1 ${state.view === v ? 'bg-primary text-white' : 'text-text-muted'}`}
-          >
-            {v === 'day' ? 'Day' : v === '3day' ? '3D' : v === '5day' ? '5D' : '7D'}
-          </button>
-        ))}
-      </div>
+      <select
+        value={state.view}
+        onChange={e => onStateChange({ ...state, view: e.target.value as CalendarState['view'] })}
+        className="bg-surface border border-border rounded-lg text-xs font-bold px-2 py-1 text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+      >
+        <option value="day">1 day</option>
+        <option value="3day">3 days</option>
+        <option value="5day">5 days</option>
+        <option value="7day">7 days</option>
+      </select>
 
       {/* Person chips */}
       <div className="flex items-center gap-1 flex-wrap">

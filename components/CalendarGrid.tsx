@@ -128,7 +128,7 @@ export default function CalendarGrid({
   }, [scale])
 
   // Build date list for current view
-  const viewDays = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+  const viewDays = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
   const dates = viewDays === 1
     ? [state.date]
     : Array.from({ length: viewDays }, (_, i) =>

@@ -133,12 +133,31 @@ export default function MonthNavigator({
           >
             ‹
           </button>
-          <span className="text-sm font-bold flex items-center gap-2">
-            {format(parseISO(`${displayMonth}-01`), 'MMMM yyyy')}
+          <div className="flex items-center gap-1">
+            <select
+              value={displayMonth.slice(5, 7)}
+              onChange={e => setDisplayMonth(`${displayMonth.slice(0, 4)}-${e.target.value}`)}
+              className="bg-transparent text-sm font-bold cursor-pointer focus:outline-none appearance-none text-center"
+            >
+              {Array.from({ length: 12 }, (_, i) => {
+                const m = String(i + 1).padStart(2, '0')
+                return <option key={m} value={m}>{format(new Date(2026, i), 'MMMM')}</option>
+              })}
+            </select>
+            <select
+              value={displayMonth.slice(0, 4)}
+              onChange={e => setDisplayMonth(`${e.target.value}-${displayMonth.slice(5, 7)}`)}
+              className="bg-transparent text-sm font-bold cursor-pointer focus:outline-none appearance-none text-center"
+            >
+              {Array.from({ length: 11 }, (_, i) => {
+                const y = String(new Date().getFullYear() - 2 + i)
+                return <option key={y} value={y}>{y}</option>
+              })}
+            </select>
             {loading && (
               <span className="inline-block w-3 h-3 border-2 border-border border-t-primary rounded-full animate-spin" />
             )}
-          </span>
+          </div>
           <button
             onClick={goToNextMonth}
             className="text-text-muted px-2 py-1 rounded hover:bg-border text-lg font-bold"
@@ -217,18 +236,6 @@ export default function MonthNavigator({
           )
         })}
 
-        {/* Today button */}
-        <div className="mt-3 flex justify-center">
-          <button
-            onClick={() => {
-              const todayStr = format(new Date(), 'yyyy-MM-dd')
-              onSelectDate(todayStr)
-            }}
-            className="text-xs text-primary font-bold hover:underline"
-          >
-            Today
-          </button>
-        </div>
       </div>
     </div>
   )
