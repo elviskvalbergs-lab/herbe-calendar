@@ -18,7 +18,7 @@ async function fetchActivity(id: string, conn?: ErpConnection) {
   if (!res.ok) return null
   // ERP may return control characters in text fields — sanitize before parsing
   const text = await res.text()
-  const sanitized = text.replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : ' ')
+  const sanitized = text.replace(/[\x00-\x1F\x7F]/g, ' ')
   const json = JSON.parse(sanitized)
   // Handle both wrapped { data: { ActVc: [...] } } and direct record responses
   return (json?.data?.[REGISTERS.activities]?.[0] ?? json) as Record<string, unknown>
