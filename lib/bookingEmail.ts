@@ -8,6 +8,7 @@ export interface BookingEmailData {
   fieldValues: Record<string, string>
   cancelUrl: string
   status: 'confirmed' | 'cancelled' | 'rescheduled'
+  zoomJoinUrl?: string
 }
 
 export function buildBookingEmail(data: BookingEmailData): { subject: string; html: string } {
@@ -32,8 +33,12 @@ export function buildBookingEmail(data: BookingEmailData): { subject: string; ht
     <tr><td style="padding:4px 8px;color:#888;">Participants</td><td style="padding:4px 8px;">${data.participants.map(escapeHtml).join(', ')}</td></tr>
     ${fieldRows}
   </table>
-  ${data.status !== 'cancelled' ? `
+  ${data.zoomJoinUrl ? `
   <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+    <a href="${escapeHtml(data.zoomJoinUrl)}" style="display:inline-block;padding:8px 16px;background:#2D8CFF;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:bold;">Join Zoom Meeting</a>
+  </div>` : ''}
+  ${data.status !== 'cancelled' ? `
+  <div style="margin-top:${data.zoomJoinUrl ? '8' : '20'}px;${data.zoomJoinUrl ? '' : 'padding-top:16px;border-top:1px solid #eee;'}">
     <a href="${escapeHtml(data.cancelUrl)}" style="display:inline-block;padding:8px 16px;background:#dc2626;color:white;text-decoration:none;border-radius:6px;font-size:13px;font-weight:bold;">Cancel / Reschedule</a>
   </div>` : ''}
   <p style="margin-top:20px;font-size:11px;color:#999;">Sent by herbe.calendar</p>
@@ -46,11 +51,15 @@ export function buildBookingEmail(data: BookingEmailData): { subject: string; ht
 export function buildActivityText(
   bookerEmail: string,
   fieldValues: Record<string, string>,
-  cancelUrl: string
+  cancelUrl: string,
+  zoomJoinUrl?: string
 ): string {
   const lines = [`Booked by: ${bookerEmail}`]
   for (const [label, value] of Object.entries(fieldValues)) {
     lines.push(`${label}: ${value || '—'}`)
+  }
+  if (zoomJoinUrl) {
+    lines.push('', `Zoom meeting: ${zoomJoinUrl}`)
   }
   lines.push('', `Cancel/reschedule: ${cancelUrl}`)
   return lines.join('\n')

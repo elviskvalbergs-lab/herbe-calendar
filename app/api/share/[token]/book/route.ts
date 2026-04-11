@@ -133,7 +133,23 @@ export async function POST(
   const origin = (process.env.NEXTAUTH_URL ?? 'https://herbe-calendar.vercel.app').replace(/\/$/, '')
   const cancelUrl = `${origin}/booking/cancel/${cancelToken}`
 
-  const activityText = buildActivityText(bookerEmail, fieldValues ?? {}, cancelUrl)
+  // --- Zoom meeting (created before other targets so its URL can appear in activity text) ---
+  let zoomJoinUrl: string | undefined
+  if (targets.zoom?.enabled) {
+    try {
+      const { getZoomConfig, createZoomMeeting } = await import('@/lib/zoom/client')
+      const zoomConfig = await getZoomConfig(accountId)
+      if (zoomConfig) {
+        const startIso = `${date}T${time}:00`
+        const result = await createZoomMeeting(zoomConfig, templateName, startIso, durationMinutes)
+        zoomJoinUrl = result.joinUrl
+      }
+    } catch (e) {
+      console.warn('[book] Zoom meeting creation failed:', String(e))
+    }
+  }
+
+  const activityText = buildActivityText(bookerEmail, fieldValues ?? {}, cancelUrl, zoomJoinUrl)
 
   // --- 6. Create activities in configured targets ---
   const createdErpIds: { connectionId: string; serNr: string }[] = []
@@ -320,6 +336,7 @@ export async function POST(
     fieldValues: fieldValues ?? {},
     cancelUrl,
     status: 'confirmed' as const,
+    ...(zoomJoinUrl ? { zoomJoinUrl } : {}),
   }
   const { subject, html } = buildBookingEmail(emailData)
 
