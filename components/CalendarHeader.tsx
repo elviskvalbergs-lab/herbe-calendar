@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
 import { Person, CalendarState, CalendarSource } from '@/types'
 import { signOut } from 'next-auth/react'
@@ -7,6 +7,7 @@ import { personColor } from '@/lib/colors'
 import PersonSelector from './PersonSelector'
 import FavoritesDropdown from './FavoritesDropdown'
 import CalendarSourcesDropdown from './CalendarSourcesDropdown'
+import MonthNavigator from './MonthNavigator'
 
 interface Props {
   state: CalendarState
@@ -37,7 +38,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
   const [mobileCalendarsOpen, setMobileCalendarsOpen] = useState(false)
-  const dateInputRef = useRef<HTMLInputElement>(null)
+  const [monthNavOpen, setMonthNavOpen] = useState(false)
 
   const viewStep = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
@@ -69,22 +70,13 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         <button onClick={() => navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
       )}
       <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
-      <label
-        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap relative cursor-pointer inline-flex items-center"
+      <button
+        onClick={() => setMonthNavOpen(true)}
+        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap"
         title="Pick a date"
       >
         {format(parseISO(state.date), 'd MMM yyyy')}
-        <input
-          ref={dateInputRef}
-          type="date"
-          value={state.date}
-          onChange={e => {
-            if (e.target.value) onStateChange({ ...state, date: e.target.value })
-          }}
-          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-          tabIndex={-1}
-        />
-      </label>
+      </button>
       <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
       {viewStep > 1 && (
         <button onClick={() => navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
@@ -348,6 +340,21 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           }}
         />
       )}
+      <MonthNavigator
+        open={monthNavOpen}
+        currentDate={state.date}
+        currentView={state.view}
+        persons={state.selectedPersons.map(p => p.code)}
+        onSelectDate={(date) => {
+          onStateChange({ ...state, date })
+          setMonthNavOpen(false)
+        }}
+        onSelectWeek={(monday) => {
+          onStateChange({ ...state, view: '7day', date: monday })
+          setMonthNavOpen(false)
+        }}
+        onClose={() => setMonthNavOpen(false)}
+      />
     </header>
   )
 }
