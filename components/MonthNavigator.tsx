@@ -206,15 +206,19 @@ export default function MonthNavigator({
                 const today = isToday(day)
                 const inRange = isWithinInterval(day, { start: rangeStart, end: rangeEnd })
                 const daySummary = summary[dateStr]
+                const dateHolidays = holidays[dateStr]
+                const isHoliday = dateHolidays && dateHolidays.length > 0
+                const isWeekend = day.getDay() === 0 || day.getDay() === 6
 
                 return (
                   <button
                     key={di}
                     onClick={() => onSelectDate(dateStr)}
+                    title={isHoliday ? dateHolidays.map(h => h.name).join(', ') : undefined}
                     className={[
                       'flex flex-col items-center py-1 rounded-lg text-xs transition-colors',
                       !inMonth ? 'opacity-30' : '',
-                      inRange ? 'bg-border/60' : 'hover:bg-border/30',
+                      isHoliday ? 'bg-red-500/15' : inRange ? 'bg-border/60' : isWeekend ? 'bg-border/30' : 'hover:bg-border/30',
                     ].join(' ')}
                   >
                     <span
