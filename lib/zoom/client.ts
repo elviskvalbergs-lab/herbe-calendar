@@ -7,7 +7,7 @@ export interface ZoomConfig {
   clientSecret: string
 }
 
-let tokenCache: { token: string; expiresAt: number; key: string } | null = null
+const tokenCacheMap = new Map<string, { token: string; expiresAt: number }>()
 
 const ZOOM_TOKEN_URL = 'https://zoom.us/oauth/token'
 const ZOOM_API_BASE = 'https://api.zoom.us/v2'
@@ -42,8 +42,9 @@ export async function getZoomConfig(accountId: string): Promise<ZoomConfig | nul
 
 async function getAccessToken(config: ZoomConfig): Promise<string> {
   const cacheKey = `${config.clientId}:${config.zoomAccountId}`
-  if (tokenCache && tokenCache.key === cacheKey && Date.now() < tokenCache.expiresAt - 60_000) {
-    return tokenCache.token
+  const cached = tokenCacheMap.get(cacheKey)
+  if (cached && Date.now() < cached.expiresAt - 60_000) {
+    return cached.token
   }
 
   const credentials = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')
@@ -67,11 +68,10 @@ async function getAccessToken(config: ZoomConfig): Promise<string> {
   const data = await res.json()
   if (!data.access_token) throw new Error('No access_token in Zoom response')
 
-  tokenCache = {
+  tokenCacheMap.set(cacheKey, {
     token: data.access_token,
     expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
-    key: cacheKey,
-  }
+  })
   return data.access_token
 }
 

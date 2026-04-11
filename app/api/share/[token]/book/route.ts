@@ -136,23 +136,35 @@ export async function POST(
   }
 
   // --- 4. Execute booking ---
-  const result = await executeBooking({
-    template: {
-      id: template.id,
-      name: template.name,
-      duration_minutes: durationMinutes,
-      targets,
-      allow_holidays: template.allow_holidays,
-    },
-    date,
-    time,
-    bookerEmail,
-    fieldValues: fieldValues ?? {},
-    personCodes,
-    ownerEmail,
-    accountId,
-    shareLinkId,
-  })
+  try {
+    const result = await executeBooking({
+      template: {
+        id: template.id,
+        name: template.name,
+        duration_minutes: durationMinutes,
+        targets,
+        allow_holidays: template.allow_holidays,
+      },
+      date,
+      time,
+      bookerEmail,
+      fieldValues: fieldValues ?? {},
+      personCodes,
+      ownerEmail,
+      accountId,
+      shareLinkId,
+    })
 
-  return NextResponse.json(result, { status: 201, headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json(result, { status: 201, headers: { 'Cache-Control': 'no-store' } })
+  } catch (e) {
+    const msg = String(e)
+    if (msg.includes('unique') || msg.includes('duplicate key')) {
+      return NextResponse.json(
+        { error: 'This time slot was just booked by someone else' },
+        { status: 409 }
+      )
+    }
+    console.error('[book] executeBooking failed:', msg)
+    return NextResponse.json({ error: 'Booking failed, please try again' }, { status: 500 })
+  }
 }
