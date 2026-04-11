@@ -50,7 +50,7 @@ interface Props {
   startHour?: number
 }
 
-export default function ActivityBlock({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility, startHour }: Props) {
+function ActivityBlockInner({ activity, color, height, onClick, onDragStart, canEdit, isCC = false, isLightMode = false, scale = 1, style, getTypeName, mobileSelected = false, onMobileTap, onMobileClose, visibility, startHour }: Props) {
   const top = timeToTopPx(activity.timeFrom, scale, startHour)
   const isCompact = height < 28
   const isOutlook = activity.source === 'outlook'
@@ -330,3 +330,18 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
     </div>
   )
 }
+
+import { memo } from 'react'
+const ActivityBlock = memo(ActivityBlockInner, (prev, next) =>
+  prev.activity.id === next.activity.id &&
+  prev.color === next.color &&
+  prev.height === next.height &&
+  prev.canEdit === next.canEdit &&
+  prev.isCC === next.isCC &&
+  prev.mobileSelected === next.mobileSelected &&
+  prev.scale === next.scale &&
+  prev.activity.timeFrom === next.activity.timeFrom &&
+  prev.activity.timeTo === next.activity.timeTo &&
+  prev.activity.description === next.activity.description
+)
+export default ActivityBlock
