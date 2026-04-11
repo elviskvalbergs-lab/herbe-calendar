@@ -167,11 +167,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       {/* ERP Connections */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('erp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Standard ERP Connections
-            {erpConnections.length > 0 && <span className="text-[10px] font-normal text-text-muted">({erpConnections.length})</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('erp') ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span className="text-sm font-bold flex items-center gap-2">
+              Standard ERP Connections
+              {erpConnections.length > 0 && <span className="text-[10px] font-normal text-text-muted">({erpConnections.length})</span>}
+            </span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: isSectionOpen('erp') ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {isSectionOpen('erp') && <div className="p-4 border-t border-border space-y-3">
         <div className="flex justify-end">
@@ -454,11 +457,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       {/* SMTP Email */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('smtp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            SMTP Email (for login magic links)
-            {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('smtp') ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span className="text-sm font-bold flex items-center gap-2">
+              SMTP Email (for login magic links)
+              {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+            </span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: isSectionOpen('smtp') ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {isSectionOpen('smtp') && <div className="p-4 border-t border-border space-y-3">
         <p className="text-[10px] text-text-muted">Used when Azure AD is not configured. Sends magic link emails via SMTP.</p>
@@ -521,11 +527,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       {/* Azure AD */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('azure')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Azure AD / Microsoft 365
-            {azure && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('azure') ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span className="text-sm font-bold flex items-center gap-2">
+              Azure AD / Microsoft 365
+              {azure && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+            </span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: isSectionOpen('azure') ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {isSectionOpen('azure') && <div className="p-4 border-t border-border space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -566,11 +575,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       {/* Google Workspace */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('google')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Google Workspace
-            {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('google') ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span className="text-sm font-bold flex items-center gap-2">
+              Google Workspace
+              {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+            </span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: isSectionOpen('google') ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {isSectionOpen('google') && <div className="p-4 border-t border-border space-y-3">
         <p className="text-[10px] text-text-muted">Enables Google Calendar integration with Meet. Requires a service account with domain-wide delegation.</p>
@@ -623,11 +635,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       {/* Public Holidays */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('holidays')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Public Holidays
-            {holidayCountry && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">{holidayCountry}</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('holidays') ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span className="text-sm font-bold flex items-center gap-2">
+              Public Holidays
+              {holidayCountry && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">{holidayCountry}</span>}
+            </span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: isSectionOpen('holidays') ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {isSectionOpen('holidays') && (
           <div className="p-4 border-t border-border space-y-3">
@@ -667,11 +682,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
       {/* Zoom */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('zoom')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Zoom
-            {initialZoom && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('zoom') ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <span className="text-sm font-bold flex items-center gap-2">
+              Zoom
+              {initialZoom && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+            </span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: isSectionOpen('zoom') ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {isSectionOpen('zoom') && <div className="p-4 border-t border-border space-y-3">
         {zoomStatus && (
@@ -726,8 +744,11 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
           onClick={() => setColorSectionOpen(o => !o)}
           className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
         >
-          <span className="text-sm font-bold">Activity Color Defaults</span>
-          <span className="text-text-muted text-xs">{colorSectionOpen ? '▼' : '▶'}</span>
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/></svg>
+            <span className="text-sm font-bold">Activity Color Defaults</span>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted transition-transform" style={{ transform: colorSectionOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {colorSectionOpen && (
           <div className="p-4 border-t border-border">
