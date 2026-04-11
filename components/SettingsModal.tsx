@@ -56,6 +56,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [templates, setTemplates] = useState<BookingTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<BookingTemplate | null | 'new'>(null)
+  const [expandedTemplateId, setExpandedTemplateId] = useState<string | 'new' | null>(null)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
   const [calError, setCalError] = useState<string | null>(null)
@@ -81,14 +82,15 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   // ESC: close template editor first, then the whole modal
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && editingTemplate) {
+      if (e.key === 'Escape' && (editingTemplate || expandedTemplateId)) {
         e.stopPropagation()
         setEditingTemplate(null)
+        setExpandedTemplateId(null)
       }
     }
     window.addEventListener('keydown', handler, true) // capture phase to fire before CalendarShell
     return () => window.removeEventListener('keydown', handler, true)
-  }, [editingTemplate])
+  }, [editingTemplate, expandedTemplateId])
 
   useEffect(() => {
     if (activeTab === 'integrations') {
@@ -776,52 +778,121 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           )}
 
           {activeTab === 'templates' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Booking Templates</p>
-                <button onClick={() => setEditingTemplate('new')} className="text-xs font-bold px-2.5 py-1 rounded-lg bg-primary text-white hover:opacity-90">+ New</button>
+                <button
+                  onClick={() => {
+                    setEditingTemplate('new')
+                    setExpandedTemplateId('new')
+                  }}
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-primary text-white hover:opacity-90"
+                >+ New</button>
               </div>
+
               {templatesLoading ? (
                 <p className="text-xs text-text-muted text-center py-4 animate-pulse">Loading...</p>
-              ) : templates.length === 0 ? (
-                <p className="text-xs text-text-muted text-center py-8 border border-dashed border-border rounded-lg">No templates yet. Create one to enable booking on shared links.</p>
               ) : (
-                <div className="space-y-2">
-                  {templates.map(t => (
-                    <div key={t.id} className="p-3 bg-bg border border-border rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold">{t.name}</p>
-                          <p className="text-[10px] text-text-muted">{t.duration_minutes} min{t.linked_share_links?.length ? ` · Used in ${t.linked_share_links.length} link${t.linked_share_links.length > 1 ? 's' : ''}` : ''}</p>
+                <>
+                  {/* New template card */}
+                  {editingTemplate === 'new' && expandedTemplateId === 'new' && (
+                    <div className="border border-border rounded-xl overflow-hidden mb-2">
+                      <button
+                        onClick={() => {
+                          setEditingTemplate(null)
+                          setExpandedTemplateId(null)
+                        }}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold">New Template</span>
                         </div>
-                        <div className="flex gap-1">
-                          <button onClick={() => setEditingTemplate(t)} className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30">Edit</button>
-                          <button onClick={async () => {
-                            await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id, duplicate: true }) })
-                            const res = await fetch('/api/settings/templates'); setTemplates(await res.json())
-                          }} className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30">Copy</button>
-                          <button onClick={() => {
-                            showConfirm('Delete this template?', async () => {
-                              await fetch('/api/settings/templates', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: t.id }) })
-                              setTemplates(prev => prev.filter(x => x.id !== t.id))
-                            }, { confirmLabel: 'Delete', destructive: true })
-                          }} className="text-[10px] text-text-muted hover:text-red-400 px-1.5 py-0.5 rounded border border-border hover:border-red-400/30">Del</button>
+                        <span className="text-text-muted text-xs">▼</span>
+                      </button>
+                      <div className="border-t border-border">
+                        <div className="p-4">
+                          <BookingTemplateEditor
+                            template={null}
+                            connections={connections}
+                            onSave={async () => {
+                              setEditingTemplate(null)
+                              setExpandedTemplateId(null)
+                              const res = await fetch('/api/settings/templates')
+                              setTemplates(await res.json())
+                            }}
+                            onCancel={() => {
+                              setEditingTemplate(null)
+                              setExpandedTemplateId(null)
+                            }}
+                          />
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-              {editingTemplate && (
-                <BookingTemplateEditor
-                  template={editingTemplate === 'new' ? null : editingTemplate}
-                  connections={connections}
-                  onSave={async () => {
-                    setEditingTemplate(null)
-                    const res = await fetch('/api/settings/templates'); setTemplates(await res.json())
-                  }}
-                  onCancel={() => setEditingTemplate(null)}
-                />
+                  )}
+
+                  {templates.length === 0 && editingTemplate !== 'new' ? (
+                    <p className="text-xs text-text-muted text-center py-8 border border-dashed border-border rounded-lg">No templates yet. Create one to enable booking on shared links.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {templates.map(t => {
+                        const isExpanded = expandedTemplateId === t.id
+                        return (
+                          <div key={t.id} className="border border-border rounded-xl overflow-hidden">
+                            <button
+                              onClick={() => setExpandedTemplateId(isExpanded ? null : t.id)}
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold">{t.name}</span>
+                                <span className="text-[10px] bg-primary/10 text-primary rounded px-1.5 py-0.5">{t.duration_minutes} min</span>
+                                <span className={`text-[10px] font-bold ${t.active !== false ? 'text-green-400' : 'text-red-400'}`}>
+                                  {t.active !== false ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+                              <span className="text-text-muted text-xs">{isExpanded ? '▼' : '▶'}</span>
+                            </button>
+                            {isExpanded && (
+                              <div className="border-t border-border">
+                                <div className="p-4">
+                                  <BookingTemplateEditor
+                                    template={t}
+                                    connections={connections}
+                                    onSave={async () => {
+                                      setExpandedTemplateId(null)
+                                      const res = await fetch('/api/settings/templates')
+                                      setTemplates(await res.json())
+                                    }}
+                                    onCancel={() => setExpandedTemplateId(null)}
+                                  />
+                                </div>
+                                <div className="flex gap-2 px-4 pb-4">
+                                  <button
+                                    onClick={async () => {
+                                      await fetch('/api/settings/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, duplicate: true }) })
+                                      const res = await fetch('/api/settings/templates')
+                                      setTemplates(await res.json())
+                                    }}
+                                    className="text-[10px] text-text-muted hover:text-text px-2 py-1 rounded border border-border hover:bg-border/30"
+                                  >Copy</button>
+                                  <button
+                                    onClick={() => {
+                                      showConfirm('Delete this template?', async () => {
+                                        await fetch('/api/settings/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id }) })
+                                        setTemplates(prev => prev.filter(x => x.id !== t.id))
+                                        setExpandedTemplateId(null)
+                                      }, { confirmLabel: 'Delete', destructive: true })
+                                    }}
+                                    className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded border border-border hover:border-red-400/30"
+                                  >Delete</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
