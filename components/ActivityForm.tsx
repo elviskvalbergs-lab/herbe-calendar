@@ -70,6 +70,7 @@ interface Props {
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
   availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
   userGoogleAccounts?: UserGoogleAccount[]
+  zoomConfigured?: boolean
 }
 
 function SerpIcon() {
@@ -83,7 +84,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources, userGoogleAccounts
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources, userGoogleAccounts, zoomConfigured
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -176,6 +177,7 @@ export default function ActivityForm({
   const [externalAttendeeInput, setExternalAttendeeInput] = useState('')
   const [location, setLocation] = useState(initial?.location ?? '')
   const [isOnlineMeeting, setIsOnlineMeeting] = useState(initial?.isOnlineMeeting ?? !isEdit)
+  const [zoomMeeting, setZoomMeeting] = useState(false)
   const handleSaveRef = useRef<() => void>(() => {})
   const handleDuplicateRef = useRef<() => void>(() => {})
   const handleCloseRef = useRef<() => void>(() => {})
@@ -554,6 +556,25 @@ export default function ActivityForm({
         activityTypeCode, projectCode, projectName, customerCode, customerName,
       })
       setSaving(false)
+
+      if (zoomMeeting) {
+        try {
+          const [hFrom, mFrom] = timeFrom.split(':').map(Number)
+          const [hTo, mTo] = timeTo.split(':').map(Number)
+          const durationMins = (hTo * 60 + mTo) - (hFrom * 60 + mFrom)
+          const zoomRes = await fetch('/api/zoom/meetings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic: description || 'Meeting', startTime: `${date}T${timeFrom}:00`, duration: durationMins || 30 }),
+          })
+          if (zoomRes.ok) {
+            const zoomData = await zoomRes.json()
+            setSavedActivity(prev => prev ? { ...prev, joinUrl: zoomData.joinUrl, videoProvider: 'zoom' } : prev)
+          }
+        } catch (e) {
+          console.warn('[ActivityForm] Zoom meeting creation failed:', e)
+        }
+      }
     } catch (e) {
       setErrors([String(e)])
       setSaving(false)
@@ -1405,6 +1426,19 @@ export default function ActivityForm({
               <span className="text-xs font-bold text-text-muted">
                 {isGoogleSource ? 'Google Meet' : 'Teams meeting'}
               </span>
+            </label>
+          )}
+
+          {/* Zoom meeting checkbox (all sources, when Zoom is configured) */}
+          {zoomConfigured && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={zoomMeeting}
+                onChange={e => setZoomMeeting(e.target.checked)}
+                className="accent-primary w-4 h-4"
+              />
+              <span className="text-xs font-bold text-text-muted">Zoom meeting</span>
             </label>
           )}
 

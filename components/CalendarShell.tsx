@@ -22,7 +22,7 @@ interface Props { userCode: string; companyCode: string; accountId?: string }
 export default function CalendarShell({ userCode, companyCode, accountId = '' }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
-  const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean }>({ herbe: true, azure: true })
+  const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean; zoom?: boolean }>({ herbe: true, azure: true })
   const [erpConnections, setErpConnections] = useState<{ id: string; name: string; companyCode?: string; serpUuid?: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [classGroups, setClassGroups] = useState<ActivityClassGroup[]>([])
@@ -507,6 +507,18 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       })
   }, [userCode, usersRetry]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Check if Zoom is configured for this account
+  useEffect(() => {
+    fetch('/api/zoom/meetings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).then(r => {
+      // 400 means "bad request / not configured", anything else (200, 422, 401) means Zoom is configured
+      if (r.status !== 400) setSources(prev => ({ ...prev, zoom: true }))
+    }).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Stable string of selected person codes — avoids refetching when stubs are replaced with full objects
   const selectedCodesKey = state.selectedPersons.map(p => p.code).join(',')
 
@@ -786,6 +798,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           erpConnections={erpConnections}
           availableSources={sources}
           userGoogleAccounts={userGoogleAccounts}
+          zoomConfigured={sources.zoom ?? false}
         />
       )}
 
