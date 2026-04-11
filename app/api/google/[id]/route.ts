@@ -6,7 +6,7 @@ import type { calendar_v3 } from 'googleapis'
 
 async function getCalendarClientForRequest(
   req: NextRequest,
-  session: { email: string; accountId: string }
+  session: { email: string; userCode?: string; accountId: string }
 ): Promise<{ calendar: calendar_v3.Calendar; calendarId: string } | NextResponse> {
   const tokenId = req.nextUrl.searchParams.get('googleTokenId')
   const calendarId = req.nextUrl.searchParams.get('googleCalendarId') ?? 'primary'
@@ -17,10 +17,12 @@ async function getCalendarClientForRequest(
     return { calendar: getOAuthCalendarClient(accessToken), calendarId }
   }
 
-  // Fall back to domain-wide delegation
+  // Fall back to domain-wide delegation — resolve person email (login email may differ from Workspace email)
   const googleConfig = await getGoogleConfig(session.accountId)
   if (!googleConfig) return NextResponse.json({ error: 'Google not configured' }, { status: 400 })
-  return { calendar: getCalendarClient(googleConfig, session.email), calendarId: 'primary' }
+  const { emailForCode } = await import('@/lib/emailForCode')
+  const personEmail = session.userCode ? await emailForCode(session.userCode, session.accountId) : null
+  return { calendar: getCalendarClient(googleConfig, personEmail ?? session.email), calendarId: 'primary' }
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
