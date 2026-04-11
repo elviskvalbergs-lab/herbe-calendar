@@ -157,11 +157,7 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   const labelClass = 'text-[10px] text-text-muted uppercase font-bold tracking-wide'
 
   return (
-    <div className="border border-primary/30 rounded-lg bg-bg p-4 space-y-5">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold">{isEdit ? 'Edit Template' : 'New Template'}</p>
-        <button onClick={onCancel} className="text-text-muted text-sm hover:text-text">✕</button>
-      </div>
+    <div className="space-y-5">
 
       {/* Basic Info */}
       <div className="space-y-2">
@@ -386,7 +382,7 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
       </div>
 
       {/* Actions — sticky at bottom */}
-      <div className="flex gap-2 pt-2 border-t border-border sticky bottom-0 bg-bg pb-1">
+      <div className="flex gap-2 pt-2 border-t border-border sticky bottom-0 bg-surface pb-1">
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}
