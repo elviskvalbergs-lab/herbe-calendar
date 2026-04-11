@@ -218,15 +218,20 @@ export async function collectBusyBlocks(
             singleEvents: true,
             fields: 'items(start,end)',
           })
-          for (const ev of res.data.items ?? []) {
+          const googleItems = res.data.items ?? []
+          console.error(`[availability] Google ${code} (${email}): ${googleItems.length} events found`)
+          for (const ev of googleItems) {
             const startStr = ev.start?.dateTime ?? ''
             const endStr = ev.end?.dateTime ?? ''
             if (!startStr || !endStr) continue
             const date = startStr.slice(0, 10)
             const startTime = startStr.slice(11, 16)
             const endTime = endStr.slice(11, 16)
+            console.error(`[availability] Google busy: ${date} ${startTime}-${endTime} (raw: ${startStr} to ${endStr})`)
             if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
           }
+        } else {
+          console.error(`[availability] Google not configured for account ${accountId}`)
         }
       } catch (e) {
         console.error(`[availability] Google busy fetch failed for ${code}:`, String(e))
