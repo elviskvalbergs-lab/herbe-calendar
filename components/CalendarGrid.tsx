@@ -176,12 +176,11 @@ export default function CalendarGrid({
       ref={scrollRef}
       className="flex-1 overflow-auto relative"
     >
-      {/* Loading overlay */}
+      {/* Subtle loading indicator — thin animated bar at top */}
       {loading && (
-        <div className="fixed inset-0 z-30 bg-black/40 flex items-center justify-center pointer-events-auto">
-          <div className="bg-surface border border-border rounded-xl px-5 py-3 text-sm font-bold text-text-muted animate-pulse">
-            Loading…
-          </div>
+        <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
+          <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+          <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
         </div>
       )}
 

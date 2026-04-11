@@ -679,6 +679,27 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     }
 
     setLoading(false)
+
+    // Prefetch adjacent date ranges in the background for instant navigation
+    const viewDays = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+    const prefetchDates = [
+      format(addDays(parseISO(dateFrom), -viewDays), 'yyyy-MM-dd'),
+      format(addDays(parseISO(dateTo), 1), 'yyyy-MM-dd'),
+    ]
+    for (const pfDate of prefetchDates) {
+      const pfTo = format(addDays(parseISO(pfDate), viewDays - 1), 'yyyy-MM-dd')
+      const pfKey = `${codes}:${pfDate}:${pfTo}`
+      if (activityCacheRef.current.has(pfKey)) continue
+      const pfParam = pfDate === pfTo ? `date=${pfDate}` : `dateFrom=${pfDate}&dateTo=${pfTo}`
+      // Fire-and-forget prefetch
+      Promise.all([
+        sources.herbe ? fetch(`/api/activities?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
+        sources.azure ? fetch(`/api/outlook?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
+        sources.google ? fetch(`/api/google?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
+      ]).then(([h, o, g]) => {
+        activityCacheRef.current.set(pfKey, [...h, ...o, ...g])
+      }).catch(() => {})
+    }
   }, [selectedCodesKey, state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
