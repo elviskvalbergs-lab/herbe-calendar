@@ -207,5 +207,19 @@ export async function GET(
   // Apply visibility filter
   const filtered = allActivities.map(a => filterActivity(a as Record<string, unknown>, visibility))
 
-  return NextResponse.json(filtered, { headers: { 'Cache-Control': 'no-store' } })
+  // Fetch holidays for the person codes
+  const { getPersonsHolidayCountries, getHolidaysForRange } = await import('@/lib/holidays')
+  const countryMap = await getPersonsHolidayCountries(personCodes, accountId)
+  const countryCodes = [...new Set(countryMap.values())]
+  let holidayData: Record<string, { name: string; country: string }[]> = {}
+  let personCountries: Record<string, string> = {}
+  if (countryCodes.length > 0) {
+    const holidays = await getHolidaysForRange(countryCodes, dateFrom, dateTo)
+    for (const [date, hols] of holidays) {
+      holidayData[date] = hols.map(h => ({ name: h.name, country: h.country }))
+    }
+    for (const [code, cc] of countryMap) personCountries[code] = cc
+  }
+
+  return NextResponse.json({ activities: filtered, holidays: { dates: holidayData, personCountries } }, { headers: { 'Cache-Control': 'no-store' } })
 }

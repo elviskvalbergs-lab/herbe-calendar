@@ -29,6 +29,7 @@ export default function ShareCalendarShell({ token }: Props) {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [verifiedPassword, setVerifiedPassword] = useState<string | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
+  const [holidays, setHolidays] = useState<{ dates: Record<string, { name: string; country: string }[]>; personCountries: Record<string, string> }>({ dates: {}, personCountries: {} })
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [subscribeCopied, setSubscribeCopied] = useState(false)
@@ -82,7 +83,12 @@ export default function ShareCalendarShell({ token }: Props) {
       const res = await fetch(url, { headers })
       if (res.ok) {
         const data = await res.json()
-        setActivities(data)
+        if (Array.isArray(data)) {
+          setActivities(data)
+        } else {
+          setActivities(data.activities ?? [])
+          if (data.holidays) setHolidays(data.holidays)
+        }
       }
     } finally {
       setLoading(false)
@@ -279,6 +285,7 @@ export default function ShareCalendarShell({ token }: Props) {
         onActivityClick={() => {}}
         onActivityUpdate={() => {}}
         visibility={config.visibility}
+        holidays={holidays}
       />
     </div>
   )
