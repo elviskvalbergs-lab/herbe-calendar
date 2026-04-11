@@ -261,7 +261,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       // ⌃⌘← / ⌃⌘→ — Jump by view step (1 / 3 / 5 days)
       if (e.metaKey && e.ctrlKey && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault()
-        const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+        const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
         const dir = e.key === 'ArrowLeft' ? -step : step
         setState(s => ({ ...s, date: format(addDays(parseISO(s.date), dir), 'yyyy-MM-dd') }))
         return
@@ -287,6 +287,18 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       } else if (e.key === 'c' || e.key === 'C') {
         e.preventDefault()
         setCalendarSourcesOpen(o => !o)
+      } else if (e.key === '1') {
+        e.preventDefault()
+        setState(s => ({ ...s, view: 'day' }))
+      } else if (e.key === '3') {
+        e.preventDefault()
+        setState(s => ({ ...s, view: '3day' }))
+      } else if (e.key === '5') {
+        e.preventDefault()
+        setState(s => ({ ...s, view: '5day' }))
+      } else if (e.key === '7') {
+        e.preventDefault()
+        setState(s => ({ ...s, view: '7day' }))
       } else if (e.key === '?') {
         e.preventDefault()
         setShortcutsOpen(true)
@@ -527,7 +539,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     setLoading(true)
     const codes = selectedCodesKey
     const dateFrom = state.date
-    const dateTo = state.view === '5day'
+    const dateTo = state.view === '7day'
+      ? format(addDays(parseISO(state.date), 6), 'yyyy-MM-dd')
+      : state.view === '5day'
       ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
       : state.view === '3day'
       ? format(addDays(parseISO(state.date), 2), 'yyyy-MM-dd')
@@ -701,7 +715,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         isLightMode={isLightMode}
         onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
         onNavigate={(dir) => {
-          const step = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+          const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
           setState(s => ({
             ...s,
             date: format(

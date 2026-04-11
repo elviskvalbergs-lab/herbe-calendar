@@ -39,7 +39,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   const [mobileCalendarsOpen, setMobileCalendarsOpen] = useState(false)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
-  const viewStep = state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+  const viewStep = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
   function navigate(days: number) {
     onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
@@ -99,13 +99,13 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
 
       {/* View toggle */}
       <div className="flex rounded overflow-hidden border border-border text-xs font-bold divide-x divide-border">
-        {(['day', '3day', '5day'] as const).map(v => (
+        {(['day', '3day', '5day', '7day'] as const).map(v => (
           <button
             key={v}
             onClick={() => onStateChange({ ...state, view: v })}
             className={`px-2 lg:px-3 py-1 ${state.view === v ? 'bg-primary text-white' : 'text-text-muted'}`}
           >
-            {v === 'day' ? 'Day' : v === '3day' ? '3 Day' : '5 Day'}
+            {v === 'day' ? 'Day' : v === '3day' ? '3D' : v === '5day' ? '5D' : '7D'}
           </button>
         ))}
       </div>

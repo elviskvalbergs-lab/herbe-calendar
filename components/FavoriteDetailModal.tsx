@@ -202,7 +202,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
         <div className="relative mb-1">
           <h2 className="text-lg font-bold pr-8">{favorite.name}</h2>
           <p className="text-xs text-text-muted">
-            {favorite.view === 'day' ? 'Day' : favorite.view === '3day' ? '3-day' : '5-day'} view
+            {favorite.view === 'day' ? 'Day' : favorite.view === '3day' ? '3-day' : favorite.view === '5day' ? '5-day' : '7-day'} view
             {' · '}{favorite.personCodes.length} person{favorite.personCodes.length !== 1 ? 's' : ''}
             {' · '}{favorite.personCodes.join(', ')}
           </p>

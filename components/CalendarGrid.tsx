@@ -220,7 +220,7 @@ export default function CalendarGrid({
 
       <div className="flex">
         <TimeColumn
-          is3Day={state.view === '3day' || state.view === '5day'}
+          is3Day={state.view !== 'day'}
           scale={scale}
           startHour={effectiveStartHour}
           endHour={effectiveEndHour}
@@ -235,7 +235,7 @@ export default function CalendarGrid({
         />
 
         {dates.map((date, dateIdx) => {
-          const isMultiDay = state.view === '3day' || state.view === '5day'
+          const isMultiDay = state.view !== 'day'
           const dateGroupMinW = personCount * colMinVw
           return (
             <div
