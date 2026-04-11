@@ -119,7 +119,15 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
           }
         }
 
-        formParts.push(`set_row_field.0.Text=${encodeURIComponent(activityText)}`)
+        // Sanitize control characters and split into 100-char rows for ERP
+        const sanitized = activityText.replace(/[\x00-\x1F\x7F]/g, ' ').replace(/\s+/g, ' ').trim()
+        const textRows: string[] = []
+        for (let i = 0; i < sanitized.length; i += 100) {
+          textRows.push(sanitized.slice(i, i + 100))
+        }
+        for (let r = 0; r < textRows.length; r++) {
+          formParts.push(`set_row_field.${r}.Text=${encodeURIComponent(textRows[r])}`)
+        }
 
         const formBody = formParts.join('&')
 
