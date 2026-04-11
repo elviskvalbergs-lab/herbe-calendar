@@ -149,6 +149,15 @@ export interface CustomField {
   required: boolean
 }
 
+/** A public holiday */
+export interface Holiday {
+  date: string          // YYYY-MM-DD
+  name: string          // Localized name
+  nameEn?: string       // English name
+  country: string       // ISO country code
+  type: string          // Public, National, etc.
+}
+
 export interface TemplateTargets {
   erp?: {
     connectionId: string
