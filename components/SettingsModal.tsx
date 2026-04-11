@@ -66,6 +66,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [calendlyLoading, setCalendlyLoading] = useState(false)
   const [calendlyError, setCalendlyError] = useState('')
   const [userTemplates, setUserTemplates] = useState<{ id: string; name: string }[]>([])
+  const [openIntegrationSections, setOpenIntegrationSections] = useState<Record<string, boolean>>({})
+  function toggleIntegration(key: string) {
+    setOpenIntegrationSections(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   useEffect(() => {
     try {
@@ -307,416 +311,467 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           )}
 
           {activeTab === 'integrations' && (
-            <div className="space-y-6">
-              {/* Google Accounts */}
-              <div className="mb-6">
-                <h3 className="text-xs font-bold text-text-muted uppercase tracking-wide mb-3">Google Calendar</h3>
-                {googleAccounts.map(account => (
-                  <div key={account.id} className="mb-3 border border-border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold">{account.googleEmail}</span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={async () => {
-                            await fetch('/api/google/calendars', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ tokenId: account.id }),
-                            }).then(r => r.json()).then(setGoogleAccounts)
-                          }}
-                          className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30"
-                        >
-                          Refresh
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await fetch('/api/google/auth', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ googleEmail: account.googleEmail }),
-                            })
-                            setGoogleAccounts(prev => prev.filter(a => a.id !== account.id))
-                          }}
-                          className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded border border-border hover:border-red-400/30"
-                        >
-                          Disconnect
-                        </button>
-                      </div>
-                    </div>
-                    {account.calendars.map(cal => (
-                      <div key={cal.id} className="py-1.5 px-1">
-                        <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={cal.enabled}
-                          onChange={async () => {
-                            // Optimistic update
-                            setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
-                              ...a,
-                              calendars: a.calendars.map(c => c.id === cal.id ? { ...c, enabled: !c.enabled } : c)
-                            } : a))
-                            await fetch('/api/google/calendars', {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ calendarDbId: cal.id, enabled: !cal.enabled }),
-                            })
-                          }}
-                          className="accent-primary"
-                        />
-                        <div
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{ background: cal.color || '#4285f4' }}
-                        />
-                        <span className="text-sm flex-1 truncate">{cal.name}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mt-1 pl-5 items-center">
-                        {BRAND_PALETTE.slice(0, 12).map(hex => (
-                          <button
-                            key={hex}
-                            title={hex}
-                            onClick={async () => {
-                              setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
-                                ...a,
-                                calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
-                              } : a))
-                              await fetch('/api/google/calendars', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
-                              })
-                            }}
-                            className="w-4 h-4 rounded hover:scale-125"
-                            style={{
-                              background: hex,
-                              border: (cal.color || '') === hex ? '2px solid white' : 'none',
-                              opacity: (cal.color || '') === hex ? 1 : 0.7,
-                            }}
-                          />
-                        ))}
-                        <label
-                          className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
-                          title="Custom color"
-                        >
-                          +
-                          <input
-                            type="color"
-                            value={cal.color || '#4285f4'}
-                            onChange={async (e) => {
-                              const hex = e.target.value
-                              setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
-                                ...a,
-                                calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
-                              } : a))
-                              await fetch('/api/google/calendars', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
-                              })
-                            }}
-                            className="sr-only"
-                          />
-                        </label>
-                        {cal.color && (
-                          <button
-                            onClick={async () => {
-                              setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
-                                ...a,
-                                calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: null } : c)
-                              } : a))
-                              await fetch('/api/google/calendars', {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ calendarDbId: cal.id, color: '' }),
-                              })
-                            }}
-                            className="text-[9px] text-text-muted hover:text-text px-1"
-                            title="Reset to default"
-                          >reset</button>
-                        )}
-                      </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                {googleAccounts.length === 0 && !googleLoading && (
-                  <p className="text-xs text-text-muted mb-2">No Google accounts connected.</p>
-                )}
+            <div className="space-y-3">
+
+              {/* Google Calendar */}
+              <div className="border border-border rounded-xl overflow-hidden">
                 <button
-                  onClick={() => { window.location.href = '/api/google/auth' }}
-                  className="text-sm text-primary font-semibold hover:underline"
+                  onClick={() => toggleIntegration('google')}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
                 >
-                  + Connect Google Account
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span className="text-sm font-bold">Google Calendar</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {googleAccounts.length > 0
+                      ? <span className="text-[10px] text-green-400 font-bold">{googleAccounts.length} account{googleAccounts.length !== 1 ? 's' : ''}</span>
+                      : <span className="text-[10px] text-text-muted font-bold">Not connected</span>
+                    }
+                    <span className="text-text-muted text-xs">{openIntegrationSections['google'] ? '▼' : '▶'}</span>
+                  </div>
                 </button>
-              </div>
-
-              <div className="h-px bg-border my-4" />
-
-              {/* Calendly */}
-              <div className="mb-6">
-                <h3 className="text-xs font-bold text-text-muted uppercase tracking-wide mb-3">
-                  {calendlyConnection
-                    ? <>Calendly — <span className="text-green-400">{calendlyConnection.userName}</span></>
-                    : 'Calendly'
-                  }
-                </h3>
-                {calendlyConnection ? (
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-text-muted block mb-1">Default Template</label>
-                      <select
-                        value={calendlyConnection.defaultTemplateId}
-                        onChange={async e => {
-                          const templateId = e.target.value
-                          const res = await fetch('/api/calendly/connect', {
-                            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ defaultTemplateId: templateId }),
-                          })
-                          if (res.ok) setCalendlyConnection((prev: any) => ({ ...prev, defaultTemplateId: templateId }))
-                        }}
-                        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
-                      >
-                        {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                    </div>
-                    <p className="text-xs text-text-muted font-bold">Event Types</p>
-                    {calendlyConnection.eventTypes.map((et: any) => (
-                      <div key={et.uri} className="flex items-center gap-2 text-xs">
-                        <span className="flex-1 truncate">{et.name} ({et.duration}min)</span>
-                        <select
-                          value={et.templateId ?? ''}
-                          onChange={e => updateCalendlyMapping(et.uri, e.target.value)}
-                          className="bg-bg border border-border rounded px-2 py-1 text-xs max-w-[150px]"
-                        >
-                          <option value="">Use default</option>
-                          {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                        </select>
+                {openIntegrationSections['google'] && (
+                  <div className="p-4 border-t border-border">
+                    {googleAccounts.map(account => (
+                      <div key={account.id} className="mb-3 border border-border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold">{account.googleEmail}</span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                await fetch('/api/google/calendars', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ tokenId: account.id }),
+                                }).then(r => r.json()).then(setGoogleAccounts)
+                              }}
+                              className="text-[10px] text-text-muted hover:text-text px-1.5 py-0.5 rounded border border-border hover:bg-border/30"
+                            >
+                              Refresh
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await fetch('/api/google/auth', {
+                                  method: 'DELETE',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ googleEmail: account.googleEmail }),
+                                })
+                                setGoogleAccounts(prev => prev.filter(a => a.id !== account.id))
+                              }}
+                              className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded border border-border hover:border-red-400/30"
+                            >
+                              Disconnect
+                            </button>
+                          </div>
+                        </div>
+                        {account.calendars.map(cal => (
+                          <div key={cal.id} className="py-1.5 px-1">
+                            <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={cal.enabled}
+                              onChange={async () => {
+                                // Optimistic update
+                                setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                  ...a,
+                                  calendars: a.calendars.map(c => c.id === cal.id ? { ...c, enabled: !c.enabled } : c)
+                                } : a))
+                                await fetch('/api/google/calendars', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ calendarDbId: cal.id, enabled: !cal.enabled }),
+                                })
+                              }}
+                              className="accent-primary"
+                            />
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{ background: cal.color || '#4285f4' }}
+                            />
+                            <span className="text-sm flex-1 truncate">{cal.name}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 mt-1 pl-5 items-center">
+                            {BRAND_PALETTE.slice(0, 12).map(hex => (
+                              <button
+                                key={hex}
+                                title={hex}
+                                onClick={async () => {
+                                  setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                    ...a,
+                                    calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
+                                  } : a))
+                                  await fetch('/api/google/calendars', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
+                                  })
+                                }}
+                                className="w-4 h-4 rounded hover:scale-125"
+                                style={{
+                                  background: hex,
+                                  border: (cal.color || '') === hex ? '2px solid white' : 'none',
+                                  opacity: (cal.color || '') === hex ? 1 : 0.7,
+                                }}
+                              />
+                            ))}
+                            <label
+                              className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
+                              title="Custom color"
+                            >
+                              +
+                              <input
+                                type="color"
+                                value={cal.color || '#4285f4'}
+                                onChange={async (e) => {
+                                  const hex = e.target.value
+                                  setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                    ...a,
+                                    calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: hex } : c)
+                                  } : a))
+                                  await fetch('/api/google/calendars', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ calendarDbId: cal.id, color: hex }),
+                                  })
+                                }}
+                                className="sr-only"
+                              />
+                            </label>
+                            {cal.color && (
+                              <button
+                                onClick={async () => {
+                                  setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                    ...a,
+                                    calendars: a.calendars.map(c => c.id === cal.id ? { ...c, color: null } : c)
+                                  } : a))
+                                  await fetch('/api/google/calendars', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ calendarDbId: cal.id, color: '' }),
+                                  })
+                                }}
+                                className="text-[9px] text-text-muted hover:text-text px-1"
+                                title="Reset to default"
+                              >reset</button>
+                            )}
+                          </div>
+                          </div>
+                        ))}
                       </div>
                     ))}
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={refreshCalendly}
-                        className="text-[10px] text-text-muted hover:text-text px-2 py-1 rounded border border-border"
-                      >Refresh</button>
-                      <button
-                        onClick={disconnectCalendly}
-                        className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded border border-border"
-                      >Disconnect</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-text-muted block mb-1">Personal Access Token</label>
-                      <input
-                        type="password"
-                        value={calendlyPat}
-                        onChange={e => setCalendlyPat(e.target.value)}
-                        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
-                        placeholder="Paste your Calendly PAT"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-text-muted block mb-1">Default Template (required)</label>
-                      <select
-                        value={calendlyDefaultTemplate}
-                        onChange={e => setCalendlyDefaultTemplate(e.target.value)}
-                        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
-                      >
-                        <option value="">Select template...</option>
-                        {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                    </div>
-                    {calendlyError && <p className="text-xs text-red-400">{calendlyError}</p>}
+                    {googleAccounts.length === 0 && !googleLoading && (
+                      <p className="text-xs text-text-muted mb-2">No Google accounts connected.</p>
+                    )}
                     <button
-                      onClick={connectCalendly}
-                      disabled={!calendlyPat || !calendlyDefaultTemplate || calendlyLoading}
-                      className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-30"
+                      onClick={() => { window.location.href = '/api/google/auth' }}
+                      className="text-sm text-primary font-semibold hover:underline"
                     >
-                      {calendlyLoading ? 'Connecting...' : 'Connect Calendly'}
+                      + Connect Google Account
                     </button>
                   </div>
                 )}
               </div>
 
-              <div className="h-px bg-border my-4" />
-
-              {/* ICS Feeds */}
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wide mb-3">ICS Calendar Feeds</h3>
-
-              {/* Add New Calendar */}
-              <div className="space-y-3 p-4 bg-bg rounded-lg border border-border">
-                <h4 className="text-xs font-bold flex items-center gap-2">
-                  + Add External Calendar (ICS)
-                </h4>
-                <form onSubmit={handleAddCal} className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                      value={newCal.personCode}
-                      onChange={e => setNewCal(p => ({ ...p, personCode: e.target.value }))}
-                      required
-                    >
-                      <option value="" disabled>Select Person...</option>
-                      {persons.map(p => (
-                        <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
-                      ))}
-                    </select>
-                    <input
-                      className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                      placeholder="Calendar Name (e.g. Work)"
-                      value={newCal.name}
-                      onChange={e => setNewCal(p => ({ ...p, name: e.target.value }))}
-                      required
-                    />
+              {/* Calendly */}
+              <div className="border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleIntegration('calendly')}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <span className="text-sm font-bold">Calendly</span>
                   </div>
-                  <input
-                    className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                    placeholder="Public ICS URL (https://...)"
-                    value={newCal.icsUrl}
-                    onChange={e => setNewCal(p => ({ ...p, icsUrl: e.target.value }))}
-                    required
-                  />
-                  {calError && (
-                    <p className="text-red-400 text-xs">{calError}</p>
-                  )}
-                  <button
-                    type="submit"
-                    onClick={() => setCalError(null)}
-                    className="w-full bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90"
-                  >
-                    Attach Calendar
-                  </button>
-                </form>
-              </div>
-
-              {/* Existing calendars list */}
-              <div className="space-y-3">
-                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Active External Feed Mappings</p>
-                {calLoading ? (
-                  <div className="text-xs text-text-muted p-4 text-center animate-pulse">Loading calendars...</div>
-                ) : customCals.length === 0 ? (
-                  <div className="text-xs text-center p-8 border border-dashed border-border rounded-lg text-text-muted">
-                    No external calendars added yet.
+                  <div className="flex items-center gap-2">
+                    {calendlyConnection
+                      ? <span className="text-[10px] text-green-400 font-bold">Connected as {calendlyConnection.userName}</span>
+                      : <span className="text-[10px] text-text-muted font-bold">Not connected</span>
+                    }
+                    <span className="text-text-muted text-xs">{openIntegrationSections['calendly'] ? '▼' : '▶'}</span>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {customCals.map(c => (
-                      <div key={c.id} className="p-3 bg-bg border border-border rounded-lg">
-                        {editingId === c.id ? (
-                          <div className="space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <select
-                                className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                                value={editForm.personCode}
-                                onChange={e => setEditForm(f => ({ ...f, personCode: e.target.value }))}
-                              >
-                                {persons.map(p => (
-                                  <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
-                                ))}
-                              </select>
-                              <input
-                                className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                                value={editForm.name}
-                                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                                placeholder="Calendar Name"
-                              />
-                            </div>
-                            <input
-                              className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                              value={editForm.icsUrl}
-                              onChange={e => setEditForm(f => ({ ...f, icsUrl: e.target.value }))}
-                              placeholder="ICS URL"
-                            />
-                            <div className="flex gap-2">
-                              <button onClick={handleSaveEdit} className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90">Save</button>
-                              <button onClick={() => setEditingId(null)} className="text-text-muted text-xs px-3 py-1.5 rounded-lg hover:bg-border">Cancel</button>
-                            </div>
+                </button>
+                {openIntegrationSections['calendly'] && (
+                  <div className="p-4 border-t border-border">
+                    {calendlyConnection ? (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-xs text-text-muted block mb-1">Default Template</label>
+                          <select
+                            value={calendlyConnection.defaultTemplateId}
+                            onChange={async e => {
+                              const templateId = e.target.value
+                              const res = await fetch('/api/calendly/connect', {
+                                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ defaultTemplateId: templateId }),
+                              })
+                              if (res.ok) setCalendlyConnection((prev: any) => ({ ...prev, defaultTemplateId: templateId }))
+                            }}
+                            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                          >
+                            {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </div>
+                        <p className="text-xs text-text-muted font-bold">Event Types</p>
+                        {calendlyConnection.eventTypes.map((et: any) => (
+                          <div key={et.uri} className="flex items-center gap-2 text-xs">
+                            <span className="flex-1 truncate">{et.name} ({et.duration}min)</span>
+                            <select
+                              value={et.templateId ?? ''}
+                              onChange={e => updateCalendlyMapping(et.uri, e.target.value)}
+                              className="bg-bg border border-border rounded px-2 py-1 text-xs max-w-[150px]"
+                            >
+                              <option value="">Use default</option>
+                              {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
                           </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="text-xs font-bold flex items-center gap-2">
-                                  <div className="w-2.5 h-2.5 rounded-full border" style={{ background: c.color || OUTLOOK_COLOR, borderColor: (c.color || OUTLOOK_COLOR) + '88' }} />
-                                  <span>{c.name}</span>
-                                  <span className="text-[10px] text-primary">ICS</span>
-                                </div>
-                                <div className="text-[10px] text-text-muted mt-0.5">
-                                  Assigned to: <span className="text-text font-bold">{persons.find(p => p.code === c.personCode)?.name || c.personCode}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => startEdit(c)}
-                                  className="text-text-muted hover:text-text p-1.5 text-xs"
-                                  title="Edit"
-                                >✎</button>
-                                <button
-                                  onClick={() => handleDeleteCal(c.id)}
-                                  className="text-text-muted hover:text-red-400 p-1.5 text-xs"
-                                  title="Remove"
-                                >✕</button>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50 items-center">
-                              {(() => {
-                                const isStaging = stagedIcsColor?.id === c.id
-                                const displayColor = isStaging ? stagedIcsColor.color : (c.color || '')
-                                return <>
-                                  {BRAND_PALETTE.slice(0, 12).map(hex => (
-                                    <button
-                                      key={hex}
-                                      title={hex}
-                                      onClick={() => setStagedIcsColor({ id: c.id, color: hex })}
-                                      className="w-4 h-4 rounded hover:scale-125"
-                                      style={{
-                                        background: hex,
-                                        border: displayColor === hex ? '2px solid white' : 'none',
-                                        opacity: displayColor === hex ? 1 : 0.7,
-                                      }}
-                                    />
-                                  ))}
-                                  <label
-                                    className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
-                                    title="Custom color"
-                                  >
-                                    +
-                                    <input
-                                      type="color"
-                                      value={displayColor || OUTLOOK_COLOR}
-                                      onChange={e => setStagedIcsColor({ id: c.id, color: e.target.value })}
-                                      className="sr-only"
-                                    />
-                                  </label>
-                                  {(displayColor || isStaging) && (
-                                    <button
-                                      onClick={() => setStagedIcsColor({ id: c.id, color: '' })}
-                                      className="text-[9px] text-text-muted hover:text-text px-1"
-                                      title="Reset to default"
-                                    >reset</button>
-                                  )}
-                                  {isStaging && (
-                                    <div className="flex gap-1 ml-auto">
-                                      <button
-                                        onClick={() => setStagedIcsColor(null)}
-                                        className="text-[9px] px-2 py-0.5 rounded border border-border text-text-muted hover:bg-border/30"
-                                      >Cancel</button>
-                                      <button
-                                        onClick={() => { handleColorChange(c.id, stagedIcsColor.color); setStagedIcsColor(null) }}
-                                        className="text-[9px] px-2 py-0.5 rounded bg-primary text-white font-bold hover:opacity-90"
-                                      >Apply</button>
-                                    </div>
-                                  )}
-                                </>
-                              })()}
-                            </div>
-                          </>
-                        )}
+                        ))}
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={refreshCalendly}
+                            className="text-[10px] text-text-muted hover:text-text px-2 py-1 rounded border border-border"
+                          >Refresh</button>
+                          <button
+                            onClick={disconnectCalendly}
+                            className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded border border-border"
+                          >Disconnect</button>
+                        </div>
                       </div>
-                    ))}
+                    ) : (
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-xs text-text-muted block mb-1">Personal Access Token</label>
+                          <input
+                            type="password"
+                            value={calendlyPat}
+                            onChange={e => setCalendlyPat(e.target.value)}
+                            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                            placeholder="Paste your Calendly PAT"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-text-muted block mb-1">Default Template (required)</label>
+                          <select
+                            value={calendlyDefaultTemplate}
+                            onChange={e => setCalendlyDefaultTemplate(e.target.value)}
+                            className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                          >
+                            <option value="">Select template...</option>
+                            {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </div>
+                        {calendlyError && <p className="text-xs text-red-400">{calendlyError}</p>}
+                        <button
+                          onClick={connectCalendly}
+                          disabled={!calendlyPat || !calendlyDefaultTemplate || calendlyLoading}
+                          className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-30"
+                        >
+                          {calendlyLoading ? 'Connecting...' : 'Connect Calendly'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* ICS Calendar Feeds */}
+              <div className="border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleIntegration('ics')}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+                    <span className="text-sm font-bold">ICS Calendar Feeds</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {customCals.length > 0
+                      ? <span className="text-[10px] text-green-400 font-bold">{customCals.length} feed{customCals.length !== 1 ? 's' : ''}</span>
+                      : <span className="text-[10px] text-text-muted font-bold">No feeds</span>
+                    }
+                    <span className="text-text-muted text-xs">{openIntegrationSections['ics'] ? '▼' : '▶'}</span>
+                  </div>
+                </button>
+                {openIntegrationSections['ics'] && (
+                  <div className="p-4 border-t border-border space-y-3">
+                    {/* Add New Calendar */}
+                    <div className="space-y-3 p-4 bg-bg rounded-lg border border-border">
+                      <h4 className="text-xs font-bold flex items-center gap-2">
+                        + Add External Calendar (ICS)
+                      </h4>
+                      <form onSubmit={handleAddCal} className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                            value={newCal.personCode}
+                            onChange={e => setNewCal(p => ({ ...p, personCode: e.target.value }))}
+                            required
+                          >
+                            <option value="" disabled>Select Person...</option>
+                            {persons.map(p => (
+                              <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
+                            ))}
+                          </select>
+                          <input
+                            className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                            placeholder="Calendar Name (e.g. Work)"
+                            value={newCal.name}
+                            onChange={e => setNewCal(p => ({ ...p, name: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        <input
+                          className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                          placeholder="Public ICS URL (https://...)"
+                          value={newCal.icsUrl}
+                          onChange={e => setNewCal(p => ({ ...p, icsUrl: e.target.value }))}
+                          required
+                        />
+                        {calError && (
+                          <p className="text-red-400 text-xs">{calError}</p>
+                        )}
+                        <button
+                          type="submit"
+                          onClick={() => setCalError(null)}
+                          className="w-full bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90"
+                        >
+                          Attach Calendar
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Existing calendars list */}
+                    <div className="space-y-3">
+                      <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Active External Feed Mappings</p>
+                      {calLoading ? (
+                        <div className="text-xs text-text-muted p-4 text-center animate-pulse">Loading calendars...</div>
+                      ) : customCals.length === 0 ? (
+                        <div className="text-xs text-center p-8 border border-dashed border-border rounded-lg text-text-muted">
+                          No external calendars added yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {customCals.map(c => (
+                            <div key={c.id} className="p-3 bg-bg border border-border rounded-lg">
+                              {editingId === c.id ? (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <select
+                                      className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                                      value={editForm.personCode}
+                                      onChange={e => setEditForm(f => ({ ...f, personCode: e.target.value }))}
+                                    >
+                                      {persons.map(p => (
+                                        <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
+                                      ))}
+                                    </select>
+                                    <input
+                                      className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                                      value={editForm.name}
+                                      onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                                      placeholder="Calendar Name"
+                                    />
+                                  </div>
+                                  <input
+                                    className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                                    value={editForm.icsUrl}
+                                    onChange={e => setEditForm(f => ({ ...f, icsUrl: e.target.value }))}
+                                    placeholder="ICS URL"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button onClick={handleSaveEdit} className="bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:opacity-90">Save</button>
+                                    <button onClick={() => setEditingId(null)} className="text-text-muted text-xs px-3 py-1.5 rounded-lg hover:bg-border">Cancel</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <div className="text-xs font-bold flex items-center gap-2">
+                                        <div className="w-2.5 h-2.5 rounded-full border" style={{ background: c.color || OUTLOOK_COLOR, borderColor: (c.color || OUTLOOK_COLOR) + '88' }} />
+                                        <span>{c.name}</span>
+                                        <span className="text-[10px] text-primary">ICS</span>
+                                      </div>
+                                      <div className="text-[10px] text-text-muted mt-0.5">
+                                        Assigned to: <span className="text-text font-bold">{persons.find(p => p.code === c.personCode)?.name || c.personCode}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => startEdit(c)}
+                                        className="text-text-muted hover:text-text p-1.5 text-xs"
+                                        title="Edit"
+                                      >✎</button>
+                                      <button
+                                        onClick={() => handleDeleteCal(c.id)}
+                                        className="text-text-muted hover:text-red-400 p-1.5 text-xs"
+                                        title="Remove"
+                                      >✕</button>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-border/50 items-center">
+                                    {(() => {
+                                      const isStaging = stagedIcsColor?.id === c.id
+                                      const displayColor = isStaging ? stagedIcsColor.color : (c.color || '')
+                                      return <>
+                                        {BRAND_PALETTE.slice(0, 12).map(hex => (
+                                          <button
+                                            key={hex}
+                                            title={hex}
+                                            onClick={() => setStagedIcsColor({ id: c.id, color: hex })}
+                                            className="w-4 h-4 rounded hover:scale-125"
+                                            style={{
+                                              background: hex,
+                                              border: displayColor === hex ? '2px solid white' : 'none',
+                                              opacity: displayColor === hex ? 1 : 0.7,
+                                            }}
+                                          />
+                                        ))}
+                                        <label
+                                          className="w-4 h-4 rounded border border-dashed border-text-muted/40 hover:border-text-muted cursor-pointer flex items-center justify-center text-[8px] text-text-muted hover:scale-125"
+                                          title="Custom color"
+                                        >
+                                          +
+                                          <input
+                                            type="color"
+                                            value={displayColor || OUTLOOK_COLOR}
+                                            onChange={e => setStagedIcsColor({ id: c.id, color: e.target.value })}
+                                            className="sr-only"
+                                          />
+                                        </label>
+                                        {(displayColor || isStaging) && (
+                                          <button
+                                            onClick={() => setStagedIcsColor({ id: c.id, color: '' })}
+                                            className="text-[9px] text-text-muted hover:text-text px-1"
+                                            title="Reset to default"
+                                          >reset</button>
+                                        )}
+                                        {isStaging && (
+                                          <div className="flex gap-1 ml-auto">
+                                            <button
+                                              onClick={() => setStagedIcsColor(null)}
+                                              className="text-[9px] px-2 py-0.5 rounded border border-border text-text-muted hover:bg-border/30"
+                                            >Cancel</button>
+                                            <button
+                                              onClick={() => { handleColorChange(c.id, stagedIcsColor.color); setStagedIcsColor(null) }}
+                                              className="text-[9px] px-2 py-0.5 rounded bg-primary text-white font-bold hover:opacity-90"
+                                            >Apply</button>
+                                          </div>
+                                        )}
+                                      </>
+                                    })()}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
