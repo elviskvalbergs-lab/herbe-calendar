@@ -60,6 +60,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
   const [calError, setCalError] = useState<string | null>(null)
   const [stagedIcsColor, setStagedIcsColor] = useState<{ id: string; color: string } | null>(null)
+  const [calendlyConnection, setCalendlyConnection] = useState<any>(null)
+  const [calendlyPat, setCalendlyPat] = useState('')
+  const [calendlyDefaultTemplate, setCalendlyDefaultTemplate] = useState('')
+  const [calendlyLoading, setCalendlyLoading] = useState(false)
+  const [calendlyError, setCalendlyError] = useState('')
+  const [userTemplates, setUserTemplates] = useState<{ id: string; name: string }[]>([])
 
   useEffect(() => {
     try {
@@ -85,6 +91,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
       fetchCustomCals()
       setGoogleLoading(true)
       fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setGoogleAccounts).catch(() => {}).finally(() => setGoogleLoading(false))
+      fetch('/api/calendly/connect').then(r => r.ok ? r.json() : null).then(setCalendlyConnection).catch(() => {})
+      fetch('/api/settings/templates').then(r => r.ok ? r.json() : []).then(setUserTemplates).catch(() => {})
     }
   }, [activeTab])
 
@@ -182,6 +190,44 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   function handleTheme(t: Theme) {
     setTheme(t)
     applyTheme(t)
+  }
+
+  async function connectCalendly() {
+    setCalendlyLoading(true); setCalendlyError('')
+    try {
+      const res = await fetch('/api/calendly/connect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pat: calendlyPat, defaultTemplateId: calendlyDefaultTemplate }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Failed') }
+      setCalendlyConnection(await res.json())
+      setCalendlyPat('')
+    } catch (e) { setCalendlyError(String(e)) }
+    finally { setCalendlyLoading(false) }
+  }
+
+  async function updateCalendlyMapping(eventTypeUri: string, templateId: string) {
+    await fetch('/api/calendly/mappings', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventTypeUri, templateId: templateId || null }),
+    })
+    // Optimistic update
+    setCalendlyConnection((prev: any) => ({
+      ...prev,
+      eventTypes: prev.eventTypes.map((et: any) =>
+        et.uri === eventTypeUri ? { ...et, templateId: templateId || null } : et
+      ),
+    }))
+  }
+
+  async function refreshCalendly() {
+    const res = await fetch('/api/calendly/refresh', { method: 'POST' })
+    if (res.ok) setCalendlyConnection(await res.json())
+  }
+
+  async function disconnectCalendly() {
+    await fetch('/api/calendly/connect', { method: 'DELETE' })
+    setCalendlyConnection(null)
   }
 
   return (
@@ -401,6 +447,95 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                 >
                   + Connect Google Account
                 </button>
+              </div>
+
+              <div className="h-px bg-border my-4" />
+
+              {/* Calendly */}
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-text-muted uppercase tracking-wide mb-3">
+                  {calendlyConnection
+                    ? <>Calendly — <span className="text-green-400">{calendlyConnection.userName}</span></>
+                    : 'Calendly'
+                  }
+                </h3>
+                {calendlyConnection ? (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-text-muted block mb-1">Default Template</label>
+                      <select
+                        value={calendlyConnection.defaultTemplateId}
+                        onChange={async e => {
+                          const templateId = e.target.value
+                          const res = await fetch('/api/calendly/connect', {
+                            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ defaultTemplateId: templateId }),
+                          })
+                          if (res.ok) setCalendlyConnection((prev: any) => ({ ...prev, defaultTemplateId: templateId }))
+                        }}
+                        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                      >
+                        {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <p className="text-xs text-text-muted font-bold">Event Types</p>
+                    {calendlyConnection.eventTypes.map((et: any) => (
+                      <div key={et.uri} className="flex items-center gap-2 text-xs">
+                        <span className="flex-1 truncate">{et.name} ({et.duration}min)</span>
+                        <select
+                          value={et.templateId ?? ''}
+                          onChange={e => updateCalendlyMapping(et.uri, e.target.value)}
+                          className="bg-bg border border-border rounded px-2 py-1 text-xs max-w-[150px]"
+                        >
+                          <option value="">Use default</option>
+                          {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={refreshCalendly}
+                        className="text-[10px] text-text-muted hover:text-text px-2 py-1 rounded border border-border"
+                      >Refresh</button>
+                      <button
+                        onClick={disconnectCalendly}
+                        className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded border border-border"
+                      >Disconnect</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-text-muted block mb-1">Personal Access Token</label>
+                      <input
+                        type="password"
+                        value={calendlyPat}
+                        onChange={e => setCalendlyPat(e.target.value)}
+                        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                        placeholder="Paste your Calendly PAT"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-muted block mb-1">Default Template (required)</label>
+                      <select
+                        value={calendlyDefaultTemplate}
+                        onChange={e => setCalendlyDefaultTemplate(e.target.value)}
+                        className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                      >
+                        <option value="">Select template...</option>
+                        {userTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    {calendlyError && <p className="text-xs text-red-400">{calendlyError}</p>}
+                    <button
+                      onClick={connectCalendly}
+                      disabled={!calendlyPat || !calendlyDefaultTemplate || calendlyLoading}
+                      className="bg-primary text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-30"
+                    >
+                      {calendlyLoading ? 'Connecting...' : 'Connect Calendly'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="h-px bg-border my-4" />
