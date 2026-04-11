@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     await saveCalendlyConnection({
       userEmail: session.email,
       accountId: session.accountId,
+      personCode: session.userCode,
       pat,
       userInfo,
       webhookUri,

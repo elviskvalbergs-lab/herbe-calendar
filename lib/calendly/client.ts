@@ -95,6 +95,7 @@ export async function deleteWebhook(pat: string, webhookUri: string): Promise<vo
 export async function saveCalendlyConnection(params: {
   userEmail: string
   accountId: string
+  personCode: string
   pat: string
   userInfo: CalendlyUserInfo
   webhookUri: string
@@ -102,17 +103,17 @@ export async function saveCalendlyConnection(params: {
   defaultTemplateId: string
   eventTypes: CalendlyEventType[]
 }): Promise<string> {
-  const { userEmail, accountId, pat, userInfo, webhookUri, signingKey, defaultTemplateId, eventTypes } = params
+  const { userEmail, accountId, personCode, pat, userInfo, webhookUri, signingKey, defaultTemplateId, eventTypes } = params
   const encPat = encrypt(pat)
   const encSigningKey = encrypt(signingKey)
 
   const { rows } = await pool.query(
-    `INSERT INTO user_calendly_tokens (user_email, account_id, access_token, calendly_user_uri, calendly_user_name, calendly_org_uri, webhook_uri, signing_key, default_template_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO user_calendly_tokens (user_email, account_id, person_code, access_token, calendly_user_uri, calendly_user_name, calendly_org_uri, webhook_uri, signing_key, default_template_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (user_email, account_id)
-     DO UPDATE SET access_token = $3, calendly_user_uri = $4, calendly_user_name = $5, calendly_org_uri = $6, webhook_uri = $7, signing_key = $8, default_template_id = $9, updated_at = now()
+     DO UPDATE SET person_code = $3, access_token = $4, calendly_user_uri = $5, calendly_user_name = $6, calendly_org_uri = $7, webhook_uri = $8, signing_key = $9, default_template_id = $10, updated_at = now()
      RETURNING id`,
-    [userEmail, accountId, encPat, userInfo.uri, userInfo.name, userInfo.orgUri, webhookUri, encSigningKey, defaultTemplateId]
+    [userEmail, accountId, personCode, encPat, userInfo.uri, userInfo.name, userInfo.orgUri, webhookUri, encSigningKey, defaultTemplateId]
   )
   const tokenId = rows[0].id
 
@@ -181,7 +182,7 @@ export async function disconnectCalendly(userEmail: string, accountId: string): 
 /** Find Calendly connection by user URI (for webhook routing). */
 export async function findConnectionByUserUri(userUri: string) {
   const { rows } = await pool.query(
-    'SELECT id, user_email, account_id, access_token, signing_key, default_template_id FROM user_calendly_tokens WHERE calendly_user_uri = $1',
+    'SELECT id, user_email, account_id, person_code, access_token, signing_key, default_template_id FROM user_calendly_tokens WHERE calendly_user_uri = $1',
     [userUri]
   )
   if (rows.length === 0) return null
@@ -189,6 +190,7 @@ export async function findConnectionByUserUri(userUri: string) {
     id: rows[0].id,
     userEmail: rows[0].user_email,
     accountId: rows[0].account_id,
+    personCode: rows[0].person_code as string | null,
     signingKey: decrypt(rows[0].signing_key),
     defaultTemplateId: rows[0].default_template_id,
   }
