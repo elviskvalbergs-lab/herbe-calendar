@@ -9,7 +9,8 @@ function mapGoogleEvent(
   ev: any,
   personCode: string,
   sessionEmail: string,
-  extra?: { googleCalendarId?: string; googleCalendarName?: string; googleAccountEmail?: string; icsColor?: string; googleTokenId?: string }
+  extra?: { googleCalendarId?: string; googleCalendarName?: string; googleAccountEmail?: string; icsColor?: string; googleTokenId?: string },
+  personEmail?: string | null,
 ): Activity {
   const start = ev.start?.dateTime ?? ev.start?.date ?? ''
   const end = ev.end?.dateTime ?? ev.end?.date ?? ''
@@ -47,7 +48,7 @@ function mapGoogleEvent(
     date: startDate,
     timeFrom: startTime,
     timeTo: endTime,
-    isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
+    isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase() || (!!personEmail && organizerEmail.toLowerCase() === personEmail.toLowerCase()),
     isAllDay,
     attendees,
     location: ev.location ?? undefined,
@@ -112,7 +113,7 @@ export async function GET(req: NextRequest) {
           })
 
           return (res.data.items ?? []).map((ev) =>
-            mapGoogleEvent(ev, code, session.email)
+            mapGoogleEvent(ev, code, session.email, undefined, email)
           )
         } catch (e) {
           console.warn(`[google] Calendar fetch failed for ${email}:`, String(e))
