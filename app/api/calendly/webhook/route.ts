@@ -37,9 +37,11 @@ export async function POST(req: NextRequest) {
   const scheduledEvent = payload.payload?.scheduled_event
   const invitee = payload.payload?.invitee
   const eventTypeUri = payload.payload?.event_type
-  const eventUri = payload.payload?.event // unique event URI for dedup
+  // Calendly uses scheduled_event URI as the unique event identifier
+  const eventUri = scheduledEvent?.uri ?? payload.payload?.uri ?? payload.payload?.event
 
   if (!scheduledEvent || !invitee || !eventUri) {
+    console.warn('[calendly/webhook] Missing payload fields:', JSON.stringify({ hasScheduledEvent: !!scheduledEvent, hasInvitee: !!invitee, hasEventUri: !!eventUri, keys: Object.keys(payload.payload ?? {}) }))
     return NextResponse.json({ error: 'Missing payload fields' }, { status: 400 })
   }
 
