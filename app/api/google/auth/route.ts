@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     state: nonce,
   })
 
-  const response = NextResponse.redirect(authorizeUrl)
+  const response = NextResponse.redirect(authorizeUrl, { status: 302 })
   response.cookies.set(OAUTH_NONCE_COOKIE, nonce, {
     path: '/',
     maxAge: 600,
