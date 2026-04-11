@@ -572,22 +572,25 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     const icsWarnings: string[] = []
     const errors: string[] = []
 
-    // Progressive: track which sources have loaded and merge results without flicker
-    const loaded: { herbe: Activity[]; outlook: Activity[]; google: Activity[] } = { herbe: [], outlook: [], google: [] }
+    // Progressive: each source replaces only its own portion in the activities array
+    // This prevents non-ERP events from vanishing while waiting for Google/Outlook
+    const loaded: { herbe: Activity[] | null; outlook: Activity[] | null; google: Activity[] | null } = { herbe: null, outlook: null, google: null }
 
     function mergeAndSetActivities() {
-      const seenGoogleKeys = new Set<string>()
-      const uniqueGoogle = loaded.google.filter(a => {
-        const key = `${a.id}:${a.personCode}`
-        if (seenGoogleKeys.has(key)) return false
-        seenGoogleKeys.add(key)
-        return true
-      })
       setActivities(prev => {
-        const next = [...loaded.herbe, ...loaded.outlook, ...uniqueGoogle]
-        // Only update if actually changed (avoids unnecessary re-renders)
-        if (next.length === prev.length && next.every((a, i) => a.id === prev[i]?.id)) return prev
-        return next
+        // Keep previous source data for sources that haven't loaded yet
+        const h = loaded.herbe ?? prev.filter(a => a.source === 'herbe')
+        const o = loaded.outlook ?? prev.filter(a => a.source === 'outlook' || a.isExternal)
+        const g = loaded.google ?? prev.filter(a => a.source === 'google' && !a.isExternal)
+
+        const seenGoogleKeys = new Set<string>()
+        const uniqueGoogle = g.filter(a => {
+          const key = `${a.id}:${a.personCode}`
+          if (seenGoogleKeys.has(key)) return false
+          seenGoogleKeys.add(key)
+          return true
+        })
+        return [...h, ...o, ...uniqueGoogle]
       })
     }
 
@@ -667,10 +670,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
     // Final status
     const parts: string[] = []
-    if (sources.herbe) parts.push(`${loaded.herbe.length} ERP`)
-    if (sources.azure) parts.push(`${loaded.outlook.length} Outlook`)
+    if (sources.herbe) parts.push(`${(loaded.herbe ?? []).length} ERP`)
+    if (sources.azure) parts.push(`${(loaded.outlook ?? []).length} Outlook`)
     if (sources.google) {
-      const uniqueCount = new Set(loaded.google.map(a => `${a.id}:${a.personCode}`)).size
+      const uniqueCount = new Set((loaded.google ?? []).map(a => `${a.id}:${a.personCode}`)).size
       parts.push(`${uniqueCount} Google`)
     }
     let statusMsg = parts.join(' + ') + ' activities'
@@ -679,7 +682,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     setStatus({ msg: statusMsg, ok: errors.length === 0 && icsWarnings.length === 0 })
 
     // Cache the result
-    activityCacheRef.current.set(cacheKey, { data: [...loaded.herbe, ...loaded.outlook, ...loaded.google], ts: Date.now() })
+    activityCacheRef.current.set(cacheKey, { data: [...(loaded.herbe ?? []), ...(loaded.outlook ?? []), ...(loaded.google ?? [])], ts: Date.now() })
     if (activityCacheRef.current.size > 20) {
       const firstKey = activityCacheRef.current.keys().next().value
       if (firstKey) activityCacheRef.current.delete(firstKey)
