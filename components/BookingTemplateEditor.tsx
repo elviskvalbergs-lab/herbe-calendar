@@ -66,6 +66,9 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   const [googleOnlineMeeting, setGoogleOnlineMeeting] = useState(template?.targets?.google?.onlineMeeting ?? false)
   const [googleLocation, setGoogleLocation] = useState(template?.targets?.google?.location ?? '')
 
+  // Targets — Zoom
+  const [zoomEnabled, setZoomEnabled] = useState(!!template?.targets?.zoom?.enabled)
+
   // Custom fields
   const [customFields, setCustomFields] = useState<CustomField[]>(
     template?.custom_fields?.length ? template.custom_fields : []
@@ -128,6 +131,7 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
           erp: erpTargets.filter(t => t.enabled).map(t => ({ connectionId: t.connectionId, fields: t.fields })),
           outlook: outlookEnabled ? { enabled: true, onlineMeeting: outlookOnlineMeeting, location: outlookLocation || undefined } : undefined,
           google: googleEnabled ? { enabled: true, onlineMeeting: googleOnlineMeeting, location: googleLocation || undefined } : undefined,
+          zoom: zoomEnabled ? { enabled: true } : undefined,
         },
         custom_fields: customFields.filter(f => f.label.trim()),
         active: true,
@@ -335,6 +339,14 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
               </div>
             </div>
           )}
+        </div>
+
+        {/* Zoom */}
+        <div className="p-3 border border-border rounded-lg space-y-2">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" checked={zoomEnabled} onChange={e => setZoomEnabled(e.target.checked)} className="accent-primary" />
+            <span className="font-bold">Zoom meeting</span>
+          </label>
         </div>
       </div>
 
