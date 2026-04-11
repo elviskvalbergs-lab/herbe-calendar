@@ -198,6 +198,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   function canEditActivity(activity: Activity): boolean {
     if (activity.okFlag) return false
+    // Per-user Google: always editable (user owns the OAuth token)
+    if (activity.googleTokenId) return true
     // External calendar sources: only the organizer can edit
     if (activity.source === 'outlook' || activity.source === 'google') return !!activity.isOrganizer
     // ERP activities: check person assignment

@@ -69,6 +69,7 @@ export interface Activity {
   icsCalendarName?: string  // Name of the ICS calendar this event came from
   googleAccountEmail?: string  // Per-user Google: the connected account email
   googleCalendarId?: string    // Per-user Google: the specific calendar ID
+  googleCalendarName?: string  // Per-user Google: display name of the calendar
   googleTokenId?: string       // Per-user Google: token ID for CRUD routing
 }
 

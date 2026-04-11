@@ -216,6 +216,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               {activity.icsCalendarName && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
               )}
+              {activity.googleCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.googleCalendarName}{activity.googleAccountEmail ? ` (${activity.googleAccountEmail})` : ''}</p>
+              )}
               {isOutlook && !activity.icsCalendarName && (
                 <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
               )}
@@ -255,6 +258,9 @@ export default function ActivityBlock({ activity, color, height, onClick, onDrag
               )}
               {activity.icsCalendarName && (
                 <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
+              )}
+              {activity.googleCalendarName && (
+                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.googleCalendarName}{activity.googleAccountEmail ? ` (${activity.googleAccountEmail})` : ''}</p>
               )}
               {isOutlook && !activity.icsCalendarName && (
                 <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>

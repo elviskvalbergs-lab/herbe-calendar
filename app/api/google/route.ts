@@ -9,7 +9,7 @@ function mapGoogleEvent(
   ev: any,
   personCode: string,
   sessionEmail: string,
-  extra?: { googleCalendarId?: string; googleAccountEmail?: string; icsColor?: string; googleTokenId?: string }
+  extra?: { googleCalendarId?: string; googleCalendarName?: string; googleAccountEmail?: string; icsColor?: string; googleTokenId?: string }
 ): Activity {
   const start = ev.start?.dateTime ?? ev.start?.date ?? ''
   const end = ev.end?.dateTime ?? ev.end?.date ?? ''
@@ -62,6 +62,7 @@ function mapGoogleEvent(
   if (extra?.icsColor) activity.icsColor = extra.icsColor
   // Extra fields for per-user OAuth events
   if (extra?.googleCalendarId) activity.googleCalendarId = extra.googleCalendarId
+  if (extra?.googleCalendarName) activity.googleCalendarName = extra.googleCalendarName
   if (extra?.googleAccountEmail) activity.googleAccountEmail = extra.googleAccountEmail
   if (extra?.googleTokenId) activity.googleTokenId = extra.googleTokenId
 
@@ -155,6 +156,7 @@ export async function GET(req: NextRequest) {
           if (ev.status === 'cancelled') continue
           perUserEvents.push(mapGoogleEvent(ev, session.userCode, session.email, {
             googleCalendarId: cal.calendarId,
+            googleCalendarName: cal.name,
             googleAccountEmail: account.googleEmail,
             googleTokenId: account.id,
             icsColor: cal.color ?? undefined,
