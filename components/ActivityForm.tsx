@@ -840,10 +840,20 @@ export default function ActivityForm({
           <button onClick={handleClose} className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
         </div>
 
-        {/* ICS calendar source label */}
+        {/* Calendar source label */}
         {initial?.icsCalendarName && (
           <div className="px-4 py-1.5 border-b border-border bg-primary/5">
             <p className="text-[11px] text-text-muted">📂 {initial.icsCalendarName}</p>
+          </div>
+        )}
+        {initial?.googleCalendarName && (
+          <div className="px-4 py-1.5 border-b border-border bg-primary/5">
+            <p className="text-[11px] text-text-muted">📂 {initial.googleCalendarName}{initial.googleAccountEmail ? ` (${initial.googleAccountEmail})` : ''}</p>
+          </div>
+        )}
+        {isEdit && isGoogleSource && !initial?.googleCalendarName && !initial?.icsCalendarName && (
+          <div className="px-4 py-1.5 border-b border-border bg-primary/5">
+            <p className="text-[11px] text-text-muted">📂 Google Calendar</p>
           </div>
         )}
 
