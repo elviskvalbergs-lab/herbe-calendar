@@ -29,19 +29,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  // Log top-level structure for debugging
+  console.log('[calendly/webhook] event:', payload.event, 'top keys:', Object.keys(payload), 'payload keys:', Object.keys(payload.payload ?? {}))
+
   // Only handle invitee.created
   if (payload.event !== 'invitee.created') {
     return NextResponse.json({ ok: true, skipped: true })
   }
 
-  const scheduledEvent = payload.payload?.scheduled_event
-  const invitee = payload.payload?.invitee
-  const eventTypeUri = payload.payload?.event_type
-  // Calendly uses scheduled_event URI as the unique event identifier
-  const eventUri = scheduledEvent?.uri ?? payload.payload?.uri ?? payload.payload?.event
+  const inner = payload.payload ?? {}
+  // Calendly v2 webhook: payload contains the invitee data directly
+  // scheduled_event is nested inside payload
+  const scheduledEvent = inner.scheduled_event
+  // The invitee info may be at payload level (email, name) or in a nested invitee object
+  const invitee = inner.invitee ?? { email: inner.email, name: inner.name, questions_and_answers: inner.questions_and_answers }
+  const eventTypeUri = inner.event_type ?? scheduledEvent?.event_type
+  const eventUri = inner.uri ?? scheduledEvent?.uri
 
-  if (!scheduledEvent || !invitee || !eventUri) {
-    console.warn('[calendly/webhook] Missing payload fields:', JSON.stringify({ hasScheduledEvent: !!scheduledEvent, hasInvitee: !!invitee, hasEventUri: !!eventUri, keys: Object.keys(payload.payload ?? {}) }))
+  if (!scheduledEvent || !eventUri) {
+    console.warn('[calendly/webhook] Missing payload fields:', JSON.stringify({ hasScheduledEvent: !!scheduledEvent, hasEventUri: !!eventUri, innerKeys: Object.keys(inner), scheduledEventKeys: Object.keys(scheduledEvent ?? {}) }))
     return NextResponse.json({ error: 'Missing payload fields' }, { status: 400 })
   }
 
