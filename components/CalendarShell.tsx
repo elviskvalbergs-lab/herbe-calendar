@@ -22,6 +22,7 @@ interface Props { userCode: string; companyCode: string; accountId?: string }
 export default function CalendarShell({ userCode, companyCode, accountId = '' }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
+  const activityCacheRef = useRef(new Map<string, Activity[]>())
   const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean; zoom?: boolean }>({ herbe: true, azure: true })
   const [erpConnections, setErpConnections] = useState<{ id: string; name: string; companyCode?: string; serpUuid?: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
@@ -539,7 +540,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
     if (!selectedCodesKey) return
-    setLoading(true)
     const codes = selectedCodesKey
     const dateFrom = state.date
     const dateTo = state.view === '7day'
@@ -553,76 +553,27 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       ? `date=${dateFrom}`
       : `dateFrom=${dateFrom}&dateTo=${dateTo}`
 
-    setStatus({ msg: `Fetching activities for ${codes} (${dateFrom}${dateTo !== dateFrom ? ` – ${dateTo}` : ''})…` })
-    try {
-      const fetches: Promise<Response>[] = []
-      if (sources.herbe) fetches.push(fetch(`/api/activities?persons=${codes}&${dateParam}`))
-      if (sources.azure) fetches.push(fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`))
-      if (sources.google) fetches.push(fetch(`/api/google?persons=${codes}&${dateParam}`))
+    // Check cache first — show cached data instantly, then refresh in background
+    const cacheKey = `${codes}:${dateFrom}:${dateTo}`
+    const cached = activityCacheRef.current.get(cacheKey)
+    if (cached) {
+      setActivities(cached)
+      setLoading(false) // Don't show loading spinner for cached data
+      // Continue to refresh in background (don't return — let the fetches run)
+    } else {
+      setLoading(true)
+    }
 
-      const responses = await Promise.all(fetches)
-      let idx = 0
+    setStatus({ msg: 'Loading...' })
+    const icsWarnings: string[] = []
+    const errors: string[] = []
 
-      let herbe: Activity[] = []
-      let herbeErrMsg = ''
-      if (sources.herbe) {
-        const herbeRes = responses[idx++]
-        if (herbeRes.ok) {
-          herbe = await herbeRes.json()
-        } else {
-          try {
-            const e = await herbeRes.json()
-            herbeErrMsg = e.error || e.message || JSON.stringify(e)
-          } catch {
-            herbeErrMsg = `HTTP ${herbeRes.status}`
-          }
-        }
-      }
-      let outlook: Activity[] = []
-      let outlookErrMsg = ''
-      const icsWarnings: string[] = []
-      if (sources.azure) {
-        const outlookRes = responses[idx++]
-        if (outlookRes.ok) {
-          const data = await outlookRes.json()
-          // New format: { activities, warnings } or legacy flat array
-          if (Array.isArray(data)) {
-            outlook = data
-          } else {
-            outlook = data.activities ?? []
-            if (data.warnings?.length) icsWarnings.push(...data.warnings)
-          }
-        } else {
-          try {
-            const e = await outlookRes.json()
-            outlookErrMsg = String(e.error ?? JSON.stringify(e))
-          } catch {
-            outlookErrMsg = await outlookRes.text().catch(() => String(outlookRes.status))
-          }
-        }
-      }
-      let googleEvents: Activity[] = []
-      let googleErrMsg = ''
-      if (sources.google) {
-        const googleRes = responses[idx++]
-        if (googleRes.ok) {
-          const data = await googleRes.json()
-          if (Array.isArray(data)) {
-            googleEvents = data
-          } else {
-            googleEvents = data.activities ?? []
-            if (data.warnings?.length) icsWarnings.push(...data.warnings)
-          }
-        } else {
-          try {
-            const e = await googleRes.json()
-            googleErrMsg = String(e.error ?? JSON.stringify(e))
-          } catch {
-            googleErrMsg = await googleRes.text().catch(() => String(googleRes.status))
-          }
-        }
-      }
-      // Deduplicate Google events per person (same event ID + same personCode = duplicate)
+    // Progressive: accumulate activities from each source as they arrive
+    let herbe: Activity[] = []
+    let outlook: Activity[] = []
+    let googleEvents: Activity[] = []
+
+    function updateActivities() {
       const seenGoogleKeys = new Set<string>()
       const uniqueGoogle = googleEvents.filter(a => {
         const key = `${a.id}:${a.personCode}`
@@ -631,32 +582,103 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         return true
       })
       setActivities([...herbe, ...outlook, ...uniqueGoogle])
-
-      // Fetch holidays for the visible date range
-      const personCodes = state.selectedPersons.map(p => p.code).join(',')
-      if (personCodes) {
-        fetch(`/api/holidays?persons=${personCodes}&dateFrom=${dateFrom}&dateTo=${dateTo}`)
-          .then(r => r.ok ? r.json() : { dates: {}, personCountries: {} })
-          .then(data => setHolidays(data.dates ? data : { dates: data, personCountries: {} }))
-          .catch(() => setHolidays({ dates: {}, personCountries: {} }))
-      }
-
-      const parts: string[] = []
-      if (sources.herbe) parts.push(`${herbe.length} ERP${herbeErrMsg ? ` (${herbeErrMsg})` : ''}`)
-      if (sources.azure) parts.push(`${outlook.length} Outlook${outlookErrMsg ? ` (${outlookErrMsg})` : ''}`)
-      if (sources.google) parts.push(`${uniqueGoogle.length} Google${googleErrMsg ? ` (${googleErrMsg})` : ''}`)
-      let statusMsg = parts.join(' + ') + ' activities'
-      if (icsWarnings.length > 0) statusMsg += ` | ⚠ ${icsWarnings.join('; ')}`
-      setStatus({
-        msg: statusMsg,
-        ok: !herbeErrMsg && !outlookErrMsg && !googleErrMsg && icsWarnings.length === 0,
-      })
-    } catch (e) {
-      setStatus({ msg: `Fetch failed: ${e}`, ok: false })
-      console.error('Failed to fetch activities:', e)
-    } finally {
-      setLoading(false)
     }
+
+    const promises: Promise<void>[] = []
+
+    if (sources.herbe) {
+      promises.push(
+        fetch(`/api/activities?persons=${codes}&${dateParam}`)
+          .then(async (res) => {
+            if (res.ok) {
+              herbe = await res.json()
+            } else {
+              const e = await res.json().catch(() => null)
+              errors.push(`ERP: ${e?.error ?? res.status}`)
+            }
+            updateActivities()
+          })
+          .catch(e => { errors.push(`ERP: ${e}`) })
+      )
+    }
+
+    if (sources.azure) {
+      promises.push(
+        fetch(`/api/outlook?persons=${codes}&${dateParam}${bustIcsCache ? '&bustIcsCache=1' : ''}`)
+          .then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              if (Array.isArray(data)) {
+                outlook = data
+              } else {
+                outlook = data.activities ?? []
+                if (data.warnings?.length) icsWarnings.push(...data.warnings)
+              }
+            } else {
+              const e = await res.json().catch(() => null)
+              errors.push(`Outlook: ${e?.error ?? res.status}`)
+            }
+            updateActivities()
+          })
+          .catch(e => { errors.push(`Outlook: ${e}`) })
+      )
+    }
+
+    if (sources.google) {
+      promises.push(
+        fetch(`/api/google?persons=${codes}&${dateParam}`)
+          .then(async (res) => {
+            if (res.ok) {
+              const data = await res.json()
+              if (Array.isArray(data)) {
+                googleEvents = data
+              } else {
+                googleEvents = data.activities ?? []
+                if (data.warnings?.length) icsWarnings.push(...data.warnings)
+              }
+            } else {
+              const e = await res.json().catch(() => null)
+              errors.push(`Google: ${e?.error ?? res.status}`)
+            }
+            updateActivities()
+          })
+          .catch(e => { errors.push(`Google: ${e}`) })
+      )
+    }
+
+    // Fetch holidays for the visible date range (fire-and-forget alongside activity fetches)
+    const personCodes = state.selectedPersons.map(p => p.code).join(',')
+    if (personCodes) {
+      fetch(`/api/holidays?persons=${personCodes}&dateFrom=${dateFrom}&dateTo=${dateTo}`)
+        .then(r => r.ok ? r.json() : { dates: {}, personCountries: {} })
+        .then(data => setHolidays(data.dates ? data : { dates: data, personCountries: {} }))
+        .catch(() => setHolidays({ dates: {}, personCountries: {} }))
+    }
+
+    // Wait for all to finish for final status
+    await Promise.all(promises)
+
+    // Final status
+    const parts: string[] = []
+    if (sources.herbe) parts.push(`${herbe.length} ERP`)
+    if (sources.azure) parts.push(`${outlook.length} Outlook`)
+    if (sources.google) {
+      const uniqueCount = new Set(googleEvents.map(a => `${a.id}:${a.personCode}`)).size
+      parts.push(`${uniqueCount} Google`)
+    }
+    let statusMsg = parts.join(' + ') + ' activities'
+    if (errors.length > 0) statusMsg += ` | ${errors.join('; ')}`
+    if (icsWarnings.length > 0) statusMsg += ` | ⚠ ${icsWarnings.join('; ')}`
+    setStatus({ msg: statusMsg, ok: errors.length === 0 && icsWarnings.length === 0 })
+
+    // Cache the result
+    activityCacheRef.current.set(cacheKey, [...herbe, ...outlook, ...googleEvents])
+    if (activityCacheRef.current.size > 20) {
+      const firstKey = activityCacheRef.current.keys().next().value
+      if (firstKey) activityCacheRef.current.delete(firstKey)
+    }
+
+    setLoading(false)
   }, [selectedCodesKey, state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
