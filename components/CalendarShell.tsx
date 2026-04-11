@@ -22,7 +22,7 @@ interface Props { userCode: string; companyCode: string; accountId?: string }
 export default function CalendarShell({ userCode, companyCode, accountId = '' }: Props) {
   const [people, setPeople] = useState<Person[]>([])
   const peopleLoadedRef = useRef(false)
-  const activityCacheRef = useRef(new Map<string, Activity[]>())
+  const activityCacheRef = useRef(new Map<string, { data: Activity[]; ts: number }>())
   const [sources, setSources] = useState<{ herbe: boolean; azure: boolean; google?: boolean; zoom?: boolean }>({ herbe: true, azure: true })
   const [erpConnections, setErpConnections] = useState<{ id: string; name: string; companyCode?: string; serpUuid?: string }[]>([])
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
@@ -553,13 +553,17 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       ? `date=${dateFrom}`
       : `dateFrom=${dateFrom}&dateTo=${dateTo}`
 
-    // Check cache first — show cached data instantly, then refresh in background
+    // Check cache first — show cached data instantly
     const cacheKey = `${codes}:${dateFrom}:${dateTo}`
-    const cached = activityCacheRef.current.get(cacheKey)
-    if (cached) {
-      setActivities(cached)
-      setLoading(false) // Don't show loading spinner for cached data
-      // Continue to refresh in background (don't return — let the fetches run)
+    const cacheEntry = activityCacheRef.current.get(cacheKey)
+    if (cacheEntry) {
+      setActivities(cacheEntry.data)
+      setLoading(false)
+      // Skip background refresh if data is fresh (< 60 seconds old)
+      if (Date.now() - cacheEntry.ts < 60_000) {
+        setStatus({ msg: `${cacheEntry.data.length} activities (cached)`, ok: true })
+        return
+      }
     } else {
       setLoading(true)
     }
@@ -675,7 +679,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     setStatus({ msg: statusMsg, ok: errors.length === 0 && icsWarnings.length === 0 })
 
     // Cache the result
-    activityCacheRef.current.set(cacheKey, [...loaded.herbe, ...loaded.outlook, ...loaded.google])
+    activityCacheRef.current.set(cacheKey, { data: [...loaded.herbe, ...loaded.outlook, ...loaded.google], ts: Date.now() })
     if (activityCacheRef.current.size > 20) {
       const firstKey = activityCacheRef.current.keys().next().value
       if (firstKey) activityCacheRef.current.delete(firstKey)
@@ -700,7 +704,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         sources.azure ? fetch(`/api/outlook?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
         sources.google ? fetch(`/api/google?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
       ]).then(([h, o, g]) => {
-        activityCacheRef.current.set(pfKey, [...h, ...o, ...g])
+        activityCacheRef.current.set(pfKey, { data: [...h, ...o, ...g], ts: Date.now() })
       }).catch(() => {})
     }
   }, [selectedCodesKey, state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
