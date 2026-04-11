@@ -16,7 +16,10 @@ async function resolveConnection(url: string, accountId: string): Promise<ErpCon
 async function fetchActivity(id: string, conn?: ErpConnection) {
   const res = await herbeFetchById(REGISTERS.activities, id, undefined, conn)
   if (!res.ok) return null
-  const json = await res.json()
+  // ERP may return control characters in text fields — sanitize before parsing
+  const text = await res.text()
+  const sanitized = text.replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : ' ')
+  const json = JSON.parse(sanitized)
   // Handle both wrapped { data: { ActVc: [...] } } and direct record responses
   return (json?.data?.[REGISTERS.activities]?.[0] ?? json) as Record<string, unknown>
 }
