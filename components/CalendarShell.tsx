@@ -62,7 +62,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     return { view: 'day', date: format(new Date(), 'yyyy-MM-dd'), selectedPersons: [] }
   })
   const [activities, setActivities] = useState<Activity[]>([])
-  const [holidays, setHolidays] = useState<Record<string, { name: string; country: string }[]>>({})
+  const [holidays, setHolidays] = useState<{ dates: Record<string, { name: string; country: string }[]>; personCountries: Record<string, string> }>({ dates: {}, personCountries: {} })
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ msg: string; ok?: boolean } | null>(null)
   const [allCustomers, setAllCustomers] = useState<{ Code: string; Name: string }[]>([])
@@ -636,9 +636,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       const personCodes = state.selectedPersons.map(p => p.code).join(',')
       if (personCodes) {
         fetch(`/api/holidays?persons=${personCodes}&dateFrom=${dateFrom}&dateTo=${dateTo}`)
-          .then(r => r.ok ? r.json() : {})
-          .then(setHolidays)
-          .catch(() => setHolidays({}))
+          .then(r => r.ok ? r.json() : { dates: {}, personCountries: {} })
+          .then(data => setHolidays(data.dates ? data : { dates: data, personCountries: {} }))
+          .catch(() => setHolidays({ dates: {}, personCountries: {} }))
       }
 
       const parts: string[] = []

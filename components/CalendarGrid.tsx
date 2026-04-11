@@ -26,7 +26,7 @@ interface Props {
   onDrillDate?: (date: string) => void
   onDrillPerson?: (personCode: string) => void
   visibility?: ShareVisibility
-  holidays?: Record<string, { name: string; country: string }[]>
+  holidays?: { dates: Record<string, { name: string; country: string }[]>; personCountries: Record<string, string> }
 }
 
 export default function CalendarGrid({
@@ -246,10 +246,10 @@ export default function CalendarGrid({
             >
               <div className="sticky top-0 z-20 bg-surface">
                 {isMultiDay && (() => {
-                    const dateHolidays = holidays?.[date]
+                    const dateHolidays = holidays?.dates?.[date]
                     const isHoliday = dateHolidays && dateHolidays.length > 0
                     return (
-                      <div className={`${isHoliday ? 'h-10' : 'h-6'} flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative${isHoliday ? ' bg-red-500/10' : ''}`}>
+                      <div className={`${isHoliday ? 'h-10' : 'h-6'} flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative`}>
                         {visibility ? (
                           <span className="text-text-muted">{format(parseISO(date), 'EEE dd/MM')}</span>
                         ) : (
@@ -280,7 +280,7 @@ export default function CalendarGrid({
                     )
                   })()}
                 {!isMultiDay && (() => {
-                    const dateHolidays = holidays?.[date]
+                    const dateHolidays = holidays?.dates?.[date]
                     if (!dateHolidays || dateHolidays.length === 0) return null
                     return (
                       <div
@@ -347,6 +347,11 @@ export default function CalendarGrid({
                       visibility={visibility}
                       startHour={effectiveStartHour}
                       endHour={effectiveEndHour}
+                      isHoliday={(() => {
+                        const cc = holidays?.personCountries?.[person.code]
+                        if (!cc) return false
+                        return holidays?.dates?.[date]?.some(h => h.country === cc) ?? false
+                      })()}
                     />
                   )
                 })}

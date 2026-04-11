@@ -37,6 +37,7 @@ interface Props {
   visibility?: ShareVisibility
   startHour?: number
   endHour?: number
+  isHoliday?: boolean
 }
 
 interface DragState {
@@ -225,7 +226,7 @@ export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
   mobileSelectedId = null, onMobileSelect, visibility,
-  startHour, endHour
+  startHour, endHour, isHoliday = false
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -360,7 +361,7 @@ export default function PersonColumn({
   const outlookLaned = buildLanedActivities(hasBoth ? outlookActivities : [])
 
   return (
-    <div ref={columnRef} className="flex-1 border-r border-border relative last:border-r-0" style={{ minWidth: `${colMinVw}vw` }}>
+    <div ref={columnRef} className={`flex-1 border-r border-border relative last:border-r-0${isHoliday ? ' bg-red-500/5' : ''}`} style={{ minWidth: `${colMinVw}vw` }}>
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">

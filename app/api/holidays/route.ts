@@ -21,14 +21,18 @@ export async function GET(req: NextRequest) {
   const countryMap = await getPersonsHolidayCountries(personCodes, session.accountId)
   const countryCodes = [...new Set(countryMap.values())]
 
-  if (countryCodes.length === 0) return NextResponse.json({})
+  if (countryCodes.length === 0) return NextResponse.json({ dates: {}, personCountries: {} })
 
   const holidays = await getHolidaysForRange(countryCodes, dateFrom, dateTo)
 
-  const result: Record<string, { name: string; country: string }[]> = {}
+  const dates: Record<string, { name: string; country: string }[]> = {}
   for (const [date, hols] of holidays) {
-    result[date] = hols.map(h => ({ name: h.name, country: h.country }))
+    dates[date] = hols.map(h => ({ name: h.name, country: h.country }))
   }
 
-  return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
+  // Include person→country mapping so frontend can apply per-person
+  const personCountries: Record<string, string> = {}
+  for (const [code, cc] of countryMap) personCountries[code] = cc
+
+  return NextResponse.json({ dates, personCountries }, { headers: { 'Cache-Control': 'no-store' } })
 }
