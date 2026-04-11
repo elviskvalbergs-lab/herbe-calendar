@@ -43,7 +43,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const isPerUser = !!req.nextUrl.searchParams.get('googleTokenId')
     if (!isPerUser) {
       const existing = await calendar.events.get({ calendarId, eventId: id })
-      if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
+      const organizerEmail = existing.data.organizer?.email?.toLowerCase() ?? ''
+      // Login email may differ from Workspace email — also check resolved person email
+      const { emailForCode } = await import('@/lib/emailForCode')
+      const personEmail = session.userCode ? await emailForCode(session.userCode, session.accountId) : null
+      const isOwner = organizerEmail === session.email.toLowerCase() || (personEmail && organizerEmail === personEmail.toLowerCase())
+      if (!isOwner) {
         return forbidden()
       }
     }
@@ -99,7 +104,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const isPerUser = !!req.nextUrl.searchParams.get('googleTokenId')
     if (!isPerUser) {
       const existing = await calendar.events.get({ calendarId, eventId: id })
-      if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
+      const organizerEmail = existing.data.organizer?.email?.toLowerCase() ?? ''
+      const { emailForCode } = await import('@/lib/emailForCode')
+      const personEmail = session.userCode ? await emailForCode(session.userCode, session.accountId) : null
+      const isOwner = organizerEmail === session.email.toLowerCase() || (personEmail && organizerEmail === personEmail.toLowerCase())
+      if (!isOwner) {
         return forbidden()
       }
     }
