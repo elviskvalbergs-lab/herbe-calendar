@@ -100,7 +100,7 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
     for (const erpTarget of targets.erp) {
       const conn = allConns.find(c => c.id === erpTarget.connectionId)
       if (!conn) {
-        console.warn(`[book] ERP connection ${erpTarget.connectionId} not found, skipping`)
+        console.error(`[book] ERP connection ${erpTarget.connectionId} not found, skipping`)
         continue
       }
 
@@ -205,7 +205,9 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
     try {
       const googleConfig = await getGoogleConfig(accountId)
       if (googleConfig) {
-        const calendar = getCalendarClient(googleConfig, ownerEmail)
+        // Use the first participant's email for domain-wide delegation (not login email which may differ)
+      const calendarUserEmail = participantEmails[0] ?? ownerEmail
+      const calendar = getCalendarClient(googleConfig, calendarUserEmail)
         const allEmails = [...participantEmails, bookerEmail]
 
         const requestBody: Record<string, unknown> = {
@@ -229,7 +231,7 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
         createdGoogleId = res.data.id ?? null
       }
     } catch (e) {
-      console.warn('[book] Google event create error:', String(e))
+      console.error('[book] Google event create error:', String(e))
     }
   }
 
