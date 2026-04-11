@@ -40,6 +40,7 @@ export default function MonthNavigator({
     currentDate.slice(0, 7)
   )
   const [summary, setSummary] = useState<Record<string, DaySummary>>({})
+  const [holidays, setHolidays] = useState<Record<string, { name: string; country: string }[]>>({})
   const [loading, setLoading] = useState(false)
   const touchStart = useRef<{ x: number } | null>(null)
 
@@ -56,7 +57,15 @@ export default function MonthNavigator({
     setLoading(true)
     fetch(`/api/activities/summary?persons=${persons.join(',')}&month=${displayMonth}`)
       .then(r => (r.ok ? r.json() : {}))
-      .then((data: Record<string, DaySummary>) => setSummary(data))
+      .then((data: any) => {
+        if (data.summary) {
+          setSummary(data.summary)
+          setHolidays(data.holidays ?? {})
+        } else {
+          // Backward compat
+          setSummary(data)
+        }
+      })
       .catch(() => setSummary({}))
       .finally(() => setLoading(false))
   }, [open, displayMonth, persons.join(',')])  // eslint-disable-line react-hooks/exhaustive-deps

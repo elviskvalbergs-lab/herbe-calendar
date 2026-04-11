@@ -11,7 +11,8 @@ import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { format, endOfMonth, parseISO } from 'date-fns'
 
 type DaySummary = { sources: string[]; count: number }
-const cache = new Map<string, { data: Record<string, DaySummary>; ts: number }>()
+type SummaryResponse = { summary: Record<string, DaySummary>; holidays: Record<string, { name: string; country: string }[]> }
+const cache = new Map<string, { data: SummaryResponse; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
 export async function GET(req: NextRequest) {
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest) {
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
     return NextResponse.json(cached.data, { headers: { 'Cache-Control': 'no-store' } })
   }
+
+
 
   const dateFrom = `${month}-01`
   const dateTo = format(endOfMonth(parseISO(dateFrom)), 'yyyy-MM-dd')
@@ -149,6 +152,21 @@ export async function GET(req: NextRequest) {
     serialized[date] = { sources: [...entry.sources], count: entry.count }
   }
 
-  cache.set(cacheKey, { data: serialized, ts: Date.now() })
-  return NextResponse.json(serialized, { headers: { 'Cache-Control': 'no-store' } })
+  // Fetch holidays
+  let holidayDates: Record<string, { name: string; country: string }[]> = {}
+  try {
+    const { getPersonsHolidayCountries, getHolidaysForRange } = await import('@/lib/holidays')
+    const countryMap = await getPersonsHolidayCountries(personList, session.accountId)
+    const countryCodes = [...new Set(countryMap.values())]
+    if (countryCodes.length > 0) {
+      const holidays = await getHolidaysForRange(countryCodes, dateFrom, dateTo)
+      for (const [date, hols] of holidays) {
+        holidayDates[date] = hols.map(h => ({ name: h.name, country: h.country }))
+      }
+    }
+  } catch { /* non-fatal */ }
+
+  const responseData: SummaryResponse = { summary: serialized, holidays: holidayDates }
+  cache.set(cacheKey, { data: responseData, ts: Date.now() })
+  return NextResponse.json(responseData, { headers: { 'Cache-Control': 'no-store' } })
 }
