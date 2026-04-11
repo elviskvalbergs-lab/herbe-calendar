@@ -164,275 +164,6 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
         </div>
       )}
 
-      {/* Azure AD */}
-      <section className="bg-surface border border-border rounded-xl overflow-hidden">
-        <button onClick={() => toggleSection('azure')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Azure AD / Microsoft 365
-            {azure && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('azure') ? '▼' : '▶'}</span>
-        </button>
-        {isSectionOpen('azure') && <div className="p-4 border-t border-border space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Tenant ID</label>
-            <input value={azureTenantId} onChange={e => setAzureTenantId(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client ID</label>
-            <input value={azureClientId} onChange={e => setAzureClientId(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client Secret {azure && <span className="text-text-muted">(leave blank to keep current)</span>}</label>
-            <input type="password" value={azureClientSecret} onChange={e => setAzureClientSecret(e.target.value)} autoComplete="new-password"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Enter client secret..." />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Email</label>
-            <input value={azureSenderEmail} onChange={e => setAzureSenderEmail(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="calendar@company.com" />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={saveAzure} disabled={saving}
-            className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">
-            Save Azure Config
-          </button>
-          <button onClick={testAzure} disabled={saving}
-            className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">
-            Test Connection
-          </button>
-        </div>
-        </div>}
-      </section>
-
-      {/* SMTP Email */}
-      <section className="bg-surface border border-border rounded-xl overflow-hidden">
-        <button onClick={() => toggleSection('smtp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            SMTP Email (for login magic links)
-            {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('smtp') ? '▼' : '▶'}</span>
-        </button>
-        {isSectionOpen('smtp') && <div className="p-4 border-t border-border space-y-3">
-        <p className="text-[10px] text-text-muted">Used when Azure AD is not configured. Sends magic link emails via SMTP.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">SMTP Host</label>
-            <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="smtp.gmail.com" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Port</label>
-            <input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="587" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Username</label>
-            <input value={smtpUsername} onChange={e => setSmtpUsername(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="user@company.com" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Password {initialSmtp && <span className="text-text-muted">(blank to keep)</span>}</label>
-            <input type="password" value={smtpPassword} onChange={e => setSmtpPassword(e.target.value)} autoComplete="new-password"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Email</label>
-            <input value={smtpSenderEmail} onChange={e => setSmtpSenderEmail(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="calendar@company.com" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Name</label>
-            <input value={smtpSenderName} onChange={e => setSmtpSenderName(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Herbe Calendar" />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={async () => {
-            setSaving(true); setMessage(null)
-            try {
-              const res = await fetch('/api/admin/config', {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'smtp', host: smtpHost.trim(), port: parseInt(smtpPort) || 587, username: smtpUsername.trim(), password: smtpPassword || undefined, senderEmail: smtpSenderEmail.trim(), senderName: smtpSenderName.trim(), useTls: true }),
-              })
-              setMessage(res.ok ? 'SMTP config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
-              if (res.ok) setSmtpPassword('')
-            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
-          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save SMTP</button>
-          <button onClick={async () => {
-            setSaving(true); setMessage(null)
-            try {
-              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-smtp' }) })
-              const data = await res.json()
-              setMessage(data.ok ? `SMTP OK: ${data.message}` : `SMTP test failed: ${data.error}`)
-            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
-          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test SMTP</button>
-        </div>
-        </div>}
-      </section>
-
-      {/* Google Workspace */}
-      <section className="bg-surface border border-border rounded-xl overflow-hidden">
-        <button onClick={() => toggleSection('google')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Google Workspace
-            {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('google') ? '▼' : '▶'}</span>
-        </button>
-        {isSectionOpen('google') && <div className="p-4 border-t border-border space-y-3">
-        <p className="text-[10px] text-text-muted">Enables Google Calendar integration with Meet. Requires a service account with domain-wide delegation.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="sm:col-span-2">
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Service Account Email</label>
-            <input value={googleServiceEmail} onChange={e => setGoogleServiceEmail(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="calendar@project.iam.gserviceaccount.com" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Service Account Private Key (JSON) {initialGoogle && <span className="text-text-muted">(blank to keep)</span>}</label>
-            <textarea value={googleServiceKey} onChange={e => setGoogleServiceKey(e.target.value)}
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono h-20 resize-none" placeholder='Paste the "private_key" value from the JSON key file' />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Admin Email (for delegation)</label>
-            <input value={googleAdminEmail} onChange={e => setGoogleAdminEmail(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="admin@company.com" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Workspace Domain</label>
-            <input value={googleDomain} onChange={e => setGoogleDomain(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="company.com" />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={async () => {
-            setSaving(true); setMessage(null)
-            try {
-              const res = await fetch('/api/admin/config', {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'google', serviceAccountEmail: googleServiceEmail.trim(), serviceAccountKey: googleServiceKey || undefined, adminEmail: googleAdminEmail.trim(), domain: googleDomain.trim() }),
-              })
-              setMessage(res.ok ? 'Google config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
-              if (res.ok) setGoogleServiceKey('')
-            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
-          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save Google Config</button>
-          <button onClick={async () => {
-            setSaving(true); setMessage(null)
-            try {
-              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-google' }) })
-              const data = await res.json()
-              setMessage(data.ok ? `Google OK (${data.userCount} users found)` : `Google test failed: ${data.error}`)
-            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
-          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
-        </div>
-        </div>}
-      </section>
-
-      {/* Zoom */}
-      <section className="bg-surface border border-border rounded-xl overflow-hidden">
-        <button onClick={() => toggleSection('zoom')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Zoom
-            {initialZoom && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('zoom') ? '▼' : '▶'}</span>
-        </button>
-        {isSectionOpen('zoom') && <div className="p-4 border-t border-border space-y-3">
-        {zoomStatus && (
-          <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${zoomStatus.includes('fail') || zoomStatus.includes('Failed') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
-            {zoomStatus}
-          </div>
-        )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Account ID</label>
-            <input value={zoomAccountId} onChange={e => setZoomAccountId(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
-          </div>
-          <div>
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client ID</label>
-            <input value={zoomClientId} onChange={e => setZoomClientId(e.target.value)} autoComplete="off"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client Secret {initialZoom && <span className="text-text-muted">(leave blank to keep current)</span>}</label>
-            <input type="password" value={zoomClientSecret} onChange={e => setZoomClientSecret(e.target.value)} autoComplete="new-password"
-              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Enter client secret..." />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={async () => {
-            setSaving(true); setZoomStatus('')
-            try {
-              const res = await fetch('/api/admin/config', {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'zoom', zoomAccountId: zoomAccountId.trim(), clientId: zoomClientId.trim(), ...(zoomClientSecret ? { clientSecret: zoomClientSecret } : {}) }),
-              })
-              setZoomStatus(res.ok ? 'Zoom config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
-              if (res.ok) setZoomClientSecret('')
-            } catch (e) { setZoomStatus(`Failed: ${e}`) } finally { setSaving(false) }
-          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save Zoom Config</button>
-          <button onClick={async () => {
-            setSaving(true); setZoomStatus('')
-            try {
-              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-zoom' }) })
-              const data = await res.json()
-              setZoomStatus(data.ok ? `Zoom OK (connected as ${data.email ?? 'unknown'})` : `Zoom test failed: ${data.error}`)
-            } catch (e) { setZoomStatus(`Failed: ${e}`) } finally { setSaving(false) }
-          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
-        </div>
-        </div>}
-      </section>
-
-      {/* Public Holidays */}
-      <section className="bg-surface border border-border rounded-xl overflow-hidden">
-        <button onClick={() => toggleSection('holidays')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
-          <span className="text-sm font-bold flex items-center gap-2">
-            Public Holidays
-            {holidayCountry && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">{holidayCountry}</span>}
-          </span>
-          <span className="text-text-muted text-xs">{isSectionOpen('holidays') ? '▼' : '▶'}</span>
-        </button>
-        {isSectionOpen('holidays') && (
-          <div className="p-4 border-t border-border space-y-3">
-            {holidayStatus && (
-              <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${holidayStatus.includes('Error') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
-                {holidayStatus}
-              </div>
-            )}
-            <div>
-              <label className="text-[10px] text-text-muted uppercase block mb-0.5">Default Holiday Country</label>
-              <select
-                value={holidayCountryValue}
-                onChange={e => setHolidayCountryValue(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="">Disabled</option>
-                {holidayCountries.map(c => (
-                  <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
-                ))}
-              </select>
-            </div>
-            <button onClick={async () => {
-              setHolidayStatus('Saving...')
-              const res = await fetch('/api/admin/config', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'holidays', holidayCountry: holidayCountryValue || null }),
-              })
-              setHolidayStatus(res.ok ? 'Saved!' : 'Error')
-            }} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold">
-              Save Holiday Config
-            </button>
-          </div>
-        )}
-      </section>
-
       {/* ERP Connections */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('erp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
@@ -717,6 +448,275 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
             ))}
           </div>
         )}
+        </div>}
+      </section>
+
+      {/* SMTP Email */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('smtp')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            SMTP Email (for login magic links)
+            {initialSmtp && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('smtp') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('smtp') && <div className="p-4 border-t border-border space-y-3">
+        <p className="text-[10px] text-text-muted">Used when Azure AD is not configured. Sends magic link emails via SMTP.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">SMTP Host</label>
+            <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="smtp.gmail.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Port</label>
+            <input value={smtpPort} onChange={e => setSmtpPort(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="587" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Username</label>
+            <input value={smtpUsername} onChange={e => setSmtpUsername(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="user@company.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Password {initialSmtp && <span className="text-text-muted">(blank to keep)</span>}</label>
+            <input type="password" value={smtpPassword} onChange={e => setSmtpPassword(e.target.value)} autoComplete="new-password"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Email</label>
+            <input value={smtpSenderEmail} onChange={e => setSmtpSenderEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="calendar@company.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Name</label>
+            <input value={smtpSenderName} onChange={e => setSmtpSenderName(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Herbe Calendar" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'smtp', host: smtpHost.trim(), port: parseInt(smtpPort) || 587, username: smtpUsername.trim(), password: smtpPassword || undefined, senderEmail: smtpSenderEmail.trim(), senderName: smtpSenderName.trim(), useTls: true }),
+              })
+              setMessage(res.ok ? 'SMTP config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
+              if (res.ok) setSmtpPassword('')
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save SMTP</button>
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-smtp' }) })
+              const data = await res.json()
+              setMessage(data.ok ? `SMTP OK: ${data.message}` : `SMTP test failed: ${data.error}`)
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test SMTP</button>
+        </div>
+        </div>}
+      </section>
+
+      {/* Azure AD */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('azure')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Azure AD / Microsoft 365
+            {azure && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('azure') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('azure') && <div className="p-4 border-t border-border space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Tenant ID</label>
+            <input value={azureTenantId} onChange={e => setAzureTenantId(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client ID</label>
+            <input value={azureClientId} onChange={e => setAzureClientId(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client Secret {azure && <span className="text-text-muted">(leave blank to keep current)</span>}</label>
+            <input type="password" value={azureClientSecret} onChange={e => setAzureClientSecret(e.target.value)} autoComplete="new-password"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Enter client secret..." />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Sender Email</label>
+            <input value={azureSenderEmail} onChange={e => setAzureSenderEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="calendar@company.com" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={saveAzure} disabled={saving}
+            className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">
+            Save Azure Config
+          </button>
+          <button onClick={testAzure} disabled={saving}
+            className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">
+            Test Connection
+          </button>
+        </div>
+        </div>}
+      </section>
+
+      {/* Google Workspace */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('google')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Google Workspace
+            {initialGoogle && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('google') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('google') && <div className="p-4 border-t border-border space-y-3">
+        <p className="text-[10px] text-text-muted">Enables Google Calendar integration with Meet. Requires a service account with domain-wide delegation.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Service Account Email</label>
+            <input value={googleServiceEmail} onChange={e => setGoogleServiceEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="calendar@project.iam.gserviceaccount.com" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Service Account Private Key (JSON) {initialGoogle && <span className="text-text-muted">(blank to keep)</span>}</label>
+            <textarea value={googleServiceKey} onChange={e => setGoogleServiceKey(e.target.value)}
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono h-20 resize-none" placeholder='Paste the "private_key" value from the JSON key file' />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Admin Email (for delegation)</label>
+            <input value={googleAdminEmail} onChange={e => setGoogleAdminEmail(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="admin@company.com" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Workspace Domain</label>
+            <input value={googleDomain} onChange={e => setGoogleDomain(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="company.com" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'google', serviceAccountEmail: googleServiceEmail.trim(), serviceAccountKey: googleServiceKey || undefined, adminEmail: googleAdminEmail.trim(), domain: googleDomain.trim() }),
+              })
+              setMessage(res.ok ? 'Google config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
+              if (res.ok) setGoogleServiceKey('')
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save Google Config</button>
+          <button onClick={async () => {
+            setSaving(true); setMessage(null)
+            try {
+              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-google' }) })
+              const data = await res.json()
+              setMessage(data.ok ? `Google OK (${data.userCount} users found)` : `Google test failed: ${data.error}`)
+            } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
+        </div>
+        </div>}
+      </section>
+
+      {/* Public Holidays */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('holidays')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Public Holidays
+            {holidayCountry && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">{holidayCountry}</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('holidays') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('holidays') && (
+          <div className="p-4 border-t border-border space-y-3">
+            {holidayStatus && (
+              <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${holidayStatus.includes('Error') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+                {holidayStatus}
+              </div>
+            )}
+            <div>
+              <label className="text-[10px] text-text-muted uppercase block mb-0.5">Default Holiday Country</label>
+              <select
+                value={holidayCountryValue}
+                onChange={e => setHolidayCountryValue(e.target.value)}
+                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">Disabled</option>
+                {holidayCountries.map(c => (
+                  <option key={c.code} value={c.code}>{c.name} ({c.code})</option>
+                ))}
+              </select>
+            </div>
+            <button onClick={async () => {
+              setHolidayStatus('Saving...')
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'holidays', holidayCountry: holidayCountryValue || null }),
+              })
+              setHolidayStatus(res.ok ? 'Saved!' : 'Error')
+            }} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold">
+              Save Holiday Config
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Zoom */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('zoom')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Zoom
+            {initialZoom && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('zoom') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('zoom') && <div className="p-4 border-t border-border space-y-3">
+        {zoomStatus && (
+          <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${zoomStatus.includes('fail') || zoomStatus.includes('Failed') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+            {zoomStatus}
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Account ID</label>
+            <input value={zoomAccountId} onChange={e => setZoomAccountId(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client ID</label>
+            <input value={zoomClientId} onChange={e => setZoomClientId(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client Secret {initialZoom && <span className="text-text-muted">(leave blank to keep current)</span>}</label>
+            <input type="password" value={zoomClientSecret} onChange={e => setZoomClientSecret(e.target.value)} autoComplete="new-password"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Enter client secret..." />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            setSaving(true); setZoomStatus('')
+            try {
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'zoom', zoomAccountId: zoomAccountId.trim(), clientId: zoomClientId.trim(), ...(zoomClientSecret ? { clientSecret: zoomClientSecret } : {}) }),
+              })
+              setZoomStatus(res.ok ? 'Zoom config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
+              if (res.ok) setZoomClientSecret('')
+            } catch (e) { setZoomStatus(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save Zoom Config</button>
+          <button onClick={async () => {
+            setSaving(true); setZoomStatus('')
+            try {
+              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-zoom' }) })
+              const data = await res.json()
+              setZoomStatus(data.ok ? `Zoom OK (connected as ${data.email ?? 'unknown'})` : `Zoom test failed: ${data.error}`)
+            } catch (e) { setZoomStatus(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
+        </div>
         </div>}
       </section>
 
