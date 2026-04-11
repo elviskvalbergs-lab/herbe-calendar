@@ -110,14 +110,32 @@ export async function POST(req: NextRequest) {
   }
   fieldValues['_calendly_description'] = descParts.join('\n')
 
-  // Load person codes from the user's share link favorites or template
-  // Since Calendly bookings don't go through a share link, we need person codes.
-  // Get them from the template's ERP targets or the user's own person code.
-  const { rows: personRows } = await pool.query(
-    'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) AND account_id = $2',
+  // Resolve person code for the connection owner.
+  // Try direct email match first, then try matching any person code in the account
+  // whose email domain matches, or fall back to the first person code for this account.
+  let personCodes: string[] = []
+  const { rows: directMatch } = await pool.query(
+    'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) AND account_id = $2 LIMIT 1',
     [connection.userEmail, connection.accountId]
   )
-  const personCodes = personRows.length > 0 ? [personRows[0].generated_code] : []
+  if (directMatch.length > 0) {
+    personCodes = [directMatch[0].generated_code]
+  } else {
+    // Login email may differ from person_codes email — try matching by name prefix
+    const loginPrefix = connection.userEmail.split('@')[0].toLowerCase()
+    const { rows: fuzzyMatch } = await pool.query(
+      `SELECT generated_code FROM person_codes
+       WHERE account_id = $1 AND LOWER(email) LIKE $2 || '%'
+       LIMIT 1`,
+      [connection.accountId, loginPrefix]
+    )
+    if (fuzzyMatch.length > 0) {
+      personCodes = [fuzzyMatch[0].generated_code]
+    }
+  }
+  if (personCodes.length === 0) {
+    console.warn(`[calendly/webhook] No person code found for ${connection.userEmail} in account ${connection.accountId}`)
+  }
 
   try {
     await executeBooking({
