@@ -56,6 +56,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    if (body.type === 'zoom') {
+      const { saveZoomConfig, getZoomConfig } = await import('@/lib/zoom/client')
+      let secretToSave = body.clientSecret
+      if (!secretToSave) {
+        // Keep existing secret if not provided
+        const existing = await getZoomConfig(session.accountId)
+        secretToSave = existing?.clientSecret ?? ''
+      }
+      await saveZoomConfig(session.accountId, body.zoomAccountId ?? '', body.clientId ?? '', secretToSave)
+      return NextResponse.json({ ok: true })
+    }
+
     if (body.type === 'google') {
       const encKey = body.serviceAccountKey ? encrypt(body.serviceAccountKey) : null
       let keyToStore = encKey
@@ -118,6 +130,14 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         return NextResponse.json({ ok: false, error: String(e) })
       }
+    }
+
+    if (body.action === 'test-zoom') {
+      const { getZoomConfig, testZoomConnection } = await import('@/lib/zoom/client')
+      const config = await getZoomConfig(session.accountId)
+      if (!config) return NextResponse.json({ ok: false, error: 'Zoom not configured' })
+      const result = await testZoomConnection(config)
+      return NextResponse.json(result)
     }
 
     if (body.action === 'test-google') {

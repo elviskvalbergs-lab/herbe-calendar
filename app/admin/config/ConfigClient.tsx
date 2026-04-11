@@ -35,7 +35,12 @@ interface GoogleConfig {
   domain: string
 }
 
-export default function ConfigClient({ azure, erpConnections: initialErp, smtp: initialSmtp, google: initialGoogle }: { azure: AzureConfig | null; erpConnections: ErpConnection[]; smtp: SmtpConfig | null; google: GoogleConfig | null }) {
+interface ZoomConfigProp {
+  zoomAccountId: string
+  clientId: string
+}
+
+export default function ConfigClient({ azure, erpConnections: initialErp, smtp: initialSmtp, google: initialGoogle, zoom: initialZoom }: { azure: AzureConfig | null; erpConnections: ErpConnection[]; smtp: SmtpConfig | null; google: GoogleConfig | null; zoom?: ZoomConfigProp | null }) {
   const [erpConnections, setErpConnections] = useState(initialErp)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(() => {
@@ -85,6 +90,12 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
   const [googleServiceKey, setGoogleServiceKey] = useState('')
   const [googleAdminEmail, setGoogleAdminEmail] = useState(initialGoogle?.admin_email ?? '')
   const [googleDomain, setGoogleDomain] = useState(initialGoogle?.domain ?? '')
+
+  // Zoom config form
+  const [zoomAccountId, setZoomAccountId] = useState(initialZoom?.zoomAccountId ?? '')
+  const [zoomClientId, setZoomClientId] = useState(initialZoom?.clientId ?? '')
+  const [zoomClientSecret, setZoomClientSecret] = useState('')
+  const [zoomStatus, setZoomStatus] = useState('')
 
   async function saveAzure() {
     setSaving(true)
@@ -305,6 +316,62 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
               const data = await res.json()
               setMessage(data.ok ? `Google OK (${data.userCount} users found)` : `Google test failed: ${data.error}`)
             } catch (e) { setMessage(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
+        </div>
+        </div>}
+      </section>
+
+      {/* Zoom */}
+      <section className="bg-surface border border-border rounded-xl overflow-hidden">
+        <button onClick={() => toggleSection('zoom')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
+          <span className="text-sm font-bold flex items-center gap-2">
+            Zoom
+            {initialZoom && <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-green-500/10 text-green-500">configured</span>}
+          </span>
+          <span className="text-text-muted text-xs">{isSectionOpen('zoom') ? '▼' : '▶'}</span>
+        </button>
+        {isSectionOpen('zoom') && <div className="p-4 border-t border-border space-y-3">
+        {zoomStatus && (
+          <div className={`px-3 py-1.5 rounded-lg text-xs font-bold ${zoomStatus.includes('fail') || zoomStatus.includes('Failed') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+            {zoomStatus}
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Account ID</label>
+            <input value={zoomAccountId} onChange={e => setZoomAccountId(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
+          </div>
+          <div>
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client ID</label>
+            <input value={zoomClientId} onChange={e => setZoomClientId(e.target.value)} autoComplete="off"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm font-mono" placeholder="xxxxxxxxxxxxxxxx" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-[10px] text-text-muted uppercase block mb-0.5">Client Secret {initialZoom && <span className="text-text-muted">(leave blank to keep current)</span>}</label>
+            <input type="password" value={zoomClientSecret} onChange={e => setZoomClientSecret(e.target.value)} autoComplete="new-password"
+              className="w-full bg-bg border border-border rounded-lg px-3 py-1.5 text-sm" placeholder="Enter client secret..." />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            setSaving(true); setZoomStatus('')
+            try {
+              const res = await fetch('/api/admin/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'zoom', zoomAccountId: zoomAccountId.trim(), clientId: zoomClientId.trim(), ...(zoomClientSecret ? { clientSecret: zoomClientSecret } : {}) }),
+              })
+              setZoomStatus(res.ok ? 'Zoom config saved' : `Failed: ${(await res.json().catch(() => ({}))).error || res.status}`)
+              if (res.ok) setZoomClientSecret('')
+            } catch (e) { setZoomStatus(`Failed: ${e}`) } finally { setSaving(false) }
+          }} disabled={saving} className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-50">Save Zoom Config</button>
+          <button onClick={async () => {
+            setSaving(true); setZoomStatus('')
+            try {
+              const res = await fetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-zoom' }) })
+              const data = await res.json()
+              setZoomStatus(data.ok ? `Zoom OK (connected as ${data.email ?? 'unknown'})` : `Zoom test failed: ${data.error}`)
+            } catch (e) { setZoomStatus(`Failed: ${e}`) } finally { setSaving(false) }
           }} disabled={saving} className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">Test Connection</button>
         </div>
         </div>}

@@ -37,6 +37,15 @@ export default async function ConfigPage() {
     [session.accountId]
   ).catch(() => ({ rows: [] }))
 
+  const { rows: zoomRows } = await pool.query(
+    'SELECT zoom_account_id, client_id, client_secret FROM account_zoom_config WHERE account_id = $1',
+    [session.accountId]
+  ).catch(() => ({ rows: [] }))
+
+  const zoomConfig = zoomRows[0]
+    ? { zoomAccountId: zoomRows[0].zoom_account_id as string, clientId: zoomRows[0].client_id as string }
+    : null
+
   return (
     <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
       <h1 className="text-xl font-bold mb-6">Connections</h1>
@@ -45,6 +54,7 @@ export default async function ConfigPage() {
         erpConnections={erpRows}
         smtp={smtpRows[0] ?? null}
         google={googleRows[0] ?? null}
+        zoom={zoomConfig}
       />
     </AdminShell>
   )
