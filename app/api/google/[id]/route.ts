@@ -39,10 +39,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const body = await req.json()
 
-    // Verify ownership: only the organizer can edit
-    const existing = await calendar.events.get({ calendarId, eventId: id })
-    if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
-      return forbidden()
+    // Verify ownership: only the organizer can edit (skip for per-user OAuth — user owns the token)
+    const isPerUser = !!req.nextUrl.searchParams.get('googleTokenId')
+    if (!isPerUser) {
+      const existing = await calendar.events.get({ calendarId, eventId: id })
+      if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
+        return forbidden()
+      }
     }
 
     const event: Record<string, unknown> = {
@@ -92,10 +95,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { calendar, calendarId } = result
 
   try {
-    // Verify ownership: only the organizer can delete
-    const existing = await calendar.events.get({ calendarId, eventId: id })
-    if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
-      return forbidden()
+    // Verify ownership: only the organizer can delete (skip for per-user OAuth)
+    const isPerUser = !!req.nextUrl.searchParams.get('googleTokenId')
+    if (!isPerUser) {
+      const existing = await calendar.events.get({ calendarId, eventId: id })
+      if (existing.data.organizer?.email?.toLowerCase() !== session.email.toLowerCase()) {
+        return forbidden()
+      }
     }
 
     await calendar.events.delete({ calendarId, eventId: id })
