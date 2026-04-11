@@ -764,8 +764,12 @@ export default function ActivityForm({
               const connCompany = activeErpConnection?.companyCode || companyCode
               const herbeLink = isErpSource && connUuid ? `hansa://${connUuid}/v1/${connCompany}/ActVc/${editId}` : null
               // Outlook: open in Outlook web calendar in a new tab
+              // For per-user Google: append authuser param so the browser opens the right account
+              const googleWebLink = initial?.webLink && initial?.googleAccountEmail
+                ? `${initial.webLink}${initial.webLink.includes('?') ? '&' : '?'}authuser=${encodeURIComponent(initial.googleAccountEmail)}`
+                : initial?.webLink
               const externalCalLink = isExternalCalSource
-                ? (initial?.webLink || (isOutlookSource ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}` : null))
+                ? (googleWebLink || (isOutlookSource ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}` : null))
                 : null
               const openLink = herbeLink ?? externalCalLink
               const copyText = isExternalCalSource

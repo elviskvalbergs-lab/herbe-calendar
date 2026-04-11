@@ -85,7 +85,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       <select
         value={state.view}
         onChange={e => onStateChange({ ...state, view: e.target.value as CalendarState['view'] })}
-        className="bg-surface border border-border rounded-lg text-sm font-semibold px-2 py-1 text-text-muted focus:outline-none focus:border-primary cursor-pointer"
+        className="bg-surface border border-border rounded-lg text-xs font-semibold px-1.5 py-1 text-text-muted focus:outline-none focus:border-primary cursor-pointer"
       >
         <option value="day">1 day</option>
         <option value="3day">3 days</option>
