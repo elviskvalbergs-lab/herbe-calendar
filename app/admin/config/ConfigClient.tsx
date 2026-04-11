@@ -157,7 +157,7 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       {message && (
         <div className={`px-4 py-2 rounded-lg text-sm font-bold ${message.includes('fail') || message.includes('Failed') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
           {message}
