@@ -186,6 +186,7 @@ export interface BookingTemplate {
   buffer_minutes: number
   targets: TemplateTargets
   custom_fields: CustomField[]
+  allow_holidays: boolean
   active: boolean
   created_at: string
   updated_at: string

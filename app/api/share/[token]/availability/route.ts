@@ -61,7 +61,7 @@ export async function GET(
 
   // 4. Verify template is linked to this share link and active
   const { rows: templateRows } = await pool.query(
-    `SELECT t.id, t.name, t.duration_minutes, t.availability_windows, t.buffer_minutes, t.custom_fields
+    `SELECT t.id, t.name, t.duration_minutes, t.availability_windows, t.buffer_minutes, t.custom_fields, t.allow_holidays
      FROM booking_templates t
      JOIN share_link_templates slt ON slt.template_id = t.id
      WHERE slt.share_link_id = $1 AND t.id = $2 AND t.active = true`,
@@ -113,8 +113,30 @@ export async function GET(
   const current = new Date(dateFrom)
   const end = new Date(dateTo)
 
+  // Holiday blocking
+  const holidayDates = new Set<string>()
+  if (!template.allow_holidays) {
+    try {
+      const { getPersonsHolidayCountries, getHolidaysForRange } = await import('@/lib/holidays')
+      const countryMap = await getPersonsHolidayCountries(personCodes, accountId)
+      const countryCodes = [...new Set(countryMap.values())]
+      if (countryCodes.length > 0) {
+        const holidays = await getHolidaysForRange(countryCodes, dateFrom, dateTo)
+        for (const holidayDate of holidays.keys()) {
+          holidayDates.add(holidayDate)
+        }
+      }
+    } catch (e) {
+      console.warn('[availability] holiday check failed:', String(e))
+    }
+  }
+
   while (current <= end) {
     const dateStr = current.toISOString().slice(0, 10)
+    if (holidayDates.has(dateStr)) {
+      current.setDate(current.getDate() + 1)
+      continue
+    }
     const dayBusy = busyByDate.get(dateStr) ?? []
     const daySlots = computeAvailableSlots(dateStr, windows, dayBusy, durationMinutes, bufferMinutes)
     if (daySlots.length > 0) {

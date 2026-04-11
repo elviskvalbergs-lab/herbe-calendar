@@ -100,6 +100,23 @@ export async function POST(
   const targets: TemplateTargets = template.targets ?? {}
   const templateName: string = template.name
 
+  // --- 2b. Holiday check ---
+  if (!template.allow_holidays) {
+    try {
+      const { getPersonsHolidayCountries, getHolidaysForRange } = await import('@/lib/holidays')
+      const countryMap = await getPersonsHolidayCountries(personCodes, accountId)
+      const countryCodes = [...new Set(countryMap.values())]
+      if (countryCodes.length > 0) {
+        const holidays = await getHolidaysForRange(countryCodes, date, date)
+        if (holidays.has(date)) {
+          return NextResponse.json({ error: 'Cannot book on a public holiday' }, { status: 400 })
+        }
+      }
+    } catch (e) {
+      console.warn('[book] holiday check failed:', String(e))
+    }
+  }
+
   // --- 3. Re-check availability ---
   const busyByDate = await collectBusyBlocks(personCodes, ownerEmail, accountId, date, date)
   const busy = busyByDate.get(date) ?? []

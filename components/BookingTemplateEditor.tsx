@@ -69,6 +69,9 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   // Targets — Zoom
   const [zoomEnabled, setZoomEnabled] = useState(!!template?.targets?.zoom?.enabled)
 
+  // Holidays
+  const [allowHolidays, setAllowHolidays] = useState(!!template?.allow_holidays)
+
   // Custom fields
   const [customFields, setCustomFields] = useState<CustomField[]>(
     template?.custom_fields?.length ? template.custom_fields : []
@@ -134,6 +137,7 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
           zoom: zoomEnabled ? { enabled: true } : undefined,
         },
         custom_fields: customFields.filter(f => f.label.trim()),
+        allow_holidays: allowHolidays,
         active: true,
       }
       await fetch('/api/settings/templates', {
@@ -346,6 +350,14 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
           <label className="flex items-center gap-2 text-xs cursor-pointer">
             <input type="checkbox" checked={zoomEnabled} onChange={e => setZoomEnabled(e.target.checked)} className="accent-primary" />
             <span className="font-bold">Zoom meeting</span>
+          </label>
+        </div>
+
+        {/* Holidays */}
+        <div className="p-3 border border-border rounded-lg space-y-2">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <input type="checkbox" checked={allowHolidays} onChange={e => setAllowHolidays(e.target.checked)} className="accent-primary" />
+            <span className="font-bold">Allow booking on public holidays</span>
           </label>
         </div>
       </div>
