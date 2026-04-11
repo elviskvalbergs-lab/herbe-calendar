@@ -81,14 +81,6 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {viewStep > 1 && (
         <button onClick={() => navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
       )}
-      <button
-        onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
-        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-xs font-bold"
-        title="Go to today (⌃⌘T)"
-      >
-        Today
-      </button>
-
       {/* View toggle */}
       <select
         value={state.view}

@@ -205,7 +205,7 @@ export default function MonthNavigator({
                     className={[
                       'flex flex-col items-center py-1 rounded-lg text-xs transition-colors',
                       !inMonth ? 'opacity-30' : '',
-                      inRange ? 'bg-primary/15' : 'hover:bg-border/50',
+                      inRange ? 'bg-border/60' : 'hover:bg-border/30',
                     ].join(' ')}
                   >
                     <span
@@ -236,6 +236,15 @@ export default function MonthNavigator({
           )
         })}
 
+        {/* Today button */}
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={() => onSelectDate(format(new Date(), 'yyyy-MM-dd'))}
+            className="text-xs text-primary font-bold hover:underline"
+          >
+            Today
+          </button>
+        </div>
       </div>
     </div>
   )
