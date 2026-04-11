@@ -205,21 +205,22 @@ export async function getTemplateForEventType(tokenId: string, eventTypeUri: str
   return rows[0]?.template_id ?? defaultTemplateId
 }
 
-/** Check if a webhook event has already been processed. */
-export async function isWebhookProcessed(eventUri: string): Promise<boolean> {
+/** Atomically claim a webhook event for processing. Returns true if claimed (first time), false if already processed. */
+export async function claimWebhookEvent(eventUri: string, tokenId: string, templateId: string): Promise<boolean> {
   const { rows } = await pool.query(
-    'SELECT id FROM calendly_webhook_log WHERE event_uri = $1',
-    [eventUri]
+    `INSERT INTO calendly_webhook_log (event_uri, calendly_token_id, template_id, status)
+     VALUES ($1, $2, $3, 'processing')
+     ON CONFLICT (event_uri) DO NOTHING
+     RETURNING id`,
+    [eventUri, tokenId, templateId]
   )
   return rows.length > 0
 }
 
-/** Log a processed webhook. */
-export async function logWebhook(eventUri: string, tokenId: string, templateId: string, status: string, error?: string): Promise<void> {
+/** Update the status of a claimed webhook event. */
+export async function updateWebhookStatus(eventUri: string, status: string, error?: string): Promise<void> {
   await pool.query(
-    `INSERT INTO calendly_webhook_log (event_uri, calendly_token_id, template_id, status, error)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (event_uri) DO NOTHING`,
-    [eventUri, tokenId, templateId, status, error ?? null]
+    'UPDATE calendly_webhook_log SET status = $1, error = $2 WHERE event_uri = $3',
+    [status, error ?? null, eventUri]
   )
 }

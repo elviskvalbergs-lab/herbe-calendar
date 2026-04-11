@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { pool } from '@/lib/db'
-import { findConnectionByUserUri, getTemplateForEventType, isWebhookProcessed, logWebhook } from '@/lib/calendly/client'
+import { findConnectionByUserUri, getTemplateForEventType, claimWebhookEvent, updateWebhookStatus } from '@/lib/calendly/client'
 import { executeBooking } from '@/lib/bookingExecutor'
 import type { TemplateTargets } from '@/types'
 
@@ -15,7 +15,8 @@ function verifySignature(body: string, signature: string, key: string): boolean 
   const sig = vPart.slice(3)
   const payload = `${timestamp}.${body}`
   const expected = createHmac('sha256', key).update(payload).digest('hex')
-  return sig === expected
+  if (sig.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
 }
 
 export async function POST(req: NextRequest) {
@@ -37,10 +38,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true })
   }
 
+  // Extract only the minimum fields needed to look up the connection.
+  // No further payload data is processed until AFTER signature verification.
   const inner = payload.payload ?? {}
-  // Calendly v2 webhook: payload contains the invitee data directly
-  // scheduled_event is nested inside payload
   const scheduledEvent = inner.scheduled_event
+  const userUri = scheduledEvent?.event_memberships?.[0]?.user
+
+  if (!userUri) {
+    console.warn('[calendly/webhook] No user URI in event memberships')
+    return NextResponse.json({ ok: true })
+  }
+
+  // Find connection (needed for signing key)
+  const connection = await findConnectionByUserUri(userUri)
+  if (!connection) {
+    // Silent ignore — not our user
+    return NextResponse.json({ ok: true })
+  }
+
+  // IMMEDIATELY verify signature before any further payload processing
+  if (!verifySignature(body, signature, connection.signingKey)) {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+
+  // NOW safe to extract the rest of the payload
   // The invitee info may be at payload level (email, name) or in a nested invitee object
   const invitee = inner.invitee ?? { email: inner.email, name: inner.name, questions_and_answers: inner.questions_and_answers }
   const eventTypeUri = inner.event_type ?? scheduledEvent?.event_type
@@ -51,31 +72,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing payload fields' }, { status: 400 })
   }
 
-  // Find user by event membership
-  const userUri = scheduledEvent.event_memberships?.[0]?.user
-  if (!userUri) {
-    console.warn('[calendly/webhook] No user URI in event memberships')
-    return NextResponse.json({ ok: true })
-  }
-
-  const connection = await findConnectionByUserUri(userUri)
-  if (!connection) {
-    console.warn(`[calendly/webhook] No connection found for user ${userUri}`)
-    return NextResponse.json({ ok: true })
-  }
-
-  // Verify HMAC signature
-  if (!verifySignature(body, signature, connection.signingKey)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-  }
-
-  // Dedup check
-  if (await isWebhookProcessed(eventUri)) {
-    return NextResponse.json({ ok: true, duplicate: true })
-  }
-
   // Find template
   const templateId = await getTemplateForEventType(connection.id, eventTypeUri ?? '', connection.defaultTemplateId)
+
+  // Atomic dedup — claim this event (fails if already claimed by another request)
+  const claimed = await claimWebhookEvent(eventUri, connection.id, templateId)
+  if (!claimed) {
+    return NextResponse.json({ ok: true, duplicate: true })
+  }
 
   // Load template
   const { rows: templateRows } = await pool.query(
@@ -83,7 +87,7 @@ export async function POST(req: NextRequest) {
     [templateId]
   )
   if (templateRows.length === 0) {
-    await logWebhook(eventUri, connection.id, templateId, 'failed', 'Template not found')
+    await updateWebhookStatus(eventUri, 'failed', 'Template not found')
     return NextResponse.json({ ok: true })
   }
   const template = templateRows[0]
@@ -135,10 +139,10 @@ export async function POST(req: NextRequest) {
       accountId: connection.accountId,
     })
 
-    await logWebhook(eventUri, connection.id, templateId, 'processed')
+    await updateWebhookStatus(eventUri, 'processed')
     return NextResponse.json({ ok: true })
   } catch (e) {
-    await logWebhook(eventUri, connection.id, templateId, 'failed', String(e))
+    await updateWebhookStatus(eventUri, 'failed', String(e))
     console.error('[calendly/webhook] Booking execution failed:', String(e))
     return NextResponse.json({ ok: true }) // Return 200 to prevent Calendly retries
   }
