@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     return unauthorized()
   }
 
-  const { name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields } =
+  const { name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, allow_holidays } =
     await req.json()
 
   if (!name || !duration_minutes) {
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
 
   const { rows } = await pool.query(
     `INSERT INTO booking_templates
-       (account_id, user_email, name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (account_id, user_email, name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, allow_holidays)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     [session.accountId, session.email, name, duration_minutes,
      JSON.stringify(availability_windows ?? []), buffer_minutes ?? 0,
-     JSON.stringify(targets ?? {}), JSON.stringify(custom_fields ?? [])]
+     JSON.stringify(targets ?? {}), JSON.stringify(custom_fields ?? []), allow_holidays ?? false]
   )
 
   return NextResponse.json(rows[0], { status: 201 })
@@ -80,6 +80,7 @@ export async function PUT(req: NextRequest) {
     customFields:        { column: 'custom_fields', jsonb: true },
     custom_fields:       { column: 'custom_fields', jsonb: true },
     active:              { column: 'active' },
+    allow_holidays:      { column: 'allow_holidays' },
   }
 
   const updates: string[] = []
@@ -120,8 +121,8 @@ export async function DELETE(req: NextRequest) {
   if (duplicate) {
     const { rows } = await pool.query(
       `INSERT INTO booking_templates
-         (account_id, user_email, name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, active)
-       SELECT account_id, user_email, name || ' (copy)', duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, active
+         (account_id, user_email, name, duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, active, allow_holidays)
+       SELECT account_id, user_email, name || ' (copy)', duration_minutes, availability_windows, buffer_minutes, targets, custom_fields, active, allow_holidays
        FROM booking_templates WHERE id = $1 AND account_id = $2
        RETURNING *`,
       [id, session.accountId]
