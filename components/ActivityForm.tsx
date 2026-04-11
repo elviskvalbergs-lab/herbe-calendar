@@ -843,9 +843,9 @@ export default function ActivityForm({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
-                style={{ background: savedActivity.videoProvider === 'meet' ? '#1a73e8' : savedActivity.videoProvider === 'teams' ? '#464EB8' : '#2563eb' }}
+                style={{ background: savedActivity.videoProvider === 'meet' ? '#1a73e8' : savedActivity.videoProvider === 'teams' ? '#464EB8' : savedActivity.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb' }}
               >
-                {savedActivity.videoProvider === 'meet' ? 'Join Google Meet' : savedActivity.videoProvider === 'teams' ? 'Join Teams call' : 'Join meeting'}
+                {savedActivity.videoProvider === 'meet' ? 'Join Google Meet' : savedActivity.videoProvider === 'teams' ? 'Join Teams call' : savedActivity.videoProvider === 'zoom' ? 'Join Zoom' : 'Join meeting'}
               </a>
             )}
             <div className="w-full space-y-2 pt-2">
@@ -881,10 +881,10 @@ export default function ActivityForm({
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-bold text-sm"
-              style={{ background: initial?.videoProvider === 'meet' ? '#1a73e8' : initial?.videoProvider === 'teams' ? '#464EB8' : '#2563eb' }}
+              style={{ background: initial?.videoProvider === 'meet' ? '#1a73e8' : initial?.videoProvider === 'teams' ? '#464EB8' : initial?.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 12v-2h-2v2h2zm-4 0v-2H7v2h6zm4 3v-2h-2v2h2zm-4 0v-2H7v2h6zM3 5v14h18V5H3zm16 12H5V7h14v10z"/></svg>
-              {initial?.videoProvider === 'meet' ? 'Join Google Meet' : initial?.videoProvider === 'teams' ? 'Join Teams call' : 'Join meeting'}
+              {initial?.videoProvider === 'meet' ? 'Join Google Meet' : initial?.videoProvider === 'teams' ? 'Join Teams call' : initial?.videoProvider === 'zoom' ? 'Join Zoom' : 'Join meeting'}
             </a>
           )}
 
