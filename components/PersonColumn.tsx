@@ -38,6 +38,7 @@ interface Props {
   startHour?: number
   endHour?: number
   isHoliday?: boolean
+  holidayName?: string
 }
 
 interface DragState {
@@ -226,7 +227,7 @@ export default function PersonColumn({
   personCode, date, activities, sessionUserCode, getActivityColor, getTypeName,
   onSlotClick, onActivityClick, onActivityUpdate, scale = 1, isLightMode = false, colMinVw = 44,
   mobileSelectedId = null, onMobileSelect, visibility,
-  startHour, endHour, isHoliday = false
+  startHour, endHour, isHoliday = false, holidayName
 }: Props) {
   const columnRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -361,7 +362,7 @@ export default function PersonColumn({
   const outlookLaned = buildLanedActivities(hasBoth ? outlookActivities : [])
 
   return (
-    <div ref={columnRef} className={`flex-1 border-r border-border relative last:border-r-0${isHoliday ? ' bg-red-500/5' : ''}`} style={{ minWidth: `${colMinVw}vw` }}>
+    <div ref={columnRef} className={`flex-1 border-r border-border relative last:border-r-0${isHoliday ? ' bg-red-500/5' : (() => { const d = new Date(date + 'T00:00:00').getDay(); return d === 0 || d === 6 ? ' bg-border/20' : '' })()}`} style={{ minWidth: `${colMinVw}vw` }}>
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
@@ -387,15 +388,28 @@ export default function PersonColumn({
             </div>
           ))}
 
+          {/* Holiday banner */}
+          {isHoliday && holidayName && (
+            <div
+              className="absolute left-0 right-0 z-15 pointer-events-none"
+              style={{ top: 0, height: rowHeight / 2 }}
+            >
+              <div className="h-full mx-0.5 rounded bg-red-500/15 flex items-center justify-center px-1 overflow-hidden">
+                <span className="text-[9px] font-bold text-red-400 truncate">{holidayName}</span>
+              </div>
+            </div>
+          )}
+
           {/* All-day events rendered as overlay blocks at the top of the grid */}
           {allDayActivities.map((act, i) => {
+            const holidayOffset = isHoliday && holidayName ? 1 : 0
             const actColor = getActivityColor(act)
             const bannerHeight = rowHeight / 2
             return (
               <div
                 key={act.id}
                 className="absolute left-0 right-0 z-15 pointer-events-auto"
-                style={{ top: i * bannerHeight, height: bannerHeight }}
+                style={{ top: (i + holidayOffset) * bannerHeight, height: bannerHeight }}
               >
                 <AllDayBanner
                   activity={act}
