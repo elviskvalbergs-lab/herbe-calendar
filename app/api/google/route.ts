@@ -71,6 +71,15 @@ export async function GET(req: NextRequest) {
   const uniquePerUser = perUserEvents.filter(e => !domainEventIds.has(e.id))
   const allEvents = [...domainWideEvents, ...uniquePerUser]
 
+  // Include shared calendar events from colleagues
+  try {
+    const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
+    const shared = await fetchSharedCalendarEvents(personList, session.email, session.accountId, dateFrom, dateTo)
+    allEvents.push(...shared.events)
+  } catch (e) {
+    console.warn('[google] Shared calendar fetch failed:', String(e))
+  }
+
   const response: Record<string, unknown> = { activities: allEvents }
   if (warnings.length > 0) response.warnings = warnings
   return NextResponse.json(response, { headers: { 'Cache-Control': 'no-store' } })
