@@ -178,7 +178,7 @@ export default function MonthNavigator({
 
         {/* Day-of-week headers */}
         <div className="grid grid-cols-[2rem_repeat(7,1fr)] text-[10px] text-text-muted font-bold mb-1">
-          <div className="text-center">W</div>
+          <div className="text-center border-r border-border/50 mr-1 pr-1 text-text-muted/50">W</div>
           {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => (
             <div key={d} className="text-center">{d}</div>
           ))}
@@ -193,7 +193,7 @@ export default function MonthNavigator({
               {/* Week number */}
               <button
                 onClick={() => onSelectWeek(monday)}
-                className="text-[10px] text-text-muted hover:text-primary font-bold text-center py-1"
+                className="text-[9px] text-text-muted/40 hover:text-primary font-medium text-center py-1 border-r border-border/50 mr-1"
                 title={`Week ${weekNum} → 7-day view`}
               >
                 {weekNum}
