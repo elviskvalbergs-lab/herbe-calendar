@@ -352,14 +352,8 @@ export default function PersonColumn({
   })
 
 
-  const herbeActivities = timedActivities.filter(a => a.source !== 'outlook')
-  const outlookActivities = timedActivities.filter(a => a.source === 'outlook')
-  const hasBoth = herbeActivities.length > 0 && outlookActivities.length > 0
-  // When only outlook/ICS activities exist, show them in the main column
-  const mainActivities = hasBoth ? herbeActivities : herbeActivities.length > 0 ? herbeActivities : outlookActivities
-
-  const herbeLaned = buildLanedActivities(mainActivities)
-  const outlookLaned = buildLanedActivities(hasBoth ? outlookActivities : [])
+  // All sources share equal width — overlapping events split the space evenly
+  const lanedActivities = buildLanedActivities(timedActivities)
 
   return (
     <div ref={columnRef} className={`flex-1 border-r border-border relative last:border-r-0${isHoliday ? ' bg-red-500/5' : (() => { const d = new Date(date + 'T00:00:00').getDay(); return d === 0 || d === 6 ? ' bg-border/20' : '' })()}`} style={{ minWidth: `${colMinVw}vw` }}>
@@ -373,10 +367,7 @@ export default function PersonColumn({
 
       <div className="relative flex">
         {/* Herbe sub-column (or full column when no Outlook) — hosts the hour grid */}
-        <div
-          className="relative"
-          style={{ width: hasBoth ? '60%' : '100%' }}
-        >
+        <div className="relative w-full">
           {hours.map(h => (
             <div
               key={h}
@@ -426,7 +417,7 @@ export default function PersonColumn({
             )
           })}
 
-          {herbeLaned.map(({ activity: act, laneIndex, laneCount }) => {
+          {lanedActivities.map(({ activity: act, laneIndex, laneCount }) => {
             const isDragging = drag?.activity.id === act.id
             const isSaving = isDragging && drag!.saving
             const displayActivity = isDragging
@@ -480,66 +471,6 @@ export default function PersonColumn({
             )
           })}
         </div>
-
-        {hasBoth && (
-          <div
-            className="relative border-l border-border/40"
-            style={{ width: '40%' }}
-          >
-            {hours.map(h => (
-              <div key={h} className="border-b border-border/30" style={{ height: rowHeight }} />
-            ))}
-
-            {outlookLaned.map(({ activity: act, laneIndex, laneCount }) => {
-              const isDragging = drag?.activity.id === act.id
-              const isSaving = isDragging && drag!.saving
-              const displayActivity = isDragging
-                ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
-                : act
-              const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
-              const actColor = getActivityColor(act)
-              return (
-                <div
-                  key={act.id}
-                  className="absolute pointer-events-none"
-                  style={{
-                    left: `${(laneIndex / laneCount) * 100}%`,
-                    right: `${((laneCount - laneIndex - 1) / laneCount) * 100}%`,
-                    top: 0,
-                    bottom: 0,
-                  }}
-                >
-                  <ActivityBlock
-                    activity={displayActivity}
-                    color={actColor}
-                    height={actHeight}
-                    onClick={(a) => { if (!suppressClickRef.current) onActivityClick(a) }}
-                    onDragStart={handleDragStart}
-                    canEdit={canEdit(act)}
-                    isLightMode={isLightMode}
-                    scale={scale}
-                    mobileSelected={mobileSelectedId === mobileKey(act.id)}
-                    onMobileTap={(id) => { const k = mobileKey(id); setMobileSelectedId(mobileSelectedId === k ? null : k) }}
-                    onMobileClose={() => setMobileSelectedId(null)}
-                    style={isDragging
-                      ? { opacity: isSaving ? 0.5 : 0.7, outline: `2px dashed ${actColor}` }
-                      : undefined}
-                    visibility={visibility}
-                    startHour={effectiveStart}
-                  />
-                  {isDragging && (
-                    <div
-                      className="absolute left-1 text-[9px] font-bold pointer-events-none z-20"
-                      style={{ top: timeToTopPx(drag!.currentFrom, scale, effectiveStart) - 14, color: actColor }}
-                    >
-                      {isSaving ? '⏳' : ''}{drag!.currentFrom}–{drag!.currentTo}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
 
       {confirmState && (
