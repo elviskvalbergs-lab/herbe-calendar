@@ -4,6 +4,7 @@ import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
+import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
@@ -177,6 +178,45 @@ export async function GET(
       }
     } catch (e) {
       console.warn(`[share/activities] Outlook/ICS fetch failed for ${code}:`, String(e))
+    }
+  }
+
+  // Fetch Google Calendar events per person (domain-wide delegation)
+  for (const code of personCodes) {
+    if (hiddenCalendarsSet.has('google')) break
+    try {
+      const email = await emailForCode(code, accountId)
+      if (!email) continue
+      const googleEvents = await fetchGoogleEventsForPerson(email, accountId, dateFrom, dateTo)
+      if (!googleEvents) continue // Google not configured
+      for (const ev of googleEvents) {
+        const mapped = mapGoogleEvent(ev, code, ownerEmail)
+        allActivities.push(mapped as unknown as Record<string, unknown>)
+      }
+    } catch (e) {
+      console.warn(`[share/activities] Google domain-wide fetch failed for ${code}:`, String(e))
+    }
+  }
+
+  // Fetch per-user OAuth Google calendars (owner's connected accounts)
+  if (!hiddenCalendarsSet.has('google')) {
+    try {
+      const { events: perUserRaw } = await fetchPerUserGoogleEvents(
+        ownerEmail, accountId, dateFrom, dateTo,
+        'items(id,summary,start,end,organizer,attendees,status)',
+      )
+      for (const { event: ev, calendarName, color } of perUserRaw) {
+        if (ev.status === 'cancelled') continue
+        // Assign to first person code since per-user calendars aren't person-specific
+        const code = personCodes[0] ?? ''
+        const mapped = mapGoogleEvent(ev, code, ownerEmail, {
+          googleCalendarName: calendarName,
+          icsColor: color,
+        })
+        allActivities.push(mapped as unknown as Record<string, unknown>)
+      }
+    } catch (e) {
+      console.warn('[share/activities] Per-user Google fetch failed:', String(e))
     }
   }
 

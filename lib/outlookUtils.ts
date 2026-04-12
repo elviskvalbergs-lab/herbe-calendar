@@ -87,7 +87,8 @@ export async function fetchOutlookEventsForPerson(
     }
   }
 
-  if (!res.ok) return null
+  // 404 = user not in tenant (e.g. placeholder/ICS-only user) — not an error, just no events
+  if (!res.ok) return res.status === 404 ? [] : null
   const data = await res.json()
   return (data.value ?? []) as OutlookEvent[]
 }
