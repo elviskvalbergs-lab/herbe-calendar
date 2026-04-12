@@ -41,11 +41,11 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const [timezone] = useState(browserTz)
 
-  // Date range for availability: next 60 days (enough to find slots in next months)
+  // Date range for availability: next 90 days (matches API max)
   const dateRange = useMemo(() => {
     const today = new Date()
     const from = format(today, 'yyyy-MM-dd')
-    const to = format(addDays(today, 60), 'yyyy-MM-dd')
+    const to = format(addDays(today, 90), 'yyyy-MM-dd')
     return { from, to }
   }, [])
 
