@@ -14,6 +14,7 @@ export async function fetchSharedCalendarEvents(
   accountId: string,
   dateFrom: string,
   dateTo: string,
+  hiddenCalendars?: Set<string>,
 ): Promise<{ events: Activity[]; busyBlocks: Map<string, BusyBlock[]> }> {
   const events: Activity[] = []
   const busyBlocks = new Map<string, BusyBlock[]>()
@@ -36,6 +37,8 @@ export async function fetchSharedCalendarEvents(
   )
 
   for (const row of sharedIcs) {
+    const icsSourceId = `ics:${row.name} (shared)`
+    if (hiddenCalendars?.has(icsSourceId)) continue
     try {
       // Fetch this specific ICS URL directly (not all feeds for the user+person)
       const { fetchIcsEvents } = await import('@/lib/icsParser')
@@ -96,6 +99,8 @@ export async function fetchSharedCalendarEvents(
 
       const oauthCal = getOAuthCalendarClient(accessToken)
       for (const cal of cals) {
+        const googleSourceId = `ics:${cal.name} (shared)`
+        if (hiddenCalendars?.has(googleSourceId)) continue
         try {
           const res = await oauthCal.events.list({
             calendarId: cal.calendar_id,

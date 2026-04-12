@@ -232,7 +232,7 @@ export async function collectBusyBlocks(
   // Shared calendars from other users (busy+ sharing levels)
   try {
     const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
-    const shared = await fetchSharedCalendarEvents(personCodes, ownerEmail, accountId, dateFrom, dateTo)
+    const shared = await fetchSharedCalendarEvents(personCodes, ownerEmail, accountId, dateFrom, dateTo, hiddenCalendars)
     for (const [date, blocks] of shared.busyBlocks) {
       for (const block of blocks) addBusy(date, block)
     }
