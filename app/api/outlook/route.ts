@@ -1,6 +1,3 @@
-// TODO: use shared fetch from lib/outlookUtils.ts (fetchOutlookEventsForPerson) to replace
-// the inline graphFetch calendarView call below. The main route has extra logic (fallback
-// shared-calendar search on 404) that needs care before migrating.
 import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
@@ -9,6 +6,7 @@ import type { Activity } from '@/types'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { emailForCode } from '@/lib/emailForCode'
+import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
 
 export async function GET(req: NextRequest) {
   let session
@@ -51,105 +49,54 @@ export async function GET(req: NextRequest) {
         return { events: icsResult.events, warnings: icsResult.warnings }
       }
 
-      // calendarView expands recurring events automatically; no type filter needed
-      const startDt = `${dateFrom}T00:00:00`
-      const endDt = `${dateTo}T23:59:59`
-      const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=100`
+      // Fetch via shared util; pass sessionEmail to enable the 404 shared-calendar fallback
+      const rawEvents = await fetchOutlookEventsForPerson(email, session.accountId, dateFrom, dateTo, sessionEmail)
 
-      let res = await graphFetch(
-        `/users/${email}/calendarView?${calendarViewParams}`,
-        { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
-        azureConfig
-      )
-
-      if (!res.ok && res.status === 404) {
-        // Fallback: If 404, this user isn't in the tenant. 
-        // Search the logged-in user's own shared calendars list for a match.
-        try {
-          if (sessionEmail) {
-            const listRes = await graphFetch(`/users/${sessionEmail}/calendars?$select=id,owner`, undefined, azureConfig)
-            if (listRes.ok) {
-              const listData = await listRes.json()
-              const cals = listData.value as any[]
-              console.log(`[outlook] Fallback for ${email}: searching ${cals?.length ?? 0} calendars of ${sessionEmail}`)
-              const sharedCal = cals?.find(c => 
-                c.owner?.address?.toLowerCase() === email.toLowerCase()
-              )
-              if (sharedCal) {
-                console.log(`[outlook] Fallback found calendar ID ${sharedCal.id} for ${email}`)
-                res = await graphFetch(
-                  `/users/${sessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
-                  { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
-                  azureConfig
-                )
-              } else {
-                console.log(`[outlook] Fallback: No calendar owned by ${email} found in ${sessionEmail}'s list`)
-              }
-            } else {
-              const listErr = await listRes.text()
-              console.warn(`[outlook] Fallback lookup failed for ${sessionEmail}: ${listRes.status} ${listErr}`)
-            }
-          }
-        } catch (e) {
-          console.warn('[outlook] Fallback shared calendar search failed:', String(e))
-        }
-      }
-
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error(`Graph calendarView failed for ${email}: ${res.status} ${errText}`)
+      if (rawEvents === null) {
         // Graph failed — still return any ICS events for this person
         const icsResult = await icsEventsPromise
-        return { events: icsResult.events, warnings: [...icsResult.warnings, `Outlook: ${errText.slice(0, 200)}`] }
+        return { events: icsResult.events, warnings: [...icsResult.warnings, `Outlook: Graph request failed for ${email}`] }
       }
-      const data = await res.json()
+
       const icsResult = await icsEventsPromise
-      const graphEvents = (data.value ?? []).map((ev: Record<string, unknown>) => {
-        const start = (ev['start'] as Record<string, string> | undefined)
-        const end = (ev['end'] as Record<string, string> | undefined)
-        const startDt = start?.dateTime ?? ''
-        const endDt = end?.dateTime ?? ''
-        const organizer = ev['organizer'] as Record<string, unknown> | undefined
-        const organizerEmail = (organizer?.['emailAddress'] as Record<string, string> | undefined)?.['address'] ?? ''
-        const onlineMeeting = ev['onlineMeeting'] as Record<string, string> | undefined
-        const joinUrl = onlineMeeting?.['joinUrl'] ?? (ev['onlineMeetingUrl'] as string | undefined) ?? undefined
-        const responseStatus = ev['responseStatus'] as Record<string, string> | undefined
-        const rawRsvp = responseStatus?.['response']
+      const graphEvents: Activity[] = rawEvents.map(ev => {
+        const startDt = ev.start?.dateTime ?? ''
+        const endDt = ev.end?.dateTime ?? ''
+        const organizerEmail = ev.organizer?.emailAddress?.address ?? ''
+        const joinUrl = ev.onlineMeeting?.joinUrl ?? ev.onlineMeetingUrl ?? undefined
+        const rawRsvp = ev.responseStatus?.response
         // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
         const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
         // Map attendees
-        const rawAttendees = ev['attendees'] as Array<Record<string, unknown>> | undefined
-        const attendees = rawAttendees?.map(att => {
-          const emailAddr = att['emailAddress'] as Record<string, string> | undefined
-          const attResponse = att['status'] as Record<string, string> | undefined
+        const attendees = ev.attendees?.map(att => {
           return {
-            email: emailAddr?.['address'] ?? '',
-            name: emailAddr?.['name'] ?? undefined,
-            type: (att['type'] === 'optional' ? 'optional' : 'required') as 'required' | 'optional',
-            responseStatus: attResponse?.['response'] ?? undefined,
+            email: att.emailAddress?.address ?? '',
+            name: att.emailAddress?.name ?? undefined,
+            type: (att.type === 'optional' ? 'optional' : 'required') as 'required' | 'optional',
+            responseStatus: att.status?.response ?? undefined,
           }
         }).filter(a => a.email) ?? []
         return {
-          id: String(ev['id'] ?? ''),
+          id: ev.id ?? '',
           source: 'outlook' as const,
           personCode: code,
-          description: String(ev['subject'] ?? ''),
+          description: ev.subject ?? '',
           date: startDt.slice(0, 10),
           timeFrom: startDt.slice(11, 16),
           timeTo: endDt.slice(11, 16),
           isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
-          isOnlineMeeting: ev['isOnlineMeeting'] === true,
-          videoProvider: ev['isOnlineMeeting'] === true ? 'teams' as const : undefined,
+          isOnlineMeeting: ev.isOnlineMeeting === true,
+          videoProvider: ev.isOnlineMeeting === true ? 'teams' as const : undefined,
           attendees,
-          location: (ev['location'] as Record<string, string> | undefined)?.['displayName'],
-          bodyPreview: String(ev['bodyPreview'] ?? ''),
+          location: ev.location?.displayName,
+          bodyPreview: ev.bodyPreview ?? '',
           joinUrl,
-          webLink: String(ev['webLink'] ?? ''),
+          webLink: ev.webLink ?? '',
           rsvpStatus,
         }
       })
       // Deduplicate: if an ICS event matches a Graph event by date+time+subject, skip it
-      const uniqueIcs = deduplicateIcsAgainstGraph(graphEvents, icsResult.events)
+      const uniqueIcs = deduplicateIcsAgainstGraph(graphEvents as unknown as Record<string, unknown>[], icsResult.events)
       return { events: [...graphEvents, ...uniqueIcs], warnings: icsResult.warnings }
     }))
     const allEvents = results.flatMap(r => 'events' in r ? r.events : r)

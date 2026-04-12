@@ -28,23 +28,65 @@ export interface OutlookEvent {
  * Uses a narrow $select list suitable for full event display. Callers that only need
  * start/end times (e.g. availability) can ignore unused fields — Graph returns them anyway
  * because calendarView does not support field-level filtering on all properties.
+ *
+ * @param fallbackSessionEmail  If provided and the primary fetch returns 404 (user not in tenant),
+ *                              attempt a fallback: search the session user's shared calendars for
+ *                              one owned by `email`, and fetch from that calendar instead.
  */
 export async function fetchOutlookEventsForPerson(
   email: string,
   accountId: string,
   dateFrom: string,
   dateTo: string,
+  fallbackSessionEmail?: string,
 ): Promise<OutlookEvent[] | null> {
   const azureConfig = await getAzureConfig(accountId)
   if (!azureConfig) return null
 
   const startDt = `${dateFrom}T00:00:00`
   const endDt = `${dateTo}T23:59:59`
-  const res = await graphFetch(
-    `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=200&$select=id,subject,start,end,organizer,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,attendees,location,bodyPreview,webLink,responseStatus`,
+  const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=200&$select=id,subject,start,end,organizer,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,attendees,location,bodyPreview,webLink,responseStatus`
+
+  let res = await graphFetch(
+    `/users/${email}/calendarView?${calendarViewParams}`,
     { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
     azureConfig,
   )
+
+  // If 404 and a fallback session email is provided, try the shared calendars approach
+  if (!res.ok && res.status === 404 && fallbackSessionEmail) {
+    try {
+      const listRes = await graphFetch(
+        `/users/${fallbackSessionEmail}/calendars?$select=id,owner`,
+        undefined,
+        azureConfig,
+      )
+      if (listRes.ok) {
+        const listData = await listRes.json()
+        const cals = listData.value as any[]
+        console.log(`[outlookUtils] Fallback for ${email}: searching ${cals?.length ?? 0} calendars of ${fallbackSessionEmail}`)
+        const sharedCal = cals?.find(c =>
+          c.owner?.address?.toLowerCase() === email.toLowerCase()
+        )
+        if (sharedCal) {
+          console.log(`[outlookUtils] Fallback found calendar ID ${sharedCal.id} for ${email}`)
+          res = await graphFetch(
+            `/users/${fallbackSessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
+            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+            azureConfig,
+          )
+        } else {
+          console.log(`[outlookUtils] Fallback: No calendar owned by ${email} found in ${fallbackSessionEmail}'s list`)
+        }
+      } else {
+        const listErr = await listRes.text()
+        console.warn(`[outlookUtils] Fallback lookup failed for ${fallbackSessionEmail}: ${listRes.status} ${listErr}`)
+      }
+    } catch (e) {
+      console.warn('[outlookUtils] Fallback shared calendar search failed:', String(e))
+    }
+  }
+
   if (!res.ok) return null
   const data = await res.json()
   return (data.value ?? []) as OutlookEvent[]

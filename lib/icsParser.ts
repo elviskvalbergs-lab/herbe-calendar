@@ -204,7 +204,7 @@ function eventDedupKey(e: { date?: string; timeFrom?: string; timeTo?: string; d
 }
 
 /** Remove ICS events that duplicate Graph events (same date+time+subject) */
-export function deduplicateIcsAgainstGraph<T extends Record<string, unknown>>(graphEvents: T[], icsEvents: T[]): T[] {
+export function deduplicateIcsAgainstGraph<G extends Record<string, unknown>, I extends Record<string, unknown>>(graphEvents: G[], icsEvents: I[]): I[] {
   const graphKeys = new Set(graphEvents.map(e => eventDedupKey(e as Record<string, unknown>)))
   return icsEvents.filter(e => !graphKeys.has(eventDedupKey(e as Record<string, unknown>)))
 }
