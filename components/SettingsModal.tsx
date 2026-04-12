@@ -53,9 +53,9 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [calLoading, setCalLoading] = useState(false)
   const [googleAccounts, setGoogleAccounts] = useState<UserGoogleAccount[]>([])
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [newCal, setNewCal] = useState({ personCode: '', name: '', icsUrl: '' })
+  const [newCal, setNewCal] = useState({ name: '', icsUrl: '' })
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', icsUrl: '', personCode: '', color: '' })
+  const [editForm, setEditForm] = useState({ name: '', icsUrl: '', color: '' })
   const [templates, setTemplates] = useState<BookingTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<BookingTemplate | null | 'new'>(null)
@@ -139,7 +139,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
 
   async function handleAddCal(e: React.FormEvent) {
     e.preventDefault()
-    if (!newCal.personCode || !newCal.name || !newCal.icsUrl) return
+    if (!newCal.name || !newCal.icsUrl) return
     try {
       const res = await fetch('/api/settings/calendars', {
         method: 'POST',
@@ -147,7 +147,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         body: JSON.stringify(newCal)
       })
       if (res.ok) {
-        setNewCal({ personCode: '', name: '', icsUrl: '' })
+        setNewCal({ name: '', icsUrl: '' })
         fetchCustomCals()
       } else {
         const data = await res.json().catch(() => null)
@@ -173,7 +173,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
 
   function startEdit(cal: CustomCalendar) {
     setEditingId(cal.id)
-    setEditForm({ name: cal.name, icsUrl: cal.icsUrl, personCode: cal.personCode, color: cal.color || '' })
+    setEditForm({ name: cal.name, icsUrl: cal.icsUrl, color: cal.color || '' })
   }
 
   async function handleSaveEdit() {
@@ -678,26 +678,13 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                         + Add External Calendar (ICS)
                       </h4>
                       <form onSubmit={handleAddCal} className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <select
-                            className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                            value={newCal.personCode}
-                            onChange={e => setNewCal(p => ({ ...p, personCode: e.target.value }))}
-                            required
-                          >
-                            <option value="" disabled>Select Person...</option>
-                            {persons.map(p => (
-                              <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
-                            ))}
-                          </select>
-                          <input
-                            className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                            placeholder="Calendar Name (e.g. Work)"
-                            value={newCal.name}
-                            onChange={e => setNewCal(p => ({ ...p, name: e.target.value }))}
-                            required
-                          />
-                        </div>
+                        <input
+                          className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                          placeholder="Calendar Name (e.g. Work)"
+                          value={newCal.name}
+                          onChange={e => setNewCal(p => ({ ...p, name: e.target.value }))}
+                          required
+                        />
                         <input
                           className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
                           placeholder="Public ICS URL (https://...)"
@@ -733,23 +720,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                             <div key={c.id} className="p-3 bg-bg border border-border rounded-lg">
                               {editingId === c.id ? (
                                 <div className="space-y-2">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <select
-                                      className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                                      value={editForm.personCode}
-                                      onChange={e => setEditForm(f => ({ ...f, personCode: e.target.value }))}
-                                    >
-                                      {persons.map(p => (
-                                        <option key={p.code} value={p.code}>{p.name} ({p.code})</option>
-                                      ))}
-                                    </select>
-                                    <input
-                                      className="bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
-                                      value={editForm.name}
-                                      onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                                      placeholder="Calendar Name"
-                                    />
-                                  </div>
+                                  <input
+                                    className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
+                                    value={editForm.name}
+                                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                                    placeholder="Calendar Name"
+                                  />
                                   <input
                                     className="w-full bg-surface border border-border text-xs rounded-lg p-2 outline-none focus:border-primary"
                                     value={editForm.icsUrl}
@@ -774,9 +750,6 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                             {c.sharing === 'busy' ? 'Shared busy' : c.sharing === 'titles' ? 'Shared titles' : 'Shared fully'}
                                           </span>
                                         )}
-                                      </div>
-                                      <div className="text-[10px] text-text-muted mt-0.5">
-                                        Assigned to: <span className="text-text font-bold">{persons.find(p => p.code === c.personCode)?.name || c.personCode}</span>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1">

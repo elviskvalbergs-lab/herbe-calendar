@@ -56,9 +56,15 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureTable()
-    const { personCode, name, icsUrl } = await req.json()
-    if (!personCode || !name || !icsUrl) {
+    const { name, icsUrl } = await req.json()
+    if (!name || !icsUrl) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    }
+
+    // Always assign to the logged-in user's own person code
+    const personCode = session.userCode
+    if (!personCode) {
+      return NextResponse.json({ error: 'No person code found for your account' }, { status: 400 })
     }
 
     const urlCheck = validateIcsUrl(icsUrl)
@@ -86,7 +92,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     await ensureTable()
-    const { id, name, icsUrl, personCode, color, sharing } = await req.json()
+    const { id, name, icsUrl, color, sharing } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     if (icsUrl !== undefined) {
@@ -101,7 +107,6 @@ export async function PUT(req: NextRequest) {
     let idx = 1
     if (name !== undefined) { sets.push(`name = $${idx++}`); vals.push(name) }
     if (icsUrl !== undefined) { sets.push(`ics_url = $${idx++}`); vals.push(normalizeIcsUrl(icsUrl)) }
-    if (personCode !== undefined) { sets.push(`target_person_code = $${idx++}`); vals.push(personCode) }
     if (color !== undefined) { sets.push(`color = $${idx++}`); vals.push(color || null) }
     if (sharing !== undefined) { sets.push(`sharing = $${idx++}`); vals.push(sharing) }
 
