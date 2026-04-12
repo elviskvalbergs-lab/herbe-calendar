@@ -220,7 +220,8 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
                     <button
                       type="button"
                       onClick={() => setCalendarMonth(m => addMonths(m, 1))}
-                      className="text-text-muted hover:text-text px-2 py-1"
+                      disabled={isAfter(startOfMonth(addMonths(calendarMonth, 1)), parseISO(dateRange.to))}
+                      className="text-text-muted hover:text-text px-2 py-1 disabled:opacity-30"
                     >›</button>
                   </div>
                   {/* Day headers */}
