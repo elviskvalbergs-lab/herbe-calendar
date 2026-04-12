@@ -140,7 +140,7 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-start justify-center pt-8 px-4 pb-4">
       <div className="bg-surface border border-border rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-border flex items-center justify-between">
