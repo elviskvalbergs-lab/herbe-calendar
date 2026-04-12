@@ -259,9 +259,16 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
                             } ${isToday ? 'ring-1 ring-primary/50' : ''}`}
                           >
                             {format(d, 'd')}
-                            {hasSlots && inMonth && !isPast && (
-                              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
-                            )}
+                            {hasSlots && inMonth && !isPast && (() => {
+                              const count = Math.min((slots[dateStr] ?? []).length, 3)
+                              return (
+                                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-[2px]">
+                                  {Array.from({ length: count }, (_, i) => (
+                                    <span key={i} className="w-1 h-1 rounded-full bg-primary" />
+                                  ))}
+                                </span>
+                              )
+                            })()}
                           </button>
                         )
                         day = addDays(day, 1)
