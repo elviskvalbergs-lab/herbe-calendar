@@ -21,6 +21,7 @@ const FEATURES = [
     desc: 'Full read/write access to Standard ERP and Excellent Books activities. Multiple ERP connections with separate registers and color-coded sources per person.',
     color: TEAL,
     status: 'SYSTEM INTEGRATED',
+    docsLink: '/docs/integrations#erp',
   },
   {
     tag: 'MOD_002',
@@ -28,6 +29,7 @@ const FEATURES = [
     desc: 'View and create Outlook calendar events with Teams meetings. RSVP, attendees, and location support. Drag-and-drop to reschedule directly from the calendar.',
     color: OUTLOOK,
     status: 'SYNC ACTIVE',
+    docsLink: '/docs/integrations#outlook',
   },
   {
     tag: 'MOD_003',
@@ -35,6 +37,7 @@ const FEATURES = [
     desc: 'Two access modes: personal OAuth where each user connects their own Google account and picks which calendars to show, and team-level Workspace delegation for full domain visibility. Create and edit events, generate Meet video links, share calendars with colleagues.',
     color: GOOGLE,
     status: 'OAUTH CONNECTED',
+    docsLink: '/docs/integrations#google',
   },
   {
     tag: 'MOD_004',
@@ -42,6 +45,7 @@ const FEATURES = [
     desc: 'Connect a Zoom account and generate meeting links directly from activities and booking flows. Works alongside Teams and Meet — choose the right video platform per event. Links appear in event details, confirmations, and ICS invites.',
     color: ZOOM,
     status: 'MEETINGS ENABLED',
+    docsLink: '/docs/integrations#zoom',
   },
   {
     tag: 'MOD_005',
@@ -49,6 +53,7 @@ const FEATURES = [
     desc: 'Connect your Calendly account to surface incoming bookings alongside your other calendar sources. Webhooks verified with HMAC signatures sync new and cancelled bookings in real time.',
     color: CALENDLY,
     status: 'WEBHOOK LIVE',
+    docsLink: '/docs/integrations#calendly',
   },
   {
     tag: 'MOD_006',
@@ -56,6 +61,7 @@ const FEATURES = [
     desc: 'See multiple people side-by-side in day, 3-day, 5-day, or 7-day views. Month navigator overlay with activity dots and week numbers. Swipe to move between date ranges. Save favorites for quick access to common team configurations.',
     color: CYAN,
     status: 'MESH CONNECTED',
+    docsLink: '/docs/getting-started#views',
   },
   {
     tag: 'MOD_007',
@@ -63,6 +69,7 @@ const FEATURES = [
     desc: 'Share calendar views via secure links with configurable visibility. Booking templates with buffer minutes, configurable day limits, slot quantity dots, and auto-jump to first available month. Teams, Meet, Zoom, and Calendly links included in confirmed bookings.',
     color: PRIMARY,
     status: 'BOOKING LIVE',
+    docsLink: '/docs/booking',
   },
   {
     tag: 'MOD_008',
@@ -70,6 +77,7 @@ const FEATURES = [
     desc: 'Share personal and team Google calendars and ICS feeds with colleagues at four visibility levels: Private, Busy-only, Titles, or Full details. Fine-grained control per calendar per person.',
     color: ORANGE,
     status: 'SHARING ACTIVE',
+    docsLink: '/docs/sharing#calendar-sharing',
   },
   {
     tag: 'MOD_009',
@@ -77,6 +85,7 @@ const FEATURES = [
     desc: 'Per-person country holiday calendars with visual banners on holiday dates. Holidays block booking slots by default; templates can explicitly allow bookings on holidays.',
     color: TEAL,
     status: 'HOLIDAYS LOADED',
+    docsLink: '/docs/admin#holidays',
   },
   {
     tag: 'MOD_010',
@@ -84,6 +93,7 @@ const FEATURES = [
     desc: 'Attach any ICS feed — Airbnb, booking systems, external calendars — to any person. Cached with 5-minute TTL and manual sync. Share personal ICS calendars with colleagues at controlled visibility levels.',
     color: ORANGE,
     status: 'FEEDS ONLINE',
+    docsLink: '/docs/integrations#ics',
   },
 ]
 
@@ -129,6 +139,15 @@ export default function LandingPage() {
                 {label}
               </a>
             ))}
+            <Link
+              href="/docs"
+              className="text-white/70 uppercase tracking-widest text-[10px] font-semibold transition-colors duration-150 px-2 py-1"
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+              onMouseEnter={e => { e.currentTarget.style.background = PRIMARY; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '' }}
+            >
+              Docs
+            </Link>
           </div>
           <Link
             href="/cal"
@@ -259,9 +278,20 @@ export default function LandingPage() {
                   </div>
                   <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{f.title}</h3>
                   <p className="text-sm leading-relaxed mb-8" style={{ color: MUTED }}>{f.desc}</p>
-                  <div className="flex items-center gap-2 text-[10px] tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif", color: f.color }}>
-                    <span className="w-2 h-2" style={{ background: f.color }} />
-                    {f.status}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif", color: f.color }}>
+                      <span className="w-2 h-2" style={{ background: f.color }} />
+                      {f.status}
+                    </div>
+                    <Link
+                      href={f.docsLink}
+                      className="text-[10px] uppercase tracking-widest transition-colors"
+                      style={{ fontFamily: "'Space Grotesk', sans-serif", color: MUTED }}
+                      onMouseEnter={e => { e.currentTarget.style.color = f.color }}
+                      onMouseLeave={e => { e.currentTarget.style.color = MUTED }}
+                    >
+                      Learn more &rarr;
+                    </Link>
                   </div>
                 </div>
               ))}
