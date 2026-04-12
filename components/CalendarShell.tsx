@@ -635,27 +635,27 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       )
     }
 
-    if (sources.google) {
-      promises.push(
-        fetch(`/api/google?persons=${codes}&${dateParam}`)
-          .then(async (res) => {
-            if (res.ok) {
-              const data = await res.json()
-              if (Array.isArray(data)) {
-                loaded.google = data
-              } else {
-                loaded.google = data.activities ?? []
-                if (data.warnings?.length) icsWarnings.push(...data.warnings)
-              }
+    // Always call Google route — it handles domain-wide, per-user OAuth, AND shared calendars
+    promises.push(
+      fetch(`/api/google?persons=${codes}&${dateParam}`)
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            if (Array.isArray(data)) {
+              loaded.google = data
             } else {
-              const e = await res.json().catch(() => null)
-              errors.push(`Google: ${e?.error ?? res.status}`)
+              loaded.google = data.activities ?? []
+              if (data.warnings?.length) icsWarnings.push(...data.warnings)
             }
-            mergeAndSetActivities()
-          })
-          .catch(e => { errors.push(`Google: ${e}`) })
-      )
-    }
+          } else {
+            const e = await res.json().catch(() => null)
+            // Don't report error if Google just isn't configured
+            if (e?.error !== 'Google not configured') errors.push(`Google: ${e?.error ?? res.status}`)
+          }
+          mergeAndSetActivities()
+        })
+        .catch(e => { errors.push(`Google: ${e}`) })
+    )
 
     // Fetch holidays for the visible date range (fire-and-forget alongside activity fetches)
     const personCodes = state.selectedPersons.map(p => p.code).join(',')
@@ -673,9 +673,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     const parts: string[] = []
     if (sources.herbe) parts.push(`${(loaded.herbe ?? []).length} ERP`)
     if (sources.azure) parts.push(`${(loaded.outlook ?? []).length} Outlook`)
-    if (sources.google) {
-      const uniqueCount = new Set((loaded.google ?? []).map(a => `${a.id}:${a.personCode}`)).size
-      parts.push(`${uniqueCount} Google`)
+    {
+      const googleEvents = loaded.google ?? []
+      const uniqueCount = new Set(googleEvents.map(a => `${a.id}:${a.personCode}`)).size
+      if (uniqueCount > 0 || sources.google) parts.push(`${uniqueCount} Google`)
     }
     let statusMsg = parts.join(' + ') + ' activities'
     if (errors.length > 0) statusMsg += ` | ${errors.join('; ')}`
