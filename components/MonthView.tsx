@@ -22,7 +22,7 @@ interface Props {
   onActivityClick: (activity: Activity) => void
 }
 
-const MAX_VISIBLE_EVENTS = 3
+const MAX_VISIBLE_EVENTS = 2
 
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
@@ -103,40 +103,41 @@ export default function MonthView({
                     onClick={() => onSelectDate(dateStr)}
                   >
                     {/* Day number */}
-                    <div className={`text-[10px] font-bold mb-0.5 px-0.5 ${
+                    <div className={`text-sm font-bold mb-0.5 px-1 ${
                       isToday(day) ? 'text-primary' :
-                      !inMonth ? 'text-text-muted' : 'text-text'
+                      !inMonth ? 'text-text-muted/50' : 'text-text'
                     }`}>
                       {format(day, 'd')}
-                      {isToday(day) && <span className="ml-0.5 text-[8px] font-normal text-primary">today</span>}
                     </div>
 
                     {/* Holiday name */}
                     {isHoliday && (
-                      <div className="text-[8px] text-red-400 font-bold truncate px-0.5 mb-0.5" title={dateHolidays.map(h => h.name).join(', ')}>
+                      <div
+                        className="text-[8px] text-red-400 font-bold truncate px-1 mb-0.5 rounded py-px"
+                        style={{ background: 'rgba(239,68,68,0.1)' }}
+                        title={dateHolidays.map(h => h.name).join(', ')}
+                      >
                         {dateHolidays[0].name}
                       </div>
                     )}
 
-                    {/* Event snippets */}
-                    {visible.map(act => (
-                      <button
-                        key={act.id}
-                        onClick={(e) => { e.stopPropagation(); onActivityClick(act) }}
-                        className="w-full text-left flex items-center gap-0.5 rounded px-0.5 py-px hover:bg-border/30 truncate"
-                        title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
-                      >
-                        <span
-                          className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ background: getActivityColor(act) }}
-                        />
-                        <span className="text-[9px] truncate text-text-muted">
-                          {act.isAllDay ? act.description : `${act.timeFrom} ${act.description}`}
-                        </span>
-                      </button>
-                    ))}
+                    {/* Event pills — Apple Calendar style */}
+                    {visible.map(act => {
+                      const color = getActivityColor(act)
+                      return (
+                        <button
+                          key={act.id}
+                          onClick={(e) => { e.stopPropagation(); onActivityClick(act) }}
+                          className="w-full text-left rounded px-1 py-px mb-px truncate text-[9px] font-medium hover:brightness-110"
+                          style={{ background: color + '25', color }}
+                          title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
+                        >
+                          {act.isAllDay ? act.description : `${act.description}`}
+                        </button>
+                      )
+                    })}
                     {moreCount > 0 && (
-                      <div className="text-[8px] text-text-muted/60 px-0.5">+{moreCount} more</div>
+                      <div className="text-[8px] text-text-muted/50 px-1 font-medium">+{moreCount}</div>
                     )}
                   </div>
                 )
