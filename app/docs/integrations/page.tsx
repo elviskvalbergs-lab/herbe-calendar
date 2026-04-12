@@ -24,6 +24,7 @@ export default function IntegrationsPage() {
           <li><a href="#zoom" className="text-sm text-primary hover:underline">Zoom</a></li>
           <li><a href="#calendly" className="text-sm text-primary hover:underline">Calendly</a></li>
           <li><a href="#ics" className="text-sm text-primary hover:underline">ICS Feeds</a></li>
+          <li><a href="#apple" className="text-sm text-primary hover:underline">Apple Calendar</a></li>
         </ul>
       </nav>
 
@@ -139,6 +140,44 @@ export default function IntegrationsPage() {
             <li>Feeds are cached for up to 5 minutes; use the manual refresh button to force a refresh</li>
             <li>ICS feeds are read-only</li>
           </ul>
+        </section>
+
+        <section>
+          <h2 id="apple" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Apple Calendar</h2>
+          <p className="text-text-muted mb-3">
+            Apple does not provide a third-party Calendar API, so there is no direct OAuth connection. However,
+            you can subscribe to any iCloud Calendar as a read-only ICS feed — events will appear in
+            herbe.calendar automatically.
+          </p>
+
+          <div className="bg-surface border border-border rounded-lg px-5 py-4 mb-4">
+            <h3 className="font-semibold mb-3 text-sm">How to get your ICS URL from iCloud Calendar</h3>
+            <ol className="space-y-2 text-text-muted text-sm list-decimal list-inside">
+              <li>Open iCloud Calendar at <code className="bg-bg px-1 rounded text-text">icloud.com/calendar</code> or the Calendar app on your Mac</li>
+              <li>Right-click the calendar you want to share (or tap the broadcast icon next to it)</li>
+              <li>Select <strong className="text-text">Public Calendar</strong> to enable public sharing</li>
+              <li>Copy the <code className="bg-bg px-1 rounded text-text">webcal://</code> URL that appears — replace <code className="bg-bg px-1 rounded text-text">webcal://</code> with <code className="bg-bg px-1 rounded text-text">https://</code> before pasting</li>
+              <li>In herbe.calendar, go to <strong className="text-text">Settings &gt; Integrations &gt; ICS Calendar Feeds</strong> and paste the URL</li>
+            </ol>
+          </div>
+
+          <ul className="space-y-1 text-text-muted text-sm list-disc list-inside">
+            <li>This gives read-only access — events appear in herbe.calendar but cannot be edited here</li>
+            <li>To edit or delete events, do so directly in Apple Calendar or iCloud</li>
+          </ul>
+
+          <p className="text-text-muted text-sm mt-3">
+            See{' '}
+            <a
+              href="https://support.apple.com/guide/icloud/share-a-calendar-mm6b1a9479/icloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Apple&apos;s official guide on sharing iCloud calendars
+            </a>{' '}
+            for more details.
+          </p>
         </section>
 
       </div>

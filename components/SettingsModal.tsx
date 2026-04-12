@@ -703,6 +703,17 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                           Attach Calendar
                         </button>
                       </form>
+                      <p className="text-[11px] text-text-muted mt-2">
+                        Apple Calendar users: share your calendar as a public ICS link from iCloud settings, then paste the URL above.{' '}
+                        <a
+                          href="/docs/integrations#apple"
+                          className="text-primary hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          How?
+                        </a>
+                      </p>
                     </div>
 
                     {/* Existing calendars list */}
