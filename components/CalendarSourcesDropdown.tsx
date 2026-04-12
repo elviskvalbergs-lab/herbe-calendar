@@ -65,8 +65,8 @@ export default function CalendarSourcesDropdown({ sources, hidden, onToggle, onS
         />
         <span className="truncate flex-1">{src.label}</span>
         {src.sharing && src.sharing !== 'private' && (
-          <span className="text-[8px] bg-green-500/15 text-green-400 rounded px-1 py-0.5 shrink-0">
-            {src.sharing === 'busy' ? 'Busy' : src.sharing === 'titles' ? 'Titles' : 'Full'}
+          <span className={`text-[8px] font-bold shrink-0 ${src.sharing === 'full' ? 'text-amber-400' : src.sharing === 'titles' ? 'text-blue-400' : 'text-green-400'}`}>
+            {src.sharing === 'busy' ? 'Shared busy' : src.sharing === 'titles' ? 'Shared titles' : 'Shared fully'}
           </span>
         )}
         {isHidden ? (
