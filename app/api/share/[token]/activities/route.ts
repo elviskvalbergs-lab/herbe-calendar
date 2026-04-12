@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
-import { graphFetch } from '@/lib/graph/client'
-import { getAzureConfig } from '@/lib/accountConfig'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
+import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
@@ -138,28 +137,17 @@ export async function GET(
       // Graph calendar view
       let graphEvents: Record<string, unknown>[] = []
       try {
-        const startDt = `${dateFrom}T00:00:00`
-        const endDt = `${dateTo}T23:59:59`
-        const shareAzureConfig = await getAzureConfig(accountId)
-        if (!shareAzureConfig) throw new Error('Azure not configured')
-        const res = await graphFetch(
-          `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=100`,
-          { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
-          shareAzureConfig
-        )
-        if (res.ok) {
-          const data = await res.json()
-          graphEvents = (data.value ?? []).map((ev: Record<string, unknown>) => {
-            const start = ev['start'] as Record<string, string> | undefined
-            const end = ev['end'] as Record<string, string> | undefined
-            const startDtStr = start?.dateTime ?? ''
-            const endDtStr = end?.dateTime ?? ''
+        const rawEvents = await fetchOutlookEventsForPerson(email, accountId, dateFrom, dateTo)
+        if (rawEvents) {
+          graphEvents = rawEvents.map(ev => {
+            const startDtStr = ev.start?.dateTime ?? ''
+            const endDtStr = ev.end?.dateTime ?? ''
             return {
-              id: String(ev['id'] ?? ''),
+              id: ev.id,
               source: 'outlook' as const,
               isExternal: false,
               personCode: code,
-              description: String(ev['subject'] ?? ''),
+              description: ev.subject ?? '',
               date: startDtStr.slice(0, 10),
               timeFrom: startDtStr.slice(11, 16),
               timeTo: endDtStr.slice(11, 16),

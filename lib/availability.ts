@@ -1,10 +1,10 @@
 import { getDay, parseISO } from 'date-fns'
 import { herbeFetchAll } from '@/lib/herbe/client'
-import { graphFetch } from '@/lib/graph/client'
-import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
-import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
+import { getErpConnections } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
+import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
+import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/googleUtils'
 import { toTime, isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { emailForCode } from '@/lib/emailForCode'
 import type { AvailabilityWindow } from '@/types'
@@ -157,25 +157,15 @@ export async function collectBusyBlocks(
       // Outlook Graph
       if (!hiddenCalendars?.has('outlook'))
       try {
-        const azureConfig = await getAzureConfig(accountId)
-        if (azureConfig) {
-          const startDt = `${dateFrom}T00:00:00`
-          const endDt = `${dateTo}T23:59:59`
-          const res = await graphFetch(
-            `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$select=start,end`,
-            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
-            azureConfig
-          )
-          if (res.ok) {
-            const data = await res.json()
-            for (const ev of data.value ?? []) {
-              const startStr = (ev.start as { dateTime?: string })?.dateTime ?? ''
-              const endStr = (ev.end as { dateTime?: string })?.dateTime ?? ''
-              const date = startStr.slice(0, 10)
-              const startTime = startStr.slice(11, 16)
-              const endTime = endStr.slice(11, 16)
-              if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
-            }
+        const outlookEvents = await fetchOutlookEventsForPerson(email, accountId, dateFrom, dateTo)
+        if (outlookEvents) {
+          for (const ev of outlookEvents) {
+            const startStr = ev.start?.dateTime ?? ''
+            const endStr = ev.end?.dateTime ?? ''
+            const date = startStr.slice(0, 10)
+            const startTime = startStr.slice(11, 16)
+            const endTime = endStr.slice(11, 16)
+            if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
           }
         }
       } catch (e) {
@@ -195,21 +185,11 @@ export async function collectBusyBlocks(
         console.warn(`[availability] ICS busy fetch failed for ${code}:`, String(e))
       }
 
-      // Google Calendar
+      // Google Calendar (domain-wide delegation)
       if (!hiddenCalendars?.has('google'))
       try {
-        const googleConfig = await getGoogleConfig(accountId)
-        if (googleConfig) {
-          const calendar = getCalendarClient(googleConfig, email)
-          const res = await calendar.events.list({
-            calendarId: 'primary',
-            timeMin: `${dateFrom}T00:00:00+03:00`,
-            timeMax: `${dateTo}T23:59:59+03:00`,
-            timeZone: 'Europe/Riga',
-            singleEvents: true,
-            fields: 'items(start,end)',
-          })
-          const googleItems = res.data.items ?? []
+        const googleItems = await fetchGoogleEventsForPerson(email, accountId, dateFrom, dateTo, 'items(start,end)')
+        if (googleItems) {
           for (const ev of googleItems) {
             const startStr = ev.start?.dateTime ?? ''
             const endStr = ev.end?.dateTime ?? ''
@@ -217,11 +197,8 @@ export async function collectBusyBlocks(
             const date = startStr.slice(0, 10)
             const startTime = startStr.slice(11, 16)
             const endTime = endStr.slice(11, 16)
-            console.error(`[availability] Google busy: ${date} ${startTime}-${endTime} (raw: ${startStr} to ${endStr})`)
             if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
           }
-        } else {
-          console.error(`[availability] Google not configured for account ${accountId}`)
         }
       } catch (e) {
         console.error(`[availability] Google busy fetch failed for ${code}:`, String(e))
@@ -233,42 +210,20 @@ export async function collectBusyBlocks(
 
   // Per-user Google OAuth calendars (owner's connected accounts)
   try {
-    const { getUserGoogleAccounts, getValidAccessToken } = await import('@/lib/google/userOAuth')
-    const { getOAuthCalendarClient } = await import('@/lib/google/client')
-    const userAccounts = await getUserGoogleAccounts(ownerEmail, accountId)
-    for (const account of userAccounts) {
-      const enabledCals = account.calendars.filter(c => c.enabled)
-      if (enabledCals.length === 0) continue
-      const accessToken = await getValidAccessToken(account.id)
-      if (!accessToken) {
-        console.warn(`[availability] Per-user Google (${account.googleEmail}): token expired`)
-        continue
-      }
-      const oauthCal = getOAuthCalendarClient(accessToken)
-      for (const cal of enabledCals) {
-        try {
-          const res = await oauthCal.events.list({
-            calendarId: cal.calendarId,
-            timeMin: `${dateFrom}T00:00:00+03:00`,
-            timeMax: `${dateTo}T23:59:59+03:00`,
-            timeZone: 'Europe/Riga',
-            singleEvents: true,
-            fields: 'items(start,end)',
-          })
-          const items = res.data.items ?? []
-          for (const ev of items) {
-            const startStr = ev.start?.dateTime ?? ''
-            const endStr = ev.end?.dateTime ?? ''
-            if (!startStr || !endStr) continue
-            const date = startStr.slice(0, 10)
-            const startTime = startStr.slice(11, 16)
-            const endTime = endStr.slice(11, 16)
-            if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
-          }
-        } catch (e) {
-          console.warn(`[availability] Per-user Google (${account.googleEmail}) "${cal.name}" failed:`, String(e))
-        }
-      }
+    const { events: perUserEvents, warnings } = await fetchPerUserGoogleEvents(
+      ownerEmail, accountId, dateFrom, dateTo, 'items(start,end)',
+    )
+    for (const w of warnings) {
+      console.warn(`[availability] ${w}`)
+    }
+    for (const { event: ev } of perUserEvents) {
+      const startStr = ev.start?.dateTime ?? ''
+      const endStr = ev.end?.dateTime ?? ''
+      if (!startStr || !endStr) continue
+      const date = startStr.slice(0, 10)
+      const startTime = startStr.slice(11, 16)
+      const endTime = endStr.slice(11, 16)
+      if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
     }
   } catch (e) {
     console.warn('[availability] Per-user Google lookup failed:', String(e))

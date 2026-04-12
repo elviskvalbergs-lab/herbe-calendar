@@ -1,3 +1,6 @@
+// TODO: use shared fetch from lib/googleUtils.ts (fetchGoogleEventsForPerson,
+// fetchPerUserGoogleEvents) to replace the inline calendar.events.list calls below.
+// The mapGoogleEvent function here could also move to googleUtils.ts in a follow-up.
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData, getOAuthCalendarClient } from '@/lib/google/client'

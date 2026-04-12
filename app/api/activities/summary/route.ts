@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
-import { getGoogleConfig, getCalendarClient, getOAuthCalendarClient } from '@/lib/google/client'
-import { getUserGoogleAccounts, getValidAccessToken } from '@/lib/google/userOAuth'
+import { getErpConnections } from '@/lib/accountConfig'
 import { herbeFetchAll } from '@/lib/herbe/client'
 import { REGISTERS } from '@/lib/herbe/constants'
-import { graphFetch } from '@/lib/graph/client'
+import { fetchOutlookEventsMinimal } from '@/lib/outlookUtils'
+import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/googleUtils'
 import { emailForCode } from '@/lib/emailForCode'
 import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { format, endOfMonth, parseISO } from 'date-fns'
@@ -69,80 +68,46 @@ export async function GET(req: NextRequest) {
 
   // Outlook
   try {
-    const azureConfig = await getAzureConfig(session.accountId)
-    if (azureConfig) {
-      for (const code of personList) {
-        try {
-          const email = await emailForCode(code, session.accountId)
-          if (!email) continue
-          const res = await graphFetch(
-            `/users/${email}/calendarView?startDateTime=${dateFrom}T00:00:00&endDateTime=${dateTo}T23:59:59&$select=start&$top=500`,
-            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
-            azureConfig
-          )
-          if (res.ok) {
-            const data = await res.json()
-            for (const ev of data.value ?? []) {
-              const date = ((ev.start as { dateTime?: string })?.dateTime ?? '').slice(0, 10)
-              if (date) addEntry(date, 'outlook')
-            }
+    for (const code of personList) {
+      try {
+        const email = await emailForCode(code, session.accountId)
+        if (!email) continue
+        const events = await fetchOutlookEventsMinimal(email, session.accountId, dateFrom, dateTo)
+        if (events) {
+          for (const ev of events) {
+            const date = (ev.start?.dateTime ?? '').slice(0, 10)
+            if (date) addEntry(date, 'outlook')
           }
-        } catch { /* non-fatal */ }
-      }
+        }
+      } catch { /* non-fatal */ }
     }
   } catch { /* non-fatal */ }
 
   // Google (domain-wide)
   try {
-    const googleConfig = await getGoogleConfig(session.accountId)
-    if (googleConfig) {
-      for (const code of personList) {
-        try {
-          const email = await emailForCode(code, session.accountId)
-          if (!email) continue
-          const calendar = getCalendarClient(googleConfig, email)
-          const res = await calendar.events.list({
-            calendarId: 'primary',
-            timeMin: `${dateFrom}T00:00:00Z`,
-            timeMax: `${dateTo}T23:59:59Z`,
-            singleEvents: true,
-            fields: 'items(start)',
-            maxResults: 500,
-          })
-          for (const ev of res.data.items ?? []) {
+    for (const code of personList) {
+      try {
+        const email = await emailForCode(code, session.accountId)
+        if (!email) continue
+        const items = await fetchGoogleEventsForPerson(email, session.accountId, dateFrom, dateTo, 'items(start)')
+        if (items) {
+          for (const ev of items) {
             const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
             if (date) addEntry(date, 'google')
           }
-        } catch { /* non-fatal */ }
-      }
+        }
+      } catch { /* non-fatal */ }
     }
   } catch { /* non-fatal */ }
 
   // Google (per-user)
   try {
-    const userAccounts = await getUserGoogleAccounts(session.email, session.accountId)
-    for (const account of userAccounts) {
-      const enabledCals = account.calendars.filter(c => c.enabled)
-      if (enabledCals.length === 0) continue
-      const accessToken = await getValidAccessToken(account.id)
-      if (!accessToken) continue
-      const oauthCal = getOAuthCalendarClient(accessToken)
-      for (const cal of enabledCals) {
-        try {
-          const res = await oauthCal.events.list({
-            calendarId: cal.calendarId,
-            timeMin: `${dateFrom}T00:00:00Z`,
-            timeMax: `${dateTo}T23:59:59Z`,
-            singleEvents: true,
-            fields: 'items(start)',
-            maxResults: 500,
-          })
-          for (const ev of res.data.items ?? []) {
-            const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
-            if (date) addEntry(date, `google-user:${account.googleEmail}`)
-          }
-        } catch { /* non-fatal */ }
-      }
+    const { events: perUserEvents } = await fetchPerUserGoogleEvents(
+      session.email, session.accountId, dateFrom, dateTo, 'items(start)',
+    )
+    for (const { event: ev, accountEmail } of perUserEvents) {
+      const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
+      if (date) addEntry(date, `google-user:${accountEmail}`)
     }
   } catch { /* non-fatal */ }
 

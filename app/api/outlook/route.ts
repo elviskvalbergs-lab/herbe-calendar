@@ -1,3 +1,6 @@
+// TODO: use shared fetch from lib/outlookUtils.ts (fetchOutlookEventsForPerson) to replace
+// the inline graphFetch calendarView call below. The main route has extra logic (fallback
+// shared-calendar search on 404) that needs care before migrating.
 import { NextRequest, NextResponse } from 'next/server'
 import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
