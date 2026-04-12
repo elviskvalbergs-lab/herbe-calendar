@@ -103,7 +103,7 @@ export interface SearchResult {
 }
 
 export interface CalendarState {
-  view: 'day' | '3day' | '5day' | '7day'
+  view: 'day' | '3day' | '5day' | '7day' | 'month'
   date: string           // "YYYY-MM-DD" — anchor date
   selectedPersons: Person[]
 }

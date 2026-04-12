@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { format, addDays, subDays, parseISO } from 'date-fns'
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO } from 'date-fns'
 import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource, UserGoogleAccount } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
+import MonthView from './MonthView'
 import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
@@ -568,8 +569,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
     if (!selectedCodesKey) return
     const codes = selectedCodesKey
-    const dateFrom = state.date
-    const dateTo = state.view === '7day'
+    const dateFrom = state.view === 'month'
+      ? format(startOfWeek(parseISO(state.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      : state.date
+    const dateTo = state.view === 'month'
+      ? format(endOfMonth(parseISO(state.date)), 'yyyy-MM-dd')
+      : state.view === '7day'
       ? format(addDays(parseISO(state.date), 6), 'yyyy-MM-dd')
       : state.view === '5day'
       ? format(addDays(parseISO(state.date), 4), 'yyyy-MM-dd')
@@ -718,7 +723,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
     setLoading(false)
 
-    // Prefetch adjacent date ranges in the background for instant navigation
+    // Prefetch adjacent date ranges in the background for instant navigation (skip for month view — range already large)
+    if (state.view === 'month') { setLoading(false); return }
     const viewDays = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
     const prefetchDates = [
       format(addDays(parseISO(dateFrom), -viewDays), 'yyyy-MM-dd'),
@@ -797,43 +803,63 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         userEmail={userEmail}
         accountLogo={accountLogo}
       />
-      <CalendarGrid
-        state={state}
-        activities={visibleActivities}
-        loading={loading}
-        holidays={holidays}
-        sessionUserCode={userCode}
-        getActivityColor={colorForActivity}
-        getTypeName={getTypeName}
-        scale={zoom}
-        isLightMode={isLightMode}
-        onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
-        onNavigate={(dir) => {
-          const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
-          setState(s => ({
-            ...s,
-            date: format(
-              dir === 'next' ? addDays(parseISO(s.date), step) : subDays(parseISO(s.date), step),
-              'yyyy-MM-dd'
-            ),
-          }))
-        }}
-        onSlotClick={(personCode, time, date) =>
-          setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
-        }
-        onActivityClick={(activity) =>
-          setFormState({
-            open: true,
-            initial: activity,
-            editId: activity.id,
-            canEdit: canEditActivity(activity)
-          })
-        }
-        onActivityUpdate={fetchActivities}
-        onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
-        onDrillDate={drillToDate}
-        onDrillPerson={drillToPerson}
-      />
+      {state.view === 'month' ? (
+        <MonthView
+          activities={visibleActivities}
+          date={state.date}
+          holidays={holidays}
+          personCode={state.selectedPersons[0]?.code ?? userCode}
+          getActivityColor={colorForActivity}
+          onSelectDate={(date) => setState(s => ({ ...s, view: 'day', date }))}
+          onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
+          onActivityClick={(activity) =>
+            setFormState({
+              open: true,
+              initial: activity,
+              editId: activity.id,
+              canEdit: canEditActivity(activity)
+            })
+          }
+        />
+      ) : (
+        <CalendarGrid
+          state={state}
+          activities={visibleActivities}
+          loading={loading}
+          holidays={holidays}
+          sessionUserCode={userCode}
+          getActivityColor={colorForActivity}
+          getTypeName={getTypeName}
+          scale={zoom}
+          isLightMode={isLightMode}
+          onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
+          onNavigate={(dir) => {
+            const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+            setState(s => ({
+              ...s,
+              date: format(
+                dir === 'next' ? addDays(parseISO(s.date), step) : subDays(parseISO(s.date), step),
+                'yyyy-MM-dd'
+              ),
+            }))
+          }}
+          onSlotClick={(personCode, time, date) =>
+            setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
+          }
+          onActivityClick={(activity) =>
+            setFormState({
+              open: true,
+              initial: activity,
+              editId: activity.id,
+              canEdit: canEditActivity(activity)
+            })
+          }
+          onActivityUpdate={fetchActivities}
+          onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
+          onDrillDate={drillToDate}
+          onDrillPerson={drillToPerson}
+        />
+      )}
       {status && (
         <div
           className="px-3 py-1 text-xs font-mono border-t shrink-0 flex items-center justify-between"

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { addDays, format, parseISO } from 'date-fns'
+import { addDays, addMonths, subMonths, startOfMonth, format, parseISO } from 'date-fns'
 import { Person, CalendarState, CalendarSource } from '@/types'
 import { signOut } from 'next-auth/react'
 import { personColor } from '@/lib/colors'
@@ -40,10 +40,17 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   const [mobileCalendarsOpen, setMobileCalendarsOpen] = useState(false)
   const [monthNavOpen, setMonthNavOpen] = useState(false)
 
-  const viewStep = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+  const isMonth = state.view === 'month'
+  const viewStep = isMonth ? 0 : state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
   function navigate(days: number) {
-    onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
+    if (isMonth) {
+      const current = parseISO(state.date)
+      const newDate = days > 0 ? addMonths(current, 1) : subMonths(current, 1)
+      onStateChange({ ...state, date: format(startOfMonth(newDate), 'yyyy-MM-dd') })
+    } else {
+      onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
+    }
   }
 
   return (
@@ -66,31 +73,43 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {!accountName && <span className="mr-auto" />}
 
       {/* Date navigation */}
-      {viewStep > 1 && (
-        <button onClick={() => navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Back ${viewStep} days`}>«</button>
+      {(viewStep > 1 || isMonth) && (
+        <button onClick={() => navigate(isMonth ? -1 : -viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
       )}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
+      {!isMonth && (
+        <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
+      )}
       <button
-        onClick={() => setMonthNavOpen(true)}
+        onClick={() => { if (!isMonth) setMonthNavOpen(true) }}
         className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap"
         title="Pick a date"
       >
         {format(parseISO(state.date), 'd MMM yyyy')}
       </button>
-      <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
-      {viewStep > 1 && (
-        <button onClick={() => navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={`Forward ${viewStep} days`}>»</button>
+      {!isMonth && (
+        <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
+      )}
+      {(viewStep > 1 || isMonth) && (
+        <button onClick={() => navigate(isMonth ? 1 : viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
       )}
       {/* View toggle */}
       <select
         value={state.view}
-        onChange={e => onStateChange({ ...state, view: e.target.value as CalendarState['view'] })}
+        onChange={e => {
+          const newView = e.target.value as CalendarState['view']
+          if (newView === 'month') {
+            onStateChange({ ...state, view: newView, date: format(startOfMonth(parseISO(state.date)), 'yyyy-MM-dd') })
+          } else {
+            onStateChange({ ...state, view: newView })
+          }
+        }}
         className="bg-surface border border-border rounded-lg text-xs font-semibold px-1.5 py-1 text-text-muted focus:outline-none focus:border-primary cursor-pointer"
       >
         <option value="day">1 day</option>
         <option value="3day">3 days</option>
         <option value="5day">5 days</option>
         <option value="7day">7 days</option>
+        <option value="month">Month</option>
       </select>
 
       {/* Person chips */}
