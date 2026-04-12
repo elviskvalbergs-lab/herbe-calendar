@@ -45,7 +45,7 @@ type Tab = 'style' | 'colors' | 'integrations' | 'templates'
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
-  interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string }
+  interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string; sharing?: string }
   const [customCals, setCustomCals] = useState<CustomCalendar[]>([])
   const [calLoading, setCalLoading] = useState(false)
   const [googleAccounts, setGoogleAccounts] = useState<UserGoogleAccount[]>([])
@@ -458,6 +458,29 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                               >reset</button>
                             )}
                           </div>
+                          <div className="flex items-center gap-2 mt-1.5 pl-5">
+                            <span className="text-[9px] text-text-muted">Sharing:</span>
+                            <select
+                              value={cal.sharing ?? 'private'}
+                              onChange={async (e) => {
+                                setGoogleAccounts(prev => prev.map(a => a.id === account.id ? {
+                                  ...a,
+                                  calendars: a.calendars.map(c => c.id === cal.id ? { ...c, sharing: e.target.value as any } : c)
+                                } : a))
+                                await fetch('/api/google/calendars', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ calendarDbId: cal.id, sharing: e.target.value }),
+                                })
+                              }}
+                              className="bg-bg border border-border rounded text-[10px] px-1.5 py-0.5 outline-none"
+                            >
+                              <option value="private">Private</option>
+                              <option value="busy">Busy only</option>
+                              <option value="titles">Titles</option>
+                              <option value="full">Full details</option>
+                            </select>
+                          </div>
                           </div>
                         ))}
                       </div>
@@ -762,6 +785,26 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                         )}
                                       </>
                                     })()}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1.5">
+                                    <span className="text-[9px] text-text-muted">Sharing:</span>
+                                    <select
+                                      value={c.sharing ?? 'private'}
+                                      onChange={async (e) => {
+                                        setCustomCals(prev => prev.map(cal => cal.id === c.id ? { ...cal, sharing: e.target.value } : cal))
+                                        await fetch('/api/settings/calendars', {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ id: c.id, sharing: e.target.value }),
+                                        })
+                                      }}
+                                      className="bg-bg border border-border rounded text-[10px] px-1.5 py-0.5 outline-none"
+                                    >
+                                      <option value="private">Private</option>
+                                      <option value="busy">Busy only</option>
+                                      <option value="titles">Titles</option>
+                                      <option value="full">Full details</option>
+                                    </select>
                                   </div>
                                 </>
                               )}

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureTable()
     const { rows } = await pool.query(
-      'SELECT id, target_person_code as "personCode", name, ics_url as "icsUrl", color FROM user_calendars WHERE user_email = $1 AND account_id = $2 ORDER BY created_at DESC',
+      'SELECT id, target_person_code as "personCode", name, ics_url as "icsUrl", color, sharing FROM user_calendars WHERE user_email = $1 AND account_id = $2 ORDER BY created_at DESC',
       [session.email, session.accountId]
     )
     return NextResponse.json(rows, { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } })
@@ -86,7 +86,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     await ensureTable()
-    const { id, name, icsUrl, personCode, color } = await req.json()
+    const { id, name, icsUrl, personCode, color, sharing } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     if (icsUrl !== undefined) {
@@ -103,6 +103,7 @@ export async function PUT(req: NextRequest) {
     if (icsUrl !== undefined) { sets.push(`ics_url = $${idx++}`); vals.push(normalizeIcsUrl(icsUrl)) }
     if (personCode !== undefined) { sets.push(`target_person_code = $${idx++}`); vals.push(personCode) }
     if (color !== undefined) { sets.push(`color = $${idx++}`); vals.push(color || null) }
+    if (sharing !== undefined) { sets.push(`sharing = $${idx++}`); vals.push(sharing) }
 
     if (sets.length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
 

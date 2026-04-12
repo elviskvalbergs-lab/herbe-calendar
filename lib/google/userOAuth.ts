@@ -156,7 +156,7 @@ export async function getUserGoogleAccounts(
   const accounts: UserGoogleAccount[] = []
   for (const token of tokens) {
     const { rows: cals } = await pool.query(
-      'SELECT id, calendar_id, name, color, enabled FROM user_google_calendars WHERE user_google_token_id = $1 ORDER BY name',
+      'SELECT id, calendar_id, name, color, enabled, sharing FROM user_google_calendars WHERE user_google_token_id = $1 ORDER BY name',
       [token.id]
     )
     accounts.push({
@@ -168,6 +168,7 @@ export async function getUserGoogleAccounts(
         name: c.name,
         color: c.color,
         enabled: c.enabled,
+        sharing: c.sharing ?? 'private',
         googleEmail: token.google_email,
         tokenId: token.id,
       })),

@@ -25,7 +25,7 @@ export async function PUT(req: NextRequest) {
     return unauthorized()
   }
 
-  const { calendarDbId, enabled, color } = await req.json()
+  const { calendarDbId, enabled, color, sharing } = await req.json()
   if (!calendarDbId || typeof calendarDbId !== 'string') {
     return NextResponse.json({ error: 'calendarDbId required' }, { status: 400 })
   }
@@ -52,6 +52,10 @@ export async function PUT(req: NextRequest) {
   if (typeof color === 'string') {
     updates.push(`color = $${paramIdx++}`)
     params.push(color || null)
+  }
+  if (typeof sharing === 'string' && ['private', 'busy', 'titles', 'full'].includes(sharing)) {
+    updates.push(`sharing = $${paramIdx++}`)
+    params.push(sharing)
   }
 
   if (updates.length > 0) {
