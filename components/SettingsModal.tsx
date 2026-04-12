@@ -243,7 +243,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={() => {
+        if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
+        onClose()
+      }} />
       <div
         className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden"
         onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
@@ -251,8 +254,14 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           if (swipeStart.current !== null) {
             const dx = e.changedTouches[0].clientX - swipeStart.current.x
             const dy = e.changedTouches[0].clientY - swipeStart.current.y
-            if (dy > 80 && dy > Math.abs(dx)) onClose()
-            else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) onClose()
+            if (dy > 80 && dy > Math.abs(dx)) {
+              if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) { swipeStart.current = null; return }
+              onClose()
+            }
+            else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) {
+              if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) { swipeStart.current = null; return }
+              onClose()
+            }
           }
           swipeStart.current = null
         }}
@@ -265,7 +274,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         <div className="px-4 pt-3 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold">Settings</h2>
-            <button onClick={onClose} className="text-text-muted text-xl leading-none hover:text-text">✕</button>
+            <button onClick={() => {
+              if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
+              onClose()
+            }} className="text-text-muted text-xl leading-none hover:text-text">✕</button>
           </div>
           <div className="flex gap-4 text-sm">
             <button
@@ -900,7 +912,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                             >
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold">{t.name}</span>
-                                <span className="text-[10px] bg-primary/10 text-primary rounded px-1.5 py-0.5">{t.duration_minutes} min</span>
+                                <span className="text-[10px] bg-primary/10 text-primary rounded px-1.5 py-0.5">{t.duration_minutes} min{t.buffer_minutes ? ` + ${t.buffer_minutes} buffer` : ''}</span>
                                 <span className={`text-[10px] font-bold ${t.active !== false ? 'text-green-400' : 'text-red-400'}`}>
                                   {t.active !== false ? 'Active' : 'Inactive'}
                                 </span>
