@@ -72,30 +72,15 @@ export async function GET(req: NextRequest) {
   const allEvents = [...domainWideEvents, ...uniquePerUser]
 
   // Include shared calendar events from colleagues
-  let sharedDebug: Record<string, unknown> = {}
   try {
     const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
     const shared = await fetchSharedCalendarEvents(personList, session.email, session.accountId, dateFrom, dateTo)
     allEvents.push(...shared.events)
-    sharedDebug = {
-      viewerEmail: session.email,
-      sharedEventCount: shared.events.length,
-      sharedEvents: shared.events.map(e => ({ id: e.id, desc: e.description?.slice(0, 30), date: e.date, isAllDay: e.isAllDay, calName: e.icsCalendarName, personCode: e.personCode })),
-    }
   } catch (e) {
     console.warn('[google] Shared calendar fetch failed:', String(e))
-    sharedDebug = { error: String(e) }
   }
 
-  const response: Record<string, unknown> = {
-    activities: allEvents,
-    _debug: {
-      domainWideCount: domainWideEvents.length,
-      perUserCount: uniquePerUser.length,
-      ...sharedDebug,
-      totalEvents: allEvents.length,
-    },
-  }
+  const response: Record<string, unknown> = { activities: allEvents }
   if (warnings.length > 0) response.warnings = warnings
   return NextResponse.json(response, { headers: { 'Cache-Control': 'no-store' } })
 }
