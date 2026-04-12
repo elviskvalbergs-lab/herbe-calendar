@@ -113,8 +113,6 @@ export async function collectBusyBlocks(
 ): Promise<Map<string, BusyBlock[]>> {
   const busyByDate = new Map<string, BusyBlock[]>()
 
-  const _debugErrors: string[] = []
-
   function addBusy(date: string, block: BusyBlock) {
     const existing = busyByDate.get(date)
     if (existing) existing.push(block)
@@ -155,7 +153,6 @@ export async function collectBusyBlocks(
   for (const code of personCodes) {
     try {
       const email = await emailForCode(code, accountId)
-      console.error(`[availability] Person ${code} → email=${email ?? 'NULL'}`)
       if (!email) continue
 
       // Outlook Graph
@@ -208,7 +205,6 @@ export async function collectBusyBlocks(
       }
 
       // Google Calendar
-      console.error(`[availability] About to fetch Google for ${code} (${email}), hidden=${hiddenCalendars?.has('google')}`)
       if (!hiddenCalendars?.has('google'))
       try {
         const googleConfig = await getGoogleConfig(accountId)
@@ -223,7 +219,6 @@ export async function collectBusyBlocks(
             fields: 'items(start,end)',
           })
           const googleItems = res.data.items ?? []
-          _debugErrors.push(`Google OK: ${code} (${email}) → ${googleItems.length} events`)
           for (const ev of googleItems) {
             const startStr = ev.start?.dateTime ?? ''
             const endStr = ev.end?.dateTime ?? ''
@@ -238,9 +233,7 @@ export async function collectBusyBlocks(
           console.error(`[availability] Google not configured for account ${accountId}`)
         }
       } catch (e) {
-        const errMsg = `Google busy fetch failed for ${code}: ${String(e).slice(0, 200)}`
-        console.error(`[availability] ${errMsg}`)
-        _debugErrors.push(errMsg)
+        console.error(`[availability] Google busy fetch failed for ${code}:`, String(e))
       }
     } catch (e) {
       console.warn(`[availability] Busy fetch failed for ${code}:`, String(e))
@@ -257,7 +250,7 @@ export async function collectBusyBlocks(
       if (enabledCals.length === 0) continue
       const accessToken = await getValidAccessToken(account.id)
       if (!accessToken) {
-        _debugErrors.push(`Per-user Google (${account.googleEmail}): token expired`)
+        console.warn(`[availability] Per-user Google (${account.googleEmail}): token expired`)
         continue
       }
       const oauthCal = getOAuthCalendarClient(accessToken)
@@ -272,7 +265,6 @@ export async function collectBusyBlocks(
             fields: 'items(start,end)',
           })
           const items = res.data.items ?? []
-          _debugErrors.push(`Per-user Google (${account.googleEmail}) "${cal.name}": ${items.length} events`)
           for (const ev of items) {
             const startStr = ev.start?.dateTime ?? ''
             const endStr = ev.end?.dateTime ?? ''
@@ -283,14 +275,13 @@ export async function collectBusyBlocks(
             if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
           }
         } catch (e) {
-          _debugErrors.push(`Per-user Google (${account.googleEmail}) "${cal.name}" failed: ${String(e).slice(0, 100)}`)
+          console.warn(`[availability] Per-user Google (${account.googleEmail}) "${cal.name}" failed:`, String(e))
         }
       }
     }
   } catch (e) {
-    _debugErrors.push(`Per-user Google lookup failed: ${String(e).slice(0, 100)}`)
+    console.warn('[availability] Per-user Google lookup failed:', String(e))
   }
 
-  ;(busyByDate as any)._debugErrors = _debugErrors
   return busyByDate
 }

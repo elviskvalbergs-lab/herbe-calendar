@@ -102,11 +102,6 @@ export async function GET(
   // 5. Collect busy blocks from all calendar sources
   const busyByDate = await collectBusyBlocks(personCodes, link.ownerEmail, accountId, dateFrom, dateTo, hiddenCalendarsSet)
 
-  // Debug: log busy blocks for troubleshooting
-  for (const [d, blocks] of busyByDate) {
-    console.log(`[availability] ${d}: ${blocks.length} busy blocks:`, blocks.map(b => `${b.start}-${b.end}`).join(', '))
-  }
-
   // 5a. Also add existing confirmed bookings as busy
   try {
     const { rows: bookingRows } = await pool.query(
@@ -171,11 +166,7 @@ export async function GET(
     current.setDate(current.getDate() + 1)
   }
 
-  // 7. Return response (include debug info temporarily)
-  const debugBusy: Record<string, string[]> = {}
-  for (const [d, blocks] of busyByDate) {
-    debugBusy[d] = blocks.map(b => `${b.start}-${b.end}`)
-  }
+  // 7. Return response
   return NextResponse.json(
     {
       slots,
@@ -184,7 +175,6 @@ export async function GET(
         duration_minutes: durationMinutes,
         custom_fields: customFields,
       },
-      _debug: { personCodes, ownerEmail: link.ownerEmail, accountId, busyBlocks: debugBusy, errors: (busyByDate as any)._debugErrors ?? [] },
     },
     { headers: { 'Cache-Control': 'no-store' } }
   )
