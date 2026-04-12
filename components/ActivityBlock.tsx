@@ -77,7 +77,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
 
   return (
     <div
-      className="absolute left-1 right-1 rounded cursor-pointer select-none pointer-events-auto transition-shadow duration-150"
+      className="absolute left-px right-px rounded cursor-pointer select-none pointer-events-auto transition-shadow duration-150"
       style={{
         top,
         height,
@@ -124,20 +124,17 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
       {isCompact ? (
-        <div className="px-1.5 flex items-center gap-1 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
+        <div className="px-1 flex items-center gap-0.5 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
           <p className="text-[9px] font-bold truncate flex-1" style={{ color: textColor }}>
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
           <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
         </div>
       ) : (
-        <div className="px-1.5 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
-          <div className="flex items-start justify-between gap-1">
-            <p className="text-[10px] font-bold truncate flex-1" style={{ color: textColor }}>
-              {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
-            </p>
-            <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
-          </div>
+        <div className="px-1 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
+          <p className="text-[10px] font-bold truncate" style={{ color: textColor }}>
+            {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
+          </p>
           <p className="text-[9px] text-text-muted truncate">
             {activity.timeFrom}–{activity.timeTo}
             {activity.customerName ? ` · ${activity.customerName}` : ''}
