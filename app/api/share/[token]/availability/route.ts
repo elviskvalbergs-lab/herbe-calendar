@@ -184,7 +184,7 @@ export async function GET(
         duration_minutes: durationMinutes,
         custom_fields: customFields,
       },
-      _debug: { personCodes, ownerEmail: link.ownerEmail, accountId, busyBlocks: debugBusy },
+      _debug: { personCodes, ownerEmail: link.ownerEmail, accountId, busyBlocks: debugBusy, errors: (busyByDate as any)._debugErrors ?? [] },
     },
     { headers: { 'Cache-Control': 'no-store' } }
   )

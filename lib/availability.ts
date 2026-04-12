@@ -113,6 +113,8 @@ export async function collectBusyBlocks(
 ): Promise<Map<string, BusyBlock[]>> {
   const busyByDate = new Map<string, BusyBlock[]>()
 
+  const _debugErrors: string[] = []
+
   function addBusy(date: string, block: BusyBlock) {
     const existing = busyByDate.get(date)
     if (existing) existing.push(block)
@@ -236,12 +238,15 @@ export async function collectBusyBlocks(
           console.error(`[availability] Google not configured for account ${accountId}`)
         }
       } catch (e) {
-        console.error(`[availability] Google busy fetch failed for ${code}:`, String(e))
+        const errMsg = `Google busy fetch failed for ${code}: ${String(e).slice(0, 200)}`
+        console.error(`[availability] ${errMsg}`)
+        _debugErrors.push(errMsg)
       }
     } catch (e) {
       console.warn(`[availability] Busy fetch failed for ${code}:`, String(e))
     }
   }
 
+  ;(busyByDate as any)._debugErrors = _debugErrors
   return busyByDate
 }
