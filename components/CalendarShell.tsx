@@ -553,10 +553,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       ? `date=${dateFrom}`
       : `dateFrom=${dateFrom}&dateTo=${dateTo}`
 
-    // Check cache first — show cached data instantly
+    // Check cache first — show cached data instantly (skip cache on manual refresh)
     const cacheKey = `${codes}:${dateFrom}:${dateTo}`
     const cacheEntry = activityCacheRef.current.get(cacheKey)
-    if (cacheEntry) {
+    if (cacheEntry && !bustIcsCache) {
       setActivities(cacheEntry.data)
       setLoading(false)
       // Skip background refresh if data is fresh (< 60 seconds old)
@@ -564,7 +564,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         setStatus({ msg: `${cacheEntry.data.length} activities (cached)`, ok: true })
         return
       }
-    } else {
+    } else if (!cacheEntry) {
       setLoading(true)
     }
 
