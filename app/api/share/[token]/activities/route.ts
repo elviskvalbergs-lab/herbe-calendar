@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { graphFetch } from '@/lib/graph/client'
 import { getAzureConfig } from '@/lib/accountConfig'
-import { fetchIcsEvents, deduplicateIcsAgainstGraph } from '@/lib/icsParser'
+import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
+import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -128,21 +129,8 @@ export async function GET(
       // ICS feeds — query using ownerEmail (not session)
       let icsEvents: Record<string, unknown>[] = []
       try {
-        const { rows: icsRows } = await pool.query(
-          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
-          [ownerEmail, code, accountId]
-        )
-        const icsResults = await Promise.all(
-          icsRows.map(async (row) => {
-            const icsResult = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
-            return icsResult.events.map(ev => ({
-              ...ev,
-              ...(row.color ? { icsColor: row.color } : {}),
-              icsCalendarName: row.name,
-            }))
-          })
-        )
-        icsEvents = icsResults.flat()
+        const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, dateTo)
+        icsEvents = icsResult.events
       } catch (e) {
         console.warn(`[share/activities] ICS fetch failed for ${code}:`, String(e))
       }

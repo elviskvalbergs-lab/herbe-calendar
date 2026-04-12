@@ -4,10 +4,9 @@ import { graphFetch } from '@/lib/graph/client'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
 import { REGISTERS } from '@/lib/herbe/constants'
-import { fetchIcsEvents } from '@/lib/icsParser'
+import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { toTime, isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { emailForCode } from '@/lib/emailForCode'
-import { pool } from '@/lib/db'
 import type { AvailabilityWindow } from '@/types'
 
 export interface BusyBlock {
@@ -185,20 +184,12 @@ export async function collectBusyBlocks(
 
       // ICS feeds
       try {
-        const { rows: icsRows } = await pool.query(
-          'SELECT ics_url FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
-          [ownerEmail, code, accountId]
-        )
-        for (const row of icsRows) {
-          try {
-            const icsResult = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
-            for (const ev of icsResult.events) {
-              const start = String(ev.timeFrom ?? '')
-              const end = String(ev.timeTo ?? '')
-              const date = String(ev.date ?? '')
-              if (date && start && end) addBusy(date, { start, end })
-            }
-          } catch { /* ICS parse failures are non-fatal — skip feed */ }
+        const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, dateTo)
+        for (const ev of icsResult.events) {
+          const start = String(ev.timeFrom ?? '')
+          const end = String(ev.timeTo ?? '')
+          const date = String(ev.date ?? '')
+          if (date && start && end) addBusy(date, { start, end })
         }
       } catch (e) {
         console.warn(`[availability] ICS busy fetch failed for ${code}:`, String(e))

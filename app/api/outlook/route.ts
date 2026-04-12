@@ -3,8 +3,8 @@ import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { getAzureConfig } from '@/lib/accountConfig'
 import type { Activity } from '@/types'
-import { pool } from '@/lib/db'
-import { fetchIcsEvents, deduplicateIcsAgainstGraph } from '@/lib/icsParser'
+import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
+import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { emailForCode } from '@/lib/emailForCode'
 
 export async function GET(req: NextRequest) {
@@ -36,33 +36,11 @@ export async function GET(req: NextRequest) {
       if (!email) return []
 
       // --- ICS feeds (DB-backed) — fetched in parallel with Graph ---
-      let icsEventsPromise: Promise<{ events: any[]; warnings: string[] }> = Promise.resolve({ events: [], warnings: [] })
-      try {
-        const { rows: icsRows } = await pool.query(
-          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
-          [session.email, code, session.accountId]
-        )
-        if (icsRows.length > 0) {
-          console.log(`[outlook] Found ${icsRows.length} ICS feed(s) for ${code}`)
-          icsEventsPromise = Promise.all(
-            icsRows.map(async row => {
-              const result = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo, bustIcsCache)
-              const events = result.events.map(ev => ({
-                ...ev,
-                ...(row.color ? { icsColor: row.color } : {}),
-                icsCalendarName: row.name,
-              }))
-              const warning = result.error ? `ICS "${row.name}": ${result.error}` : undefined
-              return { events, warning }
-            })
-          ).then(results => ({
-            events: results.flatMap(r => r.events),
-            warnings: results.map(r => r.warning).filter((w): w is string => !!w),
-          }))
-        }
-      } catch (e) {
-        console.warn(`[outlook] DB lookup for ICS failed for ${code}:`, e)
-      }
+      const icsEventsPromise = fetchIcsForPerson(session.email, code, session.accountId, dateFrom, dateTo, bustIcsCache)
+        .catch(e => {
+          console.warn(`[outlook] ICS fetch failed for ${code}:`, e)
+          return { events: [], warnings: [] }
+        })
 
       // Skip Graph if Azure not configured — ICS events still returned
       if (!azureConfig) {

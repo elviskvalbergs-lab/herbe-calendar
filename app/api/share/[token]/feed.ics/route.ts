@@ -4,7 +4,7 @@ import { herbeFetchAll } from '@/lib/herbe/client'
 import { graphFetch } from '@/lib/graph/client'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
-import { fetchIcsEvents } from '@/lib/icsParser'
+import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { toTime, isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import ICAL from 'ical.js'
 import type { ShareVisibility } from '@/types'
@@ -130,25 +130,15 @@ export async function GET(
       // ICS feeds
       if (!hiddenCalendarsSet.has('ics')) {
         try {
-          const { rows: icsRows } = await pool.query(
-            'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
-            [ownerEmail, code, accountId]
-          )
-          for (const row of icsRows) {
-            const calName = row.name as string
+          const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, dateTo)
+          for (const ev of icsResult.events) {
+            const calName = ev.icsCalendarName as string | undefined
             const icsKey = calName ? `ics:${calName}` : 'ics'
             if (hiddenCalendarsSet.has(icsKey)) continue
-            try {
-              const icsResult = await fetchIcsEvents(row.ics_url as string, code, dateFrom, dateTo)
-              for (const ev of icsResult.events) {
-                allActivities.push({
-                  ...ev as RawActivity,
-                  id: `ics-${code}-${ev.id}`,
-                  icsCalendarName: calName,
-                  icsColor: row.color as string | undefined,
-                })
-              }
-            } catch {}
+            allActivities.push({
+              ...(ev as unknown as RawActivity),
+              id: `ics-${code}-${ev.id as string}`,
+            })
           }
         } catch {}
       }
