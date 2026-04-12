@@ -229,5 +229,16 @@ export async function collectBusyBlocks(
     console.warn('[availability] Per-user Google lookup failed:', String(e))
   }
 
+  // Shared calendars from other users (busy+ sharing levels)
+  try {
+    const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
+    const shared = await fetchSharedCalendarEvents(personCodes, ownerEmail, accountId, dateFrom, dateTo)
+    for (const [date, blocks] of shared.busyBlocks) {
+      for (const block of blocks) addBusy(date, block)
+    }
+  } catch (e) {
+    console.warn('[availability] Shared calendar fetch failed:', String(e))
+  }
+
   return busyByDate
 }
