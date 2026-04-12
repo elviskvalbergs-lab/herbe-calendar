@@ -247,6 +247,50 @@ export async function collectBusyBlocks(
     }
   }
 
+  // Per-user Google OAuth calendars (owner's connected accounts)
+  try {
+    const { getUserGoogleAccounts, getValidAccessToken } = await import('@/lib/google/userOAuth')
+    const { getOAuthCalendarClient } = await import('@/lib/google/client')
+    const userAccounts = await getUserGoogleAccounts(ownerEmail, accountId)
+    for (const account of userAccounts) {
+      const enabledCals = account.calendars.filter(c => c.enabled)
+      if (enabledCals.length === 0) continue
+      const accessToken = await getValidAccessToken(account.id)
+      if (!accessToken) {
+        _debugErrors.push(`Per-user Google (${account.googleEmail}): token expired`)
+        continue
+      }
+      const oauthCal = getOAuthCalendarClient(accessToken)
+      for (const cal of enabledCals) {
+        try {
+          const res = await oauthCal.events.list({
+            calendarId: cal.calendarId,
+            timeMin: `${dateFrom}T00:00:00+03:00`,
+            timeMax: `${dateTo}T23:59:59+03:00`,
+            timeZone: 'Europe/Riga',
+            singleEvents: true,
+            fields: 'items(start,end)',
+          })
+          const items = res.data.items ?? []
+          _debugErrors.push(`Per-user Google (${account.googleEmail}) "${cal.name}": ${items.length} events`)
+          for (const ev of items) {
+            const startStr = ev.start?.dateTime ?? ''
+            const endStr = ev.end?.dateTime ?? ''
+            if (!startStr || !endStr) continue
+            const date = startStr.slice(0, 10)
+            const startTime = startStr.slice(11, 16)
+            const endTime = endStr.slice(11, 16)
+            if (date && startTime && endTime) addBusy(date, { start: startTime, end: endTime })
+          }
+        } catch (e) {
+          _debugErrors.push(`Per-user Google (${account.googleEmail}) "${cal.name}" failed: ${String(e).slice(0, 100)}`)
+        }
+      }
+    }
+  } catch (e) {
+    _debugErrors.push(`Per-user Google lookup failed: ${String(e).slice(0, 100)}`)
+  }
+
   ;(busyByDate as any)._debugErrors = _debugErrors
   return busyByDate
 }
