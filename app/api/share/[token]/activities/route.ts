@@ -210,7 +210,7 @@ export async function GET(
   if (!hiddenCalendarsSet.has('google')) {
     try {
       const { events: perUserRaw } = await fetchPerUserGoogleEvents(
-        ownerEmail, accountId, dateFrom, dateTo,
+        ownerEmail, accountId, dateFrom, cappedDateTo,
         'items(id,summary,start,end,organizer,attendees,status)',
       )
       for (const { event: ev, calendarName, color } of perUserRaw) {
