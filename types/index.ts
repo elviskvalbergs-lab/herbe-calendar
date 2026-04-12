@@ -1,6 +1,9 @@
 /** Known calendar sources. Use string (not a closed union) so new sources can be added without touching this type. */
 export type Source = 'herbe' | 'outlook' | 'google' | (string & {})
 
+/** Calendar sharing visibility level */
+export type SharingLevel = 'private' | 'busy' | 'titles' | 'full'
+
 /** Well-known source identifiers */
 export const SOURCES = {
   herbe: 'herbe',
@@ -24,6 +27,7 @@ export interface UserGoogleCalendar {
   enabled: boolean
   googleEmail: string      // Parent account email
   tokenId: string          // FK to user_google_tokens
+  sharing?: SharingLevel
 }
 
 export interface Person {
