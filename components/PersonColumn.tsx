@@ -432,10 +432,7 @@ export default function PersonColumn({
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
-            const gridTotalHeight = (effectiveEnd - effectiveStart) * PX_PER_HOUR * scale
-            const actTop = timeToTopPx(displayActivity.timeFrom, scale, effectiveStart)
-            const rawHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
-            const actHeight = Math.min(rawHeight, gridTotalHeight - actTop)
+            const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
             const actColor = getActivityColor(act)
             return (
               <div
