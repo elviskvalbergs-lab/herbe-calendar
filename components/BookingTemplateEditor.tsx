@@ -7,14 +7,18 @@ interface Props {
   connections: { id: string; name: string }[]
   onSave: () => void
   onCancel: () => void
+  azureConfigured?: boolean
+  googleConfigured?: boolean
+  zoomConfigured?: boolean
 }
 
 interface SearchResult { code: string; name: string }
 
 const DURATION_OPTIONS = [5, 10, 15, 30, 45, 60, 90, 120]
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] // Mon–Sun
+const DAY_LABELS_MAP: Record<number, string> = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }
 
-export default function BookingTemplateEditor({ template, connections, onSave, onCancel }: Props) {
+export default function BookingTemplateEditor({ template, connections, onSave, onCancel, azureConfigured, googleConfigured, zoomConfigured }: Props) {
   const isEdit = !!template
 
   // Basic info
@@ -78,6 +82,18 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
   )
 
   const [saving, setSaving] = useState(false)
+
+  // Dirty check — detects unsaved changes vs original template
+  function isDirty(): boolean {
+    if (!template) return name.trim() !== '' || duration !== 30 || windows.length > 0
+    return name !== (template.name ?? '') ||
+      duration !== (template.duration_minutes ?? 30) ||
+      buffer !== (template.buffer_minutes ?? 0) ||
+      JSON.stringify(windows) !== JSON.stringify(template.availability_windows ?? []) ||
+      outlookEnabled !== (template.targets?.outlook?.enabled ?? false) ||
+      googleEnabled !== (template.targets?.google?.enabled ?? false) ||
+      zoomEnabled !== (template.targets?.zoom?.enabled ?? false)
+  }
 
   // Window helpers
   function updateWindow(idx: number, patch: Partial<AvailabilityWindow>) {
@@ -186,7 +202,8 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
       <div className="space-y-2">
         <p className={labelClass}>Availability <span className="font-normal normal-case">(per day for booking page)</span></p>
         <div className="space-y-1.5">
-          {DAY_LABELS.map((label, dayIdx) => {
+          {DAY_ORDER.map(dayIdx => {
+            const label = DAY_LABELS_MAP[dayIdx]
             const dayWindow = windows.find(w => w.days.length === 1 && w.days[0] === dayIdx)
             const multiWindow = !dayWindow ? windows.find(w => w.days.includes(dayIdx)) : undefined
             const active = !!dayWindow || !!multiWindow
@@ -302,52 +319,58 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
         })}
 
         {/* Outlook */}
-        <div className="p-3 border border-border rounded-lg space-y-2">
-          <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input type="checkbox" checked={outlookEnabled} onChange={e => setOutlookEnabled(e.target.checked)} className="accent-primary" />
-            <span className="font-bold">Outlook</span>
-          </label>
-          {outlookEnabled && (
-            <div className="pl-5 space-y-2">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="checkbox" checked={outlookOnlineMeeting} onChange={e => setOutlookOnlineMeeting(e.target.checked)} className="accent-primary" />
-                <span>Teams meeting</span>
-              </label>
-              <div>
-                <label className="text-[10px] text-text-muted block mb-0.5">Location</label>
-                <input className={`${inputClass} w-full`} value={outlookLocation} onChange={e => setOutlookLocation(e.target.value)} placeholder="Optional location" />
+        {azureConfigured !== false && (
+          <div className="p-3 border border-border rounded-lg space-y-2">
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input type="checkbox" checked={outlookEnabled} onChange={e => setOutlookEnabled(e.target.checked)} className="accent-primary" />
+              <span className="font-bold">Outlook</span>
+            </label>
+            {outlookEnabled && (
+              <div className="pl-5 space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input type="checkbox" checked={outlookOnlineMeeting} onChange={e => setOutlookOnlineMeeting(e.target.checked)} className="accent-primary" />
+                  <span>Teams meeting</span>
+                </label>
+                <div>
+                  <label className="text-[10px] text-text-muted block mb-0.5">Location</label>
+                  <input className={`${inputClass} w-full`} value={outlookLocation} onChange={e => setOutlookLocation(e.target.value)} placeholder="Optional location" />
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Google */}
-        <div className="p-3 border border-border rounded-lg space-y-2">
-          <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input type="checkbox" checked={googleEnabled} onChange={e => setGoogleEnabled(e.target.checked)} className="accent-primary" />
-            <span className="font-bold">Google</span>
-          </label>
-          {googleEnabled && (
-            <div className="pl-5 space-y-2">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="checkbox" checked={googleOnlineMeeting} onChange={e => setGoogleOnlineMeeting(e.target.checked)} className="accent-primary" />
-                <span>Google Meet</span>
-              </label>
-              <div>
-                <label className="text-[10px] text-text-muted block mb-0.5">Location</label>
-                <input className={`${inputClass} w-full`} value={googleLocation} onChange={e => setGoogleLocation(e.target.value)} placeholder="Optional location" />
+        {googleConfigured !== false && (
+          <div className="p-3 border border-border rounded-lg space-y-2">
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input type="checkbox" checked={googleEnabled} onChange={e => setGoogleEnabled(e.target.checked)} className="accent-primary" />
+              <span className="font-bold">Google</span>
+            </label>
+            {googleEnabled && (
+              <div className="pl-5 space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input type="checkbox" checked={googleOnlineMeeting} onChange={e => setGoogleOnlineMeeting(e.target.checked)} className="accent-primary" />
+                  <span>Google Meet</span>
+                </label>
+                <div>
+                  <label className="text-[10px] text-text-muted block mb-0.5">Location</label>
+                  <input className={`${inputClass} w-full`} value={googleLocation} onChange={e => setGoogleLocation(e.target.value)} placeholder="Optional location" />
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Zoom */}
-        <div className="p-3 border border-border rounded-lg space-y-2">
-          <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input type="checkbox" checked={zoomEnabled} onChange={e => setZoomEnabled(e.target.checked)} className="accent-primary" />
-            <span className="font-bold">Zoom meeting</span>
-          </label>
-        </div>
+        {zoomConfigured !== false && (
+          <div className="p-3 border border-border rounded-lg space-y-2">
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input type="checkbox" checked={zoomEnabled} onChange={e => setZoomEnabled(e.target.checked)} className="accent-primary" />
+              <span className="font-bold">Zoom meeting</span>
+            </label>
+          </div>
+        )}
 
         {/* Holidays */}
         <div className="p-3 border border-border rounded-lg space-y-2">
@@ -386,11 +409,17 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}
-          className="flex-1 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
+          className="flex-1 min-w-0 bg-primary text-white text-xs font-bold py-2 rounded-lg hover:opacity-90 disabled:opacity-50"
         >
-          {saving ? 'Saving...' : isEdit ? 'Update Template' : 'Create Template'}
+          {saving ? 'Saving...' : isEdit ? 'Save' : 'Create'}
         </button>
-        <button onClick={onCancel} className="text-text-muted text-xs px-4 py-2 rounded-lg hover:bg-border">Cancel</button>
+        <button
+          onClick={() => {
+            if (isDirty() && !window.confirm('You have unsaved changes. Discard them?')) return
+            onCancel()
+          }}
+          className="text-text-muted text-xs px-3 py-2 rounded-lg hover:bg-border shrink-0"
+        >Cancel</button>
       </div>
     </div>
   )

@@ -845,6 +845,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               setDbColorOverrides(Array.isArray(rows) ? rows : [])
             }).catch(() => {})
           }}
+          azureConfigured={sources.azure}
+          googleConfigured={sources.google}
+          zoomConfigured={sources.zoom}
         />
       )}
 

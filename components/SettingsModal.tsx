@@ -37,12 +37,15 @@ interface Props {
   onClose: () => void
   onColorChange: (groupCode: string, color: string) => void
   onColorOverridesChange: () => void
+  azureConfigured?: boolean
+  googleConfigured?: boolean
+  zoomConfigured?: boolean
 }
 
 type Tab = 'style' | 'colors' | 'integrations' | 'templates'
 
 
-export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange }: Props) {
+export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange, azureConfigured, googleConfigured, zoomConfigured }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string; sharing?: string }
@@ -867,6 +870,9 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                               setEditingTemplate(null)
                               setExpandedTemplateId(null)
                             }}
+                            azureConfigured={azureConfigured}
+                            googleConfigured={googleConfigured}
+                            zoomConfigured={zoomConfigured}
                           />
                         </div>
                       </div>
@@ -906,6 +912,9 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                       setTemplates(await res.json())
                                     }}
                                     onCancel={() => setExpandedTemplateId(null)}
+                                    azureConfigured={azureConfigured}
+                                    googleConfigured={googleConfigured}
+                                    zoomConfigured={zoomConfigured}
                                   />
                                 </div>
                                 <div className="flex gap-2 px-4 pb-4">
