@@ -5,7 +5,7 @@ import type { BookingTemplate, UserGoogleAccount } from '@/types'
 import { BRAND_PALETTE, OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
 import ColorOverridesPanel from './ColorOverridesPanel'
 import type { ColorOverrideRow } from '@/lib/activityColors'
-import BookingTemplateEditor from './BookingTemplateEditor'
+import BookingTemplateEditor, { type TemplateEditorHandle } from './BookingTemplateEditor'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
 
@@ -61,6 +61,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [editingTemplate, setEditingTemplate] = useState<BookingTemplate | null | 'new'>(null)
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | 'new' | null>(null)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const templateEditorRef = useRef<TemplateEditorHandle>(null)
   const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
   const [calError, setCalError] = useState<string | null>(null)
   const [stagedIcsColor, setStagedIcsColor] = useState<{ id: string; color: string } | null>(null)
@@ -87,6 +88,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && (editingTemplate || expandedTemplateId)) {
         e.stopPropagation()
+        if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
         setEditingTemplate(null)
         setExpandedTemplateId(null)
       }
@@ -845,6 +847,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                     <div className="border border-border rounded-xl overflow-hidden mb-2">
                       <button
                         onClick={() => {
+                          if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
                           setEditingTemplate(null)
                           setExpandedTemplateId(null)
                         }}
@@ -858,6 +861,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                       <div className="border-t border-border">
                         <div className="p-4">
                           <BookingTemplateEditor
+                            ref={templateEditorRef}
                             template={null}
                             connections={connections}
                             onSave={async () => {
@@ -888,7 +892,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                         return (
                           <div key={t.id} className="border border-border rounded-xl overflow-hidden">
                             <button
-                              onClick={() => setExpandedTemplateId(isExpanded ? null : t.id)}
+                              onClick={() => {
+                                if (isExpanded && templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
+                                setExpandedTemplateId(isExpanded ? null : t.id)
+                              }}
                               className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
                             >
                               <div className="flex items-center gap-2">
@@ -904,6 +911,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                               <div className="border-t border-border">
                                 <div className="p-4">
                                   <BookingTemplateEditor
+                                    ref={templateEditorRef}
                                     template={t}
                                     connections={connections}
                                     onSave={async () => {

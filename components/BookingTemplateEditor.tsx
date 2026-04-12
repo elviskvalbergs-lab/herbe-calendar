@@ -1,6 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import type { BookingTemplate, AvailabilityWindow, CustomField, ActivityType } from '@/types'
+
+export interface TemplateEditorHandle {
+  /** Returns true if it's safe to close (no changes or user confirmed discard) */
+  confirmClose: () => boolean
+}
 
 interface Props {
   template: BookingTemplate | null
@@ -19,7 +24,7 @@ const BUFFER_OPTIONS = [0, 5, 10, 15, 30, 45, 60]
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] // Mon–Sun
 const DAY_LABELS_MAP: Record<number, string> = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }
 
-export default function BookingTemplateEditor({ template, connections, onSave, onCancel, azureConfigured, googleConfigured, zoomConfigured }: Props) {
+const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function BookingTemplateEditor({ template, connections, onSave, onCancel, azureConfigured, googleConfigured, zoomConfigured }, ref) {
   const isEdit = !!template
 
   // Basic info
@@ -95,6 +100,10 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
       googleEnabled !== (template.targets?.google?.enabled ?? false) ||
       zoomEnabled !== (template.targets?.zoom?.enabled ?? false)
   }
+
+  useImperativeHandle(ref, () => ({
+    confirmClose: () => !isDirty() || window.confirm('You have unsaved changes. Discard them?'),
+  }))
 
   // Window helpers
   function updateWindow(idx: number, patch: Partial<AvailabilityWindow>) {
@@ -426,7 +435,9 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
       </div>
     </div>
   )
-}
+})
+
+export default BookingTemplateEditor
 
 /** Searchable dropdown field for codes (activity types, projects, customers) */
 function SearchField({ label, value, onChange, items, inputClass }: {
