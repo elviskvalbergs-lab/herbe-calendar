@@ -100,6 +100,27 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     return GOOGLE_COLOR
   }, [dbColorOverrides])
 
+  // Derive shared calendar sources from fetched activities
+  const sharedCalendarSources: CalendarSource[] = useMemo(() => {
+    const seen = new Set<string>()
+    const result: CalendarSource[] = []
+    for (const a of activities) {
+      if (!a.isShared || !a.icsCalendarName) continue
+      const id = icsId(a.icsCalendarName)
+      if (seen.has(id)) continue
+      seen.add(id)
+      const person = state.selectedPersons.find(p => p.code === a.personCode)
+      result.push({
+        id,
+        label: a.icsCalendarName,
+        color: a.icsColor ?? FALLBACK_COLOR,
+        personCode: a.personCode || undefined,
+        group: person ? `${person.name} (shared)` : 'Shared calendars',
+      })
+    }
+    return result
+  }, [activities, state.selectedPersons])
+
   const calendarSources: CalendarSource[] = useMemo(() => [
     ...(sources.herbe ? [{ id: HERBE_ID, label: 'ERP', color: HERBE_COLOR }] : []),
     ...(sources.azure ? [{ id: OUTLOOK_ID, label: 'Outlook', color: resolvedOutlookColor }] : []),
@@ -118,11 +139,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
       .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode, sharing: c.sharing as any })),
-  ], [sources, resolvedOutlookColor, resolvedGoogleColor, userGoogleAccounts, userIcsCalendars, selectedCodes])
+    ...sharedCalendarSources,
+  ], [sources, resolvedOutlookColor, resolvedGoogleColor, userGoogleAccounts, userIcsCalendars, selectedCodes, sharedCalendarSources])
 
   const visibleActivities = useMemo(() => {
     if (hiddenCalendars.size === 0) return activities
     return activities.filter(a => {
+      // Shared calendar events — check by their calendar name
+      if (a.isShared && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
       if (a.isExternal && a.icsCalendarName) return !hiddenCalendars.has(icsId(a.icsCalendarName))
       // For per-user Google events, check if their specific calendar is hidden
       if (a.googleAccountEmail && a.googleCalendarId) {
