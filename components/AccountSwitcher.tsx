@@ -45,10 +45,13 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [accounts, focusedIdx, onClose])
 
-  function switchTo(accountId: string) {
+  async function switchTo(accountId: string) {
     if (accountId === currentAccountId) { onClose(); return }
-    document.cookie = `activeAccountId=${accountId};path=/;max-age=${30 * 24 * 3600}`
-    // Navigate with cache bust to ensure fresh data for the new account
+    await fetch('/api/settings/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId }),
+    })
     window.location.href = '/cal'
   }
 

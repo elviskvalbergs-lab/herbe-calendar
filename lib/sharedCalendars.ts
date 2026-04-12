@@ -99,9 +99,9 @@ export async function fetchSharedCalendarEvents(
         try {
           const res = await oauthCal.events.list({
             calendarId: cal.calendar_id,
-            timeMin: `${dateFrom}T00:00:00+03:00`,
-            timeMax: `${dateTo}T23:59:59+03:00`,
-            timeZone: 'Europe/Riga',
+            timeMin: `${dateFrom}T00:00:00Z`,
+            timeMax: `${dateTo}T23:59:59Z`,
+            timeZone: 'Europe/Riga',  // Google converts UTC boundaries to this timezone for filtering
             singleEvents: true,
             fields: 'items(id,summary,start,end,status)',
             maxResults: 250,

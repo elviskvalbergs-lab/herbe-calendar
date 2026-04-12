@@ -52,12 +52,16 @@ export async function requireSession(): Promise<SessionUser> {
     }
   } catch {}
 
-  // Check activeAccountId cookie — allows switching between accounts
+  // Check activeAccountId cookie (signed) — allows switching between accounts
   let activeAccountOverride: string | undefined
   try {
     const { cookies } = await import('next/headers')
     const cookieStore = await cookies()
-    activeAccountOverride = cookieStore.get('activeAccountId')?.value || undefined
+    const raw = cookieStore.get('activeAccountId')?.value
+    if (raw) {
+      const { verifyCookieValue } = await import('@/lib/signedCookie')
+      activeAccountOverride = verifyCookieValue(raw) ?? undefined
+    }
   } catch (e) {
     console.warn('[auth-guard] Failed to read activeAccountId cookie:', String(e))
   }

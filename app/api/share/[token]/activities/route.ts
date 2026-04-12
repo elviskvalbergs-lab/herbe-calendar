@@ -190,8 +190,8 @@ export async function GET(
   }
 
   // Fetch Google Calendar events per person (domain-wide delegation)
+  if (!hiddenCalendarsSet.has('google'))
   for (const code of personCodes) {
-    if (hiddenCalendarsSet.has('google')) break
     try {
       const email = await emailForCode(code, accountId)
       if (!email) continue
