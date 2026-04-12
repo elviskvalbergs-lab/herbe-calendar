@@ -266,7 +266,7 @@ export default function CalendarGrid({
                     )}
                   </div>
                 )}
-                <div className="flex h-8">
+                <div className="flex h-6">
                   {state.selectedPersons.map((person, personIdx) => {
                     const pa = activities.filter(a => a.personCode === person.code && a.date === date)
                     const hasOffGrid = pa.some(a => !a.isAllDay && (

@@ -340,6 +340,7 @@ const ActivityBlock = memo(ActivityBlockInner, (prev, next) =>
   prev.isCC === next.isCC &&
   prev.mobileSelected === next.mobileSelected &&
   prev.scale === next.scale &&
+  prev.startHour === next.startHour &&
   prev.activity.timeFrom === next.activity.timeFrom &&
   prev.activity.timeTo === next.activity.timeTo &&
   prev.activity.description === next.activity.description
