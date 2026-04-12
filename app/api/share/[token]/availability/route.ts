@@ -171,7 +171,11 @@ export async function GET(
     current.setDate(current.getDate() + 1)
   }
 
-  // 7. Return response
+  // 7. Return response (include debug info temporarily)
+  const debugBusy: Record<string, string[]> = {}
+  for (const [d, blocks] of busyByDate) {
+    debugBusy[d] = blocks.map(b => `${b.start}-${b.end}`)
+  }
   return NextResponse.json(
     {
       slots,
@@ -180,6 +184,7 @@ export async function GET(
         duration_minutes: durationMinutes,
         custom_fields: customFields,
       },
+      _debug: { personCodes, ownerEmail: link.ownerEmail, accountId, busyBlocks: debugBusy },
     },
     { headers: { 'Cache-Control': 'no-store' } }
   )
