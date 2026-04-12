@@ -20,10 +20,11 @@ interface Props {
   token: string
   templates: Template[]
   title?: string
+  maxDays?: number
   onBack: () => void
 }
 
-export default function BookingPage({ token, templates, title, onBack }: Props) {
+export default function BookingPage({ token, templates, title, maxDays = 60, onBack }: Props) {
   const [step, setStep] = useState<Step>(templates.length === 1 ? 'date' : 'template')
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(templates.length === 1 ? templates[0] : null)
   const [slots, setSlots] = useState<Record<string, TimeSlot[]>>({})
@@ -41,13 +42,13 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const [timezone] = useState(browserTz)
 
-  // Date range for availability: next 90 days (matches API max)
+  // Date range for availability: use configurable maxDays from share link
   const dateRange = useMemo(() => {
     const today = new Date()
     const from = format(today, 'yyyy-MM-dd')
-    const to = format(addDays(today, 90), 'yyyy-MM-dd')
+    const to = format(addDays(today, maxDays), 'yyyy-MM-dd')
     return { from, to }
-  }, [])
+  }, [maxDays])
 
   // Fetch availability when template is selected
   useEffect(() => {

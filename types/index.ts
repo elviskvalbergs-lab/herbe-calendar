@@ -141,6 +141,7 @@ export interface ShareLink {
   lastAccessedAt: string | null
   accessCount: number
   bookingEnabled?: boolean
+  bookingMaxDays?: number
   templateIds?: string[]
 }
 

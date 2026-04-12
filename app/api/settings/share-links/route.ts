@@ -39,6 +39,7 @@ function mapRow(row: Record<string, unknown>) {
     lastAccessedAt: row.last_accessed_at ?? null,
     accessCount: row.access_count,
     bookingEnabled: row.booking_enabled ?? false,
+    bookingMaxDays: row.booking_max_days ?? 60,
     templateIds: row.template_ids ?? [],
   }
 }
@@ -117,7 +118,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     await ensureTable()
-    const { id, name, visibility, expiresAt, password, bookingEnabled, templateIds } = await req.json()
+    const { id, name, visibility, expiresAt, password, bookingEnabled, bookingMaxDays, templateIds } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     // Verify ownership
@@ -148,6 +149,7 @@ export async function PUT(req: NextRequest) {
     }
 
     if (bookingEnabled !== undefined) { updates.push(`booking_enabled = $${idx++}`); values.push(!!bookingEnabled) }
+    if (bookingMaxDays !== undefined) { updates.push(`booking_max_days = $${idx++}`); values.push(Math.max(1, Math.min(365, Number(bookingMaxDays) || 60))) }
 
     if (!updates.length && !templateIds) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
 

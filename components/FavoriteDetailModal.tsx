@@ -64,6 +64,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
 
   const [newBookingEnabled, setNewBookingEnabled] = useState(false)
   const [newTemplateIds, setNewTemplateIds] = useState<string[]>([])
+  const [newBookingMaxDays, setNewBookingMaxDays] = useState(60)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -73,6 +74,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
   const [editRemovePassword, setEditRemovePassword] = useState(false)
   const [editBookingEnabled, setEditBookingEnabled] = useState(false)
   const [editTemplateIds, setEditTemplateIds] = useState<string[]>([])
+  const [editBookingMaxDays, setEditBookingMaxDays] = useState(60)
   const [availableTemplates, setAvailableTemplates] = useState<BookingTemplate[]>([])
 
   useEffect(() => {
@@ -150,6 +152,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
     setEditRemovePassword(false)
     setEditBookingEnabled(link.bookingEnabled ?? false)
     setEditTemplateIds(link.templateIds ?? [])
+    setEditBookingMaxDays(link.bookingMaxDays ?? 60)
   }
 
   function cancelEdit() {
@@ -168,6 +171,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
       expiresAt: editExpiry || null,
       ...passwordPayload,
       bookingEnabled: editBookingEnabled,
+      bookingMaxDays: editBookingMaxDays,
       templateIds: editTemplateIds,
     })
     setLinks(prev => prev.map(l => l.id === editingId ? updated : l))
@@ -298,21 +302,35 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                       <span className="font-bold">Enable booking</span>
                     </label>
                     {editBookingEnabled && (
-                      <div className="space-y-1">
-                        <p className="text-[10px] text-text-muted">Select templates to offer:</p>
-                        {availableTemplates.map(t => (
-                          <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={editTemplateIds.includes(t.id)}
-                              onChange={e => {
-                                if (e.target.checked) setEditTemplateIds(prev => [...prev, t.id])
-                                else setEditTemplateIds(prev => prev.filter(id => id !== t.id))
-                              }}
-                            />
-                            {t.name} ({t.duration_minutes} min)
-                          </label>
-                        ))}
+                      <div className="space-y-2">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-text-muted">Select templates to offer:</p>
+                          {availableTemplates.map(t => (
+                            <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editTemplateIds.includes(t.id)}
+                                onChange={e => {
+                                  if (e.target.checked) setEditTemplateIds(prev => [...prev, t.id])
+                                  else setEditTemplateIds(prev => prev.filter(id => id !== t.id))
+                                }}
+                              />
+                              {t.name} ({t.duration_minutes} min)
+                            </label>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] text-text-muted whitespace-nowrap">Max days ahead:</label>
+                          <select
+                            value={editBookingMaxDays}
+                            onChange={e => setEditBookingMaxDays(Number(e.target.value))}
+                            className="bg-surface border border-border rounded text-xs px-2 py-1"
+                          >
+                            {[14, 30, 60, 90, 120, 180, 365].map(d => (
+                              <option key={d} value={d}>{d} days</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -441,21 +459,35 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                   <span className="font-bold">Enable booking</span>
                 </label>
                 {newBookingEnabled && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-text-muted">Select templates to offer:</p>
-                    {availableTemplates.map(t => (
-                      <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newTemplateIds.includes(t.id)}
-                          onChange={e => {
-                            if (e.target.checked) setNewTemplateIds(prev => [...prev, t.id])
-                            else setNewTemplateIds(prev => prev.filter(id => id !== t.id))
-                          }}
-                        />
-                        {t.name} ({t.duration_minutes} min)
-                      </label>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-text-muted">Select templates to offer:</p>
+                      {availableTemplates.map(t => (
+                        <label key={t.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newTemplateIds.includes(t.id)}
+                            onChange={e => {
+                              if (e.target.checked) setNewTemplateIds(prev => [...prev, t.id])
+                              else setNewTemplateIds(prev => prev.filter(id => id !== t.id))
+                            }}
+                          />
+                          {t.name} ({t.duration_minutes} min)
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] text-text-muted whitespace-nowrap">Max days ahead:</label>
+                      <select
+                        value={newBookingMaxDays}
+                        onChange={e => setNewBookingMaxDays(Number(e.target.value))}
+                        className="bg-surface border border-border rounded text-xs px-2 py-1"
+                      >
+                        {[14, 30, 60, 90, 120, 180, 365].map(d => (
+                          <option key={d} value={d}>{d} days</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>
