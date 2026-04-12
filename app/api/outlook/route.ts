@@ -39,8 +39,8 @@ export async function GET(req: NextRequest) {
       let icsEventsPromise: Promise<{ events: any[]; warnings: string[] }> = Promise.resolve({ events: [], warnings: [] })
       try {
         const { rows: icsRows } = await pool.query(
-          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
-          [session.email, code]
+          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
+          [session.email, code, session.accountId]
         )
         if (icsRows.length > 0) {
           console.log(`[outlook] Found ${icsRows.length} ICS feed(s) for ${code}`)

@@ -129,8 +129,8 @@ export async function GET(
       let icsEvents: Record<string, unknown>[] = []
       try {
         const { rows: icsRows } = await pool.query(
-          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2',
-          [ownerEmail, code]
+          'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
+          [ownerEmail, code, accountId]
         )
         const icsResults = await Promise.all(
           icsRows.map(async (row) => {
