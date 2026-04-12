@@ -407,8 +407,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                             />
                             <span className="text-sm flex-1 truncate">{cal.name}</span>
                             {cal.sharing && cal.sharing !== 'private' && (
-                              <span className="text-[9px] bg-green-500/15 text-green-400 rounded px-1 py-0.5 shrink-0">
-                                {cal.sharing === 'busy' ? 'Shared: Busy' : cal.sharing === 'titles' ? 'Shared: Titles' : 'Shared: Full'}
+                              <span className={`text-[9px] font-bold shrink-0 ${cal.sharing === 'full' ? 'text-amber-400' : cal.sharing === 'titles' ? 'text-blue-400' : 'text-green-400'}`}>
+                                {cal.sharing === 'busy' ? 'Shared busy' : cal.sharing === 'titles' ? 'Shared titles' : 'Shared fully'}
                               </span>
                             )}
                           </div>
@@ -736,8 +736,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                         <span>{c.name}</span>
                                         <span className="text-[10px] text-primary">ICS</span>
                                         {c.sharing && c.sharing !== 'private' && (
-                                          <span className="text-[9px] bg-green-500/15 text-green-400 rounded px-1 py-0.5">
-                                            {c.sharing === 'busy' ? 'Shared: Busy' : c.sharing === 'titles' ? 'Shared: Titles' : 'Shared: Full'}
+                                          <span className={`text-[9px] font-bold ${c.sharing === 'full' ? 'text-amber-400' : c.sharing === 'titles' ? 'text-blue-400' : 'text-green-400'}`}>
+                                            {c.sharing === 'busy' ? 'Shared busy' : c.sharing === 'titles' ? 'Shared titles' : 'Shared fully'}
                                           </span>
                                         )}
                                       </div>
