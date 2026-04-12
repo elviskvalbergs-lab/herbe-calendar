@@ -362,7 +362,7 @@ export default function PersonColumn({
   const outlookLaned = buildLanedActivities(hasBoth ? outlookActivities : [])
 
   return (
-    <div ref={columnRef} className={`flex-1 border-r border-border relative last:border-r-0 overflow-hidden${isHoliday ? ' bg-red-500/5' : (() => { const d = new Date(date + 'T00:00:00').getDay(); return d === 0 || d === 6 ? ' bg-border/20' : '' })()}`} style={{ minWidth: `${colMinVw}vw` }}>
+    <div ref={columnRef} className={`flex-1 border-r border-border relative last:border-r-0${isHoliday ? ' bg-red-500/5' : (() => { const d = new Date(date + 'T00:00:00').getDay(); return d === 0 || d === 6 ? ' bg-border/20' : '' })()}`} style={{ minWidth: `${colMinVw}vw` }}>
       {dragError && (
         <div className="absolute top-2 left-0 right-0 z-30 mx-2">
           <div className="bg-red-900/80 border border-red-500/50 rounded-lg px-3 py-2 text-xs text-red-300">
@@ -432,7 +432,10 @@ export default function PersonColumn({
             const displayActivity = isDragging
               ? { ...act, timeFrom: drag!.currentFrom, timeTo: drag!.currentTo }
               : act
-            const actHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
+            const gridTotalHeight = (effectiveEnd - effectiveStart) * PX_PER_HOUR * scale
+            const actTop = timeToTopPx(displayActivity.timeFrom, scale, effectiveStart)
+            const rawHeight = Math.max(durationToPx(displayActivity.timeFrom, displayActivity.timeTo, scale), 20)
+            const actHeight = Math.min(rawHeight, gridTotalHeight - actTop)
             const actColor = getActivityColor(act)
             return (
               <div

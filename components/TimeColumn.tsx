@@ -31,7 +31,7 @@ export default function TimeColumn({
   const showBottom = canExpandDown || canContractDown
   return (
     <div className="w-12 shrink-0 sticky left-0 z-10 bg-surface">
-      <div className={`${is3Day ? 'h-16' : 'h-10'} border-b border-border`} /> {/* header spacer */}
+      <div className={`${is3Day ? 'h-12' : 'h-6'} border-b border-border`} /> {/* header spacer: date h-6 + person h-6 for multi-day, person h-6 only for single day */}
       {/* Expand / contract top */}
       {showTop && (
         <div className="flex justify-center gap-0.5 py-1 border-b border-border/30">
