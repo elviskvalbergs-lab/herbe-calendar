@@ -920,30 +920,22 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                       setTemplates(await res.json())
                                     }}
                                     onCancel={() => setExpandedTemplateId(null)}
-                                    azureConfigured={azureConfigured}
-                                    googleConfigured={googleConfigured}
-                                    zoomConfigured={zoomConfigured}
-                                  />
-                                </div>
-                                <div className="flex gap-2 px-4 pb-4">
-                                  <button
-                                    onClick={async () => {
+                                    onCopy={async () => {
                                       await fetch('/api/settings/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, duplicate: true }) })
                                       const res = await fetch('/api/settings/templates')
                                       setTemplates(await res.json())
                                     }}
-                                    className="text-[10px] text-text-muted hover:text-text px-2 py-1 rounded border border-border hover:bg-border/30"
-                                  >Copy</button>
-                                  <button
-                                    onClick={() => {
+                                    onDelete={() => {
                                       showConfirm('Delete this template?', async () => {
                                         await fetch('/api/settings/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id }) })
                                         setTemplates(prev => prev.filter(x => x.id !== t.id))
                                         setExpandedTemplateId(null)
                                       }, { confirmLabel: 'Delete', destructive: true })
                                     }}
-                                    className="text-[10px] text-red-400 hover:text-red-300 px-2 py-1 rounded border border-border hover:border-red-400/30"
-                                  >Delete</button>
+                                    azureConfigured={azureConfigured}
+                                    googleConfigured={googleConfigured}
+                                    zoomConfigured={zoomConfigured}
+                                  />
                                 </div>
                               </div>
                             )}

@@ -12,6 +12,8 @@ interface Props {
   connections: { id: string; name: string }[]
   onSave: () => void
   onCancel: () => void
+  onCopy?: () => void
+  onDelete?: () => void
   azureConfigured?: boolean
   googleConfigured?: boolean
   zoomConfigured?: boolean
@@ -24,7 +26,7 @@ const BUFFER_OPTIONS = [0, 5, 10, 15, 30, 45, 60]
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] // Mon–Sun
 const DAY_LABELS_MAP: Record<number, string> = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }
 
-const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function BookingTemplateEditor({ template, connections, onSave, onCancel, azureConfigured, googleConfigured, zoomConfigured }, ref) {
+const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function BookingTemplateEditor({ template, connections, onSave, onCancel, onCopy, onDelete, azureConfigured, googleConfigured, zoomConfigured }, ref) {
   const isEdit = !!template
 
   // Basic info
@@ -417,7 +419,7 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
       </div>
 
       {/* Actions — sticky at bottom */}
-      <div className="flex gap-2 pt-2 border-t border-border sticky bottom-0 bg-surface pb-1">
+      <div className="flex items-center gap-2 pt-2 border-t border-border sticky bottom-0 bg-surface pb-1">
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}
@@ -432,6 +434,16 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
           }}
           className="text-text-muted text-xs px-3 py-2 rounded-lg hover:bg-border shrink-0"
         >Cancel</button>
+        {onCopy && (
+          <button onClick={onCopy} className="text-text-muted hover:text-text p-2 shrink-0" title="Duplicate">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        )}
+        {onDelete && (
+          <button onClick={onDelete} className="text-text-muted hover:text-red-400 p-2 shrink-0" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        )}
       </div>
     </div>
   )
