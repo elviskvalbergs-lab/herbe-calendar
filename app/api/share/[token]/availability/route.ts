@@ -50,6 +50,7 @@ export async function GET(
     `SELECT
       sl.id,
       sl.booking_enabled AS "bookingEnabled",
+      sl.booking_max_days AS "bookingMaxDays",
       sl.password_hash IS NOT NULL AS "hasPassword",
       f.person_codes AS "personCodes",
       f.hidden_calendars AS "hiddenCalendars",
@@ -74,6 +75,13 @@ export async function GET(
   if (link.hasPassword) {
     return NextResponse.json({ error: 'Password-protected links do not support availability' }, { status: 403 })
   }
+
+  // Cap date range to the link's booking horizon
+  const maxDays = link.bookingMaxDays ?? 60
+  const maxDate = new Date()
+  maxDate.setDate(maxDate.getDate() + maxDays)
+  const maxDateStr = maxDate.toISOString().slice(0, 10)
+  const cappedDateTo = dateTo > maxDateStr ? maxDateStr : dateTo
 
   const personCodes: string[] = link.personCodes ?? []
   const personSet = new Set(personCodes)
@@ -100,7 +108,7 @@ export async function GET(
   const customFields = template.custom_fields ?? []
 
   // 5. Collect busy blocks from all calendar sources
-  const busyByDate = await collectBusyBlocks(personCodes, link.ownerEmail, accountId, dateFrom, dateTo, hiddenCalendarsSet)
+  const busyByDate = await collectBusyBlocks(personCodes, link.ownerEmail, accountId, dateFrom, cappedDateTo, hiddenCalendarsSet)
 
   // 5a. Also add existing confirmed bookings as busy
   try {
@@ -109,7 +117,7 @@ export async function GET(
        FROM bookings
        WHERE share_link_id = $1 AND status = 'confirmed'
          AND booked_date >= $2 AND booked_date <= $3`,
-      [link.id, dateFrom, dateTo]
+      [link.id, dateFrom, cappedDateTo]
     )
     for (const b of bookingRows) {
       const date = typeof b.booked_date === 'string'
@@ -132,7 +140,7 @@ export async function GET(
   // 6. Compute slots per day
   const slots: Record<string, { start: string; end: string }[]> = {}
   const current = new Date(dateFrom)
-  const end = new Date(dateTo)
+  const end = new Date(cappedDateTo)
 
   // Holiday blocking
   const holidayDates = new Set<string>()
@@ -142,7 +150,7 @@ export async function GET(
       const countryMap = await getPersonsHolidayCountries(personCodes, accountId)
       const countryCodes = [...new Set(countryMap.values())]
       if (countryCodes.length > 0) {
-        const holidays = await getHolidaysForRange(countryCodes, dateFrom, dateTo)
+        const holidays = await getHolidaysForRange(countryCodes, dateFrom, cappedDateTo)
         for (const holidayDate of holidays.keys()) {
           holidayDates.add(holidayDate)
         }
@@ -170,6 +178,7 @@ export async function GET(
   return NextResponse.json(
     {
       slots,
+      bookingMaxDays: maxDays,
       template: {
         name: template.name,
         duration_minutes: durationMinutes,

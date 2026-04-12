@@ -12,6 +12,7 @@ interface Template {
 export default function BookingStandalone({ token }: { token: string }) {
   const [templates, setTemplates] = useState<Template[] | null>(null)
   const [title, setTitle] = useState<string | undefined>()
+  const [maxDays, setMaxDays] = useState(60)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function BookingStandalone({ token }: { token: string }) {
         }
         setTemplates(data.templates)
         if (data.favoriteName) setTitle(data.favoriteName)
+        if (data.bookingMaxDays) setMaxDays(data.bookingMaxDays)
       })
       .catch(e => setError(e.message))
   }, [token])
@@ -55,6 +57,7 @@ export default function BookingStandalone({ token }: { token: string }) {
       token={token}
       templates={templates}
       title={title}
+      maxDays={maxDays}
       onBack={() => window.location.reload()}
     />
   )

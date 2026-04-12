@@ -16,6 +16,7 @@ const LINK_QUERY = `
     f.hidden_calendars AS "hiddenCalendars",
     f.user_email AS "ownerEmail",
     sl.booking_enabled,
+    sl.booking_max_days,
     (SELECT json_agg(json_build_object(
       'id', t.id, 'name', t.name, 'duration_minutes', t.duration_minutes, 'custom_fields', t.custom_fields
     ) ORDER BY t.name) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
@@ -39,6 +40,7 @@ const LINK_QUERY_WITH_HASH = `
     f.hidden_calendars AS "hiddenCalendars",
     f.user_email AS "ownerEmail",
     sl.booking_enabled,
+    sl.booking_max_days,
     (SELECT json_agg(json_build_object(
       'id', t.id, 'name', t.name, 'duration_minutes', t.duration_minutes, 'custom_fields', t.custom_fields
     ) ORDER BY t.name) FROM share_link_templates slt JOIN booking_templates t ON t.id = slt.template_id
@@ -72,6 +74,7 @@ export async function GET(
     visibility: link.visibility,
     hasPassword: link.hasPassword,
     bookingEnabled: !!link.booking_enabled,
+    bookingMaxDays: link.booking_max_days ?? 60,
     templates: link.templates ?? [],
   })
 }
@@ -119,6 +122,7 @@ export async function POST(
     visibility: link.visibility,
     hasPassword: false,
     bookingEnabled: !!link.booking_enabled,
+    bookingMaxDays: link.booking_max_days ?? 60,
     templates: link.templates ?? [],
   })
 }
