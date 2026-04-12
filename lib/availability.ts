@@ -223,7 +223,7 @@ export async function collectBusyBlocks(
             fields: 'items(start,end)',
           })
           const googleItems = res.data.items ?? []
-          console.error(`[availability] Google ${code} (${email}): ${googleItems.length} events found`)
+          _debugErrors.push(`Google OK: ${code} (${email}) → ${googleItems.length} events`)
           for (const ev of googleItems) {
             const startStr = ev.start?.dateTime ?? ''
             const endStr = ev.end?.dateTime ?? ''
