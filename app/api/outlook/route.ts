@@ -102,14 +102,6 @@ export async function GET(req: NextRequest) {
     const allEvents = results.flatMap(r => 'events' in r ? r.events : r)
     const allWarnings = results.flatMap(r => 'warnings' in r ? r.warnings : [])
 
-    // Include shared calendar events from colleagues
-    try {
-      const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
-      const shared = await fetchSharedCalendarEvents(personList, session.email, session.accountId, dateFrom, dateTo)
-      allEvents.push(...shared.events)
-    } catch (e) {
-      console.warn('[outlook] Shared calendar fetch failed:', String(e))
-    }
     const response: Record<string, unknown> = { activities: allEvents }
     if (allWarnings.length > 0) response.warnings = allWarnings
     return NextResponse.json(response, { headers: { 'Cache-Control': 'no-store' } })
