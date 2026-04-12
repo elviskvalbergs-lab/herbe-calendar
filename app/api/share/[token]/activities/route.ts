@@ -69,7 +69,8 @@ export async function GET(
       f.person_codes AS "personCodes",
       f.hidden_calendars AS "hiddenCalendars",
       f.user_email AS "ownerEmail",
-      f.account_id AS "accountId"
+      f.account_id AS "accountId",
+      sl.booking_max_days AS "bookingMaxDays"
     FROM favorite_share_links sl
     JOIN user_favorites f ON f.id = sl.favorite_id
     WHERE sl.token = $1`,
@@ -112,11 +113,18 @@ export async function GET(
   const ownerEmail: string = link.ownerEmail
   const accountId: string = link.accountId ?? DEFAULT_ACCOUNT_ID
 
+  // Cap date range to the link's max days setting
+  const maxDays = link.bookingMaxDays ?? 60
+  const maxDate = new Date()
+  maxDate.setDate(maxDate.getDate() + maxDays)
+  const maxDateStr = maxDate.toISOString().slice(0, 10)
+  const cappedDateTo = dateTo > maxDateStr ? maxDateStr : dateTo
+
   const allActivities: (Record<string, unknown> | Activity)[] = []
 
   // Fetch Herbe activities from all ERP connections
   if (!hiddenCalendarsSet.has('herbe')) {
-    const erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, dateTo)
+    const erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, cappedDateTo)
     allActivities.push(...erpActivities)
   }
 
@@ -129,7 +137,7 @@ export async function GET(
       // ICS feeds — query using ownerEmail (not session)
       let icsEvents: Record<string, unknown>[] = []
       try {
-        const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, dateTo)
+        const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, cappedDateTo)
         icsEvents = icsResult.events
       } catch (e) {
         console.warn(`[share/activities] ICS fetch failed for ${code}:`, String(e))
@@ -138,7 +146,7 @@ export async function GET(
       // Graph calendar view
       let graphEvents: Record<string, unknown>[] = []
       try {
-        const rawEvents = await fetchOutlookEventsForPerson(email, accountId, dateFrom, dateTo)
+        const rawEvents = await fetchOutlookEventsForPerson(email, accountId, dateFrom, cappedDateTo)
         if (rawEvents) {
           graphEvents = rawEvents.map(ev => {
             const startDtStr = ev.start?.dateTime ?? ''
@@ -187,7 +195,7 @@ export async function GET(
     try {
       const email = await emailForCode(code, accountId)
       if (!email) continue
-      const googleEvents = await fetchGoogleEventsForPerson(email, accountId, dateFrom, dateTo)
+      const googleEvents = await fetchGoogleEventsForPerson(email, accountId, dateFrom, cappedDateTo)
       if (!googleEvents) continue // Google not configured
       for (const ev of googleEvents) {
         const mapped = mapGoogleEvent(ev, code, ownerEmail)
@@ -223,7 +231,7 @@ export async function GET(
   // Include shared calendar events from other users in the account
   try {
     const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
-    const shared = await fetchSharedCalendarEvents(personCodes, ownerEmail, accountId, dateFrom, dateTo)
+    const shared = await fetchSharedCalendarEvents(personCodes, ownerEmail, accountId, dateFrom, cappedDateTo)
     for (const ev of shared.events) {
       allActivities.push(ev as unknown as Record<string, unknown>)
     }
@@ -241,7 +249,7 @@ export async function GET(
   let holidayData: Record<string, { name: string; country: string }[]> = {}
   let personCountries: Record<string, string> = {}
   if (countryCodes.length > 0) {
-    const holidays = await getHolidaysForRange(countryCodes, dateFrom, dateTo)
+    const holidays = await getHolidaysForRange(countryCodes, dateFrom, cappedDateTo)
     for (const [date, hols] of holidays) {
       holidayData[date] = hols.map(h => ({ name: h.name, country: h.country }))
     }

@@ -270,6 +270,16 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                   onChange={e => setEditExpiry(e.target.value)}
                   className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
                 />
+                <FieldLabel label="Day limit" info="How far into the future this link can show calendar data and offer booking slots." />
+                <select
+                  value={editBookingMaxDays}
+                  onChange={e => setEditBookingMaxDays(Number(e.target.value))}
+                  className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
+                >
+                  {[14, 30, 60, 90, 120, 180, 365].map(d => (
+                    <option key={d} value={d}>{d} days</option>
+                  ))}
+                </select>
                 <FieldLabel label="Password" info="If set, viewers must enter this password before seeing the calendar. Password-protected links cannot be used as ICS subscriptions or for booking." />
                 {link.hasPassword && (
                   <label className="flex items-center gap-2 text-xs text-text-muted mb-2 cursor-pointer">
@@ -318,18 +328,6 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                               {t.name} ({t.duration_minutes} min)
                             </label>
                           ))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-[10px] text-text-muted whitespace-nowrap">Max days ahead:</label>
-                          <select
-                            value={editBookingMaxDays}
-                            onChange={e => setEditBookingMaxDays(Number(e.target.value))}
-                            className="bg-surface border border-border rounded text-xs px-2 py-1"
-                          >
-                            {[14, 30, 60, 90, 120, 180, 365].map(d => (
-                              <option key={d} value={d}>{d} days</option>
-                            ))}
-                          </select>
                         </div>
                       </div>
                     )}
@@ -439,6 +437,16 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
               onChange={e => setNewExpiry(e.target.value)}
               className="w-full bg-transparent border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
             />
+            <FieldLabel label="Day limit" info="How far into the future this link can show calendar data and offer booking slots." />
+            <select
+              value={newBookingMaxDays}
+              onChange={e => setNewBookingMaxDays(Number(e.target.value))}
+              className="w-full bg-surface border border-border rounded px-2 py-1.5 text-sm outline-none focus:border-primary mb-3"
+            >
+              {[14, 30, 60, 90, 120, 180, 365].map(d => (
+                <option key={d} value={d}>{d} days</option>
+              ))}
+            </select>
             <FieldLabel label="Password" info="If set, viewers must enter this password before seeing the calendar. Password-protected links cannot be used as ICS subscriptions or for booking." />
             <input
               type="text"
@@ -475,18 +483,6 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                           {t.name} ({t.duration_minutes} min)
                         </label>
                       ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-[10px] text-text-muted whitespace-nowrap">Max days ahead:</label>
-                      <select
-                        value={newBookingMaxDays}
-                        onChange={e => setNewBookingMaxDays(Number(e.target.value))}
-                        className="bg-surface border border-border rounded text-xs px-2 py-1"
-                      >
-                        {[14, 30, 60, 90, 120, 180, 365].map(d => (
-                          <option key={d} value={d}>{d} days</option>
-                        ))}
-                      </select>
                     </div>
                   </div>
                 )}
