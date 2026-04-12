@@ -10,61 +10,92 @@ const CYAN = '#00ABCE'
 const TEAL = '#4db89a'
 const OUTLOOK = '#6264a7'
 const ORANGE = '#e8923a'
+const GOOGLE = '#4285f4'
+const ZOOM = '#2D8CFF'
+const CALENDLY = '#006BFF'
 
 const FEATURES = [
   {
     tag: 'MOD_001',
     title: 'ERP Integration',
-    desc: 'Full read/write access to Standard ERP and Excellent Books activities. Multiple ERP connections with separate registers.',
+    desc: 'Full read/write access to Standard ERP and Excellent Books activities. Multiple ERP connections with separate registers and color-coded sources per person.',
     color: TEAL,
     status: 'SYSTEM INTEGRATED',
   },
   {
     tag: 'MOD_002',
     title: 'Outlook & Teams',
-    desc: 'View and create Outlook calendar events with Teams meetings. RSVP, attendees, and location support built in.',
+    desc: 'View and create Outlook calendar events with Teams meetings. RSVP, attendees, and location support. Drag-and-drop to reschedule directly from the calendar.',
     color: OUTLOOK,
     status: 'SYNC ACTIVE',
   },
   {
     tag: 'MOD_003',
     title: 'Google Calendar & Meet',
-    desc: 'Google Workspace integration with Calendar API and Meet. Service account delegation for full team visibility across your domain.',
-    color: '#4285f4',
-    status: 'WORKSPACE LINKED',
+    desc: 'Personal Google OAuth so each user connects their own Google account — no service account required. Pick which calendars to show, create and edit events, and generate Meet links. Workspace domain-wide delegation also supported.',
+    color: GOOGLE,
+    status: 'OAUTH CONNECTED',
   },
   {
     tag: 'MOD_004',
+    title: 'Zoom Meetings',
+    desc: 'Connect a Zoom account and generate meeting links directly from activities and booking flows. Zoom links appear in event details, confirmation emails, and ICS invites.',
+    color: ZOOM,
+    status: 'MEETINGS ENABLED',
+  },
+  {
+    tag: 'MOD_005',
+    title: 'Calendly',
+    desc: 'Connect your Calendly account to surface incoming bookings alongside your other calendar sources. Webhooks verified with HMAC signatures sync new and cancelled bookings in real time.',
+    color: CALENDLY,
+    status: 'WEBHOOK LIVE',
+  },
+  {
+    tag: 'MOD_006',
     title: 'Team Views',
-    desc: 'See multiple people side-by-side in day, 3-day, or 5-day views. Save favorites for quick access to common team configurations.',
+    desc: 'See multiple people side-by-side in day, 3-day, 5-day, or 7-day views. Month navigator overlay with activity dots and week numbers. Swipe to move between date ranges. Save favorites for quick access to common team configurations.',
     color: CYAN,
     status: 'MESH CONNECTED',
   },
   {
-    tag: 'MOD_005',
+    tag: 'MOD_007',
     title: 'Share & Book',
-    desc: 'Share calendar views via secure links with configurable visibility. Let clients book time slots based on real availability across all your calendar sources — with templates, confirmations, and cancel/reschedule.',
+    desc: 'Share calendar views via secure links with configurable visibility. Booking templates with buffer minutes, configurable day limits, slot quantity dots, and auto-jump to first available month. Zoom and Calendly links included in confirmed bookings.',
     color: PRIMARY,
     status: 'BOOKING LIVE',
   },
   {
-    tag: 'MOD_006',
+    tag: 'MOD_008',
+    title: 'Calendar Sharing',
+    desc: 'Share personal calendars — Google OAuth accounts and ICS feeds — with colleagues at four visibility levels: Private, Busy-only, Titles, or Full details. Fine-grained control per calendar per person.',
+    color: ORANGE,
+    status: 'SHARING ACTIVE',
+  },
+  {
+    tag: 'MOD_009',
+    title: 'Public Holidays',
+    desc: 'Per-person country holiday calendars with visual banners on holiday dates. Holidays block booking slots by default; templates can explicitly allow bookings on holidays.',
+    color: TEAL,
+    status: 'HOLIDAYS LOADED',
+  },
+  {
+    tag: 'MOD_010',
     title: 'ICS Feeds',
-    desc: 'Attach any ICS feed — Airbnb, booking systems, external calendars — to any person. Cached with 5-minute TTL and manual sync.',
+    desc: 'Attach any ICS feed — Airbnb, booking systems, external calendars — to any person. Cached with 5-minute TTL and manual sync. Share personal ICS calendars with colleagues at controlled visibility levels.',
     color: ORANGE,
     status: 'FEEDS ONLINE',
   },
 ]
-
-const GOOGLE = '#4285f4'
 
 const SOURCES = [
   { name: 'Standard ERP', color: TEAL },
   { name: 'Excellent Books', color: TEAL },
   { name: 'Microsoft Outlook', color: OUTLOOK },
   { name: 'Microsoft Teams', color: OUTLOOK },
-  { name: 'Google Calendar', color: GOOGLE },
+  { name: 'Google Calendar (per-user OAuth)', color: GOOGLE },
   { name: 'Google Meet', color: GOOGLE },
+  { name: 'Zoom Meetings', color: ZOOM },
+  { name: 'Calendly Bookings', color: CALENDLY },
   { name: 'Any ICS Feed', color: ORANGE },
 ]
 
@@ -124,8 +155,8 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg max-w-md leading-relaxed" style={{ color: MUTED }}>
-              Stop switching between Standard ERP activities, Outlook meetings, and Google Calendar.
-              See your entire team&apos;s schedule in a single, unified view.
+              Connect ERP, Outlook, personal Google accounts, Zoom, and Calendly into a single unified team view.
+              Share calendars with colleagues, let clients book time, and see public holidays — all in one place.
             </p>
 
             <div className="flex flex-wrap gap-4">
@@ -153,7 +184,7 @@ export default function LandingPage() {
               <div className="w-4/5 h-4/5 rounded-full flex items-center justify-center relative" style={{ borderWidth: 16, borderColor: SURFACE_HIGH }}>
                 <div className="absolute inset-0 rounded-full animate-pulse" style={{ borderTopWidth: 16, borderColor: PRIMARY }} />
                 <div className="absolute inset-2 rounded-full opacity-60" style={{ borderRightWidth: 16, borderColor: OUTLOOK }} />
-                <div className="absolute inset-4 rounded-full opacity-40" style={{ borderLeftWidth: 16, borderColor: CYAN }} />
+                <div className="absolute inset-4 rounded-full opacity-40" style={{ borderLeftWidth: 16, borderColor: ZOOM }} />
                 <div className="text-center">
                   <span className="block text-5xl font-bold tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>14:30</span>
                   <span className="block text-[10px] uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>Multi-Source Sync</span>
@@ -167,6 +198,10 @@ export default function LandingPage() {
                 <span className="block text-[8px] uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif", color: TEAL }}>Herbe ERP</span>
                 <span className="block text-sm font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Client Onboarding</span>
               </div>
+              <div className="absolute top-10 left-4 p-3 border-l-2" style={{ background: SURFACE_HIGH, borderColor: ZOOM }}>
+                <span className="block text-[8px] uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ZOOM }}>Zoom</span>
+                <span className="block text-sm font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Team Standup</span>
+              </div>
             </div>
           </div>
         </section>
@@ -178,16 +213,18 @@ export default function LandingPage() {
               <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ORANGE }}>The Problem</span>
               <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendars Everywhere, Visibility Nowhere</h3>
               <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                Your team uses Standard ERP for activity tracking, Outlook for meetings, maybe Google Calendar for some departments.
-                Each person&apos;s schedule lives in a different system. Checking availability means opening three apps and mentally merging the results.
+                Your team uses Standard ERP for activity tracking, Outlook for meetings, personal Google accounts for some calendars,
+                and Zoom or Calendly for video bookings. Each person&apos;s schedule lives in a different system. Checking availability
+                means opening five apps and mentally merging the results.
               </p>
             </div>
             <div className="p-8 border-t-4" style={{ background: SURFACE, borderColor: PRIMARY }}>
               <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>The Solution</span>
               <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>One Calendar, All Sources, Real-Time</h3>
               <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                herbe.calendar pulls activities from Standard ERP, events from Outlook and Google Calendar, and feeds from any ICS source
-                into a single multi-person view. Create, edit, and manage events across all systems from one place.
+                herbe.calendar pulls activities from ERP, Outlook, personal Google accounts, Zoom, Calendly, and ICS feeds
+                into a single multi-person view. Share personal calendars with colleagues, display public holidays per person,
+                and let clients self-book with smart templates — all from one place.
               </p>
             </div>
           </div>
@@ -272,6 +309,11 @@ export default function LandingPage() {
                 </div>
                 <div className="h-px" style={{ background: SURFACE_HIGH }} />
                 <div>
+                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ZOOM }}>Video Integrations</span>
+                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Zoom + Meet</span>
+                </div>
+                <div className="h-px" style={{ background: SURFACE_HIGH }} />
+                <div>
                   <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ORANGE }}>Calendar Sources</span>
                   <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Unlimited</span>
                 </div>
@@ -289,9 +331,24 @@ export default function LandingPage() {
             </div>
             <div className="grid md:grid-cols-3 gap-1">
               {[
-                { step: '01', title: 'Connect Sources', desc: 'Add your Standard ERP connections, Azure AD credentials, or ICS feed URLs through the self-service admin panel.', color: PRIMARY },
-                { step: '02', title: 'See Everyone Together', desc: 'Select team members to view side-by-side. Day, 3-day, or 5-day views with color-coded calendar sources.', color: CYAN },
-                { step: '03', title: 'Work From One Place', desc: 'Create, edit, and manage activities in any connected system. RSVP to meetings. Share views externally via secure links.', color: TEAL },
+                {
+                  step: '01',
+                  title: 'Connect Sources',
+                  desc: 'Add ERP connections, Azure AD credentials, personal Google OAuth accounts, Zoom, Calendly, or any ICS feed URL through the self-service admin panel. Each source loads independently — no waiting for the slowest one.',
+                  color: PRIMARY,
+                },
+                {
+                  step: '02',
+                  title: 'See Everyone Together',
+                  desc: 'Select team members to view side-by-side in day, 3-day, 5-day, or 7-day views. Month navigator with activity dots and week numbers. Public holidays shown per person with country-aware banners.',
+                  color: CYAN,
+                },
+                {
+                  step: '03',
+                  title: 'Share & Book',
+                  desc: 'Share personal calendars with colleagues at the right visibility level. Let clients self-book via secure links with smart templates — buffer time, day limits, Zoom or Meet links auto-generated.',
+                  color: TEAL,
+                },
               ].map(item => (
                 <div
                   key={item.step}
@@ -322,11 +379,16 @@ export default function LandingPage() {
               </div>
               <div className="space-y-4">
                 {[
-                  'No more switching between ERP and email calendar apps',
+                  'No more switching between ERP, email calendar, and video conferencing apps',
                   'See your whole team at a glance across all calendar systems',
+                  'Connect personal Google calendars alongside workspace accounts',
+                  'Zoom and Calendly integration for video meetings in bookings',
+                  'Share specific calendars with colleagues at controlled visibility levels',
+                  'Public holiday awareness per person and country — blocks booking slots automatically',
+                  'Progressive loading — each source loads independently, no waiting',
+                  'Configurable booking templates with buffer time and day limits',
                   'Create activities in Standard ERP directly from the calendar',
-                  'Schedule Outlook/Google meetings with Teams or Meet links',
-                  'Let clients self-book meetings based on real-time availability',
+                  'Let clients self-book meetings based on real-time availability across all sources',
                   'Works on any device with native-like PWA experience',
                   'Self-hosted on your Vercel account with full data control',
                   'Multi-company support for multiple ERP instances',
@@ -353,7 +415,7 @@ export default function LandingPage() {
               <span className="italic" style={{ color: PRIMARY }}>Unify?</span>
             </h2>
             <p className="text-xl max-w-2xl mx-auto" style={{ color: MUTED }}>
-              Set up in minutes. Connect your Standard ERP and cloud calendars. See your team like never before.
+              Set up in minutes. Connect ERP, Google, Outlook, Zoom, and Calendly. Share calendars. Book smarter.
             </p>
             <Link
               href="/cal"
