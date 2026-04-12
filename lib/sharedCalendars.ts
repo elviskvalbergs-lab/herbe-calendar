@@ -100,19 +100,21 @@ export async function fetchSharedCalendarEvents(
             timeMax: `${dateTo}T23:59:59+03:00`,
             timeZone: 'Europe/Riga',
             singleEvents: true,
-            fields: 'items(id,summary,start,end)',
+            fields: 'items(id,summary,start,end,status)',
             maxResults: 250,
           })
           for (const ev of res.data.items ?? []) {
-            const startStr = ev.start?.dateTime ?? ''
-            const endStr = ev.end?.dateTime ?? ''
+            if (ev.status === 'cancelled') continue
+            const isAllDay = !ev.start?.dateTime
+            const startStr = ev.start?.dateTime ?? ev.start?.date ?? ''
+            const endStr = ev.end?.dateTime ?? ev.end?.date ?? ''
             if (!startStr || !endStr) continue
             const date = startStr.slice(0, 10)
-            const start = startStr.slice(11, 16)
-            const end = endStr.slice(11, 16)
-            if (!date || !start || !end) continue
+            const start = isAllDay ? '00:00' : startStr.slice(11, 16)
+            const end = isAllDay ? '23:59' : endStr.slice(11, 16)
+            if (!date) continue
 
-            addBusy(date, { start, end })
+            if (!isAllDay) addBusy(date, { start, end })
             events.push(applySharing({
               id: `shared-g-${ev.id}`,
               source: 'google' as Activity['source'],
@@ -124,6 +126,7 @@ export async function fetchSharedCalendarEvents(
               icsColor: cal.color ?? undefined,
               icsCalendarName: `${cal.name} (shared)`,
               isShared: true,
+              isAllDay,
             } as Activity, cal.sharing as SharingLevel))
           }
         } catch (e) {
