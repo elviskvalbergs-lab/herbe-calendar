@@ -15,6 +15,7 @@ interface Props {
 interface SearchResult { code: string; name: string }
 
 const DURATION_OPTIONS = [5, 10, 15, 30, 45, 60, 90, 120]
+const BUFFER_OPTIONS = [0, 5, 10, 15, 30, 45, 60]
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0] // Mon–Sun
 const DAY_LABELS_MAP: Record<number, string> = { 0: 'Sun', 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat' }
 
@@ -193,7 +194,9 @@ export default function BookingTemplateEditor({ template, connections, onSave, o
           </div>
           <div>
             <label className="text-[10px] text-text-muted block mb-1">Buffer (min)</label>
-            <input type="number" min={0} className={`${inputClass} w-full`} value={buffer} onChange={e => setBuffer(Number(e.target.value))} />
+            <select className={`${inputClass} w-full`} value={buffer} onChange={e => setBuffer(Number(e.target.value))}>
+              {BUFFER_OPTIONS.map(b => <option key={b} value={b}>{b === 0 ? 'None' : `${b} min`}</option>)}
+            </select>
           </div>
         </div>
       </div>
