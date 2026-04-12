@@ -11,6 +11,7 @@ interface Template {
 
 export default function BookingStandalone({ token }: { token: string }) {
   const [templates, setTemplates] = useState<Template[] | null>(null)
+  const [title, setTitle] = useState<string | undefined>()
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export default function BookingStandalone({ token }: { token: string }) {
           return
         }
         setTemplates(data.templates)
+        if (data.favoriteName) setTitle(data.favoriteName)
       })
       .catch(e => setError(e.message))
   }, [token])
@@ -52,6 +54,7 @@ export default function BookingStandalone({ token }: { token: string }) {
     <BookingPage
       token={token}
       templates={templates}
+      title={title}
       onBack={() => window.location.reload()}
     />
   )

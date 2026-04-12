@@ -19,10 +19,11 @@ type Step = 'template' | 'date' | 'slot' | 'form' | 'confirm'
 interface Props {
   token: string
   templates: Template[]
+  title?: string
   onBack: () => void
 }
 
-export default function BookingPage({ token, templates, onBack }: Props) {
+export default function BookingPage({ token, templates, title, onBack }: Props) {
   const [step, setStep] = useState<Step>(templates.length === 1 ? 'date' : 'template')
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(templates.length === 1 ? templates[0] : null)
   const [slots, setSlots] = useState<Record<string, TimeSlot[]>>({})
@@ -40,11 +41,11 @@ export default function BookingPage({ token, templates, onBack }: Props) {
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const [timezone] = useState(browserTz)
 
-  // Date range for availability: next 30 days
+  // Date range for availability: next 60 days (enough to find slots in next months)
   const dateRange = useMemo(() => {
     const today = new Date()
     const from = format(today, 'yyyy-MM-dd')
-    const to = format(addDays(today, 30), 'yyyy-MM-dd')
+    const to = format(addDays(today, 60), 'yyyy-MM-dd')
     return { from, to }
   }, [])
 
@@ -65,6 +66,16 @@ export default function BookingPage({ token, templates, onBack }: Props) {
 
   // Available dates (those with slots)
   const availableDates = useMemo(() => Object.keys(slots).sort(), [slots])
+
+  // Auto-jump to first month with available dates
+  useEffect(() => {
+    if (availableDates.length > 0) {
+      const firstDate = parseISO(availableDates[0])
+      if (!isSameMonth(firstDate, calendarMonth)) {
+        setCalendarMonth(startOfMonth(firstDate))
+      }
+    }
+  }, [availableDates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function selectTemplate(t: Template) {
     setSelectedTemplate(t)
@@ -134,7 +145,7 @@ export default function BookingPage({ token, templates, onBack }: Props) {
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-border flex items-center justify-between">
           <div>
-            <h1 className="text-base font-bold">Book a Meeting</h1>
+            <h1 className="text-base font-bold">{title || 'Book a Meeting'}</h1>
             {selectedTemplate && step !== 'template' && (
               <p className="text-xs text-text-muted mt-0.5">{selectedTemplate.name} ({selectedTemplate.duration_minutes} min)</p>
             )}
