@@ -110,12 +110,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       if (seen.has(id)) continue
       seen.add(id)
       const person = state.selectedPersons.find(p => p.code === a.personCode)
+      // Strip "(shared)" suffix from label — the group header indicates sharing
+      const label = a.icsCalendarName.replace(/ \(shared\)$/, '')
       result.push({
         id,
-        label: a.icsCalendarName,
+        label,
         color: a.icsColor ?? FALLBACK_COLOR,
-        personCode: a.personCode || undefined,
         group: person ? `${person.name} (shared)` : 'Shared calendars',
+        sharing: a.sharingLevel,
       })
     }
     return result

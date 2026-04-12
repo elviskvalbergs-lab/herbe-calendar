@@ -41,7 +41,7 @@ export default function CalendarSourcesDropdown({ sources, hidden, onToggle, onS
   const personGroups: { code: string; name: string; sources: CalendarSource[] }[] = []
   const icsSourcesByPerson = new Map<string, CalendarSource[]>()
   for (const src of sources) {
-    if (!src.personCode) continue
+    if (!src.personCode || src.group) continue  // skip grouped sources (shared calendars have their own group)
     let group = icsSourcesByPerson.get(src.personCode)
     if (!group) { group = []; icsSourcesByPerson.set(src.personCode, group) }
     group.push(src)

@@ -146,9 +146,10 @@ export async function fetchSharedCalendarEvents(
 
 /** Apply sharing level visibility filter to an event */
 function applySharing(event: Activity, sharing: SharingLevel): Activity {
+  const base = { ...event, sharingLevel: sharing }
   if (sharing === 'busy') {
     return {
-      ...event,
+      ...base,
       description: 'Busy',
       textInMatrix: undefined,
       location: undefined,
@@ -157,12 +158,12 @@ function applySharing(event: Activity, sharing: SharingLevel): Activity {
   }
   if (sharing === 'titles') {
     return {
-      ...event,
+      ...base,
       textInMatrix: undefined,
       location: undefined,
       attendees: undefined,
     }
   }
   // 'full' — return as-is
-  return event
+  return base
 }

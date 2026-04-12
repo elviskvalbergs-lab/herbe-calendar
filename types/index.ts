@@ -76,6 +76,7 @@ export interface Activity {
   googleCalendarName?: string  // Per-user Google: display name of the calendar
   googleTokenId?: string       // Per-user Google: token ID for CRUD routing
   isShared?: boolean           // Event fetched from another user's shared calendar
+  sharingLevel?: SharingLevel  // The sharing level applied to this shared event
 }
 
 export interface ActivityType {
