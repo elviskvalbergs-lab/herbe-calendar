@@ -37,26 +37,29 @@ export async function fetchSharedCalendarEvents(
 
   for (const row of sharedIcs) {
     try {
-      const { fetchIcsForPerson } = await import('@/lib/icsUtils')
-      const result = await fetchIcsForPerson(row.user_email, row.target_person_code, accountId, dateFrom, dateTo)
+      // Fetch this specific ICS URL directly (not all feeds for the user+person)
+      const { fetchIcsEvents } = await import('@/lib/icsParser')
+      const result = await fetchIcsEvents(row.ics_url, row.target_person_code, dateFrom, dateTo)
       for (const ev of result.events) {
         const date = String(ev.date ?? '')
         const start = String(ev.timeFrom ?? '')
         const end = String(ev.timeTo ?? '')
-        if (!date || !start || !end) continue
+        const isAllDay = ev.isAllDay === true
+        if (!date || (!isAllDay && (!start || !end))) continue
 
-        addBusy(date, { start, end })
+        if (!isAllDay) addBusy(date, { start, end })
         events.push(applySharing({
           id: `shared-ics-${ev.id ?? date + start}`,
           source: 'outlook' as Activity['source'],
           personCode: row.target_person_code,
           date,
-          timeFrom: start,
-          timeTo: end,
+          timeFrom: start || '00:00',
+          timeTo: end || '23:59',
           description: String(ev.description ?? ''),
           icsColor: row.color ?? undefined,
           icsCalendarName: `${row.name} (shared)`,
           isShared: true,
+          isAllDay,
         } as Activity, row.sharing as SharingLevel))
       }
     } catch (e) {
