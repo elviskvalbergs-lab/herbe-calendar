@@ -141,27 +141,28 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
       </div>
 
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-surface z-10">
             <tr className="border-b border-border text-left text-xs text-text-muted">
-              <th className="px-4 py-2">Code</th>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2 hidden sm:table-cell">Email</th>
-              <th className="px-4 py-2 hidden md:table-cell">Source</th>
-              <th className="px-4 py-2">Role</th>
-              <th className="px-4 py-2 hidden md:table-cell">Last Login</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2 hidden md:table-cell">Holidays</th>
-              {isSuperAdmin && <th className="px-4 py-2"></th>}
+              <th className="px-3 py-2 whitespace-nowrap">Code</th>
+              <th className="px-3 py-2 whitespace-nowrap">Name</th>
+              <th className="px-3 py-2 whitespace-nowrap">Email</th>
+              <th className="px-3 py-2 whitespace-nowrap">Source</th>
+              <th className="px-3 py-2 whitespace-nowrap">Role</th>
+              <th className="px-3 py-2 whitespace-nowrap">Login</th>
+              <th className="px-3 py-2 whitespace-nowrap">Status</th>
+              <th className="px-3 py-2 whitespace-nowrap">Holidays</th>
+              {isSuperAdmin && <th className="px-3 py-2"></th>}
             </tr>
           </thead>
           <tbody>
             {filtered.map(m => (
               <tr key={m.email} className={`border-b border-border/30 transition-colors hover:bg-border/20 ${!m.active ? 'bg-border/10' : ''}`}>
-                <td className="px-4 py-2 font-mono text-xs font-bold">{m.generated_code ?? '—'}</td>
-                <td className="px-4 py-2 truncate max-w-[150px]">{m.display_name ?? m.email.split('@')[0]}</td>
-                <td className="px-4 py-2 hidden sm:table-cell text-text-muted text-xs truncate max-w-[200px]">{m.email}</td>
-                <td className="px-4 py-2 hidden md:table-cell">
+                <td className="px-3 py-1.5 font-mono text-xs font-bold whitespace-nowrap">{m.generated_code ?? '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{m.display_name ?? m.email.split('@')[0]}</td>
+                <td className="px-3 py-1.5 text-text-muted text-xs whitespace-nowrap">{m.email}</td>
+                <td className="px-3 py-1.5">
                   <div className="flex gap-1 flex-wrap">
                     {(m.source ?? 'erp').split('+').map(s => (
                       <span key={s} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -174,7 +175,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                     ))}
                   </div>
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-3 py-1.5">
                   <button
                     onClick={() => toggleRole(m.email, m.role === 'admin' ? 'member' : 'admin')}
                     disabled={saving === m.email}
@@ -187,12 +188,12 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                     {m.role}
                   </button>
                 </td>
-                <td className="px-4 py-2 hidden md:table-cell text-[10px] text-text-muted">
+                <td className="px-3 py-1.5 text-[10px] text-text-muted whitespace-nowrap">
                   {m.last_login
                     ? new Date(m.last_login).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
                     : '—'}
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-3 py-1.5">
                   <button
                     onClick={() => toggleActive(m.email, !m.active)}
                     disabled={saving === m.email}
@@ -205,7 +206,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                     {m.active ? 'active' : 'inactive'}
                   </button>
                 </td>
-                <td className="px-4 py-2 hidden md:table-cell">
+                <td className="px-3 py-1.5">
                   <select
                     value={m.holiday_country ?? ''}
                     disabled={!m.person_code_id}
@@ -218,7 +219,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                         body: JSON.stringify({ id: m.person_code_id, holidayCountry: val || null }),
                       })
                     }}
-                    className="bg-bg border border-border rounded text-[10px] px-1 py-0.5 max-w-[100px] disabled:opacity-40"
+                    className="bg-bg border border-border rounded text-[10px] px-1 py-0.5 disabled:opacity-40"
                   >
                     <option value="">Default</option>
                     {holidayCountries.map(c => (
@@ -227,7 +228,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                   </select>
                 </td>
                 {isSuperAdmin && (
-                  <td className="px-4 py-2">
+                  <td className="px-3 py-1.5">
                     <button
                       onClick={() => {
                         fetch('/api/admin/impersonate', {
@@ -246,6 +247,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
