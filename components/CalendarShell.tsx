@@ -77,7 +77,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   // Calendar visibility state
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
-  const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string; personCode: string }[]>([])
+  const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string; personCode: string; sharing?: string }[]>([])
   const [userGoogleAccounts, setUserGoogleAccounts] = useState<UserGoogleAccount[]>([])
 
   const selectedCodes = useMemo(() => new Set(state.selectedPersons.map(p => p.code)), [state.selectedPersons])
@@ -112,11 +112,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         group: `Google (${account.googleEmail})`,
         googleTokenId: account.id,
         googleCalendarId: cal.calendarId,
+        sharing: cal.sharing,
       }))
     ),
     ...userIcsCalendars
       .filter(c => selectedCodes.has(c.personCode))
-      .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode })),
+      .map(c => ({ id: icsId(c.name), label: c.name, color: c.color ?? FALLBACK_COLOR, personCode: c.personCode, sharing: c.sharing as any })),
   ], [sources, resolvedOutlookColor, resolvedGoogleColor, userGoogleAccounts, userIcsCalendars, selectedCodes])
 
   const visibleActivities = useMemo(() => {
@@ -730,7 +731,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   useEffect(() => {
     fetch('/api/settings/calendars')
       .then(r => r.ok ? r.json() : [])
-      .then((cals: { name: string; color?: string; personCode: string }[]) => setUserIcsCalendars(cals))
+      .then((cals: { name: string; color?: string; personCode: string; sharing?: string }[]) => setUserIcsCalendars(cals))
       .catch(() => {})
     fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setUserGoogleAccounts).catch(() => {})
   }, [])

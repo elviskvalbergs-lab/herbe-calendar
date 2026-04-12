@@ -115,6 +115,7 @@ export interface CalendarSource {
   group?: string          // e.g. "Google (elvis@gmail.com)"
   googleTokenId?: string  // for CRUD routing
   googleCalendarId?: string
+  sharing?: SharingLevel
 }
 
 export interface Favorite {
