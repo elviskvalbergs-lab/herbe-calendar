@@ -32,14 +32,14 @@ const FEATURES = [
   {
     tag: 'MOD_003',
     title: 'Google Calendar & Meet',
-    desc: 'Personal Google OAuth so each user connects their own Google account — no service account required. Pick which calendars to show, create and edit events, and generate Meet links. Workspace domain-wide delegation also supported.',
+    desc: 'Two access modes: personal OAuth where each user connects their own Google account and picks which calendars to show, and team-level Workspace delegation for full domain visibility. Create and edit events, generate Meet video links, share calendars with colleagues.',
     color: GOOGLE,
     status: 'OAUTH CONNECTED',
   },
   {
     tag: 'MOD_004',
     title: 'Zoom Meetings',
-    desc: 'Connect a Zoom account and generate meeting links directly from activities and booking flows. Zoom links appear in event details, confirmation emails, and ICS invites.',
+    desc: 'Connect a Zoom account and generate meeting links directly from activities and booking flows. Works alongside Teams and Meet — choose the right video platform per event. Links appear in event details, confirmations, and ICS invites.',
     color: ZOOM,
     status: 'MEETINGS ENABLED',
   },
@@ -60,14 +60,14 @@ const FEATURES = [
   {
     tag: 'MOD_007',
     title: 'Share & Book',
-    desc: 'Share calendar views via secure links with configurable visibility. Booking templates with buffer minutes, configurable day limits, slot quantity dots, and auto-jump to first available month. Zoom and Calendly links included in confirmed bookings.',
+    desc: 'Share calendar views via secure links with configurable visibility. Booking templates with buffer minutes, configurable day limits, slot quantity dots, and auto-jump to first available month. Teams, Meet, Zoom, and Calendly links included in confirmed bookings.',
     color: PRIMARY,
     status: 'BOOKING LIVE',
   },
   {
     tag: 'MOD_008',
     title: 'Calendar Sharing',
-    desc: 'Share personal calendars — Google OAuth accounts and ICS feeds — with colleagues at four visibility levels: Private, Busy-only, Titles, or Full details. Fine-grained control per calendar per person.',
+    desc: 'Share personal and team Google calendars and ICS feeds with colleagues at four visibility levels: Private, Busy-only, Titles, or Full details. Fine-grained control per calendar per person.',
     color: ORANGE,
     status: 'SHARING ACTIVE',
   },
@@ -92,7 +92,7 @@ const SOURCES = [
   { name: 'Excellent Books', color: TEAL },
   { name: 'Microsoft Outlook', color: OUTLOOK },
   { name: 'Microsoft Teams', color: OUTLOOK },
-  { name: 'Google Calendar (per-user OAuth)', color: GOOGLE },
+  { name: 'Google Calendar (personal + team)', color: GOOGLE },
   { name: 'Google Meet', color: GOOGLE },
   { name: 'Zoom Meetings', color: ZOOM },
   { name: 'Calendly Bookings', color: CALENDLY },
@@ -155,7 +155,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-lg max-w-md leading-relaxed" style={{ color: MUTED }}>
-              Connect ERP, Outlook, personal Google accounts, Zoom, and Calendly into a single unified team view.
+              Connect ERP, Outlook, personal and team Google accounts, Zoom, Teams, Meet, and Calendly into a single unified view.
               Share calendars with colleagues, let clients book time, and see public holidays — all in one place.
             </p>
 
@@ -213,7 +213,7 @@ export default function LandingPage() {
               <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ORANGE }}>The Problem</span>
               <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendars Everywhere, Visibility Nowhere</h3>
               <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                Your team uses Standard ERP for activity tracking, Outlook for meetings, personal Google accounts for some calendars,
+                Your team uses Standard ERP for activity tracking, Outlook with Teams for meetings, personal and team Google accounts for calendars,
                 and Zoom or Calendly for video bookings. Each person&apos;s schedule lives in a different system. Checking availability
                 means opening five apps and mentally merging the results.
               </p>
@@ -222,7 +222,7 @@ export default function LandingPage() {
               <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>The Solution</span>
               <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>One Calendar, All Sources, Real-Time</h3>
               <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                herbe.calendar pulls activities from ERP, Outlook, personal Google accounts, Zoom, Calendly, and ICS feeds
+                herbe.calendar pulls activities from ERP, Outlook, personal and team Google accounts, Zoom, Calendly, and ICS feeds
                 into a single multi-person view. Share personal calendars with colleagues, display public holidays per person,
                 and let clients self-book with smart templates — all from one place.
               </p>
@@ -310,7 +310,7 @@ export default function LandingPage() {
                 <div className="h-px" style={{ background: SURFACE_HIGH }} />
                 <div>
                   <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ZOOM }}>Video Integrations</span>
-                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Zoom + Meet</span>
+                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Teams + Meet + Zoom</span>
                 </div>
                 <div className="h-px" style={{ background: SURFACE_HIGH }} />
                 <div>
@@ -334,7 +334,7 @@ export default function LandingPage() {
                 {
                   step: '01',
                   title: 'Connect Sources',
-                  desc: 'Add ERP connections, Azure AD credentials, personal Google OAuth accounts, Zoom, Calendly, or any ICS feed URL through the self-service admin panel. Each source loads independently — no waiting for the slowest one.',
+                  desc: 'Add ERP connections, Azure AD for Outlook and Teams, personal or team Google accounts, Zoom, Calendly, or any ICS feed URL through the self-service admin panel. Each source loads independently — no waiting for the slowest one.',
                   color: PRIMARY,
                 },
                 {
@@ -346,7 +346,7 @@ export default function LandingPage() {
                 {
                   step: '03',
                   title: 'Share & Book',
-                  desc: 'Share personal calendars with colleagues at the right visibility level. Let clients self-book via secure links with smart templates — buffer time, day limits, Zoom or Meet links auto-generated.',
+                  desc: 'Share personal and team calendars with colleagues at the right visibility level. Let clients self-book via secure links with smart templates — buffer time, day limits, Teams/Meet/Zoom links auto-generated.',
                   color: TEAL,
                 },
               ].map(item => (
@@ -379,10 +379,10 @@ export default function LandingPage() {
               </div>
               <div className="space-y-4">
                 {[
-                  'No more switching between ERP, email calendar, and video conferencing apps',
+                  'No more switching between ERP, Outlook, Google, and video conferencing apps',
                   'See your whole team at a glance across all calendar systems',
-                  'Connect personal Google calendars alongside workspace accounts',
-                  'Zoom and Calendly integration for video meetings in bookings',
+                  'Connect personal Google calendars alongside team workspace accounts',
+                  'Teams, Meet, Zoom, and Calendly for video meetings in bookings',
                   'Share specific calendars with colleagues at controlled visibility levels',
                   'Public holiday awareness per person and country — blocks booking slots automatically',
                   'Progressive loading — each source loads independently, no waiting',
@@ -415,7 +415,7 @@ export default function LandingPage() {
               <span className="italic" style={{ color: PRIMARY }}>Unify?</span>
             </h2>
             <p className="text-xl max-w-2xl mx-auto" style={{ color: MUTED }}>
-              Set up in minutes. Connect ERP, Google, Outlook, Zoom, and Calendly. Share calendars. Book smarter.
+              Set up in minutes. Connect ERP, Outlook, Google, Teams, Meet, Zoom, and Calendly. Share calendars. Book smarter.
             </p>
             <Link
               href="/cal"
