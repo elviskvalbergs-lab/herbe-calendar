@@ -407,7 +407,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                             />
                             <span className="text-sm flex-1 truncate">{cal.name}</span>
                             {cal.sharing && cal.sharing !== 'private' && (
-                              <span className={`text-[9px] font-bold shrink-0 ${cal.sharing === 'full' ? 'text-amber-400' : cal.sharing === 'titles' ? 'text-blue-400' : 'text-green-400'}`}>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${cal.sharing === 'full' ? 'border-amber-500/30 text-amber-400' : cal.sharing === 'titles' ? 'border-blue-500/30 text-blue-400' : 'border-green-500/30 text-green-400'}`}>
                                 {cal.sharing === 'busy' ? 'Shared busy' : cal.sharing === 'titles' ? 'Shared titles' : 'Shared fully'}
                               </span>
                             )}
@@ -736,7 +736,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                         <span>{c.name}</span>
                                         <span className="text-[10px] text-primary">ICS</span>
                                         {c.sharing && c.sharing !== 'private' && (
-                                          <span className={`text-[9px] font-bold ${c.sharing === 'full' ? 'text-amber-400' : c.sharing === 'titles' ? 'text-blue-400' : 'text-green-400'}`}>
+                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${c.sharing === 'full' ? 'border-amber-500/30 text-amber-400' : c.sharing === 'titles' ? 'border-blue-500/30 text-blue-400' : 'border-green-500/30 text-green-400'}`}>
                                             {c.sharing === 'busy' ? 'Shared busy' : c.sharing === 'titles' ? 'Shared titles' : 'Shared fully'}
                                           </span>
                                         )}
