@@ -266,7 +266,7 @@ export default function CalendarGrid({
                     )}
                   </div>
                 )}
-                <div className="flex h-10">
+                <div className="flex h-6">
                   {state.selectedPersons.map((person, personIdx) => {
                     const pa = activities.filter(a => a.personCode === person.code && a.date === date)
                     const hasOffGrid = pa.some(a => !a.isAllDay && (
@@ -274,11 +274,10 @@ export default function CalendarGrid({
                       timeToMinutes(a.timeTo) > effectiveEndHour * 60
                     ))
                     const hasAllDay = pa.some(a => a.isAllDay)
-                    const hasIndicator = hasOffGrid || hasAllDay
                     return (
                       <div
                         key={person.code}
-                        className={`flex-1 flex items-center justify-center text-xs font-bold border-r border-border last:border-r-0 border-b ${hasIndicator ? 'border-b-red-500' : 'border-b-border'}`}
+                        className={`flex-1 flex items-center justify-center text-[10px] font-bold border-r border-border last:border-r-0 border-b ${hasOffGrid ? 'border-b-red-500' : hasAllDay ? 'border-b-amber-400' : 'border-b-border'}`}
                         style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                         title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                       >
