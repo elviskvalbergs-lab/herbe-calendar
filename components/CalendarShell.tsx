@@ -862,7 +862,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           connections={erpConnections}
           colorOverrides={dbColorOverrides}
           error={classGroupsError}
-          onClose={() => setColorSettingsOpen(false)}
+          onClose={() => {
+            setColorSettingsOpen(false)
+            // Refetch calendar data in case sharing or other settings changed
+            fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setUserGoogleAccounts).catch(() => {})
+            fetch('/api/settings/calendars').then(r => r.ok ? r.json() : []).then(setUserIcsCalendars).catch(() => {})
+          }}
           onColorChange={(groupCode, color) => {
             setColorOverrides(prev => ({ ...prev, [groupCode]: color }))
           }}
