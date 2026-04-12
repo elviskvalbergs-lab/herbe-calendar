@@ -53,7 +53,7 @@ export default function TimeColumn({
       )}
       {hours.map(h => (
         <div key={h} className="border-b border-border/30 relative" style={{ height: rowHeight }}>
-          <span className="absolute -top-2 right-2 text-[10px] text-text-muted">
+          <span className="absolute top-0.5 right-2 text-[10px] text-text-muted leading-none">
             {String(h).padStart(2, '0')}:00
           </span>
           {/* Half-hour dashed divider */}

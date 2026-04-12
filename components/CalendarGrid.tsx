@@ -103,16 +103,23 @@ export default function CalendarGrid({
     scrollRef.current.scrollTop = minutesToPx((TARGET_HOUR - effectiveStartHour) * 60, scale)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Compensate scroll when grid range changes (expand/contract)
-  // useLayoutEffect runs synchronously before paint, preventing visible jump
+  // When grid expands up, scroll to show the newly visible hours
+  // When grid contracts up, keep view stable
   const prevStartHourRef = useRef(effectiveStartHour)
   useLayoutEffect(() => {
     if (!scrollRef.current) return
     const prevStart = prevStartHourRef.current
     if (prevStart !== effectiveStartHour) {
-      const deltaHours = prevStart - effectiveStartHour // positive = expanded up (more hours added at top)
-      const deltaPx = minutesToPx(deltaHours * 60, scale)
-      scrollRef.current.scrollTop += deltaPx
+      const expanded = effectiveStartHour < prevStart // expanded up = earlier hours added
+      if (expanded) {
+        // Scroll to top to show the new early hours
+        scrollRef.current.scrollTop = 0
+      } else {
+        // Contracted up — keep view stable by subtracting removed height
+        const deltaHours = prevStart - effectiveStartHour
+        const deltaPx = minutesToPx(deltaHours * 60, scale)
+        scrollRef.current.scrollTop += deltaPx
+      }
       prevStartHourRef.current = effectiveStartHour
     }
   }, [effectiveStartHour, scale])
