@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
+import { signCookieValue, verifyCookieValue } from '@/lib/signedCookie'
 
 export async function GET() {
   const session = await auth()
@@ -25,7 +26,8 @@ export async function GET() {
   let activeAccountId: string | undefined
   try {
     const { cookies } = await import('next/headers')
-    activeAccountId = (await cookies()).get('activeAccountId')?.value || undefined
+    const raw = (await cookies()).get('activeAccountId')?.value
+    if (raw) activeAccountId = verifyCookieValue(raw) ?? undefined
   } catch {}
   const activeAccount = activeAccountId
     ? rows.find((r: { id: string }) => r.id === activeAccountId)
@@ -33,4 +35,37 @@ export async function GET() {
   const isAdmin = isSuperAdmin || (activeAccount as { role?: string })?.role === 'admin'
 
   return NextResponse.json({ accounts: rows, isSuperAdmin, isAdmin, email })
+}
+
+/** POST: Switch active account — sets signed cookie */
+export async function POST(req: NextRequest) {
+  const session = await auth()
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { accountId } = await req.json()
+  if (!accountId || typeof accountId !== 'string') {
+    return NextResponse.json({ error: 'accountId required' }, { status: 400 })
+  }
+
+  // Verify user is a member of the target account
+  const email = session.user.email.toLowerCase()
+  const { rows } = await pool.query(
+    'SELECT 1 FROM account_members WHERE LOWER(email) = $1 AND account_id = $2 AND active = true',
+    [email, accountId]
+  )
+  if (rows.length === 0) {
+    return NextResponse.json({ error: 'Not a member of this account' }, { status: 403 })
+  }
+
+  const signed = signCookieValue(accountId)
+  const res = NextResponse.json({ ok: true })
+  res.cookies.set('activeAccountId', signed, {
+    path: '/',
+    maxAge: 30 * 24 * 3600,
+    httpOnly: true,
+    sameSite: 'lax',
+  })
+  return res
 }
