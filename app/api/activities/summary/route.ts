@@ -111,6 +111,15 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* non-fatal */ }
 
+  // Shared calendars from other users
+  try {
+    const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
+    const shared = await fetchSharedCalendarEvents(personList, session.email, session.accountId, dateFrom, dateTo)
+    for (const ev of shared.events) {
+      if (ev.date) addEntry(ev.date, 'shared')
+    }
+  } catch { /* non-fatal */ }
+
   // Convert Sets to arrays for JSON serialization
   const serialized: Record<string, DaySummary> = {}
   for (const [date, entry] of Object.entries(result)) {

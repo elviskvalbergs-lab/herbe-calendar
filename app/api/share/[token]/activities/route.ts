@@ -220,6 +220,17 @@ export async function GET(
     }
   }
 
+  // Include shared calendar events from other users in the account
+  try {
+    const { fetchSharedCalendarEvents } = await import('@/lib/sharedCalendars')
+    const shared = await fetchSharedCalendarEvents(personCodes, ownerEmail, accountId, dateFrom, dateTo)
+    for (const ev of shared.events) {
+      allActivities.push(ev as unknown as Record<string, unknown>)
+    }
+  } catch (e) {
+    console.warn('[share/activities] Shared calendar fetch failed:', String(e))
+  }
+
   // Apply visibility filter
   const filtered = allActivities.map(a => filterActivity(a as Record<string, unknown>, visibility))
 
