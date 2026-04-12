@@ -228,7 +228,16 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
 
         {/* Sharing links section */}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-semibold">Sharing links</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold">Sharing links</span>
+            <a
+              href="/docs/sharing"
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold shrink-0"
+              title="Help: Sharing links"
+            >?</a>
+          </div>
           {links.length > 0 && (
             <button
               onClick={handleDeleteAll}
@@ -465,6 +474,14 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                     onChange={e => setNewBookingEnabled(e.target.checked)}
                   />
                   <span className="font-bold">Enable booking</span>
+                  <a
+                    href="/docs/booking"
+                    target="_blank"
+                    rel="noopener"
+                    onClick={e => e.stopPropagation()}
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold shrink-0"
+                    title="Help: Booking"
+                  >?</a>
                 </label>
                 {newBookingEnabled && (
                   <div className="space-y-2">

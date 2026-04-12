@@ -276,6 +276,15 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         ?
       </button>
 
+      {/* Help — desktop only */}
+      <a
+        href="/docs/getting-started"
+        target="_blank"
+        rel="noopener"
+        className="hidden lg:inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold shrink-0"
+        title="Help: Getting started"
+      >?</a>
+
       {/* Settings — desktop only */}
       <button
         onClick={onColorSettings}
