@@ -41,8 +41,8 @@ export async function GET(
     return NextResponse.json({ error: 'dateFrom must be before dateTo' }, { status: 400 })
   }
   const daysDiff = (new Date(dateTo).getTime() - new Date(dateFrom).getTime()) / (1000 * 60 * 60 * 24)
-  if (daysDiff > 90) {
-    return NextResponse.json({ error: 'Date range cannot exceed 90 days' }, { status: 400 })
+  if (daysDiff > 365) {
+    return NextResponse.json({ error: 'Date range cannot exceed 365 days' }, { status: 400 })
   }
 
   // 2. Query share link
