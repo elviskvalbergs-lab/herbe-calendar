@@ -150,12 +150,13 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
               <p className="text-xs text-text-muted mt-0.5">{selectedTemplate.name} ({selectedTemplate.duration_minutes} min)</p>
             )}
           </div>
-          {step !== 'confirm' && (
+          {step !== 'confirm' && step !== 'date' && (
             <button
-              onClick={step === 'template' || (step === 'date' && templates.length === 1) ? onBack : () => {
+              onClick={() => {
                 if (step === 'form') setStep('slot')
                 else if (step === 'slot') setStep('date')
-                else if (step === 'date') { setStep('template'); setSelectedTemplate(null) }
+                else if (step === 'template') onBack()
+                else if (step === 'date' && templates.length > 1) { setStep('template'); setSelectedTemplate(null) }
               }}
               className="text-text-muted text-xs hover:text-text"
             >
@@ -167,9 +168,9 @@ export default function BookingPage({ token, templates, title, onBack }: Props) 
         {/* Step indicator */}
         {step !== 'confirm' && (
           <div className="flex px-5 pt-3 gap-1">
-            {['template', 'date', 'slot', 'form'].map((s, i) => (
+            {(templates.length > 1 ? ['template', 'date', 'slot', 'form'] : ['date', 'slot', 'form']).map((s, i, steps) => (
               <div key={s} className={`h-1 flex-1 rounded-full ${
-                i <= ['template', 'date', 'slot', 'form'].indexOf(step) ? 'bg-primary' : 'bg-border'
+                i <= steps.indexOf(step) ? 'bg-primary' : 'bg-border'
               }`} />
             ))}
           </div>
