@@ -143,7 +143,7 @@ export default function CalendarSourcesDropdown({ sources, hidden, onToggle, onS
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => onOpenChange?.(false)} />
-          <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[200px]">
+          <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[200px] max-h-[70vh] overflow-y-auto">
             {list}
           </div>
         </>
