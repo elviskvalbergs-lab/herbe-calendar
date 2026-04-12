@@ -153,6 +153,7 @@ export async function collectBusyBlocks(
   for (const code of personCodes) {
     try {
       const email = await emailForCode(code, accountId)
+      console.error(`[availability] Person ${code} → email=${email ?? 'NULL'}`)
       if (!email) continue
 
       // Outlook Graph
@@ -205,6 +206,7 @@ export async function collectBusyBlocks(
       }
 
       // Google Calendar
+      console.error(`[availability] About to fetch Google for ${code} (${email}), hidden=${hiddenCalendars?.has('google')}`)
       if (!hiddenCalendars?.has('google'))
       try {
         const googleConfig = await getGoogleConfig(accountId)
