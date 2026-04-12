@@ -10,14 +10,26 @@ export default function GettingStartedPage() {
       </div>
 
       <h1 className="text-3xl font-bold mb-2">Getting Started</h1>
-      <p className="text-text-muted mb-10">
+      <p className="text-text-muted mb-8">
         An introduction to herbe.calendar and how to get up and running.
       </p>
+
+      <nav className="mb-8 p-4 bg-surface rounded-lg border border-border">
+        <p className="text-xs font-bold text-text-muted uppercase tracking-wide mb-2">On this page</p>
+        <ul className="space-y-1">
+          <li><a href="#what-is" className="text-sm text-primary hover:underline">What is herbe.calendar?</a></li>
+          <li><a href="#signing-in" className="text-sm text-primary hover:underline">Signing In</a></li>
+          <li><a href="#first-time-setup" className="text-sm text-primary hover:underline">First-Time Setup</a></li>
+          <li><a href="#views" className="text-sm text-primary hover:underline">Navigating the Calendar</a></li>
+          <li><a href="#selecting-people" className="text-sm text-primary hover:underline">Selecting People to View</a></li>
+          <li><a href="#creating-activities" className="text-sm text-primary hover:underline">Creating Activities</a></li>
+        </ul>
+      </nav>
 
       <div className="space-y-10">
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">What is herbe.calendar?</h2>
+          <h2 id="what-is" className="text-xl font-semibold mb-3 pb-2 border-b border-border">What is herbe.calendar?</h2>
           <p className="text-text-muted mb-3">
             herbe.calendar is a unified, multi-source calendar for teams. It pulls activities and events from
             Standard ERP, Excellent Books, Microsoft Outlook, Google Calendar, and ICS feeds into a single view —
@@ -32,7 +44,7 @@ export default function GettingStartedPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Signing In</h2>
+          <h2 id="signing-in" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Signing In</h2>
           <p className="text-text-muted mb-3">
             herbe.calendar supports sign-in via Microsoft (Azure AD / Entra ID) and Google (Workspace or personal).
             Your administrator controls which methods are enabled.
@@ -49,7 +61,7 @@ export default function GettingStartedPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">First-Time Setup</h2>
+          <h2 id="first-time-setup" className="text-xl font-semibold mb-3 pb-2 border-b border-border">First-Time Setup</h2>
           <p className="text-text-muted mb-3">
             Before the calendar is useful, an administrator needs to complete initial configuration.
           </p>
@@ -78,9 +90,9 @@ export default function GettingStartedPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Navigating the Calendar</h2>
+          <h2 id="views" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Navigating the Calendar</h2>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Views</h3>
+          <h3 id="views-list" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Views</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
             <li>Day view — one column per selected person for the current day</li>
             <li>3-day view — three days across for each person</li>
@@ -88,14 +100,14 @@ export default function GettingStartedPage() {
             <li>7-day view — full week including weekends</li>
           </ul>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Month Navigator</h3>
+          <h3 id="month-navigator" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Month Navigator</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
             <li>A small month calendar appears in the sidebar for quick date jumping</li>
             <li>Click any date to jump directly to that day in the main view</li>
             <li>Use the arrow buttons to step forward and back by day or week</li>
           </ul>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Calendar Sources Dropdown</h3>
+          <h3 id="calendar-sources-dropdown" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Calendar Sources Dropdown</h3>
           <p className="text-text-muted text-sm">
             The sources dropdown lets you toggle which calendar sources are visible — ERP, Outlook, Google,
             ICS feeds, and shared calendars. Each source has a color indicator. Shared calendars from colleagues
@@ -104,15 +116,15 @@ export default function GettingStartedPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Selecting People to View</h2>
+          <h2 id="selecting-people" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Selecting People to View</h2>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Person Selector</h3>
+          <h3 id="person-selector" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Person Selector</h3>
           <p className="text-text-muted text-sm mb-3">
             Click the people icon in the toolbar to open the person selector. Search by name and add people to the
             current view. Each person gets a color-coded column.
           </p>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Favorites</h3>
+          <h3 id="favorites" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Favorites</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside">
             <li>Save frequently used person combinations as a favorite group</li>
             <li>Open the Favorites dropdown in the toolbar to switch between saved groups</li>
@@ -121,7 +133,7 @@ export default function GettingStartedPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Creating Activities</h2>
+          <h2 id="creating-activities" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Creating Activities</h2>
           <p className="text-text-muted mb-3">
             Click any empty time slot in the calendar to open the activity creation form. The form adapts based on
             which calendar source you are creating into.

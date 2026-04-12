@@ -10,15 +10,30 @@ export default function AdminPage() {
       </div>
 
       <h1 className="text-3xl font-bold mb-2">Admin Configuration</h1>
-      <p className="text-text-muted mb-10">
+      <p className="text-text-muted mb-8">
         Configure data source connections, authentication, notifications, and manage members.
         All admin settings are in <code className="bg-surface px-1 rounded text-text">/admin</code>.
       </p>
 
+      <nav className="mb-8 p-4 bg-surface rounded-lg border border-border">
+        <p className="text-xs font-bold text-text-muted uppercase tracking-wide mb-2">On this page</p>
+        <ul className="space-y-1">
+          <li><a href="#erp-connections" className="text-sm text-primary hover:underline">ERP Connections</a></li>
+          <li><a href="#azure-ad" className="text-sm text-primary hover:underline">Azure AD (Outlook &amp; Teams)</a></li>
+          <li><a href="#google-workspace" className="text-sm text-primary hover:underline">Google Workspace</a></li>
+          <li><a href="#google-oauth" className="text-sm text-primary hover:underline">Google OAuth (Per-User)</a></li>
+          <li><a href="#zoom" className="text-sm text-primary hover:underline">Zoom</a></li>
+          <li><a href="#holidays" className="text-sm text-primary hover:underline">Holidays</a></li>
+          <li><a href="#smtp" className="text-sm text-primary hover:underline">SMTP (Email)</a></li>
+          <li><a href="#members" className="text-sm text-primary hover:underline">Members</a></li>
+          <li><a href="#analytics" className="text-sm text-primary hover:underline">Analytics</a></li>
+        </ul>
+      </nav>
+
       <div className="space-y-10">
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">ERP Connections</h2>
+          <h2 id="erp-connections" className="text-xl font-semibold mb-3 pb-2 border-b border-border">ERP Connections</h2>
           <p className="text-text-muted mb-3">
             Connect one or more Standard ERP or Excellent Books instances. Each connection is independent
             and can target a different company or register.
@@ -33,7 +48,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Azure AD (Outlook &amp; Teams)</h2>
+          <h2 id="azure-ad" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Azure AD (Outlook &amp; Teams)</h2>
           <p className="text-text-muted mb-3">
             Required to enable Outlook calendar sync and Teams meeting creation. Uses an Azure AD (Entra ID)
             app registration with application-level permissions.
@@ -51,7 +66,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Google Workspace</h2>
+          <h2 id="google-workspace" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Google Workspace</h2>
           <p className="text-text-muted mb-3">
             Enables domain-wide Google Calendar access for all users in a Google Workspace organization.
             Uses a service account with domain-wide delegation.
@@ -71,7 +86,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Google OAuth (Per-User)</h2>
+          <h2 id="google-oauth" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Google OAuth (Per-User)</h2>
           <p className="text-text-muted mb-3">
             Enables individual users to connect their personal Google accounts via OAuth consent. Required
             for personal Gmail users or Workspace users connecting additional calendars.
@@ -86,7 +101,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Zoom</h2>
+          <h2 id="zoom" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Zoom</h2>
           <p className="text-text-muted mb-3">
             Enables Zoom meeting creation when booking or creating activities. Uses a Server-to-Server
             OAuth app — no individual user authorization required.
@@ -100,7 +115,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Holidays</h2>
+          <h2 id="holidays" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Holidays</h2>
           <p className="text-text-muted mb-3">
             Holiday data is used to block booking availability on public holidays and to display holiday
             indicators in the calendar.
@@ -114,7 +129,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">SMTP (Email)</h2>
+          <h2 id="smtp" className="text-xl font-semibold mb-3 pb-2 border-b border-border">SMTP (Email)</h2>
           <p className="text-text-muted mb-3">
             SMTP configuration enables outbound email for booking confirmations and cancellation
             notifications. Without SMTP, bookings still work but no emails are sent.
@@ -128,13 +143,13 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Members</h2>
+          <h2 id="members" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Members</h2>
           <p className="text-text-muted mb-3">
             Members are the people who appear in the calendar. They can be synced from connected systems
             or added manually.
           </p>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Syncing Members</h3>
+          <h3 id="syncing-members" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Syncing Members</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
             <li>Go to Admin &gt; Members and click &quot;Sync from ERP&quot; or &quot;Sync from Azure&quot;</li>
             <li>ERP sync imports active employees from connected ERP instances</li>
@@ -142,7 +157,7 @@ export default function AdminPage() {
             <li>Existing members are updated; new members are added</li>
           </ul>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Member Settings</h3>
+          <h3 id="member-settings" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Member Settings</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside">
             <li>Role — admin (full access) or member (calendar access only)</li>
             <li>Holiday country — overrides the account default for this person</li>
@@ -152,7 +167,7 @@ export default function AdminPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Analytics</h2>
+          <h2 id="analytics" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Analytics</h2>
           <p className="text-text-muted mb-3">
             The analytics dashboard gives admins an overview of calendar and booking activity across
             the account.

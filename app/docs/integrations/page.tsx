@@ -10,15 +10,27 @@ export default function IntegrationsPage() {
       </div>
 
       <h1 className="text-3xl font-bold mb-2">Calendar Integrations</h1>
-      <p className="text-text-muted mb-10">
+      <p className="text-text-muted mb-8">
         herbe.calendar connects to multiple calendar and scheduling systems. Here is what each integration
         supports and how it is configured.
       </p>
 
+      <nav className="mb-8 p-4 bg-surface rounded-lg border border-border">
+        <p className="text-xs font-bold text-text-muted uppercase tracking-wide mb-2">On this page</p>
+        <ul className="space-y-1">
+          <li><a href="#erp" className="text-sm text-primary hover:underline">ERP (Standard ERP / Excellent Books)</a></li>
+          <li><a href="#outlook" className="text-sm text-primary hover:underline">Microsoft Outlook &amp; Teams</a></li>
+          <li><a href="#google" className="text-sm text-primary hover:underline">Google Calendar</a></li>
+          <li><a href="#zoom" className="text-sm text-primary hover:underline">Zoom</a></li>
+          <li><a href="#calendly" className="text-sm text-primary hover:underline">Calendly</a></li>
+          <li><a href="#ics" className="text-sm text-primary hover:underline">ICS Feeds</a></li>
+        </ul>
+      </nav>
+
       <div className="space-y-10">
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">ERP (Standard ERP / Excellent Books)</h2>
+          <h2 id="erp" className="text-xl font-semibold mb-3 pb-2 border-b border-border">ERP (Standard ERP / Excellent Books)</h2>
           <p className="text-text-muted mb-3">
             The ERP integration connects directly to your Standard ERP or Excellent Books instance to read and
             write activities. Multiple ERP connections can be configured for different companies or registers.
@@ -35,7 +47,7 @@ export default function IntegrationsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Microsoft Outlook &amp; Teams</h2>
+          <h2 id="outlook" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Microsoft Outlook &amp; Teams</h2>
           <p className="text-text-muted mb-3">
             Outlook integration uses Azure Active Directory (Entra ID) to access calendar events for all members
             in your organization. Events are bidirectional — you can read and create events.
@@ -51,14 +63,14 @@ export default function IntegrationsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Google Calendar</h2>
+          <h2 id="google" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Google Calendar</h2>
           <p className="text-text-muted mb-3">
             Google Calendar support comes in two modes. Both can be active at the same time.
           </p>
 
           <div className="space-y-4">
             <div className="bg-surface border border-border rounded-lg px-5 py-4">
-              <h3 className="font-semibold mb-2">Google Workspace — Domain-Wide Delegation</h3>
+              <h3 id="google-workspace" className="font-semibold mb-2">Google Workspace — Domain-Wide Delegation</h3>
               <p className="text-sm text-text-muted mb-2">
                 For Google Workspace organizations. A service account with domain-wide delegation accesses
                 calendar data for all users in your domain. No individual user consent needed.
@@ -71,7 +83,7 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="bg-surface border border-border rounded-lg px-5 py-4">
-              <h3 className="font-semibold mb-2">Personal OAuth — Per-User Consent</h3>
+              <h3 id="google-oauth" className="font-semibold mb-2">Personal OAuth — Per-User Consent</h3>
               <p className="text-sm text-text-muted mb-2">
                 For personal Gmail accounts or Workspace users who want to connect additional calendars.
                 Each user connects their own Google account via OAuth consent.
@@ -87,7 +99,7 @@ export default function IntegrationsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Zoom</h2>
+          <h2 id="zoom" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Zoom</h2>
           <p className="text-text-muted mb-3">
             The Zoom integration uses a Server-to-Server OAuth app, configured by the admin. Once active,
             Zoom meeting links can be added when creating activities or booking slots.
@@ -101,7 +113,7 @@ export default function IntegrationsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Calendly</h2>
+          <h2 id="calendly" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Calendly</h2>
           <p className="text-text-muted mb-3">
             Calendly integration shows incoming bookings as read-only activities in your calendar view.
             Each user connects their own Calendly account.
@@ -115,7 +127,7 @@ export default function IntegrationsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">ICS Feeds</h2>
+          <h2 id="ics" className="text-xl font-semibold mb-3 pb-2 border-b border-border">ICS Feeds</h2>
           <p className="text-text-muted mb-3">
             Any ICS (iCalendar) URL can be attached to a person in the calendar. This is useful for external
             calendars, booking systems, or public holiday feeds.

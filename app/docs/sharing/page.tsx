@@ -10,21 +10,32 @@ export default function SharingPage() {
       </div>
 
       <h1 className="text-3xl font-bold mb-2">Calendar Sharing</h1>
-      <p className="text-text-muted mb-10">
+      <p className="text-text-muted mb-8">
         Share your calendar view with external parties, control what they see, and subscribe to shared
         calendars from colleagues.
       </p>
 
+      <nav className="mb-8 p-4 bg-surface rounded-lg border border-border">
+        <p className="text-xs font-bold text-text-muted uppercase tracking-wide mb-2">On this page</p>
+        <ul className="space-y-1">
+          <li><a href="#calendar-sharing" className="text-sm text-primary hover:underline">Share Links</a></li>
+          <li><a href="#visibility-levels" className="text-sm text-primary hover:underline">Visibility Levels</a></li>
+          <li><a href="#protection-options" className="text-sm text-primary hover:underline">Protection Options</a></li>
+          <li><a href="#per-calendar-sharing" className="text-sm text-primary hover:underline">Per-Calendar Sharing</a></li>
+          <li><a href="#ics-subscription" className="text-sm text-primary hover:underline">ICS Subscription URL</a></li>
+        </ul>
+      </nav>
+
       <div className="space-y-10">
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Share Links</h2>
+          <h2 id="calendar-sharing" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Share Links</h2>
           <p className="text-text-muted mb-3">
             Share links give external viewers a read-only window into one or more people&apos;s calendars.
             You control exactly how much detail is exposed.
           </p>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Creating a Share Link</h3>
+          <h3 id="creating-share-link" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Creating a Share Link</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
             <li>Open the Favorites dropdown in the toolbar</li>
             <li>Select a saved favorite group (the people whose calendars will be shared)</li>
@@ -33,7 +44,7 @@ export default function SharingPage() {
             <li>Copy and distribute the generated URL</li>
           </ul>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Visibility Levels</h3>
+          <h3 id="visibility-levels" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Visibility Levels</h3>
           <div className="space-y-2 mb-4">
             <div className="bg-surface border border-border rounded-lg px-4 py-3">
               <span className="font-semibold text-sm">Busy</span>
@@ -49,7 +60,7 @@ export default function SharingPage() {
             </div>
           </div>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Protection Options</h3>
+          <h3 id="protection-options" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Protection Options</h3>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
             <li>Password protection — require a password before the share link can be accessed</li>
             <li>Expiration date — the link becomes inactive after a set date</li>
@@ -58,7 +69,7 @@ export default function SharingPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Per-Calendar Sharing</h2>
+          <h2 id="per-calendar-sharing" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Per-Calendar Sharing</h2>
           <p className="text-text-muted mb-3">
             Individual Google and ICS calendars can each have their own sharing level, independent of the
             share link visibility. This lets you share some calendars in full while keeping others private.
@@ -70,7 +81,7 @@ export default function SharingPage() {
             <li>The effective visibility is the more restrictive of the calendar&apos;s sharing level and the share link level</li>
           </ul>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Viewing Shared Calendars</h3>
+          <h3 id="viewing-shared-calendars" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Viewing Shared Calendars</h3>
           <p className="text-text-muted text-sm">
             When a colleague shares their Google or ICS calendar with you, their events appear in your calendar
             view. Shared calendars show up in the calendar sources dropdown with a sharing badge. You can toggle
@@ -79,7 +90,7 @@ export default function SharingPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">ICS Subscription URL</h2>
+          <h2 id="ics-subscription" className="text-xl font-semibold mb-3 pb-2 border-b border-border">ICS Subscription URL</h2>
           <p className="text-text-muted mb-3">
             Every share link also works as an ICS subscription URL. This lets external users subscribe to
             the shared calendar in Apple Calendar, Google Calendar, Outlook, or any other app that supports

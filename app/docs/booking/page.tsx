@@ -10,21 +10,32 @@ export default function BookingPage() {
       </div>
 
       <h1 className="text-3xl font-bold mb-2">Booking &amp; Scheduling</h1>
-      <p className="text-text-muted mb-10">
+      <p className="text-text-muted mb-8">
         Let clients and external parties book time slots based on your real availability — with templates,
         confirmations, and cancellation links.
       </p>
 
+      <nav className="mb-8 p-4 bg-surface rounded-lg border border-border">
+        <p className="text-xs font-bold text-text-muted uppercase tracking-wide mb-2">On this page</p>
+        <ul className="space-y-1">
+          <li><a href="#booking-templates" className="text-sm text-primary hover:underline">Booking Templates</a></li>
+          <li><a href="#enabling-booking" className="text-sm text-primary hover:underline">Enabling Booking on a Share Link</a></li>
+          <li><a href="#day-limit" className="text-sm text-primary hover:underline">Day Limit</a></li>
+          <li><a href="#booking-flow" className="text-sm text-primary hover:underline">The Booking Flow</a></li>
+          <li><a href="#after-booking" className="text-sm text-primary hover:underline">What Happens After Booking</a></li>
+        </ul>
+      </nav>
+
       <div className="space-y-10">
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Booking Templates</h2>
+          <h2 id="booking-templates" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Booking Templates</h2>
           <p className="text-text-muted mb-3">
             Templates define the rules for a type of bookable meeting. Create as many templates as you need
             for different meeting types, durations, or teams.
           </p>
 
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Creating a Template</h3>
+          <h3 id="creating-template" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Creating a Template</h3>
           <p className="text-text-muted text-sm mb-3">
             Go to Settings &gt; Templates and click &quot;New template&quot;. Configure the following:
           </p>
@@ -58,7 +69,7 @@ export default function BookingPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Enabling Booking on a Share Link</h2>
+          <h2 id="enabling-booking" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Enabling Booking on a Share Link</h2>
           <p className="text-text-muted mb-3">
             Booking is opt-in per share link. A share link must exist before you can enable booking on it.
           </p>
@@ -76,7 +87,7 @@ export default function BookingPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">Day Limit</h2>
+          <h2 id="day-limit" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Day Limit</h2>
           <p className="text-text-muted mb-3">
             The day limit restricts how far ahead a booker can schedule a meeting. This prevents bookings
             too far in the future before your availability is known.
@@ -90,7 +101,7 @@ export default function BookingPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">The Booking Flow</h2>
+          <h2 id="booking-flow" className="text-xl font-semibold mb-3 pb-2 border-b border-border">The Booking Flow</h2>
           <p className="text-text-muted mb-3">
             This is what the booker experiences when they open a booking-enabled share link.
           </p>
@@ -135,7 +146,7 @@ export default function BookingPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold mb-3 pb-2 border-b border-border">What Happens After Booking</h2>
+          <h2 id="after-booking" className="text-xl font-semibold mb-3 pb-2 border-b border-border">What Happens After Booking</h2>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside">
             <li>An activity or event is created in all configured booking targets (ERP, Outlook, Google)</li>
             <li>If Zoom is a target, a Zoom meeting is created and the link is included</li>
