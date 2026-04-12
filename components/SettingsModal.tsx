@@ -63,6 +63,15 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const templateEditorRef = useRef<TemplateEditorHandle>(null)
   const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
+
+  /** Guard close actions — shows styled confirm dialog if template editor has unsaved changes */
+  function guardedClose(action: () => void) {
+    if (templateEditorRef.current?.isDirty()) {
+      showConfirm('You have unsaved changes. Discard them?', action, { confirmLabel: 'Discard', destructive: true })
+    } else {
+      action()
+    }
+  }
   const [calError, setCalError] = useState<string | null>(null)
   const [stagedIcsColor, setStagedIcsColor] = useState<{ id: string; color: string } | null>(null)
   const [calendlyConnection, setCalendlyConnection] = useState<any>(null)
@@ -88,9 +97,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && (editingTemplate || expandedTemplateId)) {
         e.stopPropagation()
-        if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
-        setEditingTemplate(null)
-        setExpandedTemplateId(null)
+        guardedClose(() => { setEditingTemplate(null); setExpandedTemplateId(null) })
+        return
       }
     }
     window.addEventListener('keydown', handler, true) // capture phase to fire before CalendarShell
@@ -243,10 +251,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={() => {
-        if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
-        onClose()
-      }} />
+      <div className="absolute inset-0 bg-black/60" onClick={() => guardedClose(onClose)} />
       <div
         className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden"
         onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
@@ -254,13 +259,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           if (swipeStart.current !== null) {
             const dx = e.changedTouches[0].clientX - swipeStart.current.x
             const dy = e.changedTouches[0].clientY - swipeStart.current.y
-            if (dy > 80 && dy > Math.abs(dx)) {
-              if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) { swipeStart.current = null; return }
-              onClose()
-            }
-            else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) {
-              if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) { swipeStart.current = null; return }
-              onClose()
+            if ((dy > 80 && dy > Math.abs(dx)) || (dx < -80 && Math.abs(dx) > Math.abs(dy))) {
+              guardedClose(onClose)
             }
           }
           swipeStart.current = null
@@ -274,10 +274,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         <div className="px-4 pt-3 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold">Settings</h2>
-            <button onClick={() => {
-              if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
-              onClose()
-            }} className="text-text-muted text-xl leading-none hover:text-text">✕</button>
+            <button onClick={() => guardedClose(onClose)} className="text-text-muted text-xl leading-none hover:text-text">✕</button>
           </div>
           <div className="flex gap-4 text-sm">
             <button
@@ -868,11 +865,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                   {editingTemplate === 'new' && expandedTemplateId === 'new' && (
                     <div className="border border-border rounded-xl overflow-hidden mb-2">
                       <button
-                        onClick={() => {
-                          if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
-                          setEditingTemplate(null)
-                          setExpandedTemplateId(null)
-                        }}
+                        onClick={() => guardedClose(() => { setEditingTemplate(null); setExpandedTemplateId(null) })}
                         className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
                       >
                         <div className="flex items-center gap-2">
@@ -892,10 +885,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                               const res = await fetch('/api/settings/templates')
                               setTemplates(await res.json())
                             }}
-                            onCancel={() => {
-                              setEditingTemplate(null)
-                              setExpandedTemplateId(null)
-                            }}
+                            onCancel={() => guardedClose(() => { setEditingTemplate(null); setExpandedTemplateId(null) })}
                             azureConfigured={azureConfigured}
                             googleConfigured={googleConfigured}
                             zoomConfigured={zoomConfigured}
@@ -915,8 +905,11 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                           <div key={t.id} className="border border-border rounded-xl overflow-hidden">
                             <button
                               onClick={() => {
-                                if (isExpanded && templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
-                                setExpandedTemplateId(isExpanded ? null : t.id)
+                                if (isExpanded) {
+                                  guardedClose(() => setExpandedTemplateId(null))
+                                } else {
+                                  setExpandedTemplateId(t.id)
+                                }
                               }}
                               className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors"
                             >
@@ -941,7 +934,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                       const res = await fetch('/api/settings/templates')
                                       setTemplates(await res.json())
                                     }}
-                                    onCancel={() => setExpandedTemplateId(null)}
+                                    onCancel={() => guardedClose(() => setExpandedTemplateId(null))}
                                     onCopy={async () => {
                                       await fetch('/api/settings/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, duplicate: true }) })
                                       const res = await fetch('/api/settings/templates')
@@ -1002,10 +995,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         </div>
 
         <div className="p-4 border-t border-border">
-          <button onClick={() => {
-            if (templateEditorRef.current && !templateEditorRef.current.confirmClose()) return
-            onClose()
-          }} className="w-full bg-primary text-white font-bold py-2.5 rounded-lg">
+          <button onClick={() => guardedClose(onClose)} className="w-full bg-primary text-white font-bold py-2.5 rounded-lg">
             Done
           </button>
         </div>

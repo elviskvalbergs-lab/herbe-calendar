@@ -3,8 +3,8 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import type { BookingTemplate, AvailabilityWindow, CustomField, ActivityType } from '@/types'
 
 export interface TemplateEditorHandle {
-  /** Returns true if it's safe to close (no changes or user confirmed discard) */
-  confirmClose: () => boolean
+  /** Returns true if the editor has unsaved changes */
+  isDirty: () => boolean
 }
 
 interface Props {
@@ -104,7 +104,7 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
   }
 
   useImperativeHandle(ref, () => ({
-    confirmClose: () => !isDirty() || window.confirm('You have unsaved changes. Discard them?'),
+    isDirty,
   }))
 
   // Window helpers
@@ -428,10 +428,7 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
           {saving ? 'Saving...' : isEdit ? 'Save' : 'Create'}
         </button>
         <button
-          onClick={() => {
-            if (isDirty() && !window.confirm('You have unsaved changes. Discard them?')) return
-            onCancel()
-          }}
+          onClick={onCancel}
           className="text-text-muted text-xs px-3 py-2 rounded-lg hover:bg-border shrink-0"
         >Cancel</button>
         {onCopy && (
