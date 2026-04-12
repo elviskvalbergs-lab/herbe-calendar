@@ -51,7 +51,17 @@ export interface IcsResult {
 
 export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string, bustCache = false): Promise<IcsResult> {
   try {
-    const icsText = await fetchIcsText(url, bustCache)
+    const rawText = await fetchIcsText(url, bustCache)
+    // Sanitize: remove lines that aren't valid ICS (no property name with : or ;)
+    // This handles malformed feeds that break ICAL.parse
+    const icsText = rawText.split(/\r?\n/).filter(line => {
+      // Keep empty lines, continuation lines (start with space/tab), and valid property lines
+      if (line === '') return true
+      if (line.startsWith(' ') || line.startsWith('\t')) return true
+      if (line.includes(':') || line.includes(';')) return true
+      // Skip malformed lines
+      return false
+    }).join('\r\n')
     const jcalData = ICAL.parse(icsText)
     const vcalendar = new ICAL.Component(jcalData)
     const vevents = vcalendar.getAllSubcomponents('vevent')
