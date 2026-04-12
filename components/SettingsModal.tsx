@@ -409,6 +409,11 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                               style={{ background: cal.color || '#4285f4' }}
                             />
                             <span className="text-sm flex-1 truncate">{cal.name}</span>
+                            {cal.sharing && cal.sharing !== 'private' && (
+                              <span className="text-[9px] bg-green-500/15 text-green-400 rounded px-1 py-0.5 shrink-0">
+                                {cal.sharing === 'busy' ? 'Shared: Busy' : cal.sharing === 'titles' ? 'Shared: Titles' : 'Shared: Full'}
+                              </span>
+                            )}
                           </div>
                           <div className="flex flex-wrap gap-1.5 mt-1 pl-5 items-center">
                             {BRAND_PALETTE.slice(0, 12).map(hex => (
@@ -733,6 +738,11 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                         <div className="w-2.5 h-2.5 rounded-full border" style={{ background: c.color || OUTLOOK_COLOR, borderColor: (c.color || OUTLOOK_COLOR) + '88' }} />
                                         <span>{c.name}</span>
                                         <span className="text-[10px] text-primary">ICS</span>
+                                        {c.sharing && c.sharing !== 'private' && (
+                                          <span className="text-[9px] bg-green-500/15 text-green-400 rounded px-1 py-0.5">
+                                            {c.sharing === 'busy' ? 'Shared: Busy' : c.sharing === 'titles' ? 'Shared: Titles' : 'Shared: Full'}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="text-[10px] text-text-muted mt-0.5">
                                         Assigned to: <span className="text-text font-bold">{persons.find(p => p.code === c.personCode)?.name || c.personCode}</span>
