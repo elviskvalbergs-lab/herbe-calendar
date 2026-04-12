@@ -994,11 +994,6 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           )}
         </div>
 
-        <div className="p-4 border-t border-border">
-          <button onClick={() => guardedClose(onClose)} className="w-full bg-primary text-white font-bold py-2.5 rounded-lg">
-            Done
-          </button>
-        </div>
       </div>
       {confirmState && (
         <ConfirmDialog
