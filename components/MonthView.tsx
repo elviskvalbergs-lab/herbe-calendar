@@ -21,11 +21,12 @@ interface Props {
   onSelectWeek: (monday: string) => void
   onSelectedDayChange?: (date: string) => void
   onActivityClick?: (activity: Activity) => void
+  initialSelectedDay?: string
 }
 
 export default function MonthView({
   activities, date, holidays, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, initialSelectedDay,
 }: Props) {
   const monthStart = startOfMonth(parseISO(date))
   const monthEnd = endOfMonth(monthStart)
@@ -35,7 +36,8 @@ export default function MonthView({
 
   // Landscape detection
   const [isLandscape, setIsLandscape] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<string>(date)
+  const [selectedDay, setSelectedDay] = useState<string>(initialSelectedDay ?? date)
+  const [previewId, setPreviewId] = useState<string | null>(null)
 
   useEffect(() => {
     function check() { setIsLandscape(window.innerWidth > window.innerHeight) }
@@ -273,28 +275,54 @@ export default function MonthView({
             <div className="space-y-1">
               {selectedDayActivities.map(act => {
                 const color = getActivityColor(act)
+                const expanded = previewId === act.id
                 return (
                   <div
                     key={act.id}
-                    className="flex items-start gap-3 py-2 border-b border-border/30 cursor-pointer hover:bg-border/20 rounded transition-colors"
-                    onClick={() => onActivityClick?.(act)}
+                    className={`border-b border-border/30 rounded transition-colors ${expanded ? 'bg-border/20' : 'cursor-pointer hover:bg-border/10'}`}
+                    onClick={() => { if (!expanded) setPreviewId(act.id) }}
                   >
-                    <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-text truncate">{act.description || '(no title)'}</p>
-                      {act.location && <p className="text-xs text-text-muted truncate">{act.location}</p>}
-                      {act.customerName && <p className="text-xs text-text-muted truncate">{act.customerName}</p>}
+                    <div className="flex items-start gap-3 py-2">
+                      <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text truncate">{act.description || '(no title)'}</p>
+                        {act.location && <p className="text-xs text-text-muted truncate">{act.location}</p>}
+                        {act.customerName && <p className="text-xs text-text-muted truncate">{act.customerName}</p>}
+                      </div>
+                      <div className="text-xs text-text-muted shrink-0 text-right">
+                        {act.isAllDay ? (
+                          <span>all-day</span>
+                        ) : (
+                          <>
+                            <div>{act.timeFrom}</div>
+                            <div>{act.timeTo}</div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-text-muted shrink-0 text-right">
-                      {act.isAllDay ? (
-                        <span>all-day</span>
-                      ) : (
-                        <>
-                          <div>{act.timeFrom}</div>
-                          <div>{act.timeTo}</div>
-                        </>
-                      )}
-                    </div>
+                    {expanded && (
+                      <div className="px-4 pb-2 space-y-1.5">
+                        {act.projectName && <p className="text-xs text-text-muted">Project: {act.projectName}</p>}
+                        {act.activityTypeName && <p className="text-xs text-text-muted">Type: {act.activityTypeName}</p>}
+                        {act.mainPersons && act.mainPersons.length > 0 && (
+                          <p className="text-xs text-text-muted">People: {act.mainPersons.join(', ')}</p>
+                        )}
+                        {act.icsCalendarName && <p className="text-xs text-text-muted">Calendar: {act.icsCalendarName}</p>}
+                        {act.joinUrl && (
+                          <a href={act.joinUrl} target="_blank" rel="noopener" className="text-xs text-primary hover:underline block">Join meeting</a>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onActivityClick?.(act) }}
+                            className="text-xs font-bold px-3 py-1 rounded bg-primary text-white hover:opacity-90"
+                          >Edit</button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPreviewId(null) }}
+                            className="text-xs text-text-muted px-3 py-1 rounded hover:bg-border"
+                          >Close</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}

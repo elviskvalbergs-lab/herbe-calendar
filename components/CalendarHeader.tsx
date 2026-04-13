@@ -96,10 +96,10 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* View toggle — pill buttons */}
       <div className="flex rounded-lg border border-border overflow-hidden">
         {([
-          { view: 'day' as const, short: '1', long: '1 day' },
-          { view: '3day' as const, short: '3', long: '3 days' },
-          { view: '5day' as const, short: '5', long: '5 days' },
-          { view: '7day' as const, short: '7', long: '7 days' },
+          { view: 'day' as const, short: '1D', long: '1 day' },
+          { view: '3day' as const, short: '3D', long: '3 days' },
+          { view: '5day' as const, short: '5D', long: '5 days' },
+          { view: '7day' as const, short: '7D', long: '7 days' },
           { view: 'month' as const, short: '', long: 'Month' },
         ]).map(({ view: v, short, long }) => {
           const active = state.view === v
@@ -119,7 +119,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                   onStateChange({ ...state, view: v })
                 }
               }}
-              className={`text-[10px] font-bold px-1.5 lg:px-2 py-1 transition-colors border-r border-border last:border-r-0 ${
+              className={`text-[11px] font-bold px-1.5 lg:px-2 py-1 transition-colors border-r border-border last:border-r-0 ${
                 active ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-border/30'
               }`}
             >
