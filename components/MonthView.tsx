@@ -109,9 +109,17 @@ export default function MonthView({
   }, [activitiesByDate, selectedDay])
 
   function handleDayClick(dateStr: string) {
-    // In all modes, selecting a day updates state.date (shown in header)
-    // In portrait, this also navigates the month if clicking adjacent month days
-    onSelectedDayChange?.(dateStr)
+    if (isSplit) {
+      // Split modes: select the day (update header + agenda)
+      onSelectedDayChange?.(dateStr)
+    } else {
+      // Portrait: first click selects, double-tap or second click on same day opens day view
+      if (selectedDay === dateStr) {
+        onSelectDate(dateStr) // drill to day view
+      } else {
+        onSelectedDayChange?.(dateStr) // select the day
+      }
+    }
   }
 
   // Compact month grid (shared by both modes, landscape version is smaller)
@@ -336,52 +344,47 @@ export default function MonthView({
                   >
                     <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold leading-snug" style={{ color }}>
-                        {act.description || '(no title)'}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        {act.isAllDay ? 'all-day' : `${act.timeFrom} – ${act.timeTo}`}
-                        {act.planned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
-                      </p>
-                      {act.activityTypeCode && (
-                        <p className="text-[10px] mt-0.5" style={{ color }}>
-                          <span className="font-mono">{act.activityTypeCode}</span>
-                          {act.activityTypeName && <span className="ml-1">{act.activityTypeName}</span>}
-                        </p>
-                      )}
-                      {act.projectName && <p className="text-xs text-text-muted mt-0.5 truncate">{act.projectName}</p>}
-                      {act.customerName && <p className="text-xs text-text-muted truncate">{act.customerName}</p>}
-                      {act.location && <p className="text-[10px] mt-0.5 text-text-muted truncate">{act.location}</p>}
-                      {act.icsCalendarName && <p className="text-[10px] mt-0.5 text-text-muted truncate">{act.icsCalendarName}</p>}
-                      {act.googleCalendarName && <p className="text-[10px] mt-0.5 text-text-muted truncate">{act.googleCalendarName}</p>}
-                      {act.source === 'herbe' && <p className="text-[10px] mt-0.5 text-text-muted truncate">ERP</p>}
-                      {act.source === 'outlook' && !act.icsCalendarName && <p className="text-[10px] mt-0.5 text-text-muted truncate">Outlook</p>}
-                      {act.source === 'google' && !act.googleCalendarName && !act.icsCalendarName && <p className="text-[10px] mt-0.5 text-text-muted truncate">Google Calendar</p>}
-                      {act.attendees && act.attendees.length > 0 && (
-                        <div className="flex flex-wrap gap-0.5 mt-1">
-                          {act.attendees.slice(0, 6).map(att => (
-                            <span key={att.email} className="px-1.5 py-0 rounded-full text-[9px] font-bold border border-border/50 text-text-muted bg-border/20 truncate max-w-[80px]">
-                              {att.email.split('@')[0]}
-                            </span>
-                          ))}
-                          {act.attendees.length > 6 && <span className="text-[9px] text-text-muted">+{act.attendees.length - 6}</span>}
-                        </div>
-                      )}
-                      {act.joinUrl && (
-                        <a
-                          href={act.joinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          className="flex items-center justify-center gap-1.5 mt-1.5 w-full px-2 py-1 rounded text-[10px] font-bold text-white"
-                          style={{ background: act.videoProvider === 'meet' ? '#1a73e8' : act.videoProvider === 'teams' ? '#464EB8' : act.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb' }}
-                        >
-                          {act.videoProvider === 'meet' ? 'Join Google Meet'
-                            : act.videoProvider === 'teams' ? 'Join in Teams'
-                            : act.videoProvider === 'zoom' ? 'Join Zoom'
-                            : 'Join meeting'}
-                        </a>
-                      )}
+                      {/* Row 1: title + time */}
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs font-bold truncate" style={{ color }}>{act.description || '(no title)'}</span>
+                        <span className="text-[10px] text-text-muted shrink-0">
+                          {act.isAllDay ? 'all-day' : `${act.timeFrom}–${act.timeTo}`}
+                        </span>
+                        {act.planned && <span className="text-amber-500 text-[9px] shrink-0">(planned)</span>}
+                      </div>
+                      {/* Row 2: details inline */}
+                      <div className="text-[10px] text-text-muted truncate">
+                        {[
+                          act.activityTypeCode && (act.activityTypeName ? `${act.activityTypeCode} ${act.activityTypeName}` : act.activityTypeCode),
+                          act.customerName,
+                          act.projectName,
+                          act.location,
+                        ].filter(Boolean).join(' · ')}
+                      </div>
+                      {/* Row 3: source + calendar + join link */}
+                      <div className="flex items-center gap-2 text-[10px] text-text-muted/60">
+                        <span>{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'Outlook' : 'Google'}</span>
+                        {act.icsCalendarName && <span className="truncate">{act.icsCalendarName}</span>}
+                        {act.googleCalendarName && <span className="truncate">{act.googleCalendarName}</span>}
+                        {act.attendees && act.attendees.length > 0 && (
+                          <span>{act.attendees.length} attendee{act.attendees.length !== 1 ? 's' : ''}</span>
+                        )}
+                        {act.joinUrl && (
+                          <a
+                            href={act.joinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-[10px] font-bold shrink-0"
+                            style={{ color: act.videoProvider === 'meet' ? '#1a73e8' : act.videoProvider === 'teams' ? '#464EB8' : act.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb' }}
+                          >
+                            {act.videoProvider === 'meet' ? 'Meet'
+                              : act.videoProvider === 'teams' ? 'Teams'
+                              : act.videoProvider === 'zoom' ? 'Zoom'
+                              : 'Join'}
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
