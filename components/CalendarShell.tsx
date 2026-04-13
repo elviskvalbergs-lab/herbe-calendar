@@ -571,8 +571,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   // Stable string of selected person codes — avoids refetching when stubs are replaced with full objects
   const selectedCodesKey = state.selectedPersons.map(p => p.code).join(',')
+  const fetchGenRef = useRef(0)
 
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
+    const thisGen = ++fetchGenRef.current
     if (!selectedCodesKey) return
     const codes = selectedCodesKey
     const dateFrom = state.view === 'month'
@@ -608,7 +610,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       setLoading(true)
     }
 
-    setStatus({ msg: `Loading ${state.view} ${dateFrom}→${dateTo} (cache: ${cacheEntry ? 'hit' : 'miss'})...` })
+    setStatus({ msg: 'Loading...' })
     const icsWarnings: string[] = []
     const errors: string[] = []
 
@@ -617,6 +619,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     const loaded: { herbe: Activity[] | null; outlook: Activity[] | null; google: Activity[] | null } = { herbe: null, outlook: null, google: null }
 
     function mergeAndSetActivities() {
+      if (fetchGenRef.current !== thisGen) return // stale fetch — ignore
       setActivities(prev => {
         // Keep previous source data for sources that haven't loaded yet
         const h = loaded.herbe ?? prev.filter(a => a.source === 'herbe')
@@ -707,6 +710,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
     // Wait for all to finish for final status
     await Promise.all(promises)
+
+    // If a newer fetch started while we were loading, discard these results
+    if (fetchGenRef.current !== thisGen) return
 
     // Final status
     const parts: string[] = []
