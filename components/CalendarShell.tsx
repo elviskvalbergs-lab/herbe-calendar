@@ -812,14 +812,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           getActivityColor={colorForActivity}
           onSelectDate={(date) => setState(s => ({ ...s, view: 'day', date }))}
           onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
-          onActivityClick={(activity) =>
-            setFormState({
-              open: true,
-              initial: activity,
-              editId: activity.id,
-              canEdit: canEditActivity(activity)
-            })
-          }
         />
       ) : (
         <CalendarGrid
