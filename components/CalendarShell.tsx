@@ -597,12 +597,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     const cacheEntry = activityCacheRef.current.get(cacheKey)
     if (cacheEntry && !bustIcsCache) {
       setActivities(cacheEntry.data)
-      setLoading(false)
       // Skip background refresh if data is fresh (< 60 seconds old) AND has content
       if (Date.now() - cacheEntry.ts < 60_000 && cacheEntry.data.length > 0) {
+        setLoading(false)
         setStatus({ msg: `${cacheEntry.data.length} activities (cached)`, ok: true })
         return
       }
+      // Stale cache — show cached data but keep loading indicator for background refresh
+      setLoading(true)
     } else if (!cacheEntry) {
       setLoading(true)
     }
