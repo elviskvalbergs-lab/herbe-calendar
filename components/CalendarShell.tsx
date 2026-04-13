@@ -69,6 +69,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const [status, setStatus] = useState<{ msg: string; ok?: boolean } | null>(null)
   const [allCustomers, setAllCustomers] = useState<{ Code: string; Name: string }[]>([])
   const [allProjects, setAllProjects] = useState<{ Code: string; Name: string; CUCode: string | null; CUName: string | null }[]>([])
+  const [allItems, setAllItems] = useState<{ Code: string; Name: string }[]>([])
   const [formState, setFormState] = useState<{
     open: boolean
     initial?: Partial<Activity>
@@ -773,6 +774,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     Promise.all([
       fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(setAllCustomers).catch(() => {}),
       fetch('/api/projects?all=1').then(r => r.ok ? r.json() : []).then(setAllProjects).catch(() => {}),
+      fetch('/api/items?all=1').then(r => r.ok ? r.json() : []).then(setAllItems).catch(() => {}),
     ]).then(() => setStatus(s => s?.msg === 'Loading customers & projects…' ? null : s))
   }, [sources.herbe])
 
@@ -997,6 +999,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           companyCode={companyCode}
           allCustomers={allCustomers}
           allProjects={allProjects}
+          allItems={allItems}
           erpConnections={erpConnections}
           availableSources={sources}
           userGoogleAccounts={userGoogleAccounts}

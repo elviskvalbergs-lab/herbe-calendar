@@ -9,4 +9,5 @@ export const REGISTERS = {
   activityClassGroups:  'ActTypeGrVc',
   projects:             'PRVc',
   customers:            'CUVc',
+  items:                'INVc',
 } as const

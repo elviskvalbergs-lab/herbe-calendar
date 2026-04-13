@@ -67,6 +67,7 @@ interface Props {
   companyCode?: string
   allCustomers?: { Code: string; Name: string }[]
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
+  allItems?: { Code: string; Name: string }[]
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
   availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
   userGoogleAccounts?: UserGoogleAccount[]
@@ -84,7 +85,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, erpConnections = [], availableSources, userGoogleAccounts, zoomConfigured
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], availableSources, userGoogleAccounts, zoomConfigured
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -134,6 +135,11 @@ export default function ActivityForm({
   const [planned, setPlanned] = useState(initial?.planned ?? false)
   const isDarkTheme = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') !== 'light' : true
   const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
+  const [itemName, setItemName] = useState('')
+  const [itemResults, setItemResults] = useState<SearchResult[]>([])
+  const [focusedItemIdx, setFocusedItemIdx] = useState(-1)
+  const [itemSearchMsg, setItemSearchMsg] = useState<string | null>(null)
+  const itemSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [textInMatrix, setTextInMatrix] = useState(initial?.textInMatrix ?? '')
   const [projectResults, setProjectResults] = useState<SearchResult[]>([])
   const [customerResults, setCustomerResults] = useState<SearchResult[]>([])
@@ -266,6 +272,14 @@ export default function ActivityForm({
   // Per-connection data: projects and customers
   const [connProjects, setConnProjects] = useState<{ Code: string; Name: string; CUCode: string | null; CUName: string | null }[]>(allProjects ?? [])
   const [connCustomers, setConnCustomers] = useState<{ Code: string; Name: string }[]>(allCustomers ?? [])
+
+  // Resolve item name from code on mount
+  useEffect(() => {
+    if (itemCode && !itemName && allItems?.length) {
+      const match = allItems.find(i => i.Code === itemCode)
+      if (match) setItemName(match.Name)
+    }
+  }, [allItems]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load activity types when source/connection changes
   const connParam = activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
@@ -425,6 +439,33 @@ export default function ActivityForm({
     } finally {
       setSearchingCustomers(false)
     }
+  }
+
+  function searchItems(q: string) {
+    if (q.length < 2) { setItemResults([]); setItemSearchMsg(null); return }
+    const connItems = allItems?.filter(i => {
+      const connId = activeErpConnection?.id
+      return !connId || true // items are not connection-scoped in the current data model
+    }) ?? []
+    if (connItems.length) {
+      const lower = q.toLowerCase()
+      const results = connItems
+        .filter(i => i.Name.toLowerCase().includes(lower) || i.Code.toLowerCase().includes(lower))
+        .slice(0, 20)
+        .map(i => ({ code: i.Code, name: i.Name }))
+      setItemResults(results)
+      setItemSearchMsg(results.length === 0 ? 'No results' : null)
+      return
+    }
+    // Fallback: server-side search
+    fetch(`/api/items?q=${encodeURIComponent(q)}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: Record<string, unknown>[]) => {
+        const results = data.map(d => ({ code: String(d['Code'] ?? ''), name: String(d['Name'] ?? '') })).filter(r => r.code)
+        setItemResults(results)
+        setItemSearchMsg(results.length === 0 ? 'No results' : null)
+      })
+      .catch(() => setItemSearchMsg('Search failed'))
   }
 
   function addExternalAttendee() {
@@ -677,6 +718,8 @@ export default function ActivityForm({
       setCustomerName(copy.customerName ?? '')
       setPlanned(copy.planned ?? false)
       setItemCode(copy.itemCode ?? '')
+      const itemMatch = allItems?.find(i => i.Code === copy.itemCode)
+      setItemName(itemMatch?.Name ?? copy.itemCode ?? '')
       setTextInMatrix(copy.textInMatrix ?? '')
     } else {
       setDescription('')
@@ -689,6 +732,7 @@ export default function ActivityForm({
       setCustomerName('')
       setPlanned(false)
       setItemCode('')
+      setItemName('')
       setTextInMatrix('')
     }
     if (copy) {
@@ -1719,15 +1763,54 @@ export default function ActivityForm({
           {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
           {isErpSource && (currentGroup?.forceItem || itemCode) && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                Item Code{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
+              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block flex items-center gap-1">
+                Item{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
+                {itemCode && <span className="font-mono text-primary normal-case text-[11px]">{itemCode}</span>}
+                {itemSearchMsg && <span className="normal-case font-normal text-text-muted ml-auto">{itemSearchMsg}</span>}
               </label>
-              <input
-                value={itemCode}
-                onChange={e => setItemCode(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary font-mono"
-                placeholder="Item code"
-              />
+              <div className="relative">
+                <input
+                  value={itemName || itemCode}
+                  onChange={e => {
+                    setItemName(e.target.value); setItemCode(''); setFocusedItemIdx(-1)
+                    if (itemSearchTimer.current) clearTimeout(itemSearchTimer.current)
+                    itemSearchTimer.current = setTimeout(() => searchItems(e.target.value), 300)
+                  }}
+                  onKeyDown={e => {
+                    const n = itemResults.length
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusedItemIdx(i => Math.min(i + 1, n - 1)) }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusedItemIdx(i => Math.max(i - 1, -1)) }
+                    else if ((e.key === 'Enter' || e.key === 'Tab') && focusedItemIdx >= 0) {
+                      if (e.key === 'Tab') e.preventDefault()
+                      const r = itemResults[focusedItemIdx]
+                      setItemCode(r.code); setItemName(r.name); setItemResults([]); setItemSearchMsg(null); setFocusedItemIdx(-1)
+                    } else if (e.key === 'Escape') { setItemResults([]); setFocusedItemIdx(-1) }
+                    else if (e.key === 'Enter') (e.target as HTMLElement).blur()
+                  }}
+                  enterKeyHint="search"
+                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-8"
+                  placeholder="Type to search… (min 2 chars)"
+                />
+                {(itemName || itemCode) && (
+                  <button type="button" tabIndex={-1} onClick={() => { setItemCode(''); setItemName(''); setItemResults([]) }} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted/60 hover:text-text text-base leading-none">x</button>
+                )}
+              </div>
+              {itemResults.length > 0 && (
+                <div className="bg-bg border border-border rounded-lg mt-1 max-h-32 overflow-y-auto">
+                  {itemResults.map((r, rIdx) => (
+                    <button
+                      key={r.code}
+                      tabIndex={-1}
+                      onClick={() => {
+                        setItemCode(r.code); setItemName(r.name); setItemResults([]); setItemSearchMsg(null); setFocusedItemIdx(-1)
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-sm ${rIdx === focusedItemIdx ? 'bg-primary/20' : 'hover:bg-border'}`}
+                    >
+                      {r.name} <span className="text-text-muted text-xs">({r.code})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
