@@ -139,7 +139,7 @@ export default function MonthView({
                   const isWeekend = day.getDay() === 0 || day.getDay() === 6
                   const dateHolidays = holidays?.dates?.[dateStr]
                   const isHoliday = dateHolidays && dateHolidays.length > 0
-                  const isSelected = isSplit && selectedDay === dateStr
+                  const isSelected = selectedDay === dateStr
 
                   // Sort: all-day first, then by time
                   const allDay = dayActivities.filter(a => a.isAllDay)
@@ -162,9 +162,12 @@ export default function MonthView({
                         }`}
                       >
                         <span className={`text-xs font-bold leading-tight ${
-                          isToday(day)
+                          isToday(day) && isSelected
+                            ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] ring-2 ring-text'
+                            : isToday(day)
                             ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
-                            : isSelected ? 'text-primary'
+                            : isSelected
+                            ? 'bg-text text-bg rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
                             : !inMonth ? 'text-text-muted/40' : 'text-text'
                         }`}>
                           {format(day, 'd')}
@@ -198,8 +201,12 @@ export default function MonthView({
                       {/* Day number */}
                       <div className="flex items-center justify-between px-1 pt-0.5 shrink-0">
                         <span className={`text-xs font-bold leading-tight ${
-                          isToday(day)
+                          isToday(day) && isSelected
+                            ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] ring-2 ring-text'
+                            : isToday(day)
                             ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
+                            : isSelected
+                            ? 'bg-text text-bg rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
                             : !inMonth ? 'text-text-muted/40' : 'text-text'
                         }`}>
                           {format(day, 'd')}
