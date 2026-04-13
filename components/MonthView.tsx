@@ -32,6 +32,8 @@ export default function MonthView({
 }: Props) {
   // date prop IS the selected day; derive month from it
   const selectedDay = date
+  const [hoveredEvent, setHoveredEvent] = useState<Activity | null>(null)
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const monthStart = startOfMonth(parseISO(selectedDay))
   const monthEnd = endOfMonth(monthStart)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -336,9 +338,18 @@ export default function MonthView({
                           return (
                             <div
                               key={act.id}
-                              className="w-full rounded px-1 py-px mb-px truncate text-[9px] font-medium"
+                              className="w-full rounded px-1 py-px mb-px truncate text-[9px] font-medium cursor-pointer hover:brightness-125"
                               style={{ background: color + '20', color }}
-                              title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
+                              onMouseEnter={isDesktop ? (e) => {
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                setHoverPos({ x: rect.right + 4, y: rect.top })
+                                setHoveredEvent(act)
+                              } : undefined}
+                              onMouseLeave={isDesktop ? () => setHoveredEvent(null) : undefined}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (isDesktop) onActivityClick?.(act)
+                              }}
                             >
                               {act.description}
                             </div>
@@ -493,6 +504,30 @@ export default function MonthView({
           )}
         </div>
         )}
+        {renderHoverCard()}
+      </div>
+    )
+  }
+
+  // Hover preview card for desktop month grid
+  function renderHoverCard() {
+    if (!hoveredEvent || !isDesktop) return null
+    const act = hoveredEvent
+    const color = getActivityColor(act)
+    return (
+      <div
+        className="fixed z-[60] bg-surface border border-border rounded-xl shadow-2xl p-3 min-w-[200px] max-w-[280px] pointer-events-none"
+        style={{ left: Math.min(hoverPos.x, window.innerWidth - 300), top: Math.min(hoverPos.y, window.innerHeight - 200) }}
+      >
+        <p className="text-xs font-bold leading-snug mb-1" style={{ color }}>{act.description || '(no title)'}</p>
+        <p className="text-[10px] text-text-muted">{act.isAllDay ? 'All day' : `${act.timeFrom} – ${act.timeTo}`}</p>
+        {act.activityTypeName && <p className="text-[10px] text-text-muted mt-0.5">{act.activityTypeCode} {act.activityTypeName}</p>}
+        {act.customerName && <p className="text-[10px] text-text-muted">{act.customerName}</p>}
+        {act.projectName && <p className="text-[10px] text-text-muted">{act.projectName}</p>}
+        {act.location && <p className="text-[10px] text-text-muted">{act.location}</p>}
+        {act.icsCalendarName && <p className="text-[10px] text-text-muted/60">{act.icsCalendarName}</p>}
+        {act.googleCalendarName && <p className="text-[10px] text-text-muted/60">{act.googleCalendarName}</p>}
+        <p className="text-[9px] text-text-muted/40 mt-1">Click to edit</p>
       </div>
     )
   }
@@ -507,6 +542,7 @@ export default function MonthView({
         </div>
       )}
       {renderMonthGrid(false)}
+      {renderHoverCard()}
     </div>
   )
 }
