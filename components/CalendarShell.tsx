@@ -834,6 +834,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
             setState(s => ({ ...s, date: day }))
           }}
           loading={loading}
+          isLightMode={isLightMode}
           onActivityClick={(activity) =>
             setFormState({
               open: true,

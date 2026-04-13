@@ -5,6 +5,7 @@ import {
   eachDayOfInterval, isSameMonth, isToday, isSameDay, getISOWeek,
 } from 'date-fns'
 import type { Activity } from '@/types'
+import { readableAccentColor } from '@/lib/activityColors'
 
 interface HolidayData {
   dates: Record<string, { name: string; country: string }[]>
@@ -22,13 +23,14 @@ interface Props {
   onSelectedDayChange?: (date: string) => void
   onActivityClick?: (activity: Activity) => void
   loading?: boolean
+  isLightMode?: boolean
   personCount?: number
   dayViewPanel?: React.ReactNode
 }
 
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, personCount = 1, dayViewPanel,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel,
 }: Props) {
   // date prop IS the selected day; derive month from it
   const selectedDay = date
@@ -296,7 +298,7 @@ export default function MonthView({
                             <div
                               key={act.id}
                               className="w-full mb-px cursor-pointer hover:brightness-125 rounded px-1 py-px truncate text-[9px] font-medium"
-                              style={{ background: color + '20', color }}
+                              style={{ background: color + '20', color: readableAccentColor(color, !isLightMode) }}
                               onMouseEnter={isDesktop ? (e) => {
                                 const rect = e.currentTarget.getBoundingClientRect()
                                 setHoverPos({ x: rect.right + 4, y: rect.top })
@@ -415,7 +417,7 @@ export default function MonthView({
                     <div className="flex-1 min-w-0">
                       {/* Row 1: title + time */}
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-bold truncate" style={{ color }}>{act.description || '(no title)'}</span>
+                        <span className="text-xs font-bold truncate" style={{ color: readableAccentColor(color, !isLightMode) }}>{act.description || '(no title)'}</span>
                         <span className="text-[10px] text-text-muted shrink-0">
                           {act.isAllDay ? 'all-day' : `${act.timeFrom}–${act.timeTo}`}
                         </span>
@@ -477,7 +479,7 @@ export default function MonthView({
         className="fixed z-[60] bg-surface border border-border rounded-xl shadow-2xl p-3 min-w-[200px] max-w-[280px] pointer-events-none"
         style={{ left: Math.min(hoverPos.x, window.innerWidth - 300), top: Math.min(hoverPos.y, window.innerHeight - 200) }}
       >
-        <p className="text-xs font-bold leading-snug mb-1" style={{ color }}>{act.description || '(no title)'}</p>
+        <p className="text-xs font-bold leading-snug mb-1" style={{ color: readableAccentColor(color, !isLightMode) }}>{act.description || '(no title)'}</p>
         <p className="text-[10px] text-text-muted">{act.isAllDay ? 'All day' : `${act.timeFrom} – ${act.timeTo}`}</p>
         {act.activityTypeName && <p className="text-[10px] text-text-muted mt-0.5">{act.activityTypeCode} {act.activityTypeName}</p>}
         {act.customerName && <p className="text-[10px] text-text-muted">{act.customerName}</p>}
