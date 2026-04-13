@@ -296,7 +296,13 @@ export default function MonthView({
     }
 
     return (
-      <div className="flex-1 flex overflow-hidden bg-bg">
+      <div className="flex-1 flex overflow-hidden bg-bg relative">
+        {loading && (
+          <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+            <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
+          </div>
+        )}
         {/* Left: month grid — desktop uses pills, mobile landscape uses compact dots */}
         <div className="shrink-0 border-r border-border flex flex-col" style={{ width: leftWidth }}>
           {renderMonthGrid(!isDesktop)}
