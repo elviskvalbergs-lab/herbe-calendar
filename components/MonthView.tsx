@@ -22,11 +22,13 @@ interface Props {
   onSelectedDayChange?: (date: string) => void
   onActivityClick?: (activity: Activity) => void
   loading?: boolean
+  personCount?: number
+  dayViewPanel?: React.ReactNode
 }
 
 export default function MonthView({
   activities, date, holidays, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, personCount = 1, dayViewPanel,
 }: Props) {
   // date prop IS the selected day; derive month from it
   const selectedDay = date
@@ -374,7 +376,10 @@ export default function MonthView({
           />
         )}
 
-        {/* Right: day agenda */}
+        {/* Right: day view (multi-person) or agenda (single person) */}
+        {isDesktop && dayViewPanel ? (
+          <div className="flex-1 overflow-hidden">{dayViewPanel}</div>
+        ) : (
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="text-sm font-bold text-text">
@@ -456,6 +461,7 @@ export default function MonthView({
             </div>
           )}
         </div>
+        )}
       </div>
     )
   }

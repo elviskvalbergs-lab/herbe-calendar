@@ -106,11 +106,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 if (v === 'month') {
                   onStateChange({ ...state, view: v })
                 } else {
-                  const ref = parseISO(state.date)
-                  const newDate = (v === '5day' || v === '7day')
-                    ? format(startOfWeek(ref, { weekStartsOn: 1 }), 'yyyy-MM-dd')
-                    : state.date
-                  onStateChange({ ...state, view: v, date: newDate })
+                  // Keep the selected date as the first day shown in any view
+                  onStateChange({ ...state, view: v })
                 }
               }}
               className={`text-[11px] font-bold px-1.5 lg:px-2 py-1 transition-colors border-r border-border last:border-r-0 ${

@@ -818,6 +818,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           date={state.date}
           holidays={holidays}
           personCode={state.selectedPersons[0]?.code ?? userCode}
+          personCount={state.selectedPersons.length}
           getActivityColor={colorForActivity}
           onSelectDate={(date) => setState(s => ({ ...s, view: 'day', date }))}
           onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
@@ -834,6 +835,36 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               canEdit: canEditActivity(activity)
             })
           }
+          dayViewPanel={state.selectedPersons.length > 1 ? (
+            <CalendarGrid
+              state={{ ...state, view: 'day', date: monthSelectedDay }}
+              activities={visibleActivities}
+              loading={loading}
+              holidays={holidays}
+              sessionUserCode={userCode}
+              getActivityColor={colorForActivity}
+              getTypeName={getTypeName}
+              scale={zoom}
+              isLightMode={isLightMode}
+              onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
+              onNavigate={() => {}}
+              onSlotClick={(personCode, time, date) =>
+                setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
+              }
+              onActivityClick={(activity) =>
+                setFormState({
+                  open: true,
+                  initial: activity,
+                  editId: activity.id,
+                  canEdit: canEditActivity(activity)
+                })
+              }
+              onActivityUpdate={fetchActivities}
+              onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
+              onDrillDate={drillToDate}
+              onDrillPerson={drillToPerson}
+            />
+          ) : undefined}
         />
       ) : (
         <CalendarGrid
