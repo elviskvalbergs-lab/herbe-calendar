@@ -81,6 +81,28 @@ export default function MonthView({
     return map
   }, [activities])
 
+  // Detect multi-day events: group consecutive all-day events with same description
+  const multiDaySpans = useMemo(() => {
+    const spans: { description: string; color: string; startDate: string; endDate: string; id: string }[] = []
+    const allDayByDesc = new Map<string, string[]>()
+    for (const a of activities) {
+      if (!a.isAllDay || !a.date) continue
+      const key = a.description ?? ''
+      const dates = allDayByDesc.get(key) ?? []
+      if (!dates.includes(a.date)) dates.push(a.date)
+      allDayByDesc.set(key, dates)
+    }
+    for (const [desc, dates] of allDayByDesc) {
+      if (dates.length < 2) continue
+      dates.sort()
+      // Find the activity to get color
+      const act = activities.find(a => a.isAllDay && a.description === desc)
+      if (!act) continue
+      spans.push({ description: desc, color: getActivityColor(act), startDate: dates[0], endDate: dates[dates.length - 1], id: act.id })
+    }
+    return spans
+  }, [activities, getActivityColor])
+
   // Build weeks
   const weeks: Date[][] = []
   for (let i = 0; i < allDays.length; i += 7) {
@@ -138,8 +160,42 @@ export default function MonthView({
           {weeks.map((week, wi) => {
             const weekNum = getISOWeek(week[0])
             const monday = format(week[0], 'yyyy-MM-dd')
+            // Multi-day spans that cross this week
+            const weekStart = format(week[0], 'yyyy-MM-dd')
+            const weekEnd = format(week[6], 'yyyy-MM-dd')
+            const weekSpans = multiDaySpans.filter(s => s.startDate <= weekEnd && s.endDate >= weekStart)
+
             return (
-              <div key={wi} className="grid grid-cols-7 border-b border-border/30 min-h-0 overflow-hidden">
+              <div key={wi} className="relative border-b border-border/30 min-h-0 overflow-hidden">
+                {/* Multi-day event bars */}
+                {weekSpans.length > 0 && (
+                  <div className="relative z-10" style={{ height: weekSpans.length * (compact ? 10 : 14) }}>
+                    {weekSpans.map((span, si) => {
+                      const spanStartCol = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
+                      const spanEndCol = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
+                      if (spanStartCol > 6 || spanEndCol < 0) return null
+                      const startCol = Math.max(0, spanStartCol)
+                      const colSpan = spanEndCol - startCol + 1
+                      return (
+                        <div
+                          key={span.id + wi}
+                          className={`absolute ${compact ? 'h-2 rounded-sm' : 'h-3 rounded text-[8px] font-bold truncate px-1 leading-3'}`}
+                          style={{
+                            left: `${(startCol / 7) * 100}%`,
+                            width: `${(colSpan / 7) * 100}%`,
+                            top: si * (compact ? 10 : 14),
+                            background: span.color + '40',
+                            color: span.color,
+                          }}
+                          title={span.description}
+                        >
+                          {!compact && span.description}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div className="grid grid-cols-7 flex-1 min-h-0">
                 {week.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd')
                   const inMonth = isSameMonth(day, monthStart)
@@ -169,13 +225,13 @@ export default function MonthView({
                           'hover:bg-border/10'
                         }`}
                       >
-                        <span className={`text-xs font-bold leading-tight ${
+                        <span className={`text-xs font-bold leading-tight px-1 rounded ${
                           isToday(day) && isSelected
-                            ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] ring-2 ring-text'
+                            ? 'bg-primary text-white'
                             : isToday(day)
-                            ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
+                            ? 'bg-primary/20 text-primary'
                             : isSelected
-                            ? 'bg-text text-bg rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
+                            ? 'bg-text text-bg'
                             : !inMonth ? 'text-text-muted/40' : 'text-text'
                         }`}>
                           {format(day, 'd')}
@@ -208,13 +264,13 @@ export default function MonthView({
                     >
                       {/* Day number */}
                       <div className="flex items-center justify-between px-1 pt-0.5 shrink-0">
-                        <span className={`text-xs font-bold leading-tight ${
+                        <span className={`text-xs font-bold leading-tight px-1 rounded ${
                           isToday(day) && isSelected
-                            ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] ring-2 ring-text'
+                            ? 'bg-primary text-white'
                             : isToday(day)
-                            ? 'bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
+                            ? 'bg-primary/20 text-primary'
                             : isSelected
-                            ? 'bg-text text-bg rounded-full w-5 h-5 flex items-center justify-center text-[10px]'
+                            ? 'bg-text text-bg'
                             : !inMonth ? 'text-text-muted/40' : 'text-text'
                         }`}>
                           {format(day, 'd')}
@@ -261,6 +317,7 @@ export default function MonthView({
                     </div>
                   )
                 })}
+                </div>
               </div>
             )
           })}
