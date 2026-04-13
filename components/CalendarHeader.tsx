@@ -109,14 +109,14 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               onClick={() => {
                 if (v === 'month') {
                   onStateChange({ ...state, view: v, date: format(startOfMonth(parseISO(state.date)), 'yyyy-MM-dd') })
-                } else if (isMonth && monthSelectedDay) {
-                  const selected = parseISO(monthSelectedDay)
-                  const newDate = (v === 'day' || v === '3day')
-                    ? monthSelectedDay
-                    : format(startOfWeek(selected, { weekStartsOn: 1 }), 'yyyy-MM-dd')
-                  onStateChange({ ...state, view: v, date: newDate })
                 } else {
-                  onStateChange({ ...state, view: v })
+                  // Use monthSelectedDay as the "intended day" when available
+                  const referenceDay = monthSelectedDay ?? state.date
+                  const ref = parseISO(referenceDay)
+                  const newDate = (v === 'day' || v === '3day')
+                    ? referenceDay
+                    : format(startOfWeek(ref, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                  onStateChange({ ...state, view: v, date: newDate })
                 }
               }}
               className={`text-[11px] font-bold px-1.5 lg:px-2 py-1 transition-colors border-r border-border last:border-r-0 ${

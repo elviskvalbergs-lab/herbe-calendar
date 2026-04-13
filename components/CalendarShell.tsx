@@ -76,8 +76,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     canEdit?: boolean
   }>({ open: false })
 
-  // Month view selected day (landscape split view)
+  // Month view selected day — tracks the user's "intended day" across view switches
   const [monthSelectedDay, setMonthSelectedDay] = useState<string>(state.date)
+  // Keep it synced when navigating in non-month views
+  useEffect(() => {
+    if (state.view !== 'month') setMonthSelectedDay(state.date)
+  }, [state.date, state.view])
 
   // Calendar visibility state
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())

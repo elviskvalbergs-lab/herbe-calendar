@@ -34,17 +34,32 @@ export default function MonthView({
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd })
 
-  // Landscape detection
-  const [isLandscape, setIsLandscape] = useState(false)
+  // Layout mode: portrait (mobile), landscape (mobile), desktop
+  const [layout, setLayout] = useState<'portrait' | 'landscape' | 'desktop'>('portrait')
   const [selectedDay, setSelectedDay] = useState<string>(initialSelectedDay ?? date)
+  const [splitWidth, setSplitWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 340
+    const saved = localStorage.getItem('monthViewSplitWidth')
+    return saved ? Number(saved) : 340
+  })
+  const isDraggingRef = useRef(false)
 
   useEffect(() => {
-    function check() { setIsLandscape(window.innerWidth > window.innerHeight) }
+    function check() {
+      const w = window.innerWidth
+      const isWide = w > window.innerHeight
+      if (w >= 768) setLayout('desktop')
+      else if (isWide) setLayout('landscape')
+      else setLayout('portrait')
+    }
     check()
     window.addEventListener('resize', check)
     window.addEventListener('orientationchange', check)
     return () => { window.removeEventListener('resize', check); window.removeEventListener('orientationchange', check) }
   }, [])
+
+  const isSplit = layout === 'landscape' || layout === 'desktop'
+  const isDesktop = layout === 'desktop'
 
   // Group activities by date
   const activitiesByDate = useMemo(() => {
@@ -69,7 +84,7 @@ export default function MonthView({
   const gridRef = useRef<HTMLDivElement>(null)
   const [maxEvents, setMaxEvents] = useState(3)
   useEffect(() => {
-    if (isLandscape) return
+    if (isSplit) return
     function calc() {
       if (!gridRef.current) return
       const rowHeight = gridRef.current.clientHeight / weekCount
@@ -79,7 +94,7 @@ export default function MonthView({
     calc()
     window.addEventListener('resize', calc)
     return () => window.removeEventListener('resize', calc)
-  }, [weekCount, isLandscape])
+  }, [weekCount, isSplit])
 
   // Selected day's activities for landscape agenda
   const selectedDayActivities = useMemo(() => {
@@ -90,7 +105,7 @@ export default function MonthView({
   }, [activitiesByDate, selectedDay])
 
   function handleDayClick(dateStr: string) {
-    if (isLandscape) {
+    if (isSplit) {
       setSelectedDay(dateStr)
       onSelectedDayChange?.(dateStr)
     } else {
@@ -123,7 +138,7 @@ export default function MonthView({
                   const isWeekend = day.getDay() === 0 || day.getDay() === 6
                   const dateHolidays = holidays?.dates?.[dateStr]
                   const isHoliday = dateHolidays && dateHolidays.length > 0
-                  const isSelected = isLandscape && selectedDay === dateStr
+                  const isSelected = isSplit && selectedDay === dateStr
 
                   // Sort: all-day first, then by time
                   const allDay = dayActivities.filter(a => a.isAllDay)
@@ -238,15 +253,46 @@ export default function MonthView({
     )
   }
 
-  // Landscape: split view — month grid left + day agenda right
-  if (isLandscape) {
+  // Split view — month grid left + day agenda right
+  if (isSplit) {
     const selectedDateHolidays = holidays?.dates?.[selectedDay]
+    const leftWidth = isDesktop ? splitWidth : 280
+
+    function handleResizeStart(e: React.PointerEvent) {
+      if (!isDesktop) return
+      e.preventDefault()
+      isDraggingRef.current = true
+      const startX = e.clientX
+      const startWidth = splitWidth
+      function onMove(me: PointerEvent) {
+        if (!isDraggingRef.current) return
+        const newWidth = Math.max(280, Math.min(window.innerWidth - 300, startWidth + (me.clientX - startX)))
+        setSplitWidth(newWidth)
+      }
+      function onUp() {
+        isDraggingRef.current = false
+        localStorage.setItem('monthViewSplitWidth', String(splitWidth))
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    }
+
     return (
       <div className="flex-1 flex overflow-hidden bg-bg">
-        {/* Left: compact month grid */}
-        <div className="w-[280px] shrink-0 border-r border-border flex flex-col">
-          {renderMonthGrid(true)}
+        {/* Left: month grid — desktop uses pills, mobile landscape uses compact dots */}
+        <div className="shrink-0 border-r border-border flex flex-col" style={{ width: leftWidth }}>
+          {renderMonthGrid(!isDesktop)}
         </div>
+
+        {/* Resize handle (desktop only) */}
+        {isDesktop && (
+          <div
+            className="w-1 shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors"
+            onPointerDown={handleResizeStart}
+          />
+        )}
 
         {/* Right: day agenda */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
