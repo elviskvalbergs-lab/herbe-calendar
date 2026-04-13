@@ -22,11 +22,12 @@ interface Props {
   onSelectedDayChange?: (date: string) => void
   onActivityClick?: (activity: Activity) => void
   initialSelectedDay?: string
+  loading?: boolean
 }
 
 export default function MonthView({
   activities, date, holidays, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, initialSelectedDay,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, initialSelectedDay, loading,
 }: Props) {
   const monthStart = startOfMonth(parseISO(date))
   const monthEnd = endOfMonth(monthStart)
@@ -329,8 +330,22 @@ export default function MonthView({
                     <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-text truncate">{act.description || '(no title)'}</p>
-                      {act.location && <p className="text-xs text-text-muted truncate">{act.location}</p>}
-                      {act.customerName && <p className="text-xs text-text-muted truncate">{act.customerName}</p>}
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                        {act.location && <span className="text-[10px] text-text-muted truncate max-w-[200px]">{act.location}</span>}
+                        {act.customerName && <span className="text-[10px] text-text-muted truncate max-w-[200px]">{act.customerName}</span>}
+                        {act.projectName && <span className="text-[10px] text-text-muted truncate max-w-[200px]">{act.projectName}</span>}
+                        {act.activityTypeName && <span className="text-[10px] text-text-muted">{act.activityTypeName}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                        {act.mainPersons && act.mainPersons.length > 0 && (
+                          <span className="text-[10px] text-text-muted">{act.mainPersons.join(', ')}</span>
+                        )}
+                        {act.icsCalendarName && <span className="text-[10px] text-text-muted/60">{act.icsCalendarName}</span>}
+                        {act.googleCalendarName && <span className="text-[10px] text-text-muted/60">{act.googleCalendarName}</span>}
+                      </div>
+                      {act.joinUrl && (
+                        <a href={act.joinUrl} target="_blank" rel="noopener" onClick={e => e.stopPropagation()} className="text-[10px] text-primary hover:underline mt-0.5 block">Join meeting</a>
+                      )}
                     </div>
                     <div className="text-xs text-text-muted shrink-0 text-right">
                       {act.isAllDay ? (
@@ -354,7 +369,13 @@ export default function MonthView({
 
   // Portrait: full month grid with event pills
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-bg">
+    <div className="flex-1 flex flex-col overflow-hidden bg-bg relative">
+      {loading && (
+        <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
+          <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+          <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
+        </div>
+      )}
       {renderMonthGrid(false)}
     </div>
   )

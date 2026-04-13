@@ -822,6 +822,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
           onSelectedDayChange={setMonthSelectedDay}
           initialSelectedDay={monthSelectedDay}
+          loading={loading}
           onActivityClick={(activity) =>
             setFormState({
               open: true,
