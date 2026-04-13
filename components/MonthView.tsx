@@ -100,16 +100,11 @@ export default function MonthView({
         .replace(/\s*\(day \d+\/\d+\)/i, '')
         .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
         .replace(/\s*\(\d+\/\d+\)/, '')
-        .replace(/\s*\(diena \d+\/\d+\)/i, '') // Latvian
-        .replace(/\s*day \d+$/i, '')
         .trim()
     }
     const allDayByKey = new Map<string, { dates: string[]; desc: string }>()
     for (const a of filteredActivities) {
-      if (!a.date) continue
-      // Include all-day events and events spanning full day (00:00-23:59)
-      const isFullDay = a.isAllDay || (a.timeFrom === '00:00' && a.timeTo === '23:59')
-      if (!isFullDay) continue
+      if (!a.isAllDay || !a.date) continue
       const key = normalizeDesc(a.description ?? '')
       if (!key) continue
       const entry = allDayByKey.get(key) ?? { dates: [], desc: a.description ?? '' }
@@ -131,10 +126,9 @@ export default function MonthView({
     return new Set(multiDaySpans.map(s => s.description))
   }, [multiDaySpans])
 
-  // Helper to check if an activity is part of a multi-day span
+  // Helper to check if an all-day activity is part of a multi-day span
   function isInMultiDaySpan(act: Activity): boolean {
-    const isFullDay = act.isAllDay || (act.timeFrom === '00:00' && act.timeTo === '23:59')
-    if (!isFullDay) return false
+    if (!act.isAllDay) return false
     const normalized = (act.description ?? '')
       .replace(/\s*\(day \d+\/\d+\)/i, '')
       .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
@@ -206,16 +200,15 @@ export default function MonthView({
             const weekSpans = multiDaySpans.filter(s => s.startDate <= weekEndStr && s.endDate >= weekStartStr)
 
             return (
-              <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col">
-                {/* Single unified grid: day numbers (row 1) + spanning bars (rows 2+) + per-day events (below) */}
-                <div className="grid grid-cols-7 flex-1 min-h-0">
-                  {/* Day numbers — row 1, one per column */}
+              <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col relative">
+                {/* Day numbers row */}
+                <div className="grid grid-cols-7 shrink-0">
                   {week.map((d) => {
                     const ds = format(d, 'yyyy-MM-dd')
                     const inM = isSameMonth(d, monthStart)
                     const isSel = selectedDay === ds
                     return (
-                      <div key={'dn-' + ds} className="px-1 pt-0.5 text-center cursor-pointer" style={{ gridRow: 1 }} onClick={() => handleDayClick(ds)}>
+                      <div key={ds} className="px-1 pt-0.5 text-center">
                         <span className={`text-xs font-bold leading-tight px-1 rounded ${
                           isToday(d) && isSel ? 'bg-primary text-white'
                           : isToday(d) ? 'bg-primary/20 text-primary'
@@ -225,44 +218,9 @@ export default function MonthView({
                       </div>
                     )
                   })}
-                  {/* Multi-day spanning bars — rows 2+ using gridColumn spans */}
-                  {!compact && weekSpans.map((span, si) => {
-                    const startIdx = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
-                    const endIdx = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
-                    if (startIdx > 6 || endIdx < 0) return null
-                    return (
-                      <div
-                        key={span.id + '-' + wi}
-                        className="rounded px-1 py-px truncate text-[8px] font-bold"
-                        style={{
-                          gridRow: si + 2,
-                          gridColumn: `${Math.max(0, startIdx) + 1} / ${Math.min(6, endIdx) + 2}`,
-                          background: span.color + '30',
-                          color: span.color,
-                        }}
-                        title={span.description}
-                      >
-                        {span.description}
-                      </div>
-                    )
-                  })}
-                  {compact && weekSpans.map((span, si) => {
-                    const startIdx = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
-                    const endIdx = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
-                    if (startIdx > 6 || endIdx < 0) return null
-                    return (
-                      <div
-                        key={span.id + '-' + wi}
-                        className="h-[3px] rounded-sm"
-                        style={{
-                          gridRow: si + 2,
-                          gridColumn: `${Math.max(0, startIdx) + 1} / ${Math.min(6, endIdx) + 2}`,
-                          background: span.color,
-                        }}
-                      />
-                    )
-                  })}
-                  {/* Per-day event cells — start after spanning bar rows */}
+                </div>
+                {/* Day cell contents (events) */}
+                <div className="grid grid-cols-7 flex-1 min-h-0">
                 {week.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd')
                   const inMonth = isSameMonth(day, monthStart)
@@ -273,25 +231,31 @@ export default function MonthView({
                   const isSelected = selectedDay === dateStr
 
                   // Sort: all-day first, then by time
-                  const allDay = dayActivities.filter(a => (a.isAllDay || (a.timeFrom === '00:00' && a.timeTo === '23:59')) && !isInMultiDaySpan(a))
+                  const allDay = dayActivities.filter(a => a.isAllDay)
                   const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
                   const sorted = [...allDay, ...timed]
 
                   if (compact) {
-                    // Landscape compact: colored dots for all events
+                    // Landscape compact: dots for all events + multi-day connector lines at top
+                    const multiDayLinesCompact = dayActivities.filter(a => isInMultiDaySpan(a)).map(a => getActivityColor(a))
                     const dotColors = dayActivities.map(a => getActivityColor(a)).slice(0, 8)
                     return (
                       <button
                         key={dateStr}
                         onClick={() => handleDayClick(dateStr)}
-                        className={`flex flex-col items-center justify-center gap-px py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
+                        className={`flex flex-col items-center justify-start gap-px py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
                           isSelected ? 'bg-primary/15' :
                           !inMonth ? 'opacity-30' :
                           isHoliday ? 'bg-red-500/5' :
                           isWeekend ? 'bg-border/10' :
                           'hover:bg-border/10'
                         }`}
+                        style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 4 } : undefined}
                       >
+                        {/* Multi-day connector lines */}
+                        {multiDayLinesCompact.map((c, i) => (
+                          <div key={i} className="w-full h-[2px] shrink-0" style={{ background: c }} />
+                        ))}
                         {/* Source color dots */}
                         {dotColors.length > 0 && (
                           <div className="flex flex-wrap justify-center gap-px">
@@ -307,8 +271,11 @@ export default function MonthView({
                   // Portrait: full cells with event pills
                   const visible = sorted.slice(0, maxEvents)
                   const moreCount = sorted.length - visible.length
+                  // Multi-day connector lines
+                  const multiDayColors = dayActivities
+                    .filter(a => isInMultiDaySpan(a))
+                    .map(a => getActivityColor(a))
 
-                  const eventStartRow = 2 + weekSpans.length
                   return (
                     <div
                       key={dateStr}
@@ -317,12 +284,19 @@ export default function MonthView({
                         isHoliday ? 'bg-red-500/5' :
                         isWeekend ? 'bg-border/10' : ''
                       }`}
-                      style={{ gridRow: `${eventStartRow} / -1` }}
                       onClick={() => handleDayClick(dateStr)}
                     >
+                      {/* Multi-day connector lines at top */}
+                      {multiDayColors.length > 0 && (
+                        <div className="flex flex-col shrink-0">
+                          {multiDayColors.map((c, i) => (
+                            <div key={i} className="h-[2px] w-full" style={{ background: c }} />
+                          ))}
+                        </div>
+                      )}
 
-                      {/* Event pills */}
-                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5">
+                      {/* Event pills — padded for multi-day spanning overlays */}
+                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5" style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 14 } : undefined}>
                         {isHoliday && (
                           <div
                             className="text-[8px] font-bold truncate rounded px-1 py-px mb-px"
@@ -334,6 +308,8 @@ export default function MonthView({
                         )}
                         {visible.map(act => {
                           const color = getActivityColor(act)
+                          const isMultiDay = act.isAllDay && isInMultiDaySpan(act)
+                          if (isMultiDay) return null // rendered as spanning overlay
                           return (
                             <div
                               key={act.id}
@@ -363,6 +339,36 @@ export default function MonthView({
                   )
                 })}
                 </div>
+                {/* Multi-day spanning overlays — positioned after day numbers, above events */}
+                {weekSpans.map((span, si) => {
+                  const spanStartIdx = allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7
+                  const spanEndIdx = allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7
+                  const startCol = Math.max(0, spanStartIdx)
+                  const endCol = Math.min(6, spanEndIdx)
+                  if (startCol > 6 || endCol < 0) return null
+                  const colSpan = endCol - startCol + 1
+                  const slotHeight = compact ? 4 : 14
+                  const topOffset = 20 + si * slotHeight // 20px = day number row height
+                  return (
+                    <div
+                      key={span.id + '-' + wi}
+                      className={`absolute z-10 pointer-events-none ${compact
+                        ? 'h-[3px] rounded-sm'
+                        : 'h-3 rounded text-[8px] font-bold truncate px-1 leading-3'
+                      }`}
+                      style={{
+                        left: `${(startCol / 7) * 100}%`,
+                        width: `${(colSpan / 7) * 100}%`,
+                        top: topOffset,
+                        background: span.color + (compact ? '' : '40'),
+                        color: span.color,
+                      }}
+                      title={span.description}
+                    >
+                      {!compact && span.description}
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
