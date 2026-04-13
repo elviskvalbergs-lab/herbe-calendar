@@ -100,11 +100,16 @@ export default function MonthView({
         .replace(/\s*\(day \d+\/\d+\)/i, '')
         .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
         .replace(/\s*\(\d+\/\d+\)/, '')
+        .replace(/\s*\(diena \d+\/\d+\)/i, '') // Latvian
+        .replace(/\s*day \d+$/i, '')
         .trim()
     }
     const allDayByKey = new Map<string, { dates: string[]; desc: string }>()
     for (const a of filteredActivities) {
-      if (!a.isAllDay || !a.date) continue
+      if (!a.date) continue
+      // Include all-day events and events spanning full day (00:00-23:59)
+      const isFullDay = a.isAllDay || (a.timeFrom === '00:00' && a.timeTo === '23:59')
+      if (!isFullDay) continue
       const key = normalizeDesc(a.description ?? '')
       if (!key) continue
       const entry = allDayByKey.get(key) ?? { dates: [], desc: a.description ?? '' }
@@ -126,9 +131,10 @@ export default function MonthView({
     return new Set(multiDaySpans.map(s => s.description))
   }, [multiDaySpans])
 
-  // Helper to check if an all-day activity is part of a multi-day span
+  // Helper to check if an activity is part of a multi-day span
   function isInMultiDaySpan(act: Activity): boolean {
-    if (!act.isAllDay) return false
+    const isFullDay = act.isAllDay || (act.timeFrom === '00:00' && act.timeTo === '23:59')
+    if (!isFullDay) return false
     const normalized = (act.description ?? '')
       .replace(/\s*\(day \d+\/\d+\)/i, '')
       .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
@@ -275,7 +281,7 @@ export default function MonthView({
                   const isSelected = selectedDay === dateStr
 
                   // Sort: all-day first, then by time
-                  const allDay = dayActivities.filter(a => a.isAllDay && !isInMultiDaySpan(a))
+                  const allDay = dayActivities.filter(a => (a.isAllDay || (a.timeFrom === '00:00' && a.timeTo === '23:59')) && !isInMultiDaySpan(a))
                   const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
                   const sorted = [...allDay, ...timed]
 
