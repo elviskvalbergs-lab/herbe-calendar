@@ -21,15 +21,16 @@ interface Props {
   onSelectWeek: (monday: string) => void
   onSelectedDayChange?: (date: string) => void
   onActivityClick?: (activity: Activity) => void
-  initialSelectedDay?: string
   loading?: boolean
 }
 
 export default function MonthView({
   activities, date, holidays, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, initialSelectedDay, loading,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading,
 }: Props) {
-  const monthStart = startOfMonth(parseISO(date))
+  // date prop IS the selected day; derive month from it
+  const selectedDay = date
+  const monthStart = startOfMonth(parseISO(selectedDay))
   const monthEnd = endOfMonth(monthStart)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
@@ -37,7 +38,6 @@ export default function MonthView({
 
   // Layout mode: portrait (mobile), landscape (mobile), desktop
   const [layout, setLayout] = useState<'portrait' | 'landscape' | 'desktop'>('portrait')
-  const [selectedDay, setSelectedDay] = useState<string>(initialSelectedDay ?? date)
   const [splitWidth, setSplitWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return 340
     const saved = localStorage.getItem('monthViewSplitWidth')
@@ -109,22 +109,19 @@ export default function MonthView({
   }, [activitiesByDate, selectedDay])
 
   function handleDayClick(dateStr: string) {
-    if (isSplit) {
-      setSelectedDay(dateStr)
-      onSelectedDayChange?.(dateStr)
-    } else {
-      onSelectDate(dateStr)
-    }
+    // In all modes, selecting a day updates state.date (shown in header)
+    // In portrait, this also navigates the month if clicking adjacent month days
+    onSelectedDayChange?.(dateStr)
   }
 
   // Compact month grid (shared by both modes, landscape version is smaller)
   function renderMonthGrid(compact: boolean) {
     return (
       <div className={`flex flex-col ${compact ? 'h-full' : 'flex-1'} overflow-hidden`}>
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-border bg-surface shrink-0">
+        {/* Day headers — subtle, same style as week numbers */}
+        <div className="grid grid-cols-7 shrink-0">
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-            <div key={i} className={`text-center text-[10px] text-text-muted font-bold ${compact ? 'py-1' : 'py-1.5'} border-r border-border/30 last:border-r-0`}>{d}</div>
+            <div key={i} className="text-center text-[9px] text-text-muted/30 font-medium py-0.5">{d}</div>
           ))}
         </div>
 

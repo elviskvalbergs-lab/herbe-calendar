@@ -577,7 +577,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     if (!selectedCodesKey) return
     const codes = selectedCodesKey
     const dateFrom = state.view === 'month'
-      ? format(startOfWeek(parseISO(state.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      ? format(startOfWeek(startOfMonth(parseISO(state.date)), { weekStartsOn: 1 }), 'yyyy-MM-dd')
       : state.date
     const dateTo = state.view === 'month'
       ? format(endOfMonth(parseISO(state.date)), 'yyyy-MM-dd')
@@ -822,8 +822,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           getActivityColor={colorForActivity}
           onSelectDate={(date) => setState(s => ({ ...s, view: 'day', date }))}
           onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
-          onSelectedDayChange={setMonthSelectedDay}
-          initialSelectedDay={monthSelectedDay}
+          onSelectedDayChange={(day) => {
+            setMonthSelectedDay(day)
+            setState(s => ({ ...s, date: day }))
+          }}
           loading={loading}
           onActivityClick={(activity) =>
             setFormState({

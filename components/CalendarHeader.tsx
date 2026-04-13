@@ -45,13 +45,13 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   const viewStep = isMonth ? 0 : state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
   function navigate(days: number) {
-    if (isMonth) {
-      const current = parseISO(state.date)
-      const newDate = days > 0 ? addMonths(current, 1) : subMonths(current, 1)
-      onStateChange({ ...state, date: format(startOfMonth(newDate), 'yyyy-MM-dd') })
-    } else {
-      onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
-    }
+    onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
+  }
+
+  function navigateMonth(dir: number) {
+    const current = parseISO(state.date)
+    const newDate = dir > 0 ? addMonths(current, 1) : subMonths(current, 1)
+    onStateChange({ ...state, date: format(newDate, 'yyyy-MM-dd') })
   }
 
   return (
@@ -75,11 +75,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
 
       {/* Date navigation */}
       {(viewStep > 1 || isMonth) && (
-        <button onClick={() => navigate(isMonth ? -1 : -viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
+        <button onClick={() => isMonth ? navigateMonth(-1) : navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
       )}
-      {!isMonth && (
-        <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
-      )}
+      <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
       <button
         onClick={() => { if (!isMonth) setMonthNavOpen(true) }}
         className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap"
@@ -87,11 +85,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       >
         {format(parseISO(state.date), 'd MMM yyyy')}
       </button>
-      {!isMonth && (
-        <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
-      )}
+      <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
       {(viewStep > 1 || isMonth) && (
-        <button onClick={() => navigate(isMonth ? 1 : viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
+        <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
       )}
       {/* View toggle — pill buttons */}
       <div className="flex rounded-lg border border-border overflow-hidden">
@@ -108,7 +104,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               key={v}
               onClick={() => {
                 if (v === 'month') {
-                  onStateChange({ ...state, view: v, date: format(startOfMonth(parseISO(state.date)), 'yyyy-MM-dd') })
+                  // Keep the current date as selected day (don't snap to 1st)
+                  onStateChange({ ...state, view: v })
                 } else {
                   // Use monthSelectedDay as the "intended day" when available
                   const referenceDay = monthSelectedDay ?? state.date
