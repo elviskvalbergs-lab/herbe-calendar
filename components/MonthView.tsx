@@ -47,9 +47,9 @@ export default function MonthView({
   // Layout mode: portrait (mobile), landscape (mobile), desktop
   const [layout, setLayout] = useState<'portrait' | 'landscape' | 'desktop'>('portrait')
   const [splitWidth, setSplitWidth] = useState<number>(() => {
-    if (typeof window === 'undefined') return 340
+    if (typeof window === 'undefined') return 600
     const saved = localStorage.getItem('monthViewSplitWidth')
-    return saved ? Number(saved) : 340
+    return saved ? Number(saved) : Math.round(window.innerWidth * 0.5)
   })
   const isDraggingRef = useRef(false)
 
