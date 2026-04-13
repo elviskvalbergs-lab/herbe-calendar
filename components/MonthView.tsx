@@ -319,10 +319,10 @@ export default function MonthView({
                                 setHoveredEvent(act)
                               } : undefined}
                               onMouseLeave={isDesktop ? () => setHoveredEvent(null) : undefined}
-                              onClick={(e) => {
+                              onClick={isDesktop ? (e) => {
                                 e.stopPropagation()
-                                if (isDesktop) onActivityClick?.(act)
-                              }}
+                                onActivityClick?.(act)
+                              } : undefined}}
                               title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
                             >
                               {act.description}
