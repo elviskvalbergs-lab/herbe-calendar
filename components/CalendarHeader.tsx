@@ -93,36 +93,53 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {(viewStep > 1 || isMonth) && (
         <button onClick={() => navigate(isMonth ? 1 : viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
       )}
-      {/* View toggle */}
-      <select
-        value={state.view}
-        onChange={e => {
-          const newView = e.target.value as CalendarState['view']
-          if (newView === 'month') {
-            onStateChange({ ...state, view: newView, date: format(startOfMonth(parseISO(state.date)), 'yyyy-MM-dd') })
-          } else if (isMonth && monthSelectedDay) {
-            // Smart date when switching FROM month view
-            const selected = parseISO(monthSelectedDay)
-            let newDate: string
-            if (newView === 'day' || newView === '3day') {
-              newDate = monthSelectedDay
-            } else {
-              // 5day/7day: snap to Monday of that week
-              newDate = format(startOfWeek(selected, { weekStartsOn: 1 }), 'yyyy-MM-dd')
-            }
-            onStateChange({ ...state, view: newView, date: newDate })
-          } else {
-            onStateChange({ ...state, view: newView })
-          }
-        }}
-        className="bg-surface border border-border rounded-lg text-xs font-semibold px-1.5 py-1 text-text-muted focus:outline-none focus:border-primary cursor-pointer"
-      >
-        <option value="day">1 day</option>
-        <option value="3day">3 days</option>
-        <option value="5day">5 days</option>
-        <option value="7day">7 days</option>
-        <option value="month">Month</option>
-      </select>
+      {/* View toggle — pill buttons */}
+      <div className="flex rounded-lg border border-border overflow-hidden">
+        {([
+          { view: 'day' as const, short: '1', long: '1 day' },
+          { view: '3day' as const, short: '3', long: '3 days' },
+          { view: '5day' as const, short: '5', long: '5 days' },
+          { view: '7day' as const, short: '7', long: '7 days' },
+          { view: 'month' as const, short: '', long: 'Month' },
+        ]).map(({ view: v, short, long }) => {
+          const active = state.view === v
+          return (
+            <button
+              key={v}
+              onClick={() => {
+                if (v === 'month') {
+                  onStateChange({ ...state, view: v, date: format(startOfMonth(parseISO(state.date)), 'yyyy-MM-dd') })
+                } else if (isMonth && monthSelectedDay) {
+                  const selected = parseISO(monthSelectedDay)
+                  const newDate = (v === 'day' || v === '3day')
+                    ? monthSelectedDay
+                    : format(startOfWeek(selected, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                  onStateChange({ ...state, view: v, date: newDate })
+                } else {
+                  onStateChange({ ...state, view: v })
+                }
+              }}
+              className={`text-[10px] font-bold px-1.5 lg:px-2 py-1 transition-colors border-r border-border last:border-r-0 ${
+                active ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-border/30'
+              }`}
+            >
+              {v === 'month' ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block lg:hidden">
+                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="10" y1="4" x2="10" y2="10" />
+                  </svg>
+                  <span className="hidden lg:inline">{long}</span>
+                </>
+              ) : (
+                <>
+                  <span className="lg:hidden">{short}</span>
+                  <span className="hidden lg:inline">{long}</span>
+                </>
+              )}
+            </button>
+          )
+        })}
+      </div>
 
       {/* Person chips */}
       <div className="flex items-center gap-1 flex-wrap">
