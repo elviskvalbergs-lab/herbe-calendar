@@ -104,15 +104,12 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               key={v}
               onClick={() => {
                 if (v === 'month') {
-                  // Keep the current date as selected day (don't snap to 1st)
                   onStateChange({ ...state, view: v })
                 } else {
-                  // Use monthSelectedDay as the "intended day" when available
-                  const referenceDay = monthSelectedDay ?? state.date
-                  const ref = parseISO(referenceDay)
-                  const newDate = (v === 'day' || v === '3day')
-                    ? referenceDay
-                    : format(startOfWeek(ref, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                  const ref = parseISO(state.date)
+                  const newDate = (v === '5day' || v === '7day')
+                    ? format(startOfWeek(ref, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                    : state.date
                   onStateChange({ ...state, view: v, date: newDate })
                 }
               }}

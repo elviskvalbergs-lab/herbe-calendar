@@ -76,13 +76,11 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     canEdit?: boolean
   }>({ open: false })
 
-  // Month view selected day — tracks the user's "intended day" across view switches
+  // Month view selected day — tracks state.date for all views
   const [monthSelectedDay, setMonthSelectedDay] = useState<string>(state.date)
-  // Keep it synced when navigating in day/3day views (where state.date = actual selected day)
-  // Don't sync from 5day/7day — their state.date is snapped to Monday, not the intended day
   useEffect(() => {
-    if (state.view === 'day' || state.view === '3day') setMonthSelectedDay(state.date)
-  }, [state.date, state.view])
+    setMonthSelectedDay(state.date)
+  }, [state.date])
 
   // Calendar visibility state
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
