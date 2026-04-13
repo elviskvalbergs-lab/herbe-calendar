@@ -19,11 +19,12 @@ interface Props {
   getActivityColor: (activity: Activity) => string
   onSelectDate: (date: string) => void
   onSelectWeek: (monday: string) => void
+  onSelectedDayChange?: (date: string) => void
 }
 
 export default function MonthView({
   activities, date, holidays, getActivityColor,
-  onSelectDate, onSelectWeek,
+  onSelectDate, onSelectWeek, onSelectedDayChange,
 }: Props) {
   const monthStart = startOfMonth(parseISO(date))
   const monthEnd = endOfMonth(monthStart)
@@ -89,6 +90,7 @@ export default function MonthView({
   function handleDayClick(dateStr: string) {
     if (isLandscape) {
       setSelectedDay(dateStr)
+      onSelectedDayChange?.(dateStr)
     } else {
       onSelectDate(dateStr)
     }

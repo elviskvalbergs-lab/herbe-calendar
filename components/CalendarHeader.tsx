@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { addDays, addMonths, subMonths, startOfMonth, format, parseISO } from 'date-fns'
+import { addDays, addMonths, subMonths, startOfMonth, startOfWeek, format, parseISO } from 'date-fns'
 import { Person, CalendarState, CalendarSource } from '@/types'
 import { signOut } from 'next-auth/react'
 import { personColor } from '@/lib/colors'
@@ -31,9 +31,10 @@ interface Props {
   isAdmin?: boolean
   userEmail?: string
   accountLogo?: string
+  monthSelectedDay?: string
 }
 
-export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail, accountLogo }: Props) {
+export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail, accountLogo, monthSelectedDay }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
@@ -99,6 +100,17 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           const newView = e.target.value as CalendarState['view']
           if (newView === 'month') {
             onStateChange({ ...state, view: newView, date: format(startOfMonth(parseISO(state.date)), 'yyyy-MM-dd') })
+          } else if (isMonth && monthSelectedDay) {
+            // Smart date when switching FROM month view
+            const selected = parseISO(monthSelectedDay)
+            let newDate: string
+            if (newView === 'day' || newView === '3day') {
+              newDate = monthSelectedDay
+            } else {
+              // 5day/7day: snap to Monday of that week
+              newDate = format(startOfWeek(selected, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+            }
+            onStateChange({ ...state, view: newView, date: newDate })
           } else {
             onStateChange({ ...state, view: newView })
           }

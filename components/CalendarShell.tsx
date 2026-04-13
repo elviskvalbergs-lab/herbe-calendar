@@ -76,6 +76,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     canEdit?: boolean
   }>({ open: false })
 
+  // Month view selected day (landscape split view)
+  const [monthSelectedDay, setMonthSelectedDay] = useState<string>(state.date)
+
   // Calendar visibility state
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => loadHidden())
   const [userIcsCalendars, setUserIcsCalendars] = useState<{ name: string; color?: string; personCode: string; sharing?: string }[]>([])
@@ -802,6 +805,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         isAdmin={isAdmin}
         userEmail={userEmail}
         accountLogo={accountLogo}
+        monthSelectedDay={monthSelectedDay}
       />
       {state.view === 'month' ? (
         <MonthView
@@ -812,6 +816,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           getActivityColor={colorForActivity}
           onSelectDate={(date) => setState(s => ({ ...s, view: 'day', date }))}
           onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
+          onSelectedDayChange={setMonthSelectedDay}
         />
       ) : (
         <CalendarGrid
