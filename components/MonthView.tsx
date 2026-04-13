@@ -65,11 +65,15 @@ export default function MonthView({
   const isSplit = layout === 'landscape' || layout === 'desktop'
   const isDesktop = layout === 'desktop'
 
-  // Group activities by date
+  // Group activities by date (deduplicated by id)
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, Activity[]>()
+    const seen = new Set<string>()
     for (const a of activities) {
       if (!a.date) continue
+      const key = `${a.id}:${a.date}`
+      if (seen.has(key)) continue
+      seen.add(key)
       const existing = map.get(a.date) ?? []
       existing.push(a)
       map.set(a.date, existing)
