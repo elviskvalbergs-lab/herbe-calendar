@@ -194,13 +194,8 @@ export default function MonthView({
           {weeks.map((week, wi) => {
             const weekNum = getISOWeek(week[0])
             const monday = format(week[0], 'yyyy-MM-dd')
-            // Multi-day spans crossing this week
-            const weekStartStr = format(week[0], 'yyyy-MM-dd')
-            const weekEndStr = format(week[6], 'yyyy-MM-dd')
-            const weekSpans = multiDaySpans.filter(s => s.startDate <= weekEndStr && s.endDate >= weekStartStr)
-
             return (
-              <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col relative">
+              <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col">
                 {/* Day numbers row */}
                 <div className="grid grid-cols-7 shrink-0">
                   {week.map((d) => {
@@ -236,10 +231,8 @@ export default function MonthView({
                   const sorted = [...allDay, ...timed]
 
                   if (compact) {
-                    // Landscape compact: dots + thin lines for multi-day (day number is in the row above)
-                    const multiDay = dayActivities.filter(a => a.isAllDay && isInMultiDaySpan(a))
-                    const regular = dayActivities.filter(a => !a.isAllDay || !isInMultiDaySpan(a))
-                    const dotColors = regular.map(a => getActivityColor(a)).slice(0, 8)
+                    // Landscape compact: colored dots for all events
+                    const dotColors = dayActivities.map(a => getActivityColor(a)).slice(0, 8)
                     return (
                       <button
                         key={dateStr}
@@ -251,9 +244,8 @@ export default function MonthView({
                           isWeekend ? 'bg-border/10' :
                           'hover:bg-border/10'
                         }`}
-                        style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 4 } : undefined}
                       >
-                        {/* Source color dots (multi-day lines rendered as week-spanning overlays) */}
+                        {/* Source color dots */}
                         {dotColors.length > 0 && (
                           <div className="flex flex-wrap justify-center gap-px">
                             {dotColors.map((color, i) => (
@@ -280,8 +272,8 @@ export default function MonthView({
                       onClick={() => handleDayClick(dateStr)}
                     >
 
-                      {/* Event pills — padded for multi-day spanning overlays */}
-                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5" style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 14 } : undefined}>
+                      {/* Event pills */}
+                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5">
                         {isHoliday && (
                           <div
                             className="text-[8px] font-bold truncate rounded px-1 py-px mb-px"
@@ -293,8 +285,6 @@ export default function MonthView({
                         )}
                         {visible.map(act => {
                           const color = getActivityColor(act)
-                          const isMultiDay = act.isAllDay && isInMultiDaySpan(act)
-                          if (isMultiDay) return null // rendered as spanning overlay
                           return (
                             <div
                               key={act.id}
@@ -324,36 +314,6 @@ export default function MonthView({
                   )
                 })}
                 </div>
-                {/* Multi-day spanning overlays — positioned after day numbers, above events */}
-                {weekSpans.map((span, si) => {
-                  const spanStartIdx = allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7
-                  const spanEndIdx = allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7
-                  const startCol = Math.max(0, spanStartIdx)
-                  const endCol = Math.min(6, spanEndIdx)
-                  if (startCol > 6 || endCol < 0) return null
-                  const colSpan = endCol - startCol + 1
-                  const slotHeight = compact ? 4 : 14
-                  const topOffset = 20 + si * slotHeight // 20px = day number row height
-                  return (
-                    <div
-                      key={span.id + '-' + wi}
-                      className={`absolute z-10 pointer-events-none ${compact
-                        ? 'h-[3px] rounded-sm'
-                        : 'h-3 rounded text-[8px] font-bold truncate px-1 leading-3'
-                      }`}
-                      style={{
-                        left: `${(startCol / 7) * 100}%`,
-                        width: `${(colSpan / 7) * 100}%`,
-                        top: topOffset,
-                        background: span.color + (compact ? '' : '40'),
-                        color: span.color,
-                      }}
-                      title={span.description}
-                    >
-                      {!compact && span.description}
-                    </div>
-                  )
-                })}
               </div>
             )
           })}
