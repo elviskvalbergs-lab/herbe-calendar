@@ -367,12 +367,14 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
 
       {mobileCalendarsOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 lg:hidden" onClick={() => setMobileCalendarsOpen(false)}>
-          <div className="w-full max-w-md bg-surface border-t border-border rounded-t-2xl shadow-2xl p-4 pb-8" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
+          <div className="w-full max-w-md bg-surface border-t border-border rounded-t-2xl shadow-2xl p-4 pb-8 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3 shrink-0">
               <h3 className="font-bold text-sm">Calendars</h3>
               <button onClick={() => setMobileCalendarsOpen(false)} className="text-text-muted text-lg">✕</button>
             </div>
-            <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} onSetAll={onSetAllCalendars} people={people} inline />
+            <div className="overflow-y-auto flex-1">
+              <CalendarSourcesDropdown sources={calendarSources} hidden={hiddenCalendars} onToggle={onToggleCalendar} onSetAll={onSetAllCalendars} people={people} inline />
+            </div>
           </div>
         </div>
       )}

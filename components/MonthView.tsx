@@ -20,11 +20,12 @@ interface Props {
   onSelectDate: (date: string) => void
   onSelectWeek: (monday: string) => void
   onSelectedDayChange?: (date: string) => void
+  onActivityClick?: (activity: Activity) => void
 }
 
 export default function MonthView({
   activities, date, holidays, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick,
 }: Props) {
   const monthStart = startOfMonth(parseISO(date))
   const monthEnd = endOfMonth(monthStart)
@@ -275,7 +276,8 @@ export default function MonthView({
                 return (
                   <div
                     key={act.id}
-                    className="flex items-start gap-3 py-2 border-b border-border/30"
+                    className="flex items-start gap-3 py-2 border-b border-border/30 cursor-pointer hover:bg-border/20 rounded transition-colors"
+                    onClick={() => onActivityClick?.(act)}
                   >
                     <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
                     <div className="flex-1 min-w-0">

@@ -817,6 +817,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           onSelectDate={(date) => setState(s => ({ ...s, view: 'day', date }))}
           onSelectWeek={(monday) => setState(s => ({ ...s, view: '7day', date: monday }))}
           onSelectedDayChange={setMonthSelectedDay}
+          onActivityClick={(activity) =>
+            setFormState({
+              open: true,
+              initial: activity,
+              editId: activity.id,
+              canEdit: canEditActivity(activity)
+            })
+          }
         />
       ) : (
         <CalendarGrid
