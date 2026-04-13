@@ -202,10 +202,28 @@ export default function MonthView({
             const weekSpans = multiDaySpans.filter(s => s.startDate <= weekEnd && s.endDate >= weekStart)
 
             return (
-              <div key={wi} className="relative border-b border-border/30 min-h-0 overflow-hidden">
-                {/* Multi-day event bars */}
+              <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col">
+                {/* Day numbers row */}
+                <div className="grid grid-cols-7 shrink-0">
+                  {week.map((d) => {
+                    const ds = format(d, 'yyyy-MM-dd')
+                    const inM = isSameMonth(d, monthStart)
+                    const isSel = selectedDay === ds
+                    return (
+                      <div key={ds} className="px-1 pt-0.5 text-center">
+                        <span className={`text-xs font-bold leading-tight px-1 rounded ${
+                          isToday(d) && isSel ? 'bg-primary text-white'
+                          : isToday(d) ? 'bg-primary/20 text-primary'
+                          : isSel ? 'bg-text text-bg'
+                          : !inM ? 'text-text-muted/40' : 'text-text'
+                        }`}>{format(d, 'd')}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Multi-day event bars — below day numbers */}
                 {weekSpans.length > 0 && (
-                  <div className="relative z-10" style={{ height: weekSpans.length * (compact ? 10 : 14) }}>
+                  <div className="relative shrink-0" style={{ height: weekSpans.length * (compact ? 5 : 14) }}>
                     {weekSpans.map((span, si) => {
                       const spanStartCol = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
                       const spanEndCol = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
@@ -215,12 +233,12 @@ export default function MonthView({
                       return (
                         <div
                           key={span.id + wi}
-                          className={`absolute ${compact ? 'h-2 rounded-sm' : 'h-3 rounded text-[8px] font-bold truncate px-1 leading-3'}`}
+                          className={`absolute ${compact ? 'h-[3px] rounded-sm' : 'h-3 rounded text-[8px] font-bold truncate px-1 leading-3'}`}
                           style={{
                             left: `${(startCol / 7) * 100}%`,
                             width: `${(colSpan / 7) * 100}%`,
-                            top: si * (compact ? 10 : 14),
-                            background: span.color + '40',
+                            top: si * (compact ? 5 : 14),
+                            background: compact ? span.color : span.color + '40',
                             color: span.color,
                           }}
                           title={span.description}
@@ -231,6 +249,7 @@ export default function MonthView({
                     })}
                   </div>
                 )}
+                {/* Day cell contents (events) */}
                 <div className="grid grid-cols-7 flex-1 min-h-0">
                 {week.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd')
@@ -247,13 +266,13 @@ export default function MonthView({
                   const sorted = [...allDay, ...timed]
 
                   if (compact) {
-                    // Landscape compact: just day number + colored dots
+                    // Landscape compact: colored dots only (day number is in the row above)
                     const dotSources = new Set(dayActivities.map(a => getActivityColor(a)))
                     return (
                       <button
                         key={dateStr}
                         onClick={() => handleDayClick(dateStr)}
-                        className={`flex flex-col items-center py-1 border-r border-border/20 last:border-r-0 transition-colors ${
+                        className={`flex flex-col items-center justify-center py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
                           isSelected ? 'bg-primary/15' :
                           !inMonth ? 'opacity-30' :
                           isHoliday ? 'bg-red-500/5' :
@@ -261,20 +280,9 @@ export default function MonthView({
                           'hover:bg-border/10'
                         }`}
                       >
-                        <span className={`text-xs font-bold leading-tight px-1 rounded ${
-                          isToday(day) && isSelected
-                            ? 'bg-primary text-white'
-                            : isToday(day)
-                            ? 'bg-primary/20 text-primary'
-                            : isSelected
-                            ? 'bg-text text-bg'
-                            : !inMonth ? 'text-text-muted/40' : 'text-text'
-                        }`}>
-                          {format(day, 'd')}
-                        </span>
                         {/* Source color dots */}
                         {dotSources.size > 0 && (
-                          <div className="flex gap-px mt-0.5">
+                          <div className="flex gap-px">
                             {[...dotSources].slice(0, 4).map((color, i) => (
                               <span key={i} className="w-1 h-1 rounded-full" style={{ background: color }} />
                             ))}
@@ -298,29 +306,6 @@ export default function MonthView({
                       }`}
                       onClick={() => handleDayClick(dateStr)}
                     >
-                      {/* Day number */}
-                      <div className="flex items-center justify-between px-1 pt-0.5 shrink-0">
-                        <span className={`text-xs font-bold leading-tight px-1 rounded ${
-                          isToday(day) && isSelected
-                            ? 'bg-primary text-white'
-                            : isToday(day)
-                            ? 'bg-primary/20 text-primary'
-                            : isSelected
-                            ? 'bg-text text-bg'
-                            : !inMonth ? 'text-text-muted/40' : 'text-text'
-                        }`}>
-                          {format(day, 'd')}
-                        </span>
-                        {day.getDay() === 1 && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onSelectWeek(monday) }}
-                            className="text-[8px] text-text-muted/30 hover:text-primary font-medium"
-                            title={`W${weekNum} → 7-day view`}
-                          >
-                            W{weekNum}
-                          </button>
-                        )}
-                      </div>
 
                       {/* Event pills */}
                       <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5">
