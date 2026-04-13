@@ -295,13 +295,9 @@ export default function MonthView({
                           return (
                             <div
                               key={act.id}
-                              className={`w-full mb-px cursor-pointer hover:brightness-125 ${
-                                isMultiDay
-                                  ? 'h-[3px] rounded-sm' // thin bar for multi-day
-                                  : 'rounded px-1 py-px truncate text-[9px] font-medium'
-                              }`}
+                              className="w-full mb-px cursor-pointer hover:brightness-125 rounded px-1 py-px truncate text-[9px] font-medium"
                               style={isMultiDay
-                                ? { background: color }
+                                ? { background: color + '40', color, borderLeft: `3px solid ${color}` }
                                 : { background: color + '20', color }
                               }
                               onMouseEnter={isDesktop ? (e) => {
@@ -314,9 +310,9 @@ export default function MonthView({
                                 e.stopPropagation()
                                 if (isDesktop) onActivityClick?.(act)
                               }}
-                              title={`${act.description}${isMultiDay ? ' (multi-day)' : ''}`}
+                              title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
                             >
-                              {!isMultiDay && act.description}
+                              {act.description}
                             </div>
                           )
                         })}
