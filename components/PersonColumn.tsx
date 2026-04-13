@@ -395,7 +395,7 @@ export default function PersonColumn({
           {allDayActivities.map((act, i) => {
             const holidayOffset = isHoliday && holidayName ? 1 : 0
             const actColor = getActivityColor(act)
-            const bannerHeight = rowHeight / 2
+            const bannerHeight = Math.min(rowHeight / 2, 20)
             return (
               <div
                 key={act.id}

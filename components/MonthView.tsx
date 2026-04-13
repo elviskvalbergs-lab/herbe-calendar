@@ -27,7 +27,7 @@ interface Props {
 }
 
 export default function MonthView({
-  activities, date, holidays, getActivityColor,
+  activities, date, holidays, personCode, getActivityColor,
   onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, personCount = 1, dayViewPanel,
 }: Props) {
   // date prop IS the selected day; derive month from it
@@ -67,11 +67,17 @@ export default function MonthView({
   const isSplit = layout === 'landscape' || layout === 'desktop'
   const isDesktop = layout === 'desktop'
 
+  // On mobile, filter to user's own person code only
+  const filteredActivities = useMemo(() => {
+    if (isDesktop) return activities // Desktop shows all persons
+    return activities.filter(a => !a.personCode || a.personCode === personCode)
+  }, [activities, isDesktop, personCode])
+
   // Group activities by date (deduplicated by id)
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, Activity[]>()
     const seen = new Set<string>()
-    for (const a of activities) {
+    for (const a of filteredActivities) {
       if (!a.date) continue
       const key = `${a.id}:${a.date}`
       if (seen.has(key)) continue
@@ -83,27 +89,52 @@ export default function MonthView({
     return map
   }, [activities])
 
-  // Detect multi-day events: group consecutive all-day events with same description
+  // Detect multi-day events: group consecutive all-day events with same base description
   const multiDaySpans = useMemo(() => {
     const spans: { description: string; color: string; startDate: string; endDate: string; id: string }[] = []
-    const allDayByDesc = new Map<string, string[]>()
-    for (const a of activities) {
-      if (!a.isAllDay || !a.date) continue
-      const key = a.description ?? ''
-      const dates = allDayByDesc.get(key) ?? []
-      if (!dates.includes(a.date)) dates.push(a.date)
-      allDayByDesc.set(key, dates)
+    // Strip day counters like "(day 1/5)", " - Day 2 of 3", " (1/3)" from descriptions
+    function normalizeDesc(desc: string): string {
+      return desc
+        .replace(/\s*\(day \d+\/\d+\)/i, '')
+        .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
+        .replace(/\s*\(\d+\/\d+\)/, '')
+        .trim()
     }
-    for (const [desc, dates] of allDayByDesc) {
+    const allDayByKey = new Map<string, { dates: string[]; desc: string }>()
+    for (const a of filteredActivities) {
+      if (!a.isAllDay || !a.date) continue
+      const key = normalizeDesc(a.description ?? '')
+      if (!key) continue
+      const entry = allDayByKey.get(key) ?? { dates: [], desc: a.description ?? '' }
+      if (!entry.dates.includes(a.date)) entry.dates.push(a.date)
+      allDayByKey.set(key, entry)
+    }
+    for (const [key, { dates, desc }] of allDayByKey) {
       if (dates.length < 2) continue
       dates.sort()
-      // Find the activity to get color
-      const act = activities.find(a => a.isAllDay && a.description === desc)
+      const act = activities.find(a => a.isAllDay && normalizeDesc(a.description ?? '') === key)
       if (!act) continue
-      spans.push({ description: desc, color: getActivityColor(act), startDate: dates[0], endDate: dates[dates.length - 1], id: act.id })
+      spans.push({ description: key, color: getActivityColor(act), startDate: dates[0], endDate: dates[dates.length - 1], id: act.id })
     }
     return spans
   }, [activities, getActivityColor])
+
+  // Set of normalized descriptions that are shown as multi-day spans (exclude from per-day lists)
+  const multiDayDescSet = useMemo(() => {
+    return new Set(multiDaySpans.map(s => s.description))
+  }, [multiDaySpans])
+
+  // Helper to check if an all-day activity is part of a multi-day span
+  function isInMultiDaySpan(act: Activity): boolean {
+    if (!act.isAllDay) return false
+    const normalized = (act.description ?? '')
+      .replace(/\s*\(day \d+\/\d+\)/i, '')
+      .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
+      .replace(/\s*\(\d+\/\d+\)/, '')
+      .trim()
+    return multiDayDescSet.has(normalized)
+  }
+
 
   // Build weeks
   const weeks: Date[][] = []
@@ -209,7 +240,7 @@ export default function MonthView({
                   const isSelected = selectedDay === dateStr
 
                   // Sort: all-day first, then by time
-                  const allDay = dayActivities.filter(a => a.isAllDay)
+                  const allDay = dayActivities.filter(a => a.isAllDay && !isInMultiDaySpan(a))
                   const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
                   const sorted = [...allDay, ...timed]
 
