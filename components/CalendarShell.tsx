@@ -913,7 +913,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           onDrillPerson={drillToPerson}
         />
       )}
-      {status && (
+      {status && state.view !== 'month' && (
         <div
           className="px-3 py-1 text-xs font-mono border-t shrink-0 flex items-center justify-between"
           style={status.ok === false
