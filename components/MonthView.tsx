@@ -113,12 +113,8 @@ export default function MonthView({
       // Split modes: select the day (update header + agenda)
       onSelectedDayChange?.(dateStr)
     } else {
-      // Portrait: first click selects, double-tap or second click on same day opens day view
-      if (selectedDay === dateStr) {
-        onSelectDate(dateStr) // drill to day view
-      } else {
-        onSelectedDayChange?.(dateStr) // select the day
-      }
+      // Portrait: click goes directly to day view
+      onSelectDate(dateStr)
     }
   }
 
