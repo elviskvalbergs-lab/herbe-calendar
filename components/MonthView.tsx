@@ -194,6 +194,11 @@ export default function MonthView({
           {weeks.map((week, wi) => {
             const weekNum = getISOWeek(week[0])
             const monday = format(week[0], 'yyyy-MM-dd')
+            // Multi-day spans crossing this week
+            const weekStartStr = format(week[0], 'yyyy-MM-dd')
+            const weekEndStr = format(week[6], 'yyyy-MM-dd')
+            const weekSpans = multiDaySpans.filter(s => s.startDate <= weekEndStr && s.endDate >= weekStartStr)
+
             return (
               <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col">
                 {/* Day numbers row */}
@@ -203,7 +208,7 @@ export default function MonthView({
                     const inM = isSameMonth(d, monthStart)
                     const isSel = selectedDay === ds
                     return (
-                      <div key={ds} className="px-1 pt-0.5 text-center">
+                      <div key={ds} className="px-1 pt-0.5 text-center" onClick={() => handleDayClick(ds)}>
                         <span className={`text-xs font-bold leading-tight px-1 rounded ${
                           isToday(d) && isSel ? 'bg-primary text-white'
                           : isToday(d) ? 'bg-primary/20 text-primary'
@@ -214,7 +219,51 @@ export default function MonthView({
                     )
                   })}
                 </div>
-                {/* Day cell contents (events) */}
+                {/* Multi-day spanning bars — CSS Grid column spans */}
+                {weekSpans.length > 0 && !compact && (
+                  <div className="grid grid-cols-7 shrink-0">
+                    {weekSpans.map(span => {
+                      const startIdx = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
+                      const endIdx = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
+                      if (startIdx > 6 || endIdx < 0) return null
+                      const startCol = Math.max(0, startIdx) + 1 // CSS grid is 1-indexed
+                      const endCol = Math.min(6, endIdx) + 2
+                      return (
+                        <div
+                          key={span.id + '-' + wi}
+                          className="rounded px-1 py-px truncate text-[8px] font-bold mb-px"
+                          style={{
+                            gridColumn: `${startCol} / ${endCol}`,
+                            background: span.color + '30',
+                            color: span.color,
+                          }}
+                          title={span.description}
+                        >
+                          {span.description}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {compact && weekSpans.length > 0 && (
+                  <div className="grid grid-cols-7 shrink-0">
+                    {weekSpans.map(span => {
+                      const startIdx = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
+                      const endIdx = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
+                      if (startIdx > 6 || endIdx < 0) return null
+                      const startCol = Math.max(0, startIdx) + 1
+                      const endCol = Math.min(6, endIdx) + 2
+                      return (
+                        <div
+                          key={span.id + '-' + wi}
+                          className="h-[3px] rounded-sm mb-px"
+                          style={{ gridColumn: `${startCol} / ${endCol}`, background: span.color }}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+                {/* Day cell contents (per-day events) */}
                 <div className="grid grid-cols-7 flex-1 min-h-0">
                 {week.map((day) => {
                   const dateStr = format(day, 'yyyy-MM-dd')
@@ -226,7 +275,7 @@ export default function MonthView({
                   const isSelected = selectedDay === dateStr
 
                   // Sort: all-day first, then by time
-                  const allDay = dayActivities.filter(a => a.isAllDay)
+                  const allDay = dayActivities.filter(a => a.isAllDay && !isInMultiDaySpan(a))
                   const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
                   const sorted = [...allDay, ...timed]
 
