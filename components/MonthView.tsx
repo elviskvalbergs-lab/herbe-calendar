@@ -1,5 +1,5 @@
 'use client'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isToday, getISOWeek,
@@ -52,6 +52,26 @@ export default function MonthView({
 
   const weekCount = weeks.length
 
+  // Measure grid height to calculate how many events fit per cell
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [maxEvents, setMaxEvents] = useState(3)
+
+  useEffect(() => {
+    function calc() {
+      if (!gridRef.current) return
+      const gridHeight = gridRef.current.clientHeight
+      const rowHeight = gridHeight / weekCount
+      const dayNumberHeight = 22 // day number row
+      const eventPillHeight = 16 // each pill ~16px (text-[9px] + padding + margin)
+      const moreLineHeight = 14 // "+N" line
+      const available = rowHeight - dayNumberHeight - moreLineHeight
+      setMaxEvents(Math.max(1, Math.floor(available / eventPillHeight)))
+    }
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [weekCount])
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg">
       {/* Day-of-week header row */}
@@ -62,7 +82,7 @@ export default function MonthView({
       </div>
 
       {/* Calendar grid — equal height rows filling available space */}
-      <div className="flex-1 grid" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
+      <div ref={gridRef} className="flex-1 grid" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
         {weeks.map((week, wi) => {
           const weekNum = getISOWeek(week[0])
           const monday = format(week[0], 'yyyy-MM-dd')
@@ -81,10 +101,7 @@ export default function MonthView({
                 const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
                 const sorted = [...allDay, ...timed]
 
-                // Dynamically decide how many to show based on week count
-                // 4-5 week months can show more, 6-week months show fewer
-                const maxVisible = weekCount <= 5 ? 3 : 2
-                const visible = sorted.slice(0, maxVisible)
+                const visible = sorted.slice(0, maxEvents)
                 const moreCount = sorted.length - visible.length
 
                 return (
