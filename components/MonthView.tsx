@@ -494,7 +494,7 @@ export default function MonthView({
 
   // Portrait: full month grid with event pills
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-bg relative pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="flex-1 flex flex-col overflow-hidden bg-bg relative">
       {loading && (
         <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
           <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />

@@ -785,7 +785,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }, [])
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-bg">
+    <div className="flex flex-col h-dvh overflow-hidden bg-bg">
       <CalendarHeader
         state={state}
         onStateChange={setState}
