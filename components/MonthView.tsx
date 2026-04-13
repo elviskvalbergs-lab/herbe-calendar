@@ -22,6 +22,7 @@ interface Props {
   onSelectWeek: (monday: string) => void
   onSelectedDayChange?: (date: string) => void
   onActivityClick?: (activity: Activity) => void
+  onNavigateMonth?: (dir: 1 | -1) => void
   loading?: boolean
   isLightMode?: boolean
   personCount?: number
@@ -30,12 +31,13 @@ interface Props {
 
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel,
+  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
 }: Props) {
   // date prop IS the selected day; derive month from it
   const selectedDay = date
   const [hoveredEvent, setHoveredEvent] = useState<Activity | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
   const monthStart = startOfMonth(parseISO(selectedDay))
   const monthEnd = endOfMonth(monthStart)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -183,7 +185,19 @@ export default function MonthView({
   // Compact month grid (shared by both modes, landscape version is smaller)
   function renderMonthGrid(compact: boolean) {
     return (
-      <div className={`flex flex-col ${compact ? 'h-full' : 'flex-1'} overflow-hidden`}>
+      <div
+        className={`flex flex-col ${compact ? 'h-full' : 'flex-1'} overflow-hidden`}
+        onTouchStart={e => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
+        onTouchEnd={e => {
+          if (!swipeRef.current) return
+          const dx = e.changedTouches[0].clientX - swipeRef.current.x
+          const dy = e.changedTouches[0].clientY - swipeRef.current.y
+          swipeRef.current = null
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+            onNavigateMonth?.(dx < 0 ? 1 : -1)
+          }
+        }}
+      >
         {/* Day headers — subtle, same style as week numbers */}
         <div className="grid grid-cols-7 shrink-0">
           {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
@@ -205,7 +219,7 @@ export default function MonthView({
                     const inM = isSameMonth(d, monthStart)
                     const isSel = selectedDay === ds
                     return (
-                      <div key={ds} className="px-1 pt-0.5 text-center">
+                      <div key={ds} className="px-1 pt-0.5 text-center cursor-pointer" onClick={() => handleDayClick(ds)}>
                         <span className={`text-xs font-bold leading-tight px-1 rounded ${
                           isToday(d) && isSel ? 'bg-primary text-white'
                           : isToday(d) ? 'bg-primary/20 text-primary'

@@ -835,6 +835,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           }}
           loading={loading}
           isLightMode={isLightMode}
+          onNavigateMonth={(dir) => {
+            setState(s => ({
+              ...s,
+              date: format(dir > 0 ? addMonths(parseISO(s.date), 1) : subMonths(parseISO(s.date), 1), 'yyyy-MM-dd'),
+            }))
+          }}
           onActivityClick={(activity) =>
             setFormState({
               open: true,
