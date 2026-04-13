@@ -152,15 +152,13 @@ export default function MonthView({
     function calc() {
       if (!gridRef.current) return
       const rowHeight = gridRef.current.clientHeight / weekCount
-      // Account for multi-day span bars at top of each row (~14px per span)
-      const spanHeight = multiDaySpans.length > 0 ? 14 : 0
-      const available = rowHeight - 22 - 14 - spanHeight // day number + "+N" line + span bars
+      const available = rowHeight - 20 - 12 // day number row + "+N" line
       setMaxEvents(Math.max(1, Math.floor(available / 16)))
     }
     calc()
     window.addEventListener('resize', calc)
     return () => window.removeEventListener('resize', calc)
-  }, [weekCount, layout, multiDaySpans.length])
+  }, [weekCount, layout])
 
   // Selected day's activities for landscape agenda
   const selectedDayActivities = useMemo(() => {
@@ -196,11 +194,6 @@ export default function MonthView({
           {weeks.map((week, wi) => {
             const weekNum = getISOWeek(week[0])
             const monday = format(week[0], 'yyyy-MM-dd')
-            // Multi-day spans that cross this week
-            const weekStart = format(week[0], 'yyyy-MM-dd')
-            const weekEnd = format(week[6], 'yyyy-MM-dd')
-            const weekSpans = multiDaySpans.filter(s => s.startDate <= weekEnd && s.endDate >= weekStart)
-
             return (
               <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col">
                 {/* Day numbers row */}
@@ -221,34 +214,6 @@ export default function MonthView({
                     )
                   })}
                 </div>
-                {/* Multi-day event bars — below day numbers */}
-                {weekSpans.length > 0 && (
-                  <div className="relative shrink-0" style={{ height: weekSpans.length * (compact ? 5 : 14) }}>
-                    {weekSpans.map((span, si) => {
-                      const spanStartCol = Math.max(0, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.startDate) - wi * 7)
-                      const spanEndCol = Math.min(6, allDays.findIndex(d => format(d, 'yyyy-MM-dd') === span.endDate) - wi * 7)
-                      if (spanStartCol > 6 || spanEndCol < 0) return null
-                      const startCol = Math.max(0, spanStartCol)
-                      const colSpan = spanEndCol - startCol + 1
-                      return (
-                        <div
-                          key={span.id + wi}
-                          className={`absolute ${compact ? 'h-[3px] rounded-sm' : 'h-3 rounded text-[8px] font-bold truncate px-1 leading-3'}`}
-                          style={{
-                            left: `${(startCol / 7) * 100}%`,
-                            width: `${(colSpan / 7) * 100}%`,
-                            top: si * (compact ? 5 : 14),
-                            background: compact ? span.color : span.color + '40',
-                            color: span.color,
-                          }}
-                          title={span.description}
-                        >
-                          {!compact && span.description}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
                 {/* Day cell contents (events) */}
                 <div className="grid grid-cols-7 flex-1 min-h-0">
                 {week.map((day) => {
@@ -261,18 +226,20 @@ export default function MonthView({
                   const isSelected = selectedDay === dateStr
 
                   // Sort: all-day first, then by time
-                  const allDay = dayActivities.filter(a => a.isAllDay && !isInMultiDaySpan(a))
+                  const allDay = dayActivities.filter(a => a.isAllDay)
                   const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
                   const sorted = [...allDay, ...timed]
 
                   if (compact) {
-                    // Landscape compact: colored dots only (day number is in the row above)
-                    const dotSources = new Set(dayActivities.map(a => getActivityColor(a)))
+                    // Landscape compact: dots + thin lines for multi-day (day number is in the row above)
+                    const multiDay = dayActivities.filter(a => a.isAllDay && isInMultiDaySpan(a))
+                    const regular = dayActivities.filter(a => !a.isAllDay || !isInMultiDaySpan(a))
+                    const dotColors = regular.map(a => getActivityColor(a)).slice(0, 8)
                     return (
                       <button
                         key={dateStr}
                         onClick={() => handleDayClick(dateStr)}
-                        className={`flex flex-col items-center justify-center py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-px py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
                           isSelected ? 'bg-primary/15' :
                           !inMonth ? 'opacity-30' :
                           isHoliday ? 'bg-red-500/5' :
@@ -280,10 +247,14 @@ export default function MonthView({
                           'hover:bg-border/10'
                         }`}
                       >
+                        {/* Multi-day thin lines */}
+                        {multiDay.map(a => (
+                          <div key={a.id} className="w-3/4 h-[2px] rounded-sm" style={{ background: getActivityColor(a) }} />
+                        ))}
                         {/* Source color dots */}
-                        {dotSources.size > 0 && (
-                          <div className="flex gap-px">
-                            {[...dotSources].slice(0, 4).map((color, i) => (
+                        {dotColors.length > 0 && (
+                          <div className="flex flex-wrap justify-center gap-px">
+                            {dotColors.map((color, i) => (
                               <span key={i} className="w-1 h-1 rounded-full" style={{ background: color }} />
                             ))}
                           </div>
@@ -320,11 +291,19 @@ export default function MonthView({
                         )}
                         {visible.map(act => {
                           const color = getActivityColor(act)
+                          const isMultiDay = act.isAllDay && isInMultiDaySpan(act)
                           return (
                             <div
                               key={act.id}
-                              className="w-full rounded px-1 py-px mb-px truncate text-[9px] font-medium cursor-pointer hover:brightness-125"
-                              style={{ background: color + '20', color }}
+                              className={`w-full mb-px cursor-pointer hover:brightness-125 ${
+                                isMultiDay
+                                  ? 'h-[3px] rounded-sm' // thin bar for multi-day
+                                  : 'rounded px-1 py-px truncate text-[9px] font-medium'
+                              }`}
+                              style={isMultiDay
+                                ? { background: color }
+                                : { background: color + '20', color }
+                              }
                               onMouseEnter={isDesktop ? (e) => {
                                 const rect = e.currentTarget.getBoundingClientRect()
                                 setHoverPos({ x: rect.right + 4, y: rect.top })
@@ -335,8 +314,9 @@ export default function MonthView({
                                 e.stopPropagation()
                                 if (isDesktop) onActivityClick?.(act)
                               }}
+                              title={`${act.description}${isMultiDay ? ' (multi-day)' : ''}`}
                             >
-                              {act.description}
+                              {!isMultiDay && act.description}
                             </div>
                           )
                         })}
