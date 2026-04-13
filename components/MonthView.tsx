@@ -236,13 +236,15 @@ export default function MonthView({
                   const sorted = [...allDay, ...timed]
 
                   if (compact) {
-                    // Landscape compact: dots for all events + multi-day connector lines at top
-                    const multiDayLinesCompact = dayActivities.filter(a => isInMultiDaySpan(a)).map(a => getActivityColor(a))
+                    // Landscape compact: dots for all events + multi-day connector line at top
+                    const compactMultiDay = dayActivities.find(a => isInMultiDaySpan(a))
+                    const compactBorder = compactMultiDay ? `1px solid ${getActivityColor(compactMultiDay)}` : undefined
                     const dotColors = dayActivities.map(a => getActivityColor(a)).slice(0, 8)
                     return (
                       <button
                         key={dateStr}
                         onClick={() => handleDayClick(dateStr)}
+                        style={compactBorder ? { borderTop: compactBorder } : undefined}
                         className={`flex flex-col items-center justify-start gap-px py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
                           isSelected ? 'bg-primary/15' :
                           !inMonth ? 'opacity-30' :
@@ -252,10 +254,6 @@ export default function MonthView({
                         }`}
                         style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 4 } : undefined}
                       >
-                        {/* Multi-day connector lines */}
-                        {multiDayLinesCompact.map((c, i) => (
-                          <div key={i} className="w-full h-px shrink-0" style={{ background: c }} />
-                        ))}
                         {/* Source color dots */}
                         {dotColors.length > 0 && (
                           <div className="flex flex-wrap justify-center gap-px">
@@ -271,10 +269,9 @@ export default function MonthView({
                   // Portrait: full cells with event pills
                   const visible = sorted.slice(0, maxEvents)
                   const moreCount = sorted.length - visible.length
-                  // Multi-day connector lines
-                  const multiDayColors = dayActivities
-                    .filter(a => isInMultiDaySpan(a))
-                    .map(a => getActivityColor(a))
+                  // Multi-day connector line (top border)
+                  const multiDayAct = dayActivities.find(a => isInMultiDaySpan(a))
+                  const multiDayBorder = multiDayAct ? `1px solid ${getActivityColor(multiDayAct)}` : undefined
 
                   return (
                     <div
@@ -284,16 +281,9 @@ export default function MonthView({
                         isHoliday ? 'bg-red-500/5' :
                         isWeekend ? 'bg-border/10' : ''
                       }`}
+                      style={multiDayBorder ? { borderTop: multiDayBorder } : undefined}
                       onClick={() => handleDayClick(dateStr)}
                     >
-                      {/* Multi-day connector lines at top */}
-                      {multiDayColors.length > 0 && (
-                        <div className="flex flex-col shrink-0">
-                          {multiDayColors.map((c, i) => (
-                            <div key={i} className="h-px w-full" style={{ background: c }} />
-                          ))}
-                        </div>
-                      )}
 
                       {/* Event pills — padded for multi-day spanning overlays */}
                       <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5" style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 14 } : undefined}>
