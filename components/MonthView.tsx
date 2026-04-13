@@ -110,21 +110,22 @@ export default function MonthView({
   }
   const weekCount = weeks.length
 
-  // Portrait: measure grid to calc max events
+  // Measure grid to calc max events dynamically (all modes with pills)
   const gridRef = useRef<HTMLDivElement>(null)
   const [maxEvents, setMaxEvents] = useState(3)
   useEffect(() => {
-    if (isSplit) return
     function calc() {
       if (!gridRef.current) return
       const rowHeight = gridRef.current.clientHeight / weekCount
-      const available = rowHeight - 22 - 14 // day number + "+N" line
+      // Account for multi-day span bars at top of each row (~14px per span)
+      const spanHeight = multiDaySpans.length > 0 ? 14 : 0
+      const available = rowHeight - 22 - 14 - spanHeight // day number + "+N" line + span bars
       setMaxEvents(Math.max(1, Math.floor(available / 16)))
     }
     calc()
     window.addEventListener('resize', calc)
     return () => window.removeEventListener('resize', calc)
-  }, [weekCount, isSplit])
+  }, [weekCount, layout, multiDaySpans.length])
 
   // Selected day's activities for landscape agenda
   const selectedDayActivities = useMemo(() => {
