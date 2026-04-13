@@ -251,7 +251,7 @@ export default function MonthView({
                           isWeekend ? 'bg-border/10' :
                           'hover:bg-border/10'
                         }`}
-                        style={{ ...(compactBorder ? { borderTop: compactBorder } : {}) }}
+                        style={compactBorder ? { borderTop: compactBorder } : undefined}
                       >
                         {/* Source color dots */}
                         {dotColors.length > 0 && (
