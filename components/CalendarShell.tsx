@@ -758,7 +758,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         activityCacheRef.current.set(pfKey, { data: [...h, ...o, ...g], ts: Date.now() })
       }).catch(() => {})
     }
-  }, [selectedCodesKey, state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
+  // For month view, only refetch when the MONTH changes (not every day click within the same month)
+  }, [selectedCodesKey, state.view === 'month' ? state.date.slice(0, 7) : state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchActivities()
