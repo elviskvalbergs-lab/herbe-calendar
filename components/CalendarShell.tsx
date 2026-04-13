@@ -608,7 +608,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       setLoading(true)
     }
 
-    setStatus({ msg: 'Loading...' })
+    setStatus({ msg: `Loading ${state.view} ${dateFrom}→${dateTo} (cache: ${cacheEntry ? 'hit' : 'miss'})...` })
     const icsWarnings: string[] = []
     const errors: string[] = []
 
@@ -758,14 +758,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     fetchActivities()
   }, [fetchActivities])
 
-  // Force refetch when view changes (e.g., 7D→month needs wider date range)
-  const prevViewRef = useRef(state.view)
-  useEffect(() => {
-    if (prevViewRef.current !== state.view) {
-      prevViewRef.current = state.view
-      fetchActivities()
-    }
-  }, [state.view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch full customer + project lists into client state for instant search (Herbe only)
   useEffect(() => {
