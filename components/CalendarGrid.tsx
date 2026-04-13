@@ -284,7 +284,7 @@ export default function CalendarGrid({
                     return (
                       <div
                         key={person.code}
-                        className={`flex-1 flex items-center justify-center text-[10px] font-bold border-r border-border last:border-r-0 border-b ${hasOffGrid ? 'border-b-red-500' : 'border-b-border'}`}
+                        className={`flex-1 flex items-center justify-center text-[10px] font-bold border-r border-border last:border-r-0 border-b ${hasOffGrid ? 'border-b-red-500' : hasAllDay ? 'border-b-amber-400' : 'border-b-border'}`}
                         style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                         title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                       >
