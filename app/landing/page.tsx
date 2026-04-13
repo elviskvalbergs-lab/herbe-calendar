@@ -58,7 +58,7 @@ const FEATURES = [
   {
     tag: 'MOD_006',
     title: 'Team Views',
-    desc: 'See multiple people side-by-side in day, 3-day, 5-day, or 7-day views. Month navigator overlay with activity dots and week numbers. Swipe to move between date ranges. Save favorites for quick access to common team configurations.',
+    desc: 'See multiple people side-by-side in day, 3-day, 5-day, 7-day, or full month views. Month view shows event pills with multi-day spanning, desktop split with day agenda. Swipe navigation, favorites, and month navigator with activity dots.',
     color: CYAN,
     status: 'MESH CONNECTED',
     docsLink: '/docs/getting-started#views',
@@ -370,7 +370,7 @@ export default function LandingPage() {
                 {
                   step: '02',
                   title: 'See Everyone Together',
-                  desc: 'Select team members to view side-by-side in day, 3-day, 5-day, or 7-day views. Month navigator with activity dots and week numbers. Public holidays shown per person with country-aware banners.',
+                  desc: 'Select team members to view side-by-side in day, 3-day, 5-day, 7-day, or full month views. Multi-day events span across days. Month navigator with activity dots and week numbers. Public holidays per person.',
                   color: CYAN,
                 },
                 {

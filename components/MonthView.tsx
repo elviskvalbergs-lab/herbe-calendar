@@ -244,7 +244,6 @@ export default function MonthView({
                       <button
                         key={dateStr}
                         onClick={() => handleDayClick(dateStr)}
-                        style={compactBorder ? { borderTop: compactBorder } : undefined}
                         className={`flex flex-col items-center justify-start gap-px py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
                           isSelected ? 'bg-primary/15' :
                           !inMonth ? 'opacity-30' :
@@ -252,7 +251,7 @@ export default function MonthView({
                           isWeekend ? 'bg-border/10' :
                           'hover:bg-border/10'
                         }`}
-                        style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 4 } : undefined}
+                        style={{ ...(compactBorder ? { borderTop: compactBorder } : {}) }}
                       >
                         {/* Source color dots */}
                         {dotColors.length > 0 && (
@@ -285,8 +284,8 @@ export default function MonthView({
                       onClick={() => handleDayClick(dateStr)}
                     >
 
-                      {/* Event pills — padded for multi-day spanning overlays */}
-                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5" style={weekSpans.length > 0 ? { paddingTop: weekSpans.length * 14 } : undefined}>
+                      {/* Event pills */}
+                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5">
                         {isHoliday && (
                           <div
                             className="text-[8px] font-bold truncate rounded px-1 py-px mb-px"

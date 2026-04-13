@@ -36,7 +36,7 @@ export default function GettingStartedPage() {
             so you can see your entire team&apos;s schedule without switching between apps.
           </p>
           <ul className="space-y-1 text-text-muted text-sm list-disc list-inside">
-            <li>View multiple people side-by-side in day, 3-day, 5-day, or 7-day views</li>
+            <li>View multiple people side-by-side in day, 3-day, 5-day, 7-day, or month views</li>
             <li>Create and edit events across connected calendar systems</li>
             <li>Share calendar views with external parties via secure links</li>
             <li>Let clients book time slots based on your real availability</li>
@@ -98,6 +98,7 @@ export default function GettingStartedPage() {
             <li>3-day view — three days across for each person</li>
             <li>5-day view — a work-week view</li>
             <li>7-day view — full week including weekends</li>
+            <li>Month view — full month grid with event pills and multi-day spanning. On desktop, a split view shows the selected day&apos;s agenda alongside the month. On mobile portrait, tap a day to drill into day view</li>
           </ul>
 
           <h3 id="month-navigator" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Month Navigator</h3>
