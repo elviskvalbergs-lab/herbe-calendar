@@ -254,7 +254,7 @@ export default function MonthView({
                       >
                         {/* Multi-day connector lines */}
                         {multiDayLinesCompact.map((c, i) => (
-                          <div key={i} className="w-full h-[2px] shrink-0" style={{ background: c }} />
+                          <div key={i} className="w-full h-px shrink-0" style={{ background: c }} />
                         ))}
                         {/* Source color dots */}
                         {dotColors.length > 0 && (
@@ -290,7 +290,7 @@ export default function MonthView({
                       {multiDayColors.length > 0 && (
                         <div className="flex flex-col shrink-0">
                           {multiDayColors.map((c, i) => (
-                            <div key={i} className="h-[2px] w-full" style={{ background: c }} />
+                            <div key={i} className="h-px w-full" style={{ background: c }} />
                           ))}
                         </div>
                       )}
@@ -308,8 +308,6 @@ export default function MonthView({
                         )}
                         {visible.map(act => {
                           const color = getActivityColor(act)
-                          const isMultiDay = act.isAllDay && isInMultiDaySpan(act)
-                          if (isMultiDay) return null // rendered as spanning overlay
                           return (
                             <div
                               key={act.id}
