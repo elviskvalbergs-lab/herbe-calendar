@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       code: String(t['Code'] ?? ''),
       name: String(t['Comment'] ?? t['Name'] ?? t['Code'] ?? ''),
       classGroupCode: String(t['ActTypeGr'] ?? '') || undefined,
+      itemCode: String(t['ItemCode'] ?? '') || undefined,
     }))
     return NextResponse.json(types, {
       headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },

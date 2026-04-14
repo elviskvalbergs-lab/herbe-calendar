@@ -44,6 +44,7 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
   const [allActivityTypes, setAllActivityTypes] = useState<ActivityType[]>([])
   const [allProjects, setAllProjects] = useState<ProjectItem[]>([])
   const [allCustomers, setAllCustomers] = useState<SearchResult[]>([])
+  const [allItemsList, setAllItemsList] = useState<SearchResult[]>([])
 
   useEffect(() => {
     fetch('/api/activity-types').then(r => r.ok ? r.json() : []).then(d => setAllActivityTypes(Array.isArray(d) ? d : [])).catch(() => {})
@@ -57,6 +58,10 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
     fetch('/api/customers?all=1').then(r => r.ok ? r.json() : []).then(d => {
       const items = Array.isArray(d) ? d : []
       setAllCustomers(items.map((c: Record<string, unknown>) => ({ code: String(c.Code ?? c.code ?? ''), name: String(c.Name ?? c.name ?? '') })).filter(i => i.code))
+    }).catch(() => {})
+    fetch('/api/items?all=1').then(r => r.ok ? r.json() : []).then(d => {
+      const items = Array.isArray(d) ? d : []
+      setAllItemsList(items.map((i: Record<string, unknown>) => ({ code: String(i.Code ?? i.code ?? ''), name: String(i.Name ?? i.name ?? '') })).filter(i => i.code))
     }).catch(() => {})
   }, [])
 
@@ -131,6 +136,13 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
         const proj = allProjects.find(p => p.code === value)
         if (proj?.cuCode && !t.fields.CUCode) {
           newFields.CUCode = proj.cuCode
+        }
+      }
+      // Auto-fill item from activity type
+      if (field === 'ActType' && value) {
+        const actType = allActivityTypes.find(at => at.code === value)
+        if (actType?.itemCode && !t.fields.ItemCode) {
+          newFields.ItemCode = actType.itemCode
         }
       }
       return { ...t, fields: newFields }
@@ -324,6 +336,13 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
                     value={t.fields.CUCode || ''}
                     onChange={v => updateErpField(t.connectionId, 'CUCode', v)}
                     items={allCustomers}
+                    inputClass={inputClass}
+                  />
+                  <SearchField
+                    label="Item"
+                    value={t.fields.ItemCode || ''}
+                    onChange={v => updateErpField(t.connectionId, 'ItemCode', v)}
+                    items={allItemsList}
                     inputClass={inputClass}
                   />
                 </div>

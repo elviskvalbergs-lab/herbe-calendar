@@ -83,6 +83,7 @@ export interface ActivityType {
   code: string
   name: string
   classGroupCode?: string
+  itemCode?: string
 }
 
 export interface ActivityClassGroup {

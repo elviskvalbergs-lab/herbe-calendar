@@ -441,6 +441,16 @@ export default function ActivityForm({
     }
   }
 
+  // Auto-fill item code from activity type (if the type has a default item)
+  function autoFillItemFromType(typeCode: string) {
+    const type = activityTypes.find(t => t.code === typeCode)
+    if (type?.itemCode) {
+      setItemCode(type.itemCode)
+      const itemMatch = allItems?.find(i => i.Code === type.itemCode)
+      setItemName(itemMatch?.Name ?? type.itemCode)
+    }
+  }
+
   function searchItems(q: string) {
     if (q.length < 2) { setItemResults([]); setItemSearchMsg(null); return }
     const connItems = allItems?.filter(i => {
@@ -1288,6 +1298,7 @@ export default function ActivityForm({
                         const found = activityTypes.find(at => at.code === t.fields.ActType)
                         setActivityTypeName(found?.name ?? '')
                         setCurrentGroup(getTypeGroup?.(t.fields.ActType))
+                        autoFillItemFromType(t.fields.ActType)
                       }
                       if (t.fields.PRCode) {
                         setProjectCode(t.fields.PRCode)
@@ -1541,6 +1552,7 @@ export default function ActivityForm({
                           setActivityTypeName(type.name)
                           setActivityTypeResults([])
                           setCurrentGroup(getTypeGroup?.(type.code))
+                          autoFillItemFromType(type.code)
                         }}
                         className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
                           isSelected ? 'border-current' : 'border-border text-text-muted hover:border-primary/50'
@@ -1572,7 +1584,7 @@ export default function ActivityForm({
                     else if ((e.key === 'Enter' || e.key === 'Tab') && focusedTypeIdx >= 0) {
                       if (e.key === 'Tab') e.preventDefault()
                       const t = activityTypeResults[focusedTypeIdx]
-                      setActivityTypeCode(t.code); setActivityTypeName(t.name); setActivityTypeResults([]); setFocusedTypeIdx(-1); setCurrentGroup(getTypeGroup?.(t.code))
+                      setActivityTypeCode(t.code); setActivityTypeName(t.name); setActivityTypeResults([]); setFocusedTypeIdx(-1); setCurrentGroup(getTypeGroup?.(t.code)); autoFillItemFromType(t.code)
                       if (e.key === 'Tab') projectInputRef.current?.focus()
                     } else if (e.key === 'Escape') { setActivityTypeResults([]); setFocusedTypeIdx(-1) }
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
@@ -1602,6 +1614,7 @@ export default function ActivityForm({
                         setActivityTypeResults([])
                         setFocusedTypeIdx(-1)
                         setCurrentGroup(getTypeGroup?.(t.code))
+                        autoFillItemFromType(t.code)
                         projectInputRef.current?.focus()
                       }}
                       className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${tIdx === focusedTypeIdx ? 'bg-primary/20' : 'hover:bg-border'}`}

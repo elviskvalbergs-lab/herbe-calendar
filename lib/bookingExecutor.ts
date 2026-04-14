@@ -140,6 +140,19 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
             for (const [field, value] of Object.entries(erpTarget.fields)) {
               formParts.push(`set_field.${field}=${encodeURIComponent(value)}`)
             }
+            // If ActType is set but ItemCode isn't, resolve ItemCode from the activity type
+            if (erpTarget.fields.ActType && !erpTarget.fields.ItemCode) {
+              try {
+                const { herbeFetchAll } = await import('@/lib/herbe/client')
+                const { REGISTERS } = await import('@/lib/herbe/constants')
+                const types = await herbeFetchAll(REGISTERS.activityTypes, {}, 1000, conn) as Record<string, unknown>[]
+                const actType = types.find(t => String(t['Code'] ?? '') === erpTarget.fields!.ActType)
+                const typeItemCode = String(actType?.['ItemCode'] ?? '')
+                if (typeItemCode) {
+                  formParts.push(`set_field.ItemCode=${encodeURIComponent(typeItemCode)}`)
+                }
+              } catch { /* non-fatal — skip item auto-fill */ }
+            }
           }
 
           // Sanitize control characters and split into 100-char rows for ERP
