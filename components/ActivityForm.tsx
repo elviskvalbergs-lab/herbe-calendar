@@ -324,7 +324,7 @@ export default function ActivityForm({
   function smartDefaultStart(hint?: string): string {
     if (hint) return hint
     const todayForPerson = allActivities
-      .filter(a => a.date === date && !a.planned && a.source !== 'outlook' && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
+      .filter(a => a.date === date && !a.planned && !a.isAllDay && a.source === 'herbe' && (a.mainPersons?.includes(defaultPersonCode) || a.personCode === defaultPersonCode))
       .sort((a, b) => b.timeTo.localeCompare(a.timeTo))
     return todayForPerson[0]?.timeTo ?? '09:00'
   }
