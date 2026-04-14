@@ -1986,16 +1986,15 @@ function TemplateQuickPick({ onApply, activityTypes }: {
                 type="button"
                 tabIndex={-1}
                 onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setOpen(false)
-                  justClosedRef.current = true
-                  setTimeout(() => { justClosedRef.current = false }, 300)
+                onClick={() => {
                   const outlookTarget = t.targets?.outlook
                   const googleTarget = t.targets?.google
                   const loc = outlookTarget?.location || googleTarget?.location || undefined
                   const online = outlookTarget?.onlineMeeting ?? googleTarget?.onlineMeeting ?? undefined
                   onApply({ fields: erpFields, duration: t.duration_minutes, description: t.name, location: loc, onlineMeeting: online })
+                  setOpen(false)
+                  justClosedRef.current = true
+                  setTimeout(() => { justClosedRef.current = false }, 300)
                 }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
               >
