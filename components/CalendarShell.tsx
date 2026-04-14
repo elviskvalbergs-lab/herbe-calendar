@@ -572,10 +572,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   // Stable string of selected person codes — avoids refetching when stubs are replaced with full objects
   const selectedCodesKey = state.selectedPersons.map(p => p.code).join(',')
-  const fetchGenRef = useRef(0)
+  const activeFetchKeyRef = useRef('')
 
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
-    const thisGen = ++fetchGenRef.current
     if (!selectedCodesKey) return
     const codes = selectedCodesKey
     const dateFrom = state.view === 'month'
@@ -594,8 +593,9 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       ? `date=${dateFrom}`
       : `dateFrom=${dateFrom}&dateTo=${dateTo}`
 
-    // Check cache first — show cached data instantly (skip cache on manual refresh)
+    // Track which fetch is current — results for a different key are discarded
     const cacheKey = `${codes}:${dateFrom}:${dateTo}`
+    activeFetchKeyRef.current = cacheKey
     const cacheEntry = activityCacheRef.current.get(cacheKey)
     if (cacheEntry && !bustIcsCache) {
       setActivities(cacheEntry.data)
@@ -620,7 +620,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     const loaded: { herbe: Activity[] | null; outlook: Activity[] | null; google: Activity[] | null } = { herbe: null, outlook: null, google: null }
 
     function mergeAndSetActivities() {
-      if (fetchGenRef.current !== thisGen) return // stale fetch — ignore
+      if (activeFetchKeyRef.current !== cacheKey) return // stale fetch for different date range — ignore
       setActivities(prev => {
         // Keep previous source data for sources that haven't loaded yet
         const h = loaded.herbe ?? prev.filter(a => a.source === 'herbe')
@@ -712,8 +712,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     // Wait for all to finish for final status
     await Promise.all(promises)
 
-    // If a newer fetch started while we were loading, discard these results
-    if (fetchGenRef.current !== thisGen) return
+    // If a newer fetch for a different date range started, discard these results
+    if (activeFetchKeyRef.current !== cacheKey) return
 
     // Final status
     const parts: string[] = []
@@ -981,7 +981,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
           allActivities={activities}
           onClose={() => setFormState({ open: false })}
-          onSaved={() => { fetchActivities(); setTimeout(fetchActivities, 2000) }}
+          onSaved={() => { fetchActivities(true); setTimeout(() => fetchActivities(true), 2000) }}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
           onRsvp={(newStatus) => {
             // Update the activity in-state so re-opening the form shows the correct RSVP
