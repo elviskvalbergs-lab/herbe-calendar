@@ -1774,7 +1774,7 @@ export default function ActivityForm({
           )}
 
           {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
-          {isErpSource && (currentGroup?.forceItem || itemCode) && (
+          {isErpSource && (currentGroup?.forceItem || activityTypes.find(t => t.code === activityTypeCode)?.itemCode) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block flex items-center gap-1">
                 Item{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
