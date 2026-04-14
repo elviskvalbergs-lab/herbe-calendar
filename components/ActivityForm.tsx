@@ -1984,7 +1984,8 @@ function TemplateQuickPick({ onApply, activityTypes }: {
                 type="button"
                 tabIndex={-1}
                 onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
                   setOpen(false)
                   const outlookTarget = t.targets?.outlook
                   const googleTarget = t.targets?.google

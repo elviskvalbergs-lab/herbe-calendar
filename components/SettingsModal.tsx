@@ -254,7 +254,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
       <div className="absolute inset-0 bg-black/60" onClick={() => guardedClose(onClose)} />
       <div
         className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden"
-        onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
+        onTouchStart={e => {
+          // Only track swipe if started near the top (drag handle area, first 60px)
+          const rect = e.currentTarget.getBoundingClientRect()
+          const touchY = e.touches[0].clientY - rect.top
+          swipeStart.current = touchY < 60 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null
+        }}
         onTouchEnd={e => {
           if (swipeStart.current !== null) {
             const dx = e.changedTouches[0].clientX - swipeStart.current.x
