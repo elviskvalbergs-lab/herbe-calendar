@@ -52,6 +52,7 @@ export default function MonthView({
     return saved ? Number(saved) : Math.round(window.innerWidth * 0.5)
   })
   const isDraggingRef = useRef(false)
+  const latestWidthRef = useRef(splitWidth)
 
   useEffect(() => {
     function check() {
@@ -93,7 +94,7 @@ export default function MonthView({
       map.set(a.date, existing)
     }
     return map
-  }, [activities])
+  }, [filteredActivities])
 
   // Detect multi-day events: group consecutive all-day events with same base description
   const multiDaySpans = useMemo(() => {
@@ -356,11 +357,12 @@ export default function MonthView({
       function onMove(me: PointerEvent) {
         if (!isDraggingRef.current) return
         const newWidth = Math.max(280, Math.min(window.innerWidth - 300, startWidth + (me.clientX - startX)))
+        latestWidthRef.current = newWidth
         setSplitWidth(newWidth)
       }
       function onUp() {
         isDraggingRef.current = false
-        localStorage.setItem('monthViewSplitWidth', String(splitWidth))
+        localStorage.setItem('monthViewSplitWidth', String(latestWidthRef.current))
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
       }
