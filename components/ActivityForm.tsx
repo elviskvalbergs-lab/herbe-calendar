@@ -1907,6 +1907,7 @@ function TemplateQuickPick({ onApply, activityTypes }: {
   const [loaded, setLoaded] = useState(false)
   const [filter, setFilter] = useState('')
   const filterRef = useRef<HTMLInputElement>(null)
+  const justClosedRef = useRef(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -1923,6 +1924,7 @@ function TemplateQuickPick({ onApply, activityTypes }: {
   }, [open])
 
   function toggle() {
+    if (justClosedRef.current) { justClosedRef.current = false; return }
     if (!loaded) {
       fetch('/api/settings/templates').then(r => r.json()).then(data => {
         setTemplates(Array.isArray(data) ? data : [])
@@ -1987,6 +1989,8 @@ function TemplateQuickPick({ onApply, activityTypes }: {
                 onClick={(e) => {
                   e.stopPropagation()
                   setOpen(false)
+                  justClosedRef.current = true
+                  setTimeout(() => { justClosedRef.current = false }, 300)
                   const outlookTarget = t.targets?.outlook
                   const googleTarget = t.targets?.google
                   const loc = outlookTarget?.location || googleTarget?.location || undefined
