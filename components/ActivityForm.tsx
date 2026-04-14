@@ -1905,6 +1905,8 @@ function TemplateQuickPick({ onApply, activityTypes }: {
   const [templates, setTemplates] = useState<{ id: string; name: string; duration_minutes: number; targets: { erp?: { fields: Record<string, string> }[]; outlook?: { enabled?: boolean; onlineMeeting?: boolean; location?: string }; google?: { enabled?: boolean; onlineMeeting?: boolean; location?: string } } }[]>([])
   const [open, setOpen] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [filter, setFilter] = useState('')
+  const filterRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
@@ -1926,9 +1928,15 @@ function TemplateQuickPick({ onApply, activityTypes }: {
         setTemplates(Array.isArray(data) ? data : [])
         setLoaded(true)
         setOpen(true)
+        setFilter('')
+        setTimeout(() => filterRef.current?.focus(), 50)
       }).catch(() => setLoaded(true))
     } else {
-      setOpen(o => !o)
+      setOpen(o => {
+        const next = !o
+        if (next) { setFilter(''); setTimeout(() => filterRef.current?.focus(), 50) }
+        return next
+      })
     }
   }
 
@@ -1948,12 +1956,26 @@ function TemplateQuickPick({ onApply, activityTypes }: {
         </svg>
       </button>
       {open && (
-        <div ref={dropdownRef} className="absolute left-0 top-5 z-[70] bg-surface border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+        <div ref={dropdownRef} className="absolute left-0 top-5 z-[70] bg-surface border border-border rounded-lg shadow-lg min-w-[220px] max-h-[300px] flex flex-col">
           {loaded && templates.length === 0 ? (
             <p className="px-3 py-2 text-xs text-text-muted">No templates. Create one in Settings &gt; Templates.</p>
           ) : !loaded ? (
             <p className="px-3 py-2 text-xs text-text-muted animate-pulse">Loading...</p>
-          ) : templates.map(t => {
+          ) : (<>
+            {templates.length > 3 && (
+              <div className="px-2 pt-2 pb-1 shrink-0">
+                <input
+                  ref={filterRef}
+                  value={filter}
+                  onChange={e => setFilter(e.target.value)}
+                  placeholder="Search templates..."
+                  className="w-full bg-bg border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-primary text-text"
+                  onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); e.stopPropagation() } }}
+                />
+              </div>
+            )}
+            <div className="overflow-y-auto py-1">
+            {templates.filter(t => !filter || t.name.toLowerCase().includes(filter.toLowerCase())).map(t => {
             const erpFields = t.targets?.erp?.[0]?.fields ?? {}
             const typeName = erpFields.ActType ? activityTypes.find(at => at.code === erpFields.ActType)?.name : undefined
             return (
@@ -1972,12 +1994,14 @@ function TemplateQuickPick({ onApply, activityTypes }: {
                 }}
                 className="w-full text-left px-3 py-2 text-xs hover:bg-border/30 transition-colors"
               >
-                <span className="font-bold">{t.name}</span>
+                <span className="font-bold text-text">{t.name}</span>
                 <span className="text-text-muted ml-1">({t.duration_minutes}min)</span>
                 {typeName && <span className="block text-[10px] text-text-muted mt-0.5">{erpFields.ActType} · {typeName}</span>}
               </button>
             )
           })}
+            </div>
+          </>)}
         </div>
       )}
     </span>
