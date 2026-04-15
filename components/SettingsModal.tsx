@@ -962,9 +962,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                       await fetch('/api/settings/templates', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: t.id, duplicate: true }) })
                                       const res = await fetch('/api/settings/templates')
                                       const updated = await res.json()
-                                      setTemplates(updated)
+                                      const list = Array.isArray(updated) ? updated : []
+                                      setTemplates(list)
                                       // Open the new copy (last template with "(copy)" in name)
-                                      const copy = [...updated].reverse().find((x: { name: string }) => x.name.includes('(copy)'))
+                                      const copy = [...list].reverse().find((x: { name: string }) => x.name.includes('(copy)'))
                                       setExpandedTemplateId(copy?.id ?? null)
                                     }}
                                     onDelete={() => {

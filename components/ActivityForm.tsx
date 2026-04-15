@@ -275,7 +275,7 @@ export default function ActivityForm({
 
   // Resolve item name from code on mount
   useEffect(() => {
-    if (itemCode && !itemName && allItems?.length) {
+    if (itemCode && !itemName && Array.isArray(allItems) && allItems.length) {
       const match = allItems.find(i => i.Code === itemCode)
       if (match) setItemName(match.Name)
     }
@@ -443,10 +443,11 @@ export default function ActivityForm({
 
   // Auto-fill item code from activity type (if the type has a default item)
   function autoFillItemFromType(typeCode: string) {
+    if (!Array.isArray(activityTypes)) return
     const type = activityTypes.find(t => t.code === typeCode)
     if (type?.itemCode) {
       setItemCode(type.itemCode)
-      const itemMatch = allItems?.find(i => i.Code === type.itemCode)
+      const itemMatch = Array.isArray(allItems) ? allItems.find(i => i.Code === type.itemCode) : undefined
       setItemName(itemMatch?.Name ?? type.itemCode)
     }
   }
@@ -1774,7 +1775,7 @@ export default function ActivityForm({
           )}
 
           {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
-          {isErpSource && (currentGroup?.forceItem || activityTypes.find(t => t.code === activityTypeCode)?.itemCode) && (
+          {isErpSource && (currentGroup?.forceItem || (Array.isArray(activityTypes) && activityTypes.find(t => t.code === activityTypeCode)?.itemCode)) && (
             <div>
               <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block flex items-center gap-1">
                 Item{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
