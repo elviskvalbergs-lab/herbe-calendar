@@ -3,6 +3,7 @@ import { pool } from '@/lib/db'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { getCachedEvents } from '@/lib/cache/events'
+import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
 
@@ -122,9 +123,12 @@ export async function GET(
 
   const allActivities: (Record<string, unknown> | Activity)[] = []
 
-  // Fetch Herbe activities from all ERP connections
+  // Fetch Herbe activities: cache first, live ERP fallback
   if (!hiddenCalendarsSet.has('herbe')) {
-    const erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
+    let erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
+    if (erpActivities.length === 0) {
+      erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true })
+    }
     allActivities.push(...erpActivities)
   }
 

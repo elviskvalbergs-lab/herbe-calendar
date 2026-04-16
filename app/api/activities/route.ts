@@ -7,6 +7,7 @@ import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import { getCachedEvents, upsertCachedEvents } from '@/lib/cache/events'
 import { buildCacheRows } from '@/lib/sync/erp'
+import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import type { Activity } from '@/types'
 
 export async function GET(req: Request) {
@@ -29,9 +30,17 @@ export async function GET(req: Request) {
   try {
     const personList = persons.split(',').map(p => p.trim())
 
-    const allResults = await getCachedEvents(
+    // Try cache first, fall back to live ERP fetch if cache is empty
+    let allResults = await getCachedEvents(
       session.accountId, personList, dateFrom, dateTo ?? dateFrom,
     )
+
+    if (allResults.length === 0) {
+      allResults = await fetchErpActivities(
+        session.accountId, personList, dateFrom, dateTo ?? dateFrom,
+        { includePrivateFields: true },
+      )
+    }
 
     // Track day_viewed (fire-and-forget)
     if (dateFrom && session.email) {
