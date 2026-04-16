@@ -148,7 +148,7 @@ export async function herbeFetch(
   conn?: ErpConnection
 ): Promise<Response> {
   const auth = await herbeAuthHeader(conn)
-  return herbeFetchRaw(herbeUrl(register, query, conn), {
+  const res = await herbeFetchRaw(herbeUrl(register, query, conn), {
     ...options,
     headers: {
       Authorization: auth,
@@ -157,6 +157,24 @@ export async function herbeFetch(
       ...(options?.headers ?? {}),
     },
   })
+
+  // Retry once on 401 with a fresh token (handles server-side expiry mismatches)
+  if (res.status === 401 && conn?.refreshToken) {
+    const newToken = await refreshConnectionToken(conn)
+    if (newToken) {
+      return herbeFetchRaw(herbeUrl(register, query, conn), {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${newToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(options?.headers ?? {}),
+        },
+      })
+    }
+  }
+
+  return res
 }
 
 /** Fetch a single record or mutate it using the path-based URL: /register/id */
@@ -167,7 +185,7 @@ export async function herbeFetchById(
   conn?: ErpConnection
 ): Promise<Response> {
   const auth = await herbeAuthHeader(conn)
-  return herbeFetchRaw(herbeUrlById(register, id, conn), {
+  const res = await herbeFetchRaw(herbeUrlById(register, id, conn), {
     ...options,
     headers: {
       Authorization: auth,
@@ -176,6 +194,23 @@ export async function herbeFetchById(
       ...(options?.headers ?? {}),
     },
   })
+
+  if (res.status === 401 && conn?.refreshToken) {
+    const newToken = await refreshConnectionToken(conn)
+    if (newToken) {
+      return herbeFetchRaw(herbeUrlById(register, id, conn), {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${newToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...(options?.headers ?? {}),
+        },
+      })
+    }
+  }
+
+  return res
 }
 
 /** Function to delete records using the specialized WebExcellentAPI.hal action endpoint */
