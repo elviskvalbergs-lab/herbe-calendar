@@ -79,9 +79,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       )}
       <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
       <button
-        onClick={() => { if (!isMonth) setMonthNavOpen(true) }}
+        onClick={() => setMonthNavOpen(true)}
         className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap"
-        title="Pick a date"
+        title={isMonth ? 'Pick a month' : 'Pick a date'}
       >
         {format(parseISO(state.date), 'd MMM yyyy')}
       </button>
