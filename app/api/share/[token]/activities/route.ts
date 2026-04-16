@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
-import { fetchErpActivities } from '@/lib/herbe/recordUtils'
+import { getCachedEvents } from '@/lib/cache/events'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
 
@@ -124,7 +124,7 @@ export async function GET(
 
   // Fetch Herbe activities from all ERP connections
   if (!hiddenCalendarsSet.has('herbe')) {
-    const erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, cappedDateTo)
+    const erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
     allActivities.push(...erpActivities)
   }
 
