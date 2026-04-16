@@ -5,6 +5,8 @@ import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections, type ErpConnection } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
+import { upsertCachedEvents, deleteCachedEvent } from '@/lib/cache/events'
+import { buildCacheRows } from '@/lib/sync/erp'
 import { toHerbeForm } from '../route'
 
 async function resolveConnection(url: string, accountId: string): Promise<ErpConnection | undefined> {
@@ -69,6 +71,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
     }
     trackEvent(session.accountId, session.email, 'activity_edited').catch(() => {})
+    // Write-through: update cache with the edited activity
+    try {
+      // Delete old cache entries (person assignments may have changed)
+      await deleteCachedEvent(session.accountId, 'herbe', id)
+      // Re-fetch the updated record to get full field set
+      const updated = await fetchActivity(id, conn)
+      if (updated) {
+        const cacheRows = buildCacheRows(
+          updated,
+          session.accountId,
+          conn?.id ?? '',
+          conn?.name ?? '',
+        )
+        if (cacheRows.length > 0) {
+          upsertCachedEvents(cacheRows).catch(e =>
+            console.warn('[activities/PUT] cache write-through failed:', e)
+          )
+        }
+      }
+    } catch (e) {
+      console.warn('[activities/PUT] cache write-through error:', e)
+    }
     return NextResponse.json(data ?? {}, { status: 200 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -96,6 +120,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: text || `Herbe error ${res.status}` }, { status: res.status })
     }
     trackEvent(session.accountId, session.email, 'activity_deleted').catch(() => {})
+    // Write-through: remove from cache
+    deleteCachedEvent(session.accountId, 'herbe', id).catch(e =>
+      console.warn('[activities/DELETE] cache write-through failed:', e)
+    )
     return new NextResponse(null, { status: 204 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

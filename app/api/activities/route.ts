@@ -5,7 +5,8 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
-import { getCachedEvents } from '@/lib/cache/events'
+import { getCachedEvents, upsertCachedEvents } from '@/lib/cache/events'
+import { buildCacheRows } from '@/lib/sync/erp'
 import type { Activity } from '@/types'
 
 export async function GET(req: Request) {
@@ -148,6 +149,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: hint }, { status: 422 })
     }
     trackEvent(postSession.accountId, postSession.email, 'activity_created').catch(() => {})
+    // Write-through: cache the new activity
+    try {
+      const connectionId = conn?.id ?? ''
+      const connectionName = conn?.name ?? ''
+      const cacheRows = buildCacheRows(
+        created as Record<string, unknown>,
+        postSession.accountId,
+        connectionId,
+        connectionName,
+      )
+      if (cacheRows.length > 0) {
+        upsertCachedEvents(cacheRows).catch(e =>
+          console.warn('[activities/POST] cache write-through failed:', e)
+        )
+      }
+    } catch (e) {
+      console.warn('[activities/POST] cache write-through error:', e)
+    }
     return NextResponse.json(created, { status: 201 })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
