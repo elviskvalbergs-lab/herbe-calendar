@@ -222,7 +222,7 @@ export async function herbeWebExcellentDelete(
  * Parse a Herbe response, sanitizing any unescaped control characters
  * that some ERP servers embed in string values (tab, newline, etc.).
  */
-async function herbeParseJSON(res: Response): Promise<unknown> {
+export async function herbeParseJSON(res: Response): Promise<unknown> {
   const text = await res.text()
   try {
     return JSON.parse(text)
@@ -253,4 +253,40 @@ export async function herbeFetchAll(
     offset += limit
   }
   return results
+}
+
+/**
+ * Fetch records with sequence tracking. Used for incremental sync.
+ * Returns all records plus the Sequence header from the last page.
+ *
+ * For incremental sync: pass `updates_after` in params.
+ * For full sync: pass `sort` and `range` in params.
+ */
+export async function herbeFetchWithSequence(
+  register: string,
+  params: Record<string, string> = {},
+  limit = 1000,
+  conn?: ErpConnection
+): Promise<{ records: unknown[]; sequence: string | null }> {
+  const records: unknown[] = []
+  let lastSequence: string | null = null
+  let offset = 0
+
+  while (true) {
+    const query = new URLSearchParams({ ...params, limit: String(limit), offset: String(offset) }).toString()
+    const res = await herbeFetch(register, query, undefined, conn)
+    if (!res.ok) throw new Error(`Herbe ${register} fetch failed: ${res.status}`)
+
+    const seq = res.headers.get('Sequence')
+    if (seq) lastSequence = seq
+
+    const json = await herbeParseJSON(res)
+    const page = ((json as Record<string, unknown>)?.data?.[register as keyof unknown] ?? []) as unknown[]
+    records.push(...page)
+
+    if (page.length < limit) break
+    offset += limit
+  }
+
+  return { records, sequence: lastSequence }
 }
