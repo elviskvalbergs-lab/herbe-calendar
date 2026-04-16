@@ -7,6 +7,7 @@ import { fetchOutlookEventsMinimal } from '@/lib/outlookUtils'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/googleUtils'
 import { emailForCode } from '@/lib/emailForCode'
 import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
+import { getCachedEvents } from '@/lib/cache/events'
 import { format, endOfMonth, parseISO } from 'date-fns'
 
 type DaySummary = { sources: string[]; count: number }
@@ -48,21 +49,28 @@ export async function GET(req: NextRequest) {
     result[date].count++
   }
 
-  // ERP
+  // ERP: cache first, live fallback
   try {
-    const connections = await getErpConnections(session.accountId)
-    for (const conn of connections) {
-      try {
-        const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
-        for (const record of raw) {
-          const r = record as Record<string, unknown>
-          if (!isCalendarRecord(r)) continue
-          const { main, cc } = parsePersons(r)
-          if ([...main, ...cc].some(p => personSet.has(p))) {
-            addEntry(String(r['TransDate'] ?? ''), 'herbe')
+    const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo)
+    if (cached.length > 0) {
+      for (const ev of cached) {
+        if (ev.date) addEntry(ev.date, 'herbe')
+      }
+    } else {
+      const connections = await getErpConnections(session.accountId)
+      for (const conn of connections) {
+        try {
+          const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
+          for (const record of raw) {
+            const r = record as Record<string, unknown>
+            if (!isCalendarRecord(r)) continue
+            const { main, cc } = parsePersons(r)
+            if ([...main, ...cc].some(p => personSet.has(p))) {
+              addEntry(String(r['TransDate'] ?? ''), 'herbe')
+            }
           }
-        }
-      } catch { /* non-fatal */ }
+        } catch { /* non-fatal */ }
+      }
     }
   } catch { /* non-fatal */ }
 
