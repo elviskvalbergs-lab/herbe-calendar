@@ -1,6 +1,6 @@
 import { GET, POST, toHerbeForm } from '@/app/api/activities/route'
 import { canEdit as canEditActivity } from '@/app/api/activities/[id]/route'
-import { herbeFetchAll } from '@/lib/herbe/client'
+import { getCachedEvents } from '@/lib/cache/events'
 
 // Mock Herbe client
 jest.mock('@/lib/herbe/client', () => ({
@@ -8,8 +8,15 @@ jest.mock('@/lib/herbe/client', () => ({
   herbeFetchAll: jest.fn().mockResolvedValue([]),
   herbeUrl: jest.fn().mockReturnValue('http://mock/3/ActVc'),
 }))
+jest.mock('@/lib/cache/events', () => ({
+  getCachedEvents: jest.fn().mockResolvedValue([]),
+  upsertCachedEvents: jest.fn().mockResolvedValue(undefined),
+}))
+jest.mock('@/lib/sync/erp', () => ({
+  buildCacheRows: jest.fn().mockReturnValue([]),
+}))
 jest.mock('@/lib/herbe/auth-guard', () => ({
-  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com' }),
+  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'acc-1' }),
 }))
 jest.mock('@/lib/accountConfig', () => ({
   getErpConnections: jest.fn().mockResolvedValue([{
@@ -92,16 +99,29 @@ describe('GET /api/activities', () => {
 
 describe('GET /api/activities — CC persons', () => {
   it('emits a CC row for a person listed only in CCPersons', async () => {
-    (herbeFetchAll as jest.Mock).mockResolvedValueOnce([
+    // Cache stores pre-expanded rows: one per person per activity
+    ;(getCachedEvents as jest.Mock).mockResolvedValueOnce([
       {
-        SerNr: '42',
-        MainPersons: 'EKS',
-        CCPersons: 'ARA',
-        Comment: 'Test activity',
-        TransDate: '2026-03-24',
-        StartTime: '090000',
-        EndTime: '103000',
-        CalTimeFlag: '1',
+        id: '42',
+        source: 'herbe',
+        personCode: 'EKS',
+        description: 'Test activity',
+        date: '2026-03-24',
+        timeFrom: '09:00',
+        timeTo: '10:30',
+        mainPersons: ['EKS'],
+        ccPersons: ['ARA'],
+      },
+      {
+        id: '42',
+        source: 'herbe',
+        personCode: 'ARA',
+        description: 'Test activity',
+        date: '2026-03-24',
+        timeFrom: '09:00',
+        timeTo: '10:30',
+        mainPersons: ['EKS'],
+        ccPersons: ['ARA'],
       },
     ])
     const req = new Request('http://localhost/api/activities?persons=EKS,ARA&date=2026-03-24')
@@ -116,23 +136,36 @@ describe('GET /api/activities — CC persons', () => {
   })
 
   it('does not emit a CC row if person is already a main person', async () => {
-    (herbeFetchAll as jest.Mock).mockResolvedValueOnce([
+    // When ARA is both main and CC, cache stores only one row per person
+    ;(getCachedEvents as jest.Mock).mockResolvedValueOnce([
       {
-        SerNr: '43',
-        MainPersons: 'EKS,ARA',
-        CCPersons: 'ARA',
-        Comment: 'Both',
-        TransDate: '2026-03-24',
-        StartTime: '090000',
-        EndTime: '100000',
-        CalTimeFlag: '1',
+        id: '43',
+        source: 'herbe',
+        personCode: 'EKS',
+        description: 'Both',
+        date: '2026-03-24',
+        timeFrom: '09:00',
+        timeTo: '10:00',
+        mainPersons: ['EKS', 'ARA'],
+        ccPersons: ['ARA'],
+      },
+      {
+        id: '43',
+        source: 'herbe',
+        personCode: 'ARA',
+        description: 'Both',
+        date: '2026-03-24',
+        timeFrom: '09:00',
+        timeTo: '10:00',
+        mainPersons: ['EKS', 'ARA'],
+        ccPersons: ['ARA'],
       },
     ])
     const req = new Request('http://localhost/api/activities?persons=EKS,ARA&date=2026-03-24')
     const res = await GET(req)
     const body = await res.json()
     const araRows = body.filter((a: { personCode: string }) => a.personCode === 'ARA')
-    expect(araRows).toHaveLength(1)  // only the main row, not an additional CC row
+    expect(araRows).toHaveLength(1)  // only one row per person from cache
     expect(araRows[0].mainPersons).toContain('ARA')
   })
 })

@@ -1,21 +1,44 @@
 jest.mock('@/lib/db', () => ({ pool: { query: jest.fn() } }))
-jest.mock('@/lib/herbe/client', () => ({
-  herbeFetchAll: jest.fn().mockResolvedValue([]),
+jest.mock('@/lib/cache/events', () => ({
+  getCachedEvents: jest.fn().mockResolvedValue([]),
 }))
 jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn().mockResolvedValue({ ok: false }),
 }))
 jest.mock('@/lib/icsParser', () => ({
   fetchIcsEvents: jest.fn().mockResolvedValue([]),
+  deduplicateIcsAgainstGraph: jest.fn().mockReturnValue([]),
+}))
+jest.mock('@/lib/icsUtils', () => ({
+  fetchIcsForPerson: jest.fn().mockResolvedValue({ events: [], warnings: [] }),
 }))
 jest.mock('@/lib/emailForCode', () => ({
   emailForCode: jest.fn().mockResolvedValue(null),
+}))
+jest.mock('@/lib/outlookUtils', () => ({
+  fetchOutlookEventsForPerson: jest.fn().mockResolvedValue(null),
+}))
+jest.mock('@/lib/googleUtils', () => ({
+  fetchGoogleEventsForPerson: jest.fn().mockResolvedValue(null),
+  fetchPerUserGoogleEvents: jest.fn().mockResolvedValue({ events: [], warnings: [] }),
+  mapGoogleEvent: jest.fn(),
+}))
+jest.mock('@/lib/sharedCalendars', () => ({
+  fetchSharedCalendarEvents: jest.fn().mockResolvedValue({ events: [] }),
+}))
+jest.mock('@/lib/holidays', () => ({
+  getPersonsHolidayCountries: jest.fn().mockResolvedValue(new Map()),
+  getHolidaysForRange: jest.fn().mockResolvedValue(new Map()),
+}))
+jest.mock('@/lib/rateLimit', () => ({
+  isRateLimited: jest.fn().mockReturnValue(false),
 }))
 jest.mock('bcryptjs', () => ({ compare: jest.fn() }))
 jest.mock('@/lib/auth', () => ({}))
 
 import { GET } from '@/app/api/share/[token]/activities/route'
 import { pool } from '@/lib/db'
+import { getCachedEvents } from '@/lib/cache/events'
 import { compare } from 'bcryptjs'
 import { NextRequest } from 'next/server'
 
@@ -131,21 +154,23 @@ describe('GET /api/share/[token]/activities', () => {
     const body = await res.json()
     // No persons means no activities fetched, so array is empty
     // but the route still succeeds
-    expect(Array.isArray(body)).toBe(true)
+    expect(Array.isArray(body.activities)).toBe(true)
   })
 
   it('visibility "busy" replaces description with "Busy" on herbe activities', async () => {
-    const { herbeFetchAll } = require('@/lib/herbe/client')
-    ;(herbeFetchAll as jest.Mock).mockResolvedValueOnce([
+    ;(getCachedEvents as jest.Mock).mockResolvedValueOnce([
       {
-        SerNr: '42',
-        MainPersons: 'EKS',
-        CCPersons: '',
-        Comment: 'Secret meeting details',
-        TransDate: '2026-03-15',
-        StartTime: '09:00:00',
-        EndTime: '10:00:00',
-        CalTimeFlag: '1',
+        id: '42',
+        source: 'herbe',
+        personCode: 'EKS',
+        description: 'Secret meeting details',
+        date: '2026-03-15',
+        timeFrom: '09:00',
+        timeTo: '10:00',
+        customerName: 'Acme Corp',
+        projectName: 'Project X',
+        mainPersons: ['EKS'],
+        ccPersons: [],
       },
     ])
     mockQuery
@@ -159,6 +184,7 @@ describe('GET /api/share/[token]/activities', () => {
           personCodes: ['EKS'],
           hiddenCalendars: [],
           ownerEmail: 'owner@example.com',
+          accountId: 'acc-1',
         }],
       })
       .mockResolvedValueOnce({ rows: [] }) // UPDATE access stats
@@ -168,27 +194,27 @@ describe('GET /api/share/[token]/activities', () => {
     })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.length).toBeGreaterThanOrEqual(1)
-    const activity = body[0]
+    expect(body.activities.length).toBeGreaterThanOrEqual(1)
+    const activity = body.activities[0]
     expect(activity.description).toBe('Busy')
     expect(activity.customerName).toBeUndefined()
     expect(activity.projectName).toBeUndefined()
   })
 
   it('visibility "titles" strips customer/project but keeps description', async () => {
-    const { herbeFetchAll } = require('@/lib/herbe/client')
-    ;(herbeFetchAll as jest.Mock).mockResolvedValueOnce([
+    ;(getCachedEvents as jest.Mock).mockResolvedValueOnce([
       {
-        SerNr: '43',
-        MainPersons: 'EKS',
-        CCPersons: '',
-        Comment: 'Weekly standup',
-        TransDate: '2026-03-15',
-        StartTime: '09:00:00',
-        EndTime: '10:00:00',
-        CalTimeFlag: '1',
-        CUName: 'Acme Corp',
-        PRName: 'Project X',
+        id: '43',
+        source: 'herbe',
+        personCode: 'EKS',
+        description: 'Weekly standup',
+        date: '2026-03-15',
+        timeFrom: '09:00',
+        timeTo: '10:00',
+        customerName: 'Acme Corp',
+        projectName: 'Project X',
+        mainPersons: ['EKS'],
+        ccPersons: [],
       },
     ])
     mockQuery
@@ -202,6 +228,7 @@ describe('GET /api/share/[token]/activities', () => {
           personCodes: ['EKS'],
           hiddenCalendars: [],
           ownerEmail: 'owner@example.com',
+          accountId: 'acc-1',
         }],
       })
       .mockResolvedValueOnce({ rows: [] }) // UPDATE access stats
@@ -211,8 +238,8 @@ describe('GET /api/share/[token]/activities', () => {
     })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.length).toBeGreaterThanOrEqual(1)
-    const activity = body[0]
+    expect(body.activities.length).toBeGreaterThanOrEqual(1)
+    const activity = body.activities[0]
     expect(activity.description).toBe('Weekly standup')
     expect(activity.customerName).toBeUndefined()
     expect(activity.projectName).toBeUndefined()
