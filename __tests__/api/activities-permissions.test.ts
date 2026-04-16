@@ -9,6 +9,14 @@ jest.mock('@/lib/herbe/client', () => ({
   herbeFetchById: jest.fn(),
   herbeWebExcellentDelete: jest.fn(),
 }))
+jest.mock('@/lib/cache/events', () => ({
+  getCachedEvents: jest.fn().mockResolvedValue([]),
+  upsertCachedEvents: jest.fn().mockResolvedValue(undefined),
+  deleteCachedEvent: jest.fn().mockResolvedValue(undefined),
+}))
+jest.mock('@/lib/sync/erp', () => ({
+  buildCacheRows: jest.fn().mockReturnValue([]),
+}))
 jest.mock('@/lib/auth', () => ({}))
 jest.mock('@/lib/db', () => ({ pool: { query: jest.fn().mockResolvedValue({ rows: [] }) } }))
 jest.mock('@/lib/accountConfig', () => ({
@@ -79,10 +87,10 @@ describe('PUT /api/activities/[id] — permissions', () => {
   })
 
   it('returns 403 when user is unrelated to activity', async () => {
-    mockRequireSession.mockResolvedValue({ userCode: 'OUTSIDER', email: 'outsider@example.com' })
+    mockRequireSession.mockResolvedValue({ userCode: 'OUTSIDER', email: 'outsider@example.com', accountId: 'acc-1' })
     mockHerbeFetchById.mockResolvedValue({
       ok: true,
-      json: async () => ({
+      text: async () => JSON.stringify({
         data: { ActVc: [{ MainPersons: 'EKS', CCPersons: '', AccessGroup: '' }] },
       }),
     })
@@ -105,10 +113,10 @@ describe('DELETE /api/activities/[id] — permissions', () => {
   })
 
   it('returns 403 when user is unrelated to activity', async () => {
-    mockRequireSession.mockResolvedValue({ userCode: 'OUTSIDER', email: 'outsider@example.com' })
+    mockRequireSession.mockResolvedValue({ userCode: 'OUTSIDER', email: 'outsider@example.com', accountId: 'acc-1' })
     mockHerbeFetchById.mockResolvedValue({
       ok: true,
-      json: async () => ({
+      text: async () => JSON.stringify({
         data: { ActVc: [{ MainPersons: 'EKS', CCPersons: '', AccessGroup: '' }] },
       }),
     })

@@ -1,7 +1,7 @@
 import { GET, DELETE } from '@/app/api/bookings/[cancelToken]/route'
 import { NextRequest } from 'next/server'
 import { pool } from '@/lib/db'
-import { herbeWebExcellentDelete } from '@/lib/herbe/client'
+import { herbeFetchById } from '@/lib/herbe/client'
 import { graphFetch } from '@/lib/graph/client'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getGoogleConfig, getCalendarClient } from '@/lib/google/client'
@@ -10,7 +10,7 @@ import { getSmtpConfig, sendMailSmtp } from '@/lib/smtp'
 import { buildBookingEmail } from '@/lib/bookingEmail'
 
 jest.mock('@/lib/db', () => ({ pool: { query: jest.fn() } }))
-jest.mock('@/lib/herbe/client', () => ({ herbeWebExcellentDelete: jest.fn().mockResolvedValue({}) }))
+jest.mock('@/lib/herbe/client', () => ({ herbeFetchById: jest.fn().mockResolvedValue({ ok: true, status: 200 }) }))
 jest.mock('@/lib/graph/client', () => ({ graphFetch: jest.fn().mockResolvedValue({ ok: true }) }))
 jest.mock('@/lib/accountConfig', () => ({
   getAzureConfig: jest.fn().mockResolvedValue(null),
@@ -124,19 +124,19 @@ describe('DELETE /api/bookings/[cancelToken]', () => {
     const req = new NextRequest('http://localhost/api/bookings/cancel-abc', { method: 'DELETE' })
     await DELETE(req, makeParams('cancel-abc'))
 
-    // Second call should be the UPDATE
+    // Second call should be the UPDATE (parameterized)
     expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining("status = 'cancelled'"),
-      [baseBooking.id]
+      expect.stringContaining('status = $1'),
+      ['cancelled', baseBooking.id]
     )
   })
 
-  it('attempts to delete ERP activities', async () => {
+  it('attempts to convert ERP activities to tasks via PATCH', async () => {
     const erpBooking = {
       ...baseBooking,
       created_erp_ids: [
-        { connectionId: 'conn-1', activityId: 'act-100' },
-        { connectionId: 'conn-2', activityId: 'act-200' },
+        { connectionId: 'conn-1', serNr: 'act-100' },
+        { connectionId: 'conn-2', serNr: 'act-200' },
       ],
     }
     const connections = [
@@ -153,9 +153,9 @@ describe('DELETE /api/bookings/[cancelToken]', () => {
     await DELETE(req, makeParams('cancel-abc'))
 
     expect(getErpConnections).toHaveBeenCalledWith('acc-1')
-    expect(herbeWebExcellentDelete).toHaveBeenCalledTimes(2)
-    expect(herbeWebExcellentDelete).toHaveBeenCalledWith('ActVc', 'act-100', '', connections[0])
-    expect(herbeWebExcellentDelete).toHaveBeenCalledWith('ActVc', 'act-200', '', connections[1])
+    expect(herbeFetchById).toHaveBeenCalledTimes(2)
+    expect(herbeFetchById).toHaveBeenCalledWith('ActVc', 'act-100', expect.objectContaining({ method: 'PATCH' }), connections[0])
+    expect(herbeFetchById).toHaveBeenCalledWith('ActVc', 'act-200', expect.objectContaining({ method: 'PATCH' }), connections[1])
   })
 
   it('attempts to delete Outlook event', async () => {

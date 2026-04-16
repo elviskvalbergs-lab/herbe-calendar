@@ -1,20 +1,36 @@
 jest.mock('@/lib/herbe/auth-guard', () => ({
-  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com' }),
+  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'acc-1' }),
   unauthorized: jest.fn(() => new Response('Unauthorized', { status: 401 })),
 }))
 jest.mock('@/lib/google/client', () => ({
   getGoogleConfig: jest.fn().mockResolvedValue(null),
   getCalendarClient: jest.fn(),
+  buildGoogleMeetConferenceData: jest.fn().mockReturnValue({
+    createRequest: { requestId: 'test', conferenceSolutionKey: { type: 'hangoutsMeet' } },
+  }),
+  getOAuthCalendarClient: jest.fn(),
+}))
+jest.mock('@/lib/google/userOAuth', () => ({
+  getValidAccessTokenForUser: jest.fn().mockResolvedValue(null),
+}))
+jest.mock('@/lib/googleUtils', () => ({
+  fetchGoogleEventsForPerson: jest.fn().mockResolvedValue(null),
+  fetchPerUserGoogleEvents: jest.fn().mockResolvedValue({ events: [], warnings: [] }),
+  mapGoogleEvent: jest.fn(),
+}))
+jest.mock('@/lib/sharedCalendars', () => ({
+  fetchSharedCalendarEvents: jest.fn().mockResolvedValue({ events: [] }),
 }))
 jest.mock('@/lib/emailForCode', () => ({
-  emailForCode: jest.fn(),
+  emailForCode: jest.fn().mockResolvedValue('eks@example.com'),
 }))
 jest.mock('@/lib/db', () => ({ pool: { query: jest.fn().mockResolvedValue({ rows: [] }) } }))
 jest.mock('@/lib/auth', () => ({}))
 
 import { GET, POST } from '@/app/api/google/route'
-const { getGoogleConfig, getCalendarClient } = require('@/lib/google/client')
+const { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData } = require('@/lib/google/client')
 const { emailForCode } = require('@/lib/emailForCode')
+const { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } = require('@/lib/googleUtils')
 
 describe('GET /api/google', () => {
   beforeEach(() => jest.clearAllMocks())
@@ -34,43 +50,41 @@ describe('GET /api/google', () => {
   })
 
   it('returns empty array when Google is not configured', async () => {
-    getGoogleConfig.mockResolvedValueOnce(null)
+    // fetchGoogleEventsForPerson returns null = not configured
+    fetchGoogleEventsForPerson.mockResolvedValueOnce(null)
     const req = new Request('http://localhost/api/google?persons=EKS&dateFrom=2026-04-01&dateTo=2026-04-01')
     const res = await GET(req as any)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toEqual([])
+    expect(body.activities).toEqual([])
   })
 
   it('returns events when Google is configured', async () => {
-    getGoogleConfig.mockResolvedValueOnce({
-      serviceAccountEmail: 'sa@proj.iam.gserviceaccount.com',
-      privateKey: 'key',
-      adminEmail: 'admin@example.com',
-      domain: 'example.com',
+    const rawEvent = {
+      id: 'evt-1',
+      summary: 'Team standup',
+      start: { dateTime: '2026-04-01T09:00:00+03:00' },
+      end: { dateTime: '2026-04-01T09:30:00+03:00' },
+      organizer: { email: 'eks@example.com' },
+      htmlLink: 'https://calendar.google.com/event/evt-1',
+    }
+    fetchGoogleEventsForPerson.mockResolvedValueOnce([rawEvent])
+    mapGoogleEvent.mockReturnValueOnce({
+      id: 'evt-1',
+      source: 'google',
+      personCode: 'EKS',
+      description: 'Team standup',
+      date: '2026-04-01',
+      timeFrom: '09:00',
+      timeTo: '09:30',
     })
-    emailForCode.mockResolvedValueOnce('eks@example.com')
-
-    const mockEventsList = jest.fn().mockResolvedValue({
-      data: {
-        items: [{
-          id: 'evt-1',
-          summary: 'Team standup',
-          start: { dateTime: '2026-04-01T09:00:00+03:00' },
-          end: { dateTime: '2026-04-01T09:30:00+03:00' },
-          organizer: { email: 'eks@example.com' },
-          htmlLink: 'https://calendar.google.com/event/evt-1',
-        }],
-      },
-    })
-    getCalendarClient.mockReturnValueOnce({ events: { list: mockEventsList } })
 
     const req = new Request('http://localhost/api/google?persons=EKS&dateFrom=2026-04-01&dateTo=2026-04-01')
     const res = await GET(req as any)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toHaveLength(1)
-    expect(body[0]).toMatchObject({
+    expect(body.activities).toHaveLength(1)
+    expect(body.activities[0]).toMatchObject({
       id: 'evt-1',
       source: 'google',
       personCode: 'EKS',
@@ -79,19 +93,13 @@ describe('GET /api/google', () => {
   })
 
   it('returns empty when emailForCode returns null', async () => {
-    getGoogleConfig.mockResolvedValueOnce({
-      serviceAccountEmail: 'sa@proj.iam.gserviceaccount.com',
-      privateKey: 'key',
-      adminEmail: 'admin@example.com',
-      domain: 'example.com',
-    })
     emailForCode.mockResolvedValueOnce(null)
 
     const req = new Request('http://localhost/api/google?persons=UNKNOWN&dateFrom=2026-04-01&dateTo=2026-04-01')
     const res = await GET(req as any)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toEqual([])
+    expect(body.activities).toEqual([])
   })
 })
 

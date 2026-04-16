@@ -45,7 +45,7 @@ describe('GET /api/settings/templates', () => {
     expect(data).toEqual([template])
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('FROM booking_templates bt'),
-      ['00000000-0000-0000-0000-000000000001', 'test@test.com']
+      ['00000000-0000-0000-0000-000000000001']
     )
   })
 
@@ -108,6 +108,7 @@ describe('POST /api/settings/templates', () => {
         5,
         JSON.stringify({ calendar: 'work' }),
         JSON.stringify([{ label: 'Notes', type: 'text' }]),
+        false,
       ]
     )
   })
@@ -222,7 +223,7 @@ describe('DELETE /api/settings/templates', () => {
     expect(data).toEqual({ ok: true })
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('DELETE FROM booking_templates'),
-      ['1', '00000000-0000-0000-0000-000000000001', 'test@test.com']
+      ['1', '00000000-0000-0000-0000-000000000001']
     )
   })
 
@@ -237,7 +238,7 @@ describe('DELETE /api/settings/templates', () => {
     expect(data).toEqual(duplicated)
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO booking_templates'),
-      ['1', '00000000-0000-0000-0000-000000000001', 'test@test.com']
+      ['1', '00000000-0000-0000-0000-000000000001']
     )
   })
 

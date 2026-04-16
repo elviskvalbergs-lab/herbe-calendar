@@ -17,6 +17,12 @@ jest.mock('@/lib/auth', () => ({ auth: () => mockAuth() }))
 const mockQuery = jest.fn()
 jest.mock('@/lib/db', () => ({ pool: { query: mockQuery } }))
 
+// Mock signed cookie verification — pass through raw values in tests
+jest.mock('@/lib/signedCookie', () => ({
+  verifyCookieValue: jest.fn((val: string) => val),
+  signCookieValue: jest.fn((val: string) => val),
+}))
+
 // Mock cookies — returns a cookie store with get() method
 const cookieValues: Record<string, string | undefined> = {}
 jest.mock('next/headers', () => ({

@@ -5,7 +5,7 @@ jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn(),
 }))
 jest.mock('@/lib/herbe/auth-guard', () => ({
-  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com' }),
+  requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'acc-1' }),
   unauthorized: jest.fn(() => new Response('Unauthorized', { status: 401 })),
   forbidden: jest.fn(() => new Response('Forbidden', { status: 403 })),
 }))
@@ -18,25 +18,25 @@ jest.mock('@/lib/accountConfig', () => ({
     clientSecret: 'test-secret', senderEmail: 'sender@example.com',
   }),
 }))
+jest.mock('@/lib/outlookUtils', () => ({
+  fetchOutlookEventsForPerson: jest.fn().mockResolvedValue(null),
+}))
+jest.mock('@/lib/icsUtils', () => ({
+  fetchIcsForPerson: jest.fn().mockResolvedValue({ events: [], warnings: [] }),
+}))
+jest.mock('@/lib/icsParser', () => ({
+  deduplicateIcsAgainstGraph: jest.fn().mockReturnValue([]),
+}))
+jest.mock('@/lib/emailForCode', () => ({
+  emailForCode: jest.fn().mockResolvedValue(null),
+}))
 jest.mock('@/lib/db', () => ({
-  pool: {
-    query: jest.fn().mockImplementation((sql: string) => {
-      // emailForCode queries person_codes
-      if (typeof sql === 'string' && sql.includes('person_codes')) {
-        return Promise.resolve({
-          rows: [
-            { generated_code: 'EKS', email: 'eks@example.com' },
-            { generated_code: 'JD', email: 'jd@example.com' },
-          ],
-        })
-      }
-      // ICS calendars query
-      return Promise.resolve({ rows: [] })
-    }),
-  },
+  pool: { query: jest.fn().mockResolvedValue({ rows: [] }) },
 }))
 
 const { graphFetch } = require('@/lib/graph/client')
+const { fetchOutlookEventsForPerson } = require('@/lib/outlookUtils')
+const { emailForCode } = require('@/lib/emailForCode')
 
 describe('PUT /api/outlook/[id] — organizer guard', () => {
   beforeEach(() => jest.clearAllMocks())
@@ -156,64 +156,53 @@ describe('GET /api/outlook', () => {
   })
 
   it('returns 200 with empty array when persons provided but no events', async () => {
-    graphFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ value: [] }),
-    })
     const req = new Request('http://localhost/api/outlook?persons=EKS&date=2026-03-12')
     const res = await GET(req as any)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(Array.isArray(body)).toBe(true)
+    expect(Array.isArray(body.activities)).toBe(true)
+    expect(body.activities).toHaveLength(0)
   })
 
   it('sets isOrganizer based on session email, not queried person email', async () => {
     // Session user is eks@example.com (from mock)
     // Query JD's calendar — event organized by JD, not EKS
-    graphFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        value: [{
-          id: 'evt-1',
-          subject: 'JD Meeting',
-          start: { dateTime: '2026-03-12T10:00:00' },
-          end: { dateTime: '2026-03-12T11:00:00' },
-          organizer: { emailAddress: { address: 'jd@example.com' } },
-          responseStatus: { response: 'accepted' },
-          bodyPreview: '',
-          webLink: '',
-        }],
-      }),
-    })
+    emailForCode.mockResolvedValueOnce('jd@example.com')
+    fetchOutlookEventsForPerson.mockResolvedValueOnce([{
+      id: 'evt-1',
+      subject: 'JD Meeting',
+      start: { dateTime: '2026-03-12T10:00:00' },
+      end: { dateTime: '2026-03-12T11:00:00' },
+      organizer: { emailAddress: { address: 'jd@example.com' } },
+      responseStatus: { response: 'accepted' },
+      bodyPreview: '',
+      webLink: '',
+    }])
     const req = new Request('http://localhost/api/outlook?persons=JD&date=2026-03-12')
     const res = await GET(req as any)
     const body = await res.json()
     // EKS is viewing JD's calendar — JD organized, so EKS is NOT the organizer
-    const event = body.find((e: any) => e.id === 'evt-1')
+    const event = body.activities.find((e: any) => e.id === 'evt-1')
     expect(event).toBeDefined()
     expect(event.isOrganizer).toBe(false)
   })
 
   it('sets isOrganizer true when session user is the organizer', async () => {
-    graphFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        value: [{
-          id: 'evt-2',
-          subject: 'My Meeting',
-          start: { dateTime: '2026-03-12T14:00:00' },
-          end: { dateTime: '2026-03-12T15:00:00' },
-          organizer: { emailAddress: { address: 'eks@example.com' } },
-          responseStatus: { response: 'organizer' },
-          bodyPreview: '',
-          webLink: '',
-        }],
-      }),
-    })
+    emailForCode.mockResolvedValueOnce('eks@example.com')
+    fetchOutlookEventsForPerson.mockResolvedValueOnce([{
+      id: 'evt-2',
+      subject: 'My Meeting',
+      start: { dateTime: '2026-03-12T14:00:00' },
+      end: { dateTime: '2026-03-12T15:00:00' },
+      organizer: { emailAddress: { address: 'eks@example.com' } },
+      responseStatus: { response: 'organizer' },
+      bodyPreview: '',
+      webLink: '',
+    }])
     const req = new Request('http://localhost/api/outlook?persons=EKS&date=2026-03-12')
     const res = await GET(req as any)
     const body = await res.json()
-    const event = body.find((e: any) => e.id === 'evt-2')
+    const event = body.activities.find((e: any) => e.id === 'evt-2')
     expect(event).toBeDefined()
     expect(event.isOrganizer).toBe(true)
   })
