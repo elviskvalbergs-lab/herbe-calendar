@@ -14,8 +14,10 @@ export default async function CachePage() {
     if ((e as Error).message === 'UNAUTHORIZED') redirect('/login')
     redirect('/cal')
   }
-  const accounts = session.isSuperAdmin ? await getAllAccounts() : []
-  const syncStates = await getAllSyncStates(session.accountId).catch(() => [])
+  const [accounts, syncStates] = await Promise.all([
+    session.isSuperAdmin ? getAllAccounts() : Promise.resolve([]),
+    getAllSyncStates(session.accountId).catch(() => []),
+  ])
 
   return (
     <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
