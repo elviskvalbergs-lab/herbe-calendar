@@ -42,7 +42,7 @@ interface Props {
   zoomConfigured?: boolean
 }
 
-type Tab = 'style' | 'colors' | 'integrations' | 'templates'
+type Tab = 'style' | 'colors' | 'integrations' | 'templates' | 'cache'
 
 
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange, azureConfigured, googleConfigured, zoomConfigured }: Props) {
@@ -81,6 +81,11 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [calendlyError, setCalendlyError] = useState('')
   const [userTemplates, setUserTemplates] = useState<{ id: string; name: string }[]>([])
   const [openIntegrationSections, setOpenIntegrationSections] = useState<Record<string, boolean>>({})
+  const [cacheDateFrom, setCacheDateFrom] = useState('')
+  const [cacheDateTo, setCacheDateTo] = useState('')
+  const [cacheNukeAll, setCacheNukeAll] = useState(false)
+  const [cacheLoading, setCacheLoading] = useState(false)
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null)
   function toggleIntegration(key: string) {
     setOpenIntegrationSections(prev => ({ ...prev, [key]: !prev[key] }))
   }
@@ -123,6 +128,56 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
       }).catch(() => {}).finally(() => setTemplatesLoading(false))
     }
   }, [activeTab])
+
+  async function handleForceSync() {
+    if (!cacheDateFrom || !cacheDateTo) return
+    setCacheLoading(true)
+    setCacheMessage(null)
+    try {
+      const res = await fetch('/api/sync/force', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateFrom: cacheDateFrom, dateTo: cacheDateTo }),
+      })
+      const data = await res.json()
+      setCacheMessage(res.ok ? `Cache refreshed: ${data.eventsUpserted} events synced` : `Error: ${data.error}`)
+    } catch (e) {
+      setCacheMessage(`Error: ${String(e)}`)
+    } finally {
+      setCacheLoading(false)
+    }
+  }
+
+  async function handleNukeCache() {
+    setCacheLoading(true)
+    setCacheMessage(null)
+    try {
+      const body = cacheNukeAll
+        ? { all: true }
+        : { dateFrom: cacheDateFrom, dateTo: cacheDateTo }
+      if (!cacheNukeAll && (!cacheDateFrom || !cacheDateTo)) {
+        setCacheMessage('Enter a date range or check "Clear all"')
+        setCacheLoading(false)
+        return
+      }
+      const res = await fetch('/api/sync/nuke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCacheMessage(`Cache cleared: ${data.eventsDeleted} events removed`)
+        setCacheNukeAll(false)
+      } else {
+        setCacheMessage(`Error: ${data.error}`)
+      }
+    } catch (e) {
+      setCacheMessage(`Error: ${String(e)}`)
+    } finally {
+      setCacheLoading(false)
+    }
+  }
 
   async function fetchCustomCals() {
     setCalLoading(true)
@@ -306,6 +361,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             >
               Templates
             </button>
+            <button
+              onClick={() => setActiveTab('cache')}
+              className={`pb-2 px-1 ${activeTab === 'cache' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+            >Cache</button>
             {activeTab === 'integrations' && (
               <a
                 href="/docs/integrations"
@@ -1018,6 +1077,61 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                   onColorOverridesChange()
                 }}
               />
+            </div>
+          )}
+
+          {activeTab === 'cache' && (
+            <div className="flex flex-col gap-4">
+              <p className="text-text-muted text-xs">
+                ERP data is synced automatically every 5 minutes. Use these tools if you need to refresh manually.
+              </p>
+
+              <div className="flex gap-2 items-end">
+                <label className="flex flex-col gap-1 text-xs text-text">
+                  From
+                  <input type="date" value={cacheDateFrom} onChange={e => setCacheDateFrom(e.target.value)}
+                    className="px-2 py-1.5 rounded-md border border-border bg-bg-secondary text-text text-xs" />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-text">
+                  To
+                  <input type="date" value={cacheDateTo} onChange={e => setCacheDateTo(e.target.value)}
+                    className="px-2 py-1.5 rounded-md border border-border bg-bg-secondary text-text text-xs" />
+                </label>
+                <button onClick={handleForceSync} disabled={cacheLoading || !cacheDateFrom || !cacheDateTo}
+                  className="px-3 py-1.5 rounded-md bg-primary text-white text-xs whitespace-nowrap disabled:opacity-50">
+                  {cacheLoading ? 'Syncing...' : 'Re-sync range'}
+                </button>
+              </div>
+
+              <hr className="border-border" />
+
+              <div className="flex flex-col gap-2">
+                <p className="text-text-muted text-xs font-semibold">Clear cached data</p>
+                <p className="text-text-muted text-[11px]">
+                  Removes cached ERP data. The next automatic sync will re-populate it.
+                  Use the date range above to clear a specific period, or check below to clear everything.
+                </p>
+                <label className="flex items-center gap-2 text-xs text-text">
+                  <input type="checkbox" checked={cacheNukeAll} onChange={e => setCacheNukeAll(e.target.checked)} />
+                  Clear ALL cached data (ignores date range)
+                </label>
+                <button onClick={() => showConfirm(
+                  cacheNukeAll
+                    ? 'This will delete ALL cached ERP data. The next sync cycle will re-populate it. Continue?'
+                    : `This will delete cached ERP data from ${cacheDateFrom} to ${cacheDateTo}. Continue?`,
+                  handleNukeCache,
+                  { confirmLabel: 'Clear cache', destructive: true }
+                )} disabled={cacheLoading || (!cacheNukeAll && (!cacheDateFrom || !cacheDateTo))}
+                  className="px-3 py-1.5 rounded-md border border-error text-error text-xs self-start disabled:opacity-50">
+                  Clear cache
+                </button>
+              </div>
+
+              {cacheMessage && (
+                <p className={`text-xs ${cacheMessage.startsWith('Error') ? 'text-error' : 'text-text-muted'}`}>
+                  {cacheMessage}
+                </p>
+              )}
             </div>
           )}
         </div>
