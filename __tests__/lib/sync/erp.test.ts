@@ -1,4 +1,4 @@
-import { buildCacheRows } from '@/lib/sync/erp'
+import { buildCacheRows, fullSyncRange } from '@/lib/sync/erp'
 
 describe('buildCacheRows', () => {
   it('creates one row per person from MainPersons', () => {
@@ -50,5 +50,25 @@ describe('buildCacheRows', () => {
     }
     const rows = buildCacheRows(record, 'acc-1', 'conn-1', '')
     expect(rows).toHaveLength(0)
+  })
+})
+
+describe('fullSyncRange', () => {
+  it('rounds the -90d/+30d window out to whole months so month view never straddles', () => {
+    // today - 90d = 2026-01-16 → start-of-month = 2026-01-01
+    // today + 30d = 2026-05-16 → end-of-month   = 2026-05-31
+    expect(fullSyncRange(new Date('2026-04-16T12:00:00Z'))).toEqual({
+      dateFrom: '2026-01-01',
+      dateTo: '2026-05-31',
+    })
+  })
+
+  it('rounds outward even when today is on the first/last of a month', () => {
+    // today - 90d = 2025-10-03 → start-of-month = 2025-10-01
+    // today + 30d = 2026-01-31 → end-of-month   = 2026-01-31
+    expect(fullSyncRange(new Date('2026-01-01T12:00:00Z'))).toEqual({
+      dateFrom: '2025-10-01',
+      dateTo: '2026-01-31',
+    })
   })
 })

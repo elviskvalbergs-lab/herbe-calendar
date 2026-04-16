@@ -6,6 +6,7 @@ import type { ErpConnection } from '@/lib/accountConfig'
 import { upsertCachedEvents, type CachedEventRow } from '@/lib/cache/events'
 import { getSyncState, updateSyncState } from '@/lib/cache/syncState'
 import { pool } from '@/lib/db'
+import { startOfMonth, endOfMonth, subDays, addDays, format } from 'date-fns'
 
 const SOURCE = 'herbe'
 const BATCH_SIZE = 500
@@ -14,17 +15,15 @@ const FULL_SYNC_DAYS_FORWARD = 30
 
 // ─── helpers ───────────────────────────────────────────────────────────
 
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-function fullSyncRange(): { dateFrom: string; dateTo: string } {
-  const now = new Date()
-  const from = new Date(now)
-  from.setDate(from.getDate() - FULL_SYNC_DAYS_BACK)
-  const to = new Date(now)
-  to.setDate(to.getDate() + FULL_SYNC_DAYS_FORWARD)
-  return { dateFrom: formatDate(from), dateTo: formatDate(to) }
+/**
+ * Compute the sync window, rounded out to whole months so a month view never
+ * straddles the boundary. From = start of the month containing (today - 90d),
+ * To = end of the month containing (today + 30d).
+ */
+export function fullSyncRange(now: Date = new Date()): { dateFrom: string; dateTo: string } {
+  const from = startOfMonth(subDays(now, FULL_SYNC_DAYS_BACK))
+  const to = endOfMonth(addDays(now, FULL_SYNC_DAYS_FORWARD))
+  return { dateFrom: format(from, 'yyyy-MM-dd'), dateTo: format(to, 'yyyy-MM-dd') }
 }
 
 // ─── buildCacheRows (exported, unit-testable) ──────────────────────────
