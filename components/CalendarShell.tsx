@@ -969,6 +969,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           azureConfigured={sources.azure}
           googleConfigured={sources.google}
           zoomConfigured={sources.zoom}
+          isAdmin={isAdmin}
         />
       )}
 

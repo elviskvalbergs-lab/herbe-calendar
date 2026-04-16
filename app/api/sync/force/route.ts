@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { requireAdminSession } from '@/lib/adminAuth'
 import { forceSyncRange } from '@/lib/sync/erp'
 
 export async function POST(req: NextRequest) {
   let session
   try {
-    session = await requireSession()
-  } catch {
-    return unauthorized()
+    session = await requireAdminSession()
+  } catch (e) {
+    const status = String(e).includes('FORBIDDEN') ? 403 : 401
+    return NextResponse.json({ error: String(e) }, { status })
   }
 
   const body = await req.json().catch(() => ({}))

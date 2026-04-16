@@ -40,12 +40,13 @@ interface Props {
   azureConfigured?: boolean
   googleConfigured?: boolean
   zoomConfigured?: boolean
+  isAdmin?: boolean
 }
 
 type Tab = 'style' | 'colors' | 'integrations' | 'templates' | 'cache'
 
 
-export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange, azureConfigured, googleConfigured, zoomConfigured }: Props) {
+export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange, azureConfigured, googleConfigured, zoomConfigured, isAdmin }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string; sharing?: string }
@@ -361,10 +362,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             >
               Templates
             </button>
-            <button
-              onClick={() => setActiveTab('cache')}
-              className={`pb-2 px-1 ${activeTab === 'cache' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-            >Cache</button>
+            {isAdmin && (
+              <button
+                onClick={() => setActiveTab('cache')}
+                className={`pb-2 px-1 ${activeTab === 'cache' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+              >Cache</button>
+            )}
             {activeTab === 'integrations' && (
               <a
                 href="/docs/integrations"
@@ -1080,7 +1083,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             </div>
           )}
 
-          {activeTab === 'cache' && (
+          {isAdmin && activeTab === 'cache' && (
             <div className="flex flex-col gap-4">
               <p className="text-text-muted text-xs">
                 ERP data is synced automatically every 5 minutes. Use these tools if you need to refresh manually.
