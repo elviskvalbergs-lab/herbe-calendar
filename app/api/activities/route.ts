@@ -5,7 +5,7 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
-import { fetchErpActivities } from '@/lib/herbe/recordUtils'
+import { getCachedEvents } from '@/lib/cache/events'
 import type { Activity } from '@/types'
 
 export async function GET(req: Request) {
@@ -28,9 +28,8 @@ export async function GET(req: Request) {
   try {
     const personList = persons.split(',').map(p => p.trim())
 
-    const allResults = await fetchErpActivities(
+    const allResults = await getCachedEvents(
       session.accountId, personList, dateFrom, dateTo ?? dateFrom,
-      { includePrivateFields: true }
     )
 
     // Track day_viewed (fire-and-forget)
