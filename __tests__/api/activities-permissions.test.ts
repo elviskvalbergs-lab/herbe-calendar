@@ -16,6 +16,7 @@ jest.mock('@/lib/cache/events', () => ({
 }))
 jest.mock('@/lib/sync/erp', () => ({
   buildCacheRows: jest.fn().mockReturnValue([]),
+  isRangeCovered: jest.fn().mockReturnValue(true),
 }))
 jest.mock('@/lib/auth', () => ({}))
 jest.mock('@/lib/db', () => ({ pool: { query: jest.fn().mockResolvedValue({ rows: [] }) } }))

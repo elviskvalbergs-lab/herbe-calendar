@@ -6,7 +6,7 @@ import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import { getCachedEvents, upsertCachedEvents } from '@/lib/cache/events'
-import { buildCacheRows } from '@/lib/sync/erp'
+import { buildCacheRows, isRangeCovered } from '@/lib/sync/erp'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import type { Activity } from '@/types'
 
@@ -30,14 +30,18 @@ export async function GET(req: Request) {
   try {
     const personList = persons.split(',').map(p => p.trim())
 
-    // Try cache first, fall back to live ERP fetch if cache is empty
-    let allResults = await getCachedEvents(
-      session.accountId, personList, dateFrom, dateTo ?? dateFrom,
-    )
-
-    if (allResults.length === 0) {
+    const effectiveTo = dateTo ?? dateFrom
+    // If any part of the range is outside the sync window, the cache would
+    // silently drop those days — go live. Otherwise prefer cache with a
+    // fallback for accounts that haven't been synced yet.
+    const withinWindow = isRangeCovered(dateFrom, effectiveTo)
+    let allResults: Activity[] = []
+    if (withinWindow) {
+      allResults = await getCachedEvents(session.accountId, personList, dateFrom, effectiveTo)
+    }
+    if (!withinWindow || allResults.length === 0) {
       allResults = await fetchErpActivities(
-        session.accountId, personList, dateFrom, dateTo ?? dateFrom,
+        session.accountId, personList, dateFrom, effectiveTo,
         { includePrivateFields: true },
       )
     }

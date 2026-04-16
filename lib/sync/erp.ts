@@ -26,6 +26,16 @@ export function fullSyncRange(now: Date = new Date()): { dateFrom: string; dateT
   return { dateFrom: format(from, 'yyyy-MM-dd'), dateTo: format(to, 'yyyy-MM-dd') }
 }
 
+/**
+ * Whether a requested date range is fully inside the current sync window.
+ * Reads must fall back to a live ERP fetch when this returns false, otherwise
+ * the portion of the range outside the window silently returns no events.
+ */
+export function isRangeCovered(dateFrom: string, dateTo: string, now: Date = new Date()): boolean {
+  const { dateFrom: winFrom, dateTo: winTo } = fullSyncRange(now)
+  return dateFrom >= winFrom && dateTo <= winTo
+}
+
 // ─── buildCacheRows (exported, unit-testable) ──────────────────────────
 
 /**

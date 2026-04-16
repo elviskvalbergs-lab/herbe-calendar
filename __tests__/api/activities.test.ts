@@ -14,6 +14,7 @@ jest.mock('@/lib/cache/events', () => ({
 }))
 jest.mock('@/lib/sync/erp', () => ({
   buildCacheRows: jest.fn().mockReturnValue([]),
+  isRangeCovered: jest.fn().mockReturnValue(true),
 }))
 jest.mock('@/lib/herbe/auth-guard', () => ({
   requireSession: jest.fn().mockResolvedValue({ userCode: 'EKS', email: 'eks@example.com', accountId: 'acc-1' }),

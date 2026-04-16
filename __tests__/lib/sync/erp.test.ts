@@ -1,4 +1,4 @@
-import { buildCacheRows, fullSyncRange } from '@/lib/sync/erp'
+import { buildCacheRows, fullSyncRange, isRangeCovered } from '@/lib/sync/erp'
 
 describe('buildCacheRows', () => {
   it('creates one row per person from MainPersons', () => {
@@ -70,5 +70,31 @@ describe('fullSyncRange', () => {
       dateFrom: '2025-10-01',
       dateTo: '2026-01-31',
     })
+  })
+})
+
+describe('isRangeCovered', () => {
+  // window for 2026-04-16 is 2026-01-01 → 2026-05-31
+  const today = new Date('2026-04-16T12:00:00Z')
+
+  it('returns true for a range fully inside the sync window', () => {
+    expect(isRangeCovered('2026-04-01', '2026-04-30', today)).toBe(true)
+  })
+
+  it('returns true at the exact window boundaries', () => {
+    expect(isRangeCovered('2026-01-01', '2026-05-31', today)).toBe(true)
+  })
+
+  it('returns false when the start is earlier than the window', () => {
+    // week straddle: Dec 29 spills outside the Jan 1 floor
+    expect(isRangeCovered('2025-12-29', '2026-01-04', today)).toBe(false)
+  })
+
+  it('returns false when the end is later than the window', () => {
+    expect(isRangeCovered('2026-05-28', '2026-06-03', today)).toBe(false)
+  })
+
+  it('returns false for a single day outside the window', () => {
+    expect(isRangeCovered('2025-12-15', '2025-12-15', today)).toBe(false)
   })
 })

@@ -4,6 +4,7 @@ import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { getCachedEvents } from '@/lib/cache/events'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
+import { isRangeCovered } from '@/lib/sync/erp'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
 
@@ -123,10 +124,15 @@ export async function GET(
 
   const allActivities: (Record<string, unknown> | Activity)[] = []
 
-  // Fetch Herbe activities: cache first, live ERP fallback
+  // Fetch Herbe activities: cache when the range is inside the sync window,
+  // live otherwise (cache would silently drop out-of-window days).
   if (!hiddenCalendarsSet.has('herbe')) {
-    let erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
-    if (erpActivities.length === 0) {
+    const withinWindow = isRangeCovered(dateFrom, cappedDateTo)
+    let erpActivities: (Record<string, unknown> | Activity)[] = []
+    if (withinWindow) {
+      erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
+    }
+    if (!withinWindow || erpActivities.length === 0) {
       erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true })
     }
     allActivities.push(...erpActivities)

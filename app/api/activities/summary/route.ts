@@ -8,6 +8,7 @@ import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/goog
 import { emailForCode } from '@/lib/emailForCode'
 import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { getCachedEvents } from '@/lib/cache/events'
+import { isRangeCovered } from '@/lib/sync/erp'
 import { format, endOfMonth, parseISO } from 'date-fns'
 
 type DaySummary = { sources: string[]; count: number }
@@ -49,14 +50,22 @@ export async function GET(req: NextRequest) {
     result[date].count++
   }
 
-  // ERP: cache first, live fallback
+  // ERP: cache when the range is inside the sync window, live otherwise.
+  // If the range straddles the window, go fully live — otherwise the
+  // out-of-window days silently disappear from month view.
   try {
-    const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo)
-    if (cached.length > 0) {
-      for (const ev of cached) {
-        if (ev.date) addEntry(ev.date, 'herbe')
+    const withinWindow = isRangeCovered(dateFrom, dateTo)
+    let usedCache = false
+    if (withinWindow) {
+      const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo)
+      if (cached.length > 0) {
+        for (const ev of cached) {
+          if (ev.date) addEntry(ev.date, 'herbe')
+        }
+        usedCache = true
       }
-    } else {
+    }
+    if (!usedCache) {
       const connections = await getErpConnections(session.accountId)
       for (const conn of connections) {
         try {
