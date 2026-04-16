@@ -1,5 +1,25 @@
 import { pool } from '@/lib/db'
 
+/**
+ * True iff at least one connection for the account has completed a full
+ * reconciliation sync for the given source. Read-side cache lookups must
+ * fall back to live when this is false — the cache may contain only a
+ * handful of write-through rows and would otherwise hide the rest.
+ */
+export async function hasCompletedInitialSync(
+  accountId: string,
+  source = 'herbe',
+): Promise<boolean> {
+  const { rows } = await pool.query<{ ok: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM sync_state
+       WHERE account_id = $1 AND source = $2 AND last_full_sync_at IS NOT NULL
+     ) AS ok`,
+    [accountId, source],
+  )
+  return rows[0]?.ok ?? false
+}
+
 export interface SyncState {
   accountId: string
   source: string

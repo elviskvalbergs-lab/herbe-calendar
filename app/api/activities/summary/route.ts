@@ -8,6 +8,7 @@ import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/goog
 import { emailForCode } from '@/lib/emailForCode'
 import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { getCachedEvents } from '@/lib/cache/events'
+import { hasCompletedInitialSync } from '@/lib/cache/syncState'
 import { isRangeCovered } from '@/lib/sync/erp'
 import { format, endOfMonth, parseISO } from 'date-fns'
 
@@ -50,13 +51,18 @@ export async function GET(req: NextRequest) {
     result[date].count++
   }
 
-  // ERP: cache when the range is inside the sync window, live otherwise.
-  // If the range straddles the window, go fully live — otherwise the
-  // out-of-window days silently disappear from month view.
+  // ERP: cache when the range is inside the sync window AND the account
+  // has completed a full sync; live otherwise. Prevents the sparse-cache
+  // trap where a pre-sync write-through row makes cached.length > 0 and
+  // blocks the live fallback.
   try {
-    const withinWindow = isRangeCovered(dateFrom, dateTo)
+    const [withinWindow, initialSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, dateTo)),
+      hasCompletedInitialSync(session.accountId),
+    ])
+    const canUseCache = withinWindow && initialSyncDone
     let usedCache = false
-    if (withinWindow) {
+    if (canUseCache) {
       const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo)
       if (cached.length > 0) {
         for (const ev of cached) {

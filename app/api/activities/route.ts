@@ -6,6 +6,7 @@ import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import { getCachedEvents, upsertCachedEvents } from '@/lib/cache/events'
+import { hasCompletedInitialSync } from '@/lib/cache/syncState'
 import { buildCacheRows, isRangeCovered } from '@/lib/sync/erp'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import type { Activity } from '@/types'
@@ -31,15 +32,20 @@ export async function GET(req: Request) {
     const personList = persons.split(',').map(p => p.trim())
 
     const effectiveTo = dateTo ?? dateFrom
-    // If any part of the range is outside the sync window, the cache would
-    // silently drop those days — go live. Otherwise prefer cache with a
-    // fallback for accounts that haven't been synced yet.
-    const withinWindow = isRangeCovered(dateFrom, effectiveTo)
+    // Cache only when (a) the range is fully covered by the sync window and
+    // (b) the account has completed at least one full sync — otherwise the
+    // cache could be empty or contain only a handful of write-through rows
+    // and we'd hide the rest of the user's events.
+    const [withinWindow, initialSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, effectiveTo)),
+      hasCompletedInitialSync(session.accountId),
+    ])
+    const canUseCache = withinWindow && initialSyncDone
     let allResults: Activity[] = []
-    if (withinWindow) {
+    if (canUseCache) {
       allResults = await getCachedEvents(session.accountId, personList, dateFrom, effectiveTo)
     }
-    if (!withinWindow || allResults.length === 0) {
+    if (!canUseCache || allResults.length === 0) {
       allResults = await fetchErpActivities(
         session.accountId, personList, dateFrom, effectiveTo,
         { includePrivateFields: true },

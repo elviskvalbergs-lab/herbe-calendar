@@ -3,6 +3,7 @@ import { pool } from '@/lib/db'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { getCachedEvents } from '@/lib/cache/events'
+import { hasCompletedInitialSync } from '@/lib/cache/syncState'
 import { fetchErpActivities } from '@/lib/herbe/recordUtils'
 import { isRangeCovered } from '@/lib/sync/erp'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
@@ -124,15 +125,19 @@ export async function GET(
 
   const allActivities: (Record<string, unknown> | Activity)[] = []
 
-  // Fetch Herbe activities: cache when the range is inside the sync window,
-  // live otherwise (cache would silently drop out-of-window days).
+  // Fetch Herbe activities: cache only when the range is inside the sync
+  // window and the account has completed a full sync; live otherwise.
   if (!hiddenCalendarsSet.has('herbe')) {
-    const withinWindow = isRangeCovered(dateFrom, cappedDateTo)
+    const [withinWindow, initialSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, cappedDateTo)),
+      hasCompletedInitialSync(accountId),
+    ])
+    const canUseCache = withinWindow && initialSyncDone
     let erpActivities: (Record<string, unknown> | Activity)[] = []
-    if (withinWindow) {
+    if (canUseCache) {
       erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
     }
-    if (!withinWindow || erpActivities.length === 0) {
+    if (!canUseCache || erpActivities.length === 0) {
       erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true })
     }
     allActivities.push(...erpActivities)

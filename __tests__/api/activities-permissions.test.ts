@@ -14,6 +14,9 @@ jest.mock('@/lib/cache/events', () => ({
   upsertCachedEvents: jest.fn().mockResolvedValue(undefined),
   deleteCachedEvent: jest.fn().mockResolvedValue(undefined),
 }))
+jest.mock('@/lib/cache/syncState', () => ({
+  hasCompletedInitialSync: jest.fn().mockResolvedValue(true),
+}))
 jest.mock('@/lib/sync/erp', () => ({
   buildCacheRows: jest.fn().mockReturnValue([]),
   isRangeCovered: jest.fn().mockReturnValue(true),

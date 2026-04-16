@@ -2,6 +2,9 @@ jest.mock('@/lib/db', () => ({ pool: { query: jest.fn() } }))
 jest.mock('@/lib/cache/events', () => ({
   getCachedEvents: jest.fn().mockResolvedValue([]),
 }))
+jest.mock('@/lib/cache/syncState', () => ({
+  hasCompletedInitialSync: jest.fn().mockResolvedValue(true),
+}))
 jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn().mockResolvedValue({ ok: false }),
 }))
