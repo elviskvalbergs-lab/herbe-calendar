@@ -291,11 +291,29 @@ export async function herbeFetchAll(
 }
 
 /**
+ * Extract a snapshot sequence cursor and records page from a parsed Herbe
+ * response. The ERP embeds the cursor in the body as `data['@sequence']` and
+ * the records under `data[register]`.
+ */
+export function extractHerbePage(
+  json: unknown,
+  register: string,
+): { sequence: string | null; page: unknown[] } {
+  const data = (json as { data?: Record<string, unknown> })?.data ?? {}
+  const seq = data['@sequence']
+  let sequence: string | null = null
+  if (typeof seq === 'string' && seq) sequence = seq
+  else if (typeof seq === 'number') sequence = String(seq)
+  const page = (data[register] ?? []) as unknown[]
+  return { sequence, page }
+}
+
+/**
  * Fetch records with sequence tracking. Used for incremental sync.
- * Returns all records plus the Sequence header from the last page.
+ * Returns all records plus the snapshot sequence cursor from the last page.
  *
- * For incremental sync: pass `updates_after` in params.
- * For full sync: pass `sort` and `range` in params.
+ * For incremental sync, pass `updates_after={cursor}` in params; for full
+ * sync, pass `sort` and `range`.
  */
 export async function herbeFetchWithSequence(
   register: string,
@@ -312,11 +330,9 @@ export async function herbeFetchWithSequence(
     const res = await herbeFetch(register, query, undefined, conn)
     if (!res.ok) throw new Error(`Herbe ${register} fetch failed: ${res.status}`)
 
-    const seq = res.headers.get('Sequence')
-    if (seq) lastSequence = seq
-
     const json = await herbeParseJSON(res)
-    const page = ((json as Record<string, unknown>)?.data?.[register as keyof unknown] ?? []) as unknown[]
+    const { sequence, page } = extractHerbePage(json, register)
+    if (sequence) lastSequence = sequence
     records.push(...page)
 
     if (page.length < limit) break
