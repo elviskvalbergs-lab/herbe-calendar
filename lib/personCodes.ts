@@ -197,6 +197,155 @@ function deriveNameFromEmail(email: string): string {
     .join(' ')
 }
 
+export interface MergeResult {
+  fromCode: string
+  intoCode: string
+  favoritesUpdated: number
+  calendarsUpdated: number
+  cacheRowsUpdated: number
+  cacheRowsDeleted: number
+  memberDeactivated: boolean
+}
+
+/**
+ * Merge the "from" person_codes row into the "into" row, rewriting every
+ * reference that used the losing code. Both rows must belong to the same
+ * account. The losing row is deleted; its email is deactivated in
+ * account_members if no other person_code still uses it.
+ *
+ * Rewrites:
+ * - user_favorites.person_codes (array element replace)
+ * - user_calendars.target_person_code
+ * - cached_events.person_code (with dedupe against the winning side)
+ * Copies erp_code / azure_object_id / holiday_country onto the winning row
+ * when the winner is missing them.
+ */
+export async function mergePersonCodes(
+  accountId: string,
+  fromId: string,
+  intoId: string,
+): Promise<MergeResult> {
+  if (fromId === intoId) throw new Error('Cannot merge a row into itself')
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const { rows } = await client.query<PersonCodeRecord>(
+      'SELECT * FROM person_codes WHERE account_id = $1 AND id = ANY($2)',
+      [accountId, [fromId, intoId]],
+    )
+    const fromRow = rows.find(r => r.id === fromId)
+    const intoRow = rows.find(r => r.id === intoId)
+    if (!fromRow || !intoRow) {
+      throw new Error('One or both person_codes not found for this account')
+    }
+    const fromCode = fromRow.generated_code
+    const intoCode = intoRow.generated_code
+
+    // 1. user_favorites.person_codes — replace the code in every array that
+    //    contains it, and dedupe using array_agg(DISTINCT).
+    const favResult = await client.query(
+      `UPDATE user_favorites
+         SET person_codes = ARRAY(
+           SELECT DISTINCT CASE WHEN p = $1 THEN $2 ELSE p END
+           FROM unnest(person_codes) AS p
+         )
+       WHERE account_id = $3 AND $1 = ANY(person_codes)`,
+      [fromCode, intoCode, accountId],
+    )
+    const favoritesUpdated = favResult.rowCount ?? 0
+
+    // 2. user_calendars.target_person_code — direct rename (schema predates
+    //    account scoping; scope it by the account via person_codes email
+    //    membership so we don't touch other accounts' rows).
+    const calResult = await client.query(
+      `UPDATE user_calendars
+         SET target_person_code = $2
+       WHERE target_person_code = $1
+         AND user_email IN (SELECT email FROM account_members WHERE account_id = $3)`,
+      [fromCode, intoCode, accountId],
+    )
+    const calendarsUpdated = calResult.rowCount ?? 0
+
+    // 3. cached_events.person_code — first delete rows that would collide
+    //    with an existing `into` row (same account, source, source_id,
+    //    person_code primary key), then rename the rest.
+    const cacheDeleteResult = await client.query(
+      `DELETE FROM cached_events c
+       WHERE c.account_id = $1 AND c.person_code = $2
+         AND EXISTS (
+           SELECT 1 FROM cached_events d
+           WHERE d.account_id = c.account_id
+             AND d.source = c.source
+             AND d.source_id = c.source_id
+             AND d.person_code = $3
+         )`,
+      [accountId, fromCode, intoCode],
+    )
+    const cacheRowsDeleted = cacheDeleteResult.rowCount ?? 0
+
+    const cacheUpdateResult = await client.query(
+      `UPDATE cached_events SET person_code = $2
+       WHERE account_id = $1 AND person_code = $3`,
+      [accountId, intoCode, fromCode],
+    )
+    const cacheRowsUpdated = cacheUpdateResult.rowCount ?? 0
+
+    // 4. Copy missing attributes onto the winner.
+    await client.query(
+      `UPDATE person_codes SET
+         erp_code = COALESCE(erp_code, $2),
+         azure_object_id = COALESCE(azure_object_id, $3),
+         holiday_country = COALESCE(holiday_country, $4),
+         source = CASE
+           WHEN source IS NULL OR source = '' THEN $5
+           ELSE source
+         END,
+         updated_at = now()
+       WHERE id = $1`,
+      [
+        intoId,
+        fromRow.erp_code,
+        fromRow.azure_object_id,
+        (fromRow as unknown as { holiday_country?: string }).holiday_country ?? null,
+        fromRow.source,
+      ],
+    )
+
+    // 5. Delete the losing row.
+    await client.query('DELETE FROM person_codes WHERE id = $1', [fromId])
+
+    // 6. Deactivate the losing email in account_members (only if it differs
+    //    from the winning email — no point deactivating our own row).
+    let memberDeactivated = false
+    if (fromRow.email.toLowerCase() !== intoRow.email.toLowerCase()) {
+      const memberResult = await client.query(
+        `UPDATE account_members SET active = false
+         WHERE account_id = $1 AND LOWER(email) = LOWER($2) AND active = true`,
+        [accountId, fromRow.email],
+      )
+      memberDeactivated = (memberResult.rowCount ?? 0) > 0
+    }
+
+    await client.query('COMMIT')
+    return {
+      fromCode,
+      intoCode,
+      favoritesUpdated,
+      calendarsUpdated,
+      cacheRowsUpdated,
+      cacheRowsDeleted,
+      memberDeactivated,
+    }
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw e
+  } finally {
+    client.release()
+  }
+}
+
 /**
  * Look up a person code by email.
  */
