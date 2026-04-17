@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { getGoogleConfig, getCalendarClient, getOAuthCalendarClient, buildGoogleMeetConferenceData } from '@/lib/google/client'
 import { getValidAccessTokenForUser } from '@/lib/google/userOAuth'
+import { upsertCachedEvents, deleteCachedEvent, type CachedEventRow } from '@/lib/cache/events'
+import { buildGoogleCacheRows } from '@/lib/sync/google'
+import { listAccountPersons } from '@/lib/cache/accountPersons'
+import { pool } from '@/lib/db'
 import type { calendar_v3 } from 'googleapis'
 
 async function getCalendarClientForRequest(
@@ -82,6 +86,67 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       conferenceDataVersion: body.isOnlineMeeting ? 1 : 0,
     })
 
+    // Write-through: refresh cached rows for this event (attendees may have changed)
+    const tokenId = req.nextUrl.searchParams.get('googleTokenId')
+    const source: 'google' | 'google-user' = tokenId ? 'google-user' : 'google'
+    try {
+      // Drop stale rows for this event across both google sources
+      await pool.query(
+        `DELETE FROM cached_events
+         WHERE account_id = $1 AND source IN ('google','google-user') AND source_id = $2`,
+        [session.accountId, id],
+      )
+
+      if (res.data?.id) {
+        const people = await listAccountPersons(session.accountId)
+        const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
+        const rows: CachedEventRow[] = []
+
+        if (source === 'google-user') {
+          const personCode = emailToCode.get(session.email.toLowerCase())
+          if (personCode) {
+            rows.push(...buildGoogleCacheRows(res.data, {
+              source: 'google-user',
+              accountId: session.accountId,
+              personCode,
+              personEmail: session.email,
+              sessionEmail: session.email,
+              tokenId: tokenId ?? undefined,
+              calendarId,
+            }))
+          }
+        } else {
+          const { emailForCode } = await import('@/lib/emailForCode')
+          const codes = new Set<string>()
+          const orgCode = emailToCode.get(session.email.toLowerCase())
+          if (orgCode) codes.add(orgCode)
+          for (const att of (res.data.attendees ?? []) as Array<{ email?: string | null }>) {
+            const addr = att.email?.toLowerCase()
+            if (addr) {
+              const c = emailToCode.get(addr)
+              if (c) codes.add(c)
+            }
+          }
+          for (const code of codes) {
+            const personEmail = (await emailForCode(code, session.accountId)) ?? null
+            rows.push(...buildGoogleCacheRows(res.data, {
+              source: 'google',
+              accountId: session.accountId,
+              personCode: code,
+              personEmail,
+              sessionEmail: session.email,
+            }))
+          }
+        }
+
+        if (rows.length > 0) {
+          upsertCachedEvents(rows).catch(e => console.warn('[google/PUT] cache write-through failed:', e))
+        }
+      }
+    } catch (e) {
+      console.warn('[google/PUT] cache write-through error:', e)
+    }
+
     return NextResponse.json({ id: res.data.id })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -116,6 +181,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     await calendar.events.delete({ calendarId, eventId: id })
+
+    // Write-through: remove cached rows for this event from both google sources
+    try {
+      await pool.query(
+        `DELETE FROM cached_events
+         WHERE account_id = $1 AND source IN ('google','google-user') AND source_id = $2`,
+        [session.accountId, id],
+      )
+    } catch (e) {
+      console.warn('[google/DELETE] cache write-through failed:', e)
+    }
+
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

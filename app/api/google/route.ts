@@ -4,9 +4,11 @@ import { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData, getO
 import { getValidAccessTokenForUser } from '@/lib/google/userOAuth'
 import { emailForCode } from '@/lib/emailForCode'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
-import { getCachedEvents } from '@/lib/cache/events'
+import { getCachedEvents, upsertCachedEvents, type CachedEventRow } from '@/lib/cache/events'
 import { hasCompletedInitialSync } from '@/lib/cache/syncState'
 import { isRangeCovered } from '@/lib/sync/erp'
+import { buildGoogleCacheRows } from '@/lib/sync/google'
+import { listAccountPersons } from '@/lib/cache/accountPersons'
 import type { Activity } from '@/types'
 
 export async function GET(req: NextRequest) {
@@ -150,6 +152,30 @@ export async function POST(req: NextRequest) {
         requestBody: event,
         conferenceDataVersion: body.isOnlineMeeting ? 1 : 0,
       })
+
+      // Write-through: cache the created event under source='google-user'
+      try {
+        const people = await listAccountPersons(session.accountId)
+        const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
+        const personCode = emailToCode.get(session.email.toLowerCase())
+        if (personCode && res.data?.id) {
+          const rows = buildGoogleCacheRows(res.data, {
+            source: 'google-user',
+            accountId: session.accountId,
+            personCode,
+            personEmail: session.email,
+            sessionEmail: session.email,
+            tokenId: body.googleTokenId,
+            calendarId: body.googleCalendarId,
+          })
+          if (rows.length > 0) {
+            upsertCachedEvents(rows).catch(e => console.warn('[google/POST] cache write-through failed:', e))
+          }
+        }
+      } catch (e) {
+        console.warn('[google/POST] cache write-through error:', e)
+      }
+
       return NextResponse.json({ id: res.data.id }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
@@ -183,6 +209,40 @@ export async function POST(req: NextRequest) {
       requestBody: event,
       conferenceDataVersion: body.isOnlineMeeting ? 1 : 0,
     })
+
+    // Write-through: cache the created event for every attendee with a person_code
+    try {
+      const people = await listAccountPersons(session.accountId)
+      const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
+      const codes = new Set<string>()
+      const orgCode = emailToCode.get(session.email.toLowerCase())
+      if (orgCode) codes.add(orgCode)
+      for (const att of (res.data.attendees ?? []) as Array<{ email?: string | null }>) {
+        const addr = att.email?.toLowerCase()
+        if (addr) {
+          const c = emailToCode.get(addr)
+          if (c) codes.add(c)
+        }
+      }
+      if (res.data?.id && codes.size > 0) {
+        const rows: CachedEventRow[] = []
+        for (const code of codes) {
+          const personEmail = (await emailForCode(code, session.accountId)) ?? null
+          rows.push(...buildGoogleCacheRows(res.data, {
+            source: 'google',
+            accountId: session.accountId,
+            personCode: code,
+            personEmail,
+            sessionEmail: session.email,
+          }))
+        }
+        if (rows.length > 0) {
+          upsertCachedEvents(rows).catch(e => console.warn('[google/POST] cache write-through failed:', e))
+        }
+      }
+    } catch (e) {
+      console.warn('[google/POST] cache write-through error:', e)
+    }
 
     return NextResponse.json({ id: res.data.id }, { status: 201 })
   } catch (e) {
