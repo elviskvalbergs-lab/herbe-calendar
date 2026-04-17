@@ -169,10 +169,23 @@ export default function MembersClient({
     if (mergeSelected.size !== 2) return
     const picked = members.filter(m => m.person_code_id != null && mergeSelected.has(m.person_code_id))
     if (picked.length !== 2) return
-    // Propose the ERP-coded row as the winner; fall back to the one with a
-    // generated_code that isn't email-derived. Admin can flip direction.
-    const erpCoded = picked.find(m => m.source?.includes('erp'))
-    const into = erpCoded ?? picked[0]
+    // Winner heuristic, in priority order:
+    //  1. The row whose generated_code equals the OTHER row's erp_code
+    //     (the canonical ERP row — the losing side's erp_code was copied
+    //     over during an earlier sync, so that other row "points" at the
+    //     canonical one).
+    //  2. The row whose generated_code matches its own erp_code
+    //     (it hasn't drifted — the displayed code is still the ERP code).
+    //  3. Fall back to the first row with any erp source tag.
+    // Admin can flip direction in the modal.
+    const [a, b] = picked
+    let into = picked[0]
+    if (a.erp_code && b.generated_code === a.erp_code) into = b
+    else if (b.erp_code && a.generated_code === b.erp_code) into = a
+    else if (a.generated_code === a.erp_code && b.generated_code !== b.erp_code) into = a
+    else if (b.generated_code === b.erp_code && a.generated_code !== a.erp_code) into = b
+    else if (a.source?.includes('erp') && !b.source?.includes('erp')) into = a
+    else if (b.source?.includes('erp') && !a.source?.includes('erp')) into = b
     const from = picked.find(m => m !== into)!
     setMergeConfirm({ from, into })
   }
