@@ -20,6 +20,37 @@ jest.mock('@/lib/accountConfig', () => ({
 }))
 jest.mock('@/lib/outlookUtils', () => ({
   fetchOutlookEventsForPerson: jest.fn().mockResolvedValue(null),
+  mapOutlookEvent: jest.fn((ev: any, personCode: string, sessionEmail: string) => {
+    const startDt = ev.start?.dateTime ?? ''
+    const endDt = ev.end?.dateTime ?? ''
+    const organizerEmail = ev.organizer?.emailAddress?.address ?? ''
+    const joinUrl = ev.onlineMeeting?.joinUrl ?? ev.onlineMeetingUrl ?? undefined
+    const rawRsvp = ev.responseStatus?.response
+    const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp : undefined
+    const attendees = ev.attendees?.map((att: any) => ({
+      email: att.emailAddress?.address ?? '',
+      name: att.emailAddress?.name ?? undefined,
+      type: (att.type === 'optional' ? 'optional' : 'required'),
+      responseStatus: att.status?.response ?? undefined,
+    })).filter((a: any) => a.email) ?? []
+    return {
+      id: ev.id ?? '',
+      source: 'outlook',
+      personCode,
+      description: ev.subject ?? '',
+      date: startDt.slice(0, 10),
+      timeFrom: startDt.slice(11, 16),
+      timeTo: endDt.slice(11, 16),
+      isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
+      isOnlineMeeting: ev.isOnlineMeeting === true,
+      videoProvider: ev.isOnlineMeeting === true ? 'teams' : undefined,
+      attendees,
+      location: ev.location?.displayName,
+      joinUrl,
+      webLink: ev.webLink ?? '',
+      rsvpStatus,
+    }
+  }),
 }))
 jest.mock('@/lib/icsUtils', () => ({
   fetchIcsForPerson: jest.fn().mockResolvedValue({ events: [], warnings: [] }),
@@ -35,7 +66,7 @@ jest.mock('@/lib/db', () => ({
 }))
 
 const { graphFetch } = require('@/lib/graph/client')
-const { fetchOutlookEventsForPerson } = require('@/lib/outlookUtils')
+const { fetchOutlookEventsForPerson, mapOutlookEvent } = require('@/lib/outlookUtils')
 const { emailForCode } = require('@/lib/emailForCode')
 
 describe('PUT /api/outlook/[id] — organizer guard', () => {

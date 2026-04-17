@@ -6,7 +6,7 @@ import type { Activity } from '@/types'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { emailForCode } from '@/lib/emailForCode'
-import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
+import { fetchOutlookEventsForPerson, mapOutlookEvent } from '@/lib/outlookUtils'
 
 export async function GET(req: NextRequest) {
   let session
@@ -59,42 +59,7 @@ export async function GET(req: NextRequest) {
       }
 
       const icsResult = await icsEventsPromise
-      const graphEvents: Activity[] = rawEvents.map(ev => {
-        const startDt = ev.start?.dateTime ?? ''
-        const endDt = ev.end?.dateTime ?? ''
-        const organizerEmail = ev.organizer?.emailAddress?.address ?? ''
-        const joinUrl = ev.onlineMeeting?.joinUrl ?? ev.onlineMeetingUrl ?? undefined
-        const rawRsvp = ev.responseStatus?.response
-        // Graph returns 'none' for unresponded events; map to undefined so buttons show unselected
-        const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as Activity['rsvpStatus'] : undefined
-        // Map attendees
-        const attendees = ev.attendees?.map(att => {
-          return {
-            email: att.emailAddress?.address ?? '',
-            name: att.emailAddress?.name ?? undefined,
-            type: (att.type === 'optional' ? 'optional' : 'required') as 'required' | 'optional',
-            responseStatus: att.status?.response ?? undefined,
-          }
-        }).filter(a => a.email) ?? []
-        return {
-          id: ev.id ?? '',
-          source: 'outlook' as const,
-          personCode: code,
-          description: ev.subject ?? '',
-          date: startDt.slice(0, 10),
-          timeFrom: startDt.slice(11, 16),
-          timeTo: endDt.slice(11, 16),
-          isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
-          isOnlineMeeting: ev.isOnlineMeeting === true,
-          videoProvider: ev.isOnlineMeeting === true ? 'teams' as const : undefined,
-          attendees,
-          location: ev.location?.displayName,
-          bodyPreview: ev.bodyPreview ?? '',
-          joinUrl,
-          webLink: ev.webLink ?? '',
-          rsvpStatus,
-        }
-      })
+      const graphEvents: Activity[] = rawEvents.map(ev => mapOutlookEvent(ev, code, sessionEmail))
       // Deduplicate: if an ICS event matches a Graph event by date+time+subject, skip it
       const uniqueIcs = deduplicateIcsAgainstGraph(graphEvents as unknown as Record<string, unknown>[], icsResult.events)
       return { events: [...graphEvents, ...uniqueIcs], warnings: icsResult.warnings }

@@ -117,3 +117,43 @@ export async function fetchOutlookEventsMinimal(
   const data = await res.json()
   return (data.value ?? []) as Array<{ id: string; start: { dateTime: string }; end: { dateTime: string } }>
 }
+
+/**
+ * Convert a raw Microsoft Graph calendar event into an internal Activity.
+ * Pure: no HTTP, no DB. Mirrors the inline mapping previously in /api/outlook GET.
+ */
+export function mapOutlookEvent(
+  ev: OutlookEvent,
+  personCode: string,
+  sessionEmail: string,
+): import('@/types').Activity {
+  const startDt = ev.start?.dateTime ?? ''
+  const endDt = ev.end?.dateTime ?? ''
+  const organizerEmail = ev.organizer?.emailAddress?.address ?? ''
+  const joinUrl = ev.onlineMeeting?.joinUrl ?? ev.onlineMeetingUrl ?? undefined
+  const rawRsvp = ev.responseStatus?.response
+  const rsvpStatus = (rawRsvp && rawRsvp !== 'none') ? rawRsvp as import('@/types').Activity['rsvpStatus'] : undefined
+  const attendees = ev.attendees?.map(att => ({
+    email: att.emailAddress?.address ?? '',
+    name: att.emailAddress?.name ?? undefined,
+    type: (att.type === 'optional' ? 'optional' : 'required') as 'required' | 'optional',
+    responseStatus: att.status?.response ?? undefined,
+  })).filter(a => a.email) ?? []
+  return {
+    id: ev.id ?? '',
+    source: 'outlook' as const,
+    personCode,
+    description: ev.subject ?? '',
+    date: startDt.slice(0, 10),
+    timeFrom: startDt.slice(11, 16),
+    timeTo: endDt.slice(11, 16),
+    isOrganizer: organizerEmail.toLowerCase() === sessionEmail.toLowerCase(),
+    isOnlineMeeting: ev.isOnlineMeeting === true,
+    videoProvider: ev.isOnlineMeeting === true ? 'teams' as const : undefined,
+    attendees,
+    location: ev.location?.displayName,
+    joinUrl,
+    webLink: ev.webLink ?? '',
+    rsvpStatus,
+  }
+}
