@@ -18,6 +18,50 @@ const visibilityLabel: Record<ShareVisibility, string> = {
   full: 'Full details',
 }
 
+const viewLabel: Record<string, string> = {
+  day: 'Day',
+  '3day': '3-day',
+  '5day': '5-day',
+  '7day': '7-day',
+  month: 'Month',
+}
+
+/**
+ * Group raw hidden-calendar IDs into a readable list. Favorites only store
+ * the ID, so we can't always resolve a calendar's human name — but we can
+ * at least strip prefixes and group by source.
+ */
+function formatHiddenCalendars(ids: string[]): { label: string; items: string[] }[] {
+  const outlook = ids.filter(id => id === 'outlook')
+  const google = ids.filter(id => id === 'google')
+  const herbe = ids.filter(id => id === 'herbe')
+  const ics = ids.filter(id => id.startsWith('ics:')).map(id => id.slice(4))
+  const perUser = new Map<string, string[]>() // email → calendar ids
+  for (const id of ids) {
+    if (!id.startsWith('google-user:')) continue
+    const rest = id.slice('google-user:'.length)
+    const colonIdx = rest.indexOf(':')
+    if (colonIdx < 0) continue
+    const email = rest.slice(0, colonIdx)
+    const calId = rest.slice(colonIdx + 1)
+    // A calendar whose id matches the account email = the primary calendar.
+    const pretty = calId === email ? 'Primary' : calId.split('@')[0] || calId
+    const arr = perUser.get(email) ?? []
+    arr.push(pretty)
+    perUser.set(email, arr)
+  }
+
+  const groups: { label: string; items: string[] }[] = []
+  if (outlook.length) groups.push({ label: 'Outlook', items: [] })
+  if (google.length) groups.push({ label: 'Google (workspace)', items: [] })
+  if (herbe.length) groups.push({ label: 'ERP', items: [] })
+  for (const [email, cals] of perUser) {
+    groups.push({ label: `Google (${email})`, items: cals })
+  }
+  if (ics.length) groups.push({ label: 'Shared calendars', items: ics })
+  return groups
+}
+
 function FieldLabel({ label, info }: { label: string; info: string }) {
   const [showInfo, setShowInfo] = useState(false)
   return (
@@ -206,14 +250,21 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
         <div className="relative mb-1">
           <h2 className="text-lg font-bold pr-8">{favorite.name}</h2>
           <p className="text-xs text-text-muted">
-            {favorite.view === 'day' ? 'Day' : favorite.view === '3day' ? '3-day' : favorite.view === '5day' ? '5-day' : '7-day'} view
+            {viewLabel[favorite.view] ?? favorite.view} view
             {' · '}{favorite.personCodes.length} person{favorite.personCodes.length !== 1 ? 's' : ''}
             {' · '}{favorite.personCodes.join(', ')}
           </p>
           {favorite.hiddenCalendars && favorite.hiddenCalendars.length > 0 && (
-            <p className="text-[10px] text-text-muted mt-0.5">
-              Hidden: {favorite.hiddenCalendars.join(', ')}
-            </p>
+            <div className="text-[10px] text-text-muted mt-1">
+              <span className="font-semibold">Hidden:</span>
+              <ul className="mt-0.5 space-y-0.5">
+                {formatHiddenCalendars(favorite.hiddenCalendars).map(group => (
+                  <li key={group.label} className="break-words">
+                    {group.label}{group.items.length > 0 && `: ${group.items.join(', ')}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <button
             onClick={onClose}
