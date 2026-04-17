@@ -7,6 +7,9 @@ import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { emailForCode } from '@/lib/emailForCode'
 import { fetchOutlookEventsForPerson, mapOutlookEvent } from '@/lib/outlookUtils'
+import { getCachedEvents } from '@/lib/cache/events'
+import { hasCompletedInitialSync } from '@/lib/cache/syncState'
+import { isRangeCovered } from '@/lib/sync/erp'
 
 export async function GET(req: NextRequest) {
   let session
@@ -32,9 +35,15 @@ export async function GET(req: NextRequest) {
   const azureConfig = await getAzureConfig(session.accountId)
 
   try {
+    const [withinWindow, initialSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, dateTo)),
+      hasCompletedInitialSync(session.accountId, 'outlook'),
+    ])
+    const canUseCache = withinWindow && initialSyncDone
+
     const results = await Promise.all(personList.map(async code => {
       const email = await emailForCode(code, session.accountId)
-      if (!email) return []
+      if (!email) return { events: [], warnings: [] }
 
       // --- ICS feeds (DB-backed) — fetched in parallel with Graph ---
       const icsEventsPromise = fetchIcsForPerson(session.email, code, session.accountId, dateFrom, dateTo, bustIcsCache)
@@ -49,17 +58,23 @@ export async function GET(req: NextRequest) {
         return { events: icsResult.events, warnings: icsResult.warnings }
       }
 
-      // Fetch via shared util; pass sessionEmail to enable the 404 shared-calendar fallback
-      const rawEvents = await fetchOutlookEventsForPerson(email, session.accountId, dateFrom, dateTo, sessionEmail)
-
-      if (rawEvents === null) {
-        // Graph failed — still return any ICS events for this person
-        const icsResult = await icsEventsPromise
-        return { events: icsResult.events, warnings: [...icsResult.warnings, `Outlook: Graph request failed for ${email}`] }
+      let graphEvents: Activity[] = []
+      if (canUseCache) {
+        const cached = await getCachedEvents(session.accountId, [code], dateFrom, dateTo, 'outlook')
+        graphEvents = cached as Activity[]
+      }
+      if (!canUseCache || graphEvents.length === 0) {
+        // Fetch via shared util; pass sessionEmail to enable the 404 shared-calendar fallback
+        const rawEvents = await fetchOutlookEventsForPerson(email, session.accountId, dateFrom, dateTo, sessionEmail)
+        if (rawEvents === null) {
+          // Graph failed — still return any ICS events for this person
+          const icsResult = await icsEventsPromise
+          return { events: icsResult.events, warnings: [...icsResult.warnings, `Outlook: Graph request failed for ${email}`] }
+        }
+        graphEvents = rawEvents.map(ev => mapOutlookEvent(ev, code, sessionEmail))
       }
 
       const icsResult = await icsEventsPromise
-      const graphEvents: Activity[] = rawEvents.map(ev => mapOutlookEvent(ev, code, sessionEmail))
       // Deduplicate: if an ICS event matches a Graph event by date+time+subject, skip it
       const uniqueIcs = deduplicateIcsAgainstGraph(graphEvents as unknown as Record<string, unknown>[], icsResult.events)
       return { events: [...graphEvents, ...uniqueIcs], warnings: icsResult.warnings }
