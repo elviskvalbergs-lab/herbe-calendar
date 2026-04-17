@@ -20,7 +20,7 @@ export default async function MembersPage() {
   const [{ rows: members }, duplicates] = await Promise.all([
     pool.query(
       `SELECT am.email, am.role, am.active, am.last_login, am.created_at,
-              pc.id AS person_code_id, pc.generated_code, pc.display_name, pc.source, pc.holiday_country
+              pc.id AS person_code_id, pc.generated_code, pc.erp_code, pc.display_name, pc.source, pc.holiday_country
        FROM account_members am
        LEFT JOIN person_codes pc ON pc.email = am.email AND pc.account_id = am.account_id
        WHERE am.account_id = $1

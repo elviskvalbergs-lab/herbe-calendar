@@ -9,6 +9,7 @@ interface Member {
   created_at: string
   person_code_id: string | null
   generated_code: string | null
+  erp_code: string | null
   display_name: string | null
   source: string | null
   holiday_country: string | null
@@ -78,6 +79,7 @@ export default function MembersClient({
         created_at: new Date().toISOString(),
         person_code_id: pc.id ?? null,
         generated_code: pc.generated_code ?? null,
+        erp_code: pc.erp_code ?? null,
         display_name: pc.display_name ?? null,
         source: pc.source ?? 'manual',
         holiday_country: null,
