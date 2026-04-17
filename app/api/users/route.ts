@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
     const hasErp = erpConnections.length > 0
     diagnostics.push(`account=${session.accountId}, erpConns=${erpConnections.length}`)
 
+    const debugCode = new URL(req.url).searchParams.get('debugCode')?.toUpperCase() ?? null
+
     if (hasErp) {
       await Promise.all(erpConnections.map(async (conn) => {
         try {
@@ -45,9 +47,31 @@ export async function GET(req: NextRequest) {
           diagnostics.push(`erp:${conn.name}=${active.length}/${users.length}`)
           for (const u of active as Record<string, unknown>[]) {
             const code = u['Code'] as string
-            const email = (u['emailAddr'] || u['LoginEmailAddr'] || u['Email'] || '') as string
+            // Scan every value that looks like an email across the record.
+            // Hansaworld/Standard Books has changed the email field name
+            // over versions (emailAddr, EmailAddr, LoginEmailAddr, Email,
+            // EMailAddr, EMail, Addr1..Addr5, etc.). Prefer explicit fields
+            // first, then fall back to any string with an "@".
+            const emailFromKnownFields = (
+              u['emailAddr'] || u['EmailAddr'] || u['EMailAddr'] ||
+              u['LoginEmailAddr'] || u['Email'] || u['EMail'] || ''
+            ) as string
+            let email = emailFromKnownFields
+            if (!email) {
+              for (const v of Object.values(u)) {
+                if (typeof v === 'string' && v.includes('@') && v.length < 120 && !v.includes(' ')) {
+                  email = v
+                  break
+                }
+              }
+            }
             const name = (u['Name'] || code || '') as string
             if (!code) continue
+            if (debugCode && code.toUpperCase() === debugCode) {
+              console.log(`[users debug ${conn.name}] ${code} record keys:`, Object.keys(u).join(','))
+              console.log(`[users debug ${conn.name}] ${code} record:`, JSON.stringify(u).slice(0, 2000))
+              console.log(`[users debug ${conn.name}] ${code} resolved email: "${email}"`)
+            }
             rawUsers.push({
               email: email || `${code.toLowerCase()}@erp.local`,
               displayName: name,
