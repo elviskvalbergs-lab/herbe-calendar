@@ -12,12 +12,16 @@ async function ensureTable() {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_email TEXT NOT NULL,
       name TEXT NOT NULL,
-      view TEXT NOT NULL CHECK (view IN ('day', '3day', '5day')),
+      view TEXT NOT NULL,
       person_codes TEXT[] NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )`)
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_favorites_user_email ON user_favorites(user_email)`)
   await pool.query(`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS hidden_calendars TEXT[] DEFAULT '{}'`)
+  // The original table had a CHECK constraint allowing only day/3day/5day.
+  // 7day and month views were added later; drop the stale constraint so
+  // favorites can be saved from any view.
+  await pool.query(`ALTER TABLE user_favorites DROP CONSTRAINT IF EXISTS user_favorites_view_check`)
   tableCheckedAt = Date.now()
 }
 
