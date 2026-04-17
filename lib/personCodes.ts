@@ -376,7 +376,12 @@ export async function mergePersonCodes(
     )
     const cacheRowsUpdated = cacheUpdateResult.rowCount ?? 0
 
-    // 4. Copy missing attributes onto the winner.
+    // 4. Delete the losing row FIRST so attributes we're about to copy to
+    //    the winner (erp_code, azure_object_id) don't briefly duplicate
+    //    values across two rows and trip the unique indexes.
+    await client.query('DELETE FROM person_codes WHERE id = $1', [fromId])
+
+    // 5. Copy missing attributes onto the winner.
     await client.query(
       `UPDATE person_codes SET
          erp_code = COALESCE(erp_code, $2),
@@ -396,9 +401,6 @@ export async function mergePersonCodes(
         fromRow.source,
       ],
     )
-
-    // 5. Delete the losing row.
-    await client.query('DELETE FROM person_codes WHERE id = $1', [fromId])
 
     // 6. Deactivate the losing email in account_members (only if it differs
     //    from the winning email — no point deactivating our own row).
