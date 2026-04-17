@@ -1,20 +1,32 @@
 'use client'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { format, addDays, subDays, parseISO } from 'date-fns'
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
 import CalendarGrid from './CalendarGrid'
+import MonthView from './MonthView'
 // BookingPage is now a standalone route at /book/[token]
 import { OUTLOOK_COLOR, FALLBACK_COLOR } from '@/lib/activityColors'
 import { personColor } from '@/lib/colors'
 
+type ShareView = 'day' | '3day' | '5day' | '7day' | 'month'
+
 interface ShareConfig {
-  view: 'day' | '3day' | '5day'
+  view: ShareView
   personCodes: string[]
   visibility: ShareVisibility
   favoriteName: string
   hasPassword: boolean
   bookingEnabled?: boolean
   templates?: { id: string; name: string; duration_minutes: number; custom_fields: { label: string; type: string; required: boolean }[] }[]
+}
+
+function viewStepDays(view: ShareView): number {
+  switch (view) {
+    case '3day': return 3
+    case '5day': return 5
+    case '7day': return 7
+    default: return 1
+  }
 }
 
 interface Props {
@@ -73,9 +85,16 @@ export default function ShareCalendarShell({ token }: Props) {
   const fetchActivities = useCallback(async () => {
     if (!config) return
     setLoading(true)
-    const step = config.view === '5day' ? 4 : config.view === '3day' ? 2 : 0
-    const dateFrom = date
-    const dateTo = format(addDays(parseISO(date), step), 'yyyy-MM-dd')
+    let dateFrom: string
+    let dateTo: string
+    if (config.view === 'month') {
+      const anchor = parseISO(date)
+      dateFrom = format(startOfMonth(anchor), 'yyyy-MM-dd')
+      dateTo = format(endOfMonth(anchor), 'yyyy-MM-dd')
+    } else {
+      dateFrom = date
+      dateTo = format(addDays(parseISO(date), viewStepDays(config.view) - 1), 'yyyy-MM-dd')
+    }
     const url = `/api/share/${token}/activities?dateFrom=${dateFrom}&dateTo=${dateTo}`
     const headers: Record<string, string> = {}
     if (verifiedPassword) headers['x-share-auth'] = verifiedPassword
@@ -118,8 +137,12 @@ export default function ShareCalendarShell({ token }: Props) {
   }
 
   function navigate(dir: 'prev' | 'next' | 'prev-multi' | 'next-multi') {
-    const viewStep = config?.view === '5day' ? 5 : config?.view === '3day' ? 3 : 1
-    const step = (dir === 'prev-multi' || dir === 'next-multi') ? viewStep : 1
+    if (config?.view === 'month') {
+      const forward = dir === 'next' || dir === 'next-multi'
+      setDate(d => format(forward ? addMonths(parseISO(d), 1) : subMonths(parseISO(d), 1), 'yyyy-MM-dd'))
+      return
+    }
+    const step = (dir === 'prev-multi' || dir === 'next-multi') ? viewStepDays(config?.view ?? 'day') : 1
     const forward = dir === 'next' || dir === 'next-multi'
     setDate(d =>
       format(
@@ -184,8 +207,10 @@ export default function ShareCalendarShell({ token }: Props) {
     selectedPersons: config.personCodes.map(code => ({ code, name: code, email: '' })),
   }
 
-  const formattedDate = format(parseISO(date), 'd MMM yyyy')
-  const viewStep = config.view === '5day' ? 5 : config.view === '3day' ? 3 : 1
+  const isMonth = config.view === 'month'
+  const formattedDate = isMonth ? format(parseISO(date), 'MMMM yyyy') : format(parseISO(date), 'd MMM yyyy')
+  const viewStep = isMonth ? 1 : viewStepDays(config.view)
+  const showMultiNav = viewStep > 1 || isMonth
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -196,19 +221,19 @@ export default function ShareCalendarShell({ token }: Props) {
           herbe<span className="text-primary">.</span>calendar
         </span>
 
-        {/* Multi-day back */}
-        {viewStep > 1 && (
+        {/* Multi-day / month back */}
+        {showMultiNav && (
           <button
             onClick={() => navigate('prev-multi')}
             className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
-            title={`Back ${viewStep} days`}
+            title={isMonth ? 'Previous month' : `Back ${viewStep} days`}
           >«</button>
         )}
-        {/* Single day back */}
+        {/* Single step back */}
         <button
           onClick={() => navigate('prev')}
           className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
-          title="Previous day"
+          title={isMonth ? 'Previous month' : 'Previous day'}
         >‹</button>
         {/* Date picker */}
         <button
@@ -226,18 +251,18 @@ export default function ShareCalendarShell({ token }: Props) {
             tabIndex={-1}
           />
         </button>
-        {/* Single day forward */}
+        {/* Single step forward */}
         <button
           onClick={() => navigate('next')}
           className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
-          title="Next day"
+          title={isMonth ? 'Next month' : 'Next day'}
         >›</button>
-        {/* Multi-day forward */}
-        {viewStep > 1 && (
+        {/* Multi-day / month forward */}
+        {showMultiNav && (
           <button
             onClick={() => navigate('next-multi')}
             className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold"
-            title={`Forward ${viewStep} days`}
+            title={isMonth ? 'Next month' : `Forward ${viewStep} days`}
           >»</button>
         )}
         {/* Today */}
@@ -274,19 +299,37 @@ export default function ShareCalendarShell({ token }: Props) {
       </header>
 
       {/* Calendar */}
-      <CalendarGrid
-        state={state}
-        activities={activities}
-        loading={loading}
-        getActivityColor={getColor}
-        onRefresh={fetchActivities}
-        onNavigate={navigate}
-        onSlotClick={() => {}}
-        onActivityClick={() => {}}
-        onActivityUpdate={() => {}}
-        visibility={config.visibility}
-        holidays={holidays}
-      />
+      {isMonth ? (
+        <MonthView
+          activities={activities}
+          date={date}
+          holidays={holidays}
+          personCode={config.personCodes[0] ?? ''}
+          personCount={config.personCodes.length}
+          getActivityColor={getColor}
+          loading={loading}
+          onSelectDate={(d) => setDate(d)}
+          onSelectWeek={(monday) => setDate(monday)}
+          onSelectedDayChange={(d) => setDate(d)}
+          onNavigateMonth={(dir) => {
+            setDate(d => format(dir > 0 ? addMonths(parseISO(d), 1) : subMonths(parseISO(d), 1), 'yyyy-MM-dd'))
+          }}
+        />
+      ) : (
+        <CalendarGrid
+          state={state}
+          activities={activities}
+          loading={loading}
+          getActivityColor={getColor}
+          onRefresh={fetchActivities}
+          onNavigate={navigate}
+          onSlotClick={() => {}}
+          onActivityClick={() => {}}
+          onActivityUpdate={() => {}}
+          visibility={config.visibility}
+          holidays={holidays}
+        />
+      )}
     </div>
   )
 }
