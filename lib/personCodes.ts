@@ -157,6 +157,47 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
 }
 
 /**
+ * Ensure a person_codes row exists for the given account+email. Used when a
+ * member is added manually (outside the ERP/Azure/Google sync paths) so
+ * they still get a generated_code and can be referenced by the calendar,
+ * ICS attachments, etc. Returns the resulting record.
+ *
+ * If `displayName` is not provided, one is derived from the email local
+ * part (e.g. 'elvis.kvalbergs@example.com' → 'Elvis Kvalbergs').
+ */
+export async function ensurePersonCode(
+  accountId: string,
+  email: string,
+  displayName?: string,
+): Promise<PersonCodeRecord> {
+  const normalizedEmail = email.trim().toLowerCase()
+  const { rows: existing } = await pool.query<PersonCodeRecord>(
+    'SELECT * FROM person_codes WHERE account_id = $1 AND LOWER(email) = $2',
+    [accountId, normalizedEmail],
+  )
+  if (existing[0]) return existing[0]
+
+  const name = (displayName && displayName.trim()) || deriveNameFromEmail(normalizedEmail)
+  const code = await findUniqueCode(generateCode(name), accountId, normalizedEmail)
+  const { rows } = await pool.query<PersonCodeRecord>(
+    `INSERT INTO person_codes (account_id, generated_code, email, display_name, source)
+     VALUES ($1, $2, $3, $4, 'manual')
+     RETURNING *`,
+    [accountId, code, normalizedEmail, name],
+  )
+  return rows[0]
+}
+
+function deriveNameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? email
+  return local
+    .split(/[.\-_]/)
+    .filter(Boolean)
+    .map(p => p[0]?.toUpperCase() + p.slice(1))
+    .join(' ')
+}
+
+/**
  * Look up a person code by email.
  */
 export async function getCodeByEmail(email: string, accountId?: string): Promise<string | null> {

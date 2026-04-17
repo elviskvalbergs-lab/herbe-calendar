@@ -7,6 +7,7 @@ import { REGISTERS } from '@/lib/herbe/constants'
 import { graphFetch } from '@/lib/graph/client'
 import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
 import { getAccountIdFromCookie } from '@/lib/adminAccountId'
+import { ensurePersonCode } from '@/lib/personCodes'
 
 export async function PATCH(req: NextRequest) {
   let session
@@ -66,16 +67,20 @@ export async function POST(req: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const { email, role } = await req.json()
+  const { email, role, displayName } = await req.json()
   if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
 
   try {
+    const normalizedEmail = email.trim().toLowerCase()
     await pool.query(
       `INSERT INTO account_members (account_id, email, role) VALUES ($1, $2, $3)
        ON CONFLICT (account_id, email) DO UPDATE SET role = EXCLUDED.role`,
-      [session.accountId, email.trim().toLowerCase(), role || 'member']
+      [session.accountId, normalizedEmail, role || 'member']
     )
-    return NextResponse.json({ ok: true })
+    // Also provision a person_codes row so the member has a generated_code
+    // and can be referenced by the calendar, ICS attachments, etc.
+    const personCode = await ensurePersonCode(session.accountId, normalizedEmail, displayName)
+    return NextResponse.json({ ok: true, personCode })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
@@ -171,7 +176,26 @@ export async function PUT(req: NextRequest) {
       if (rowCount && rowCount > 0) deactivated++
     }
 
-    return NextResponse.json({ ok: true, added, deactivated, total: activeEmails.size })
+    // Ensure every active member has a person_codes row. Picks up members
+    // that were added manually (outside ERP/Azure/Google) and never got a
+    // generated_code — needed for ICS attachment and calendar display.
+    const { rows: memberRows } = await pool.query<{ email: string }>(
+      `SELECT am.email FROM account_members am
+       LEFT JOIN person_codes pc ON pc.account_id = am.account_id AND LOWER(pc.email) = LOWER(am.email)
+       WHERE am.account_id = $1 AND am.active = true AND pc.id IS NULL`,
+      [session.accountId]
+    )
+    let codesProvisioned = 0
+    for (const { email } of memberRows) {
+      try {
+        await ensurePersonCode(session.accountId, email)
+        codesProvisioned++
+      } catch (e) {
+        console.warn(`[members sync] ensurePersonCode failed for ${email}:`, String(e))
+      }
+    }
+
+    return NextResponse.json({ ok: true, added, deactivated, codesProvisioned, total: activeEmails.size })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

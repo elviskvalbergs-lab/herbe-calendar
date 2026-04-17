@@ -59,6 +59,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
     if (res.ok) {
       const parts = [`Synced ${data.added ?? 0} new members`]
       if (data.deactivated) parts.push(`${data.deactivated} deactivated`)
+      if (data.codesProvisioned) parts.push(`${data.codesProvisioned} codes generated`)
       setMessage(parts.join(', '))
       window.location.reload()
     } else {
