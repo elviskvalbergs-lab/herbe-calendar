@@ -123,13 +123,20 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
     const erpCode = erp?.erpCode || null
 
     if (existingRecord) {
-      // Update existing record
+      // Update existing record. Never overwrite a real email with the ERP
+      // "@erp.local" placeholder — that placeholder only appears when the
+      // merge iteration visits the ERP-dummy entry for a row that already
+      // has a real email attached via azure_object_id.
       const { rows } = await pool.query<PersonCodeRecord>(
         `UPDATE person_codes
          SET display_name = $1, source = $2,
              azure_object_id = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE azure_object_id END,
              erp_code = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE erp_code END,
-             email = $5, updated_at = now()
+             email = CASE
+               WHEN $5 LIKE '%@erp.local' AND email NOT LIKE '%@erp.local' THEN email
+               ELSE $5
+             END,
+             updated_at = now()
          WHERE id = $6
          RETURNING *`,
         [displayName, source, azureObjectId, erpCode, email, existingRecord.id]
