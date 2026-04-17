@@ -152,8 +152,9 @@ export function mapOutlookEvent(
     videoProvider: ev.isOnlineMeeting === true ? 'teams' as const : undefined,
     attendees,
     location: ev.location?.displayName,
+    bodyPreview: ev.bodyPreview ?? '',
     joinUrl,
     webLink: ev.webLink ?? '',
     rsvpStatus,
-  }
+  } as unknown as import('@/types').Activity
 }
