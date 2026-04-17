@@ -98,6 +98,8 @@ export default function MembersClient({
       const parts = [`Synced ${data.added ?? 0} new members`]
       if (data.deactivated) parts.push(`${data.deactivated} deactivated`)
       if (data.codesProvisioned) parts.push(`${data.codesProvisioned} codes generated`)
+      if (data.legacyPlaceholdersDeactivated) parts.push(`${data.legacyPlaceholdersDeactivated} legacy @erp.local ghosts deactivated`)
+      if (data.legacyPersonCodesCleaned) parts.push(`${data.legacyPersonCodesCleaned} orphan codes removed`)
       setMessage(parts.join(', '))
       window.location.reload()
     } else {

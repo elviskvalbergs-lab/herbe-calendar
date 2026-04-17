@@ -178,7 +178,9 @@ export async function PUT(req: NextRequest) {
 
     // Ensure every active member has a person_codes row. Picks up members
     // that were added manually (outside ERP/Azure/Google) and never got a
-    // generated_code — needed for ICS attachment and calendar display.
+    // generated_code. @erp.local placeholders are legacy ghosts — deactivate
+    // them instead of creating a second person_code row (their real record
+    // already exists under an actual email after the email-field sync).
     const { rows: memberRows } = await pool.query<{ email: string }>(
       `SELECT am.email FROM account_members am
        LEFT JOIN person_codes pc ON pc.account_id = am.account_id AND LOWER(pc.email) = LOWER(am.email)
@@ -186,7 +188,17 @@ export async function PUT(req: NextRequest) {
       [session.accountId]
     )
     let codesProvisioned = 0
+    let legacyPlaceholdersDeactivated = 0
     for (const { email } of memberRows) {
+      if (email.toLowerCase().endsWith('@erp.local')) {
+        await pool.query(
+          `UPDATE account_members SET active = false
+           WHERE account_id = $1 AND LOWER(email) = LOWER($2)`,
+          [session.accountId, email]
+        )
+        legacyPlaceholdersDeactivated++
+        continue
+      }
       try {
         await ensurePersonCode(session.accountId, email)
         codesProvisioned++
@@ -195,7 +207,28 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, added, deactivated, codesProvisioned, total: activeEmails.size })
+    // Remove orphan manual person_codes rows whose email is an @erp.local
+    // placeholder — they only exist because a previous sync accidentally
+    // ran the code-provisioning path for a legacy ghost member. Safe to
+    // delete here because they can't be referenced by real events (ERP
+    // records never store @erp.local as a person code).
+    const { rowCount: legacyPersonCodesCleaned } = await pool.query(
+      `DELETE FROM person_codes
+       WHERE account_id = $1
+         AND source = 'manual'
+         AND email LIKE '%@erp.local'`,
+      [session.accountId]
+    )
+
+    return NextResponse.json({
+      ok: true,
+      added,
+      deactivated,
+      codesProvisioned,
+      legacyPlaceholdersDeactivated,
+      legacyPersonCodesCleaned: legacyPersonCodesCleaned ?? 0,
+      total: activeEmails.size,
+    })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
