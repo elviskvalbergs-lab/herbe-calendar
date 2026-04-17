@@ -27,6 +27,8 @@ describe('listAccountPersons', () => {
     const [sql, params] = mockQuery.mock.calls[0]
     expect(sql).toContain('person_codes')
     expect(sql).toContain('generated_code')
+    expect(sql).toContain('email IS NOT NULL')
+    expect(sql).toContain("email <> ''")
     expect(params).toEqual(['acc-1'])
   })
 })
