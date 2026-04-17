@@ -13,6 +13,9 @@ const ALLOWED_ICS_DOMAINS = [
   'cloud.timify.com',
   'app.reclaim.ai',
   'calendly.com',
+  // Our own feeds — share-link ICS endpoints on production and preview
+  'herbe-calendar.vercel.app',
+  'herbe-calendar-test.vercel.app',
 ]
 
 /** Normalize webcal:// to https:// */
