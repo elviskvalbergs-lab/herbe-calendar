@@ -7,14 +7,34 @@ interface Member {
   active: boolean
   last_login: string | null
   created_at: string
-  person_code_id: number | null
+  person_code_id: string | null
   generated_code: string | null
   display_name: string | null
   source: string | null
   holiday_country: string | null
 }
 
-export default function MembersClient({ members: initial, accountId, isSuperAdmin }: { members: Member[]; accountId: string; isSuperAdmin?: boolean }) {
+interface DuplicateCandidate {
+  reason: string
+  rowAId: string
+  rowACode: string
+  rowAEmail: string
+  rowBId: string
+  rowBCode: string
+  rowBEmail: string
+}
+
+export default function MembersClient({
+  members: initial,
+  accountId,
+  isSuperAdmin,
+  duplicates = [],
+}: {
+  members: Member[]
+  accountId: string
+  isSuperAdmin?: boolean
+  duplicates?: DuplicateCandidate[]
+}) {
   const [members, setMembers] = useState(initial)
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
@@ -23,9 +43,11 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [holidayCountries, setHolidayCountries] = useState<{ code: string; name: string }[]>([])
-  const [mergeSelected, setMergeSelected] = useState<Set<number>>(new Set())
+  const [mergeSelected, setMergeSelected] = useState<Set<string>>(new Set())
   const [merging, setMerging] = useState(false)
   const [mergeConfirm, setMergeConfirm] = useState<null | { from: Member; into: Member }>(null)
+
+  const duplicateIds = new Set(duplicates.flatMap(d => [d.rowAId, d.rowBId]))
 
   useEffect(() => {
     fetch('/api/holidays/countries').then(r => r.json()).then(setHolidayCountries).catch(() => {})
@@ -116,7 +138,7 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
     setSaving(null)
   }
 
-  function toggleMergeSelect(personCodeId: number | null) {
+  function toggleMergeSelect(personCodeId: string | null) {
     if (personCodeId == null) return
     setMergeSelected(prev => {
       const next = new Set(prev)
@@ -124,6 +146,15 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
       else next.add(personCodeId)
       return next
     })
+  }
+
+  function selectDuplicatePair(d: DuplicateCandidate) {
+    setMergeSelected(new Set([d.rowAId, d.rowBId]))
+    setMessage(null)
+    // Scroll the table into view so the user sees the checkboxes
+    setTimeout(() => {
+      document.querySelector('table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
   }
 
   function openMergeConfirm() {
@@ -176,6 +207,35 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
       {message && (
         <div className={`px-4 py-2 rounded-lg text-sm font-bold mb-4 ${message.includes('fail') || message.includes('Failed') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
           {message}
+        </div>
+      )}
+
+      {duplicates.length > 0 && (
+        <div className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+          <p className="text-xs font-bold text-amber-500 mb-2">
+            {duplicates.length} possible duplicate{duplicates.length === 1 ? '' : 's'} detected
+          </p>
+          <p className="text-[11px] text-text-muted mb-2">
+            These person rows look like the same human (matched via ERP code cross-reference or shared email). Review and merge them if appropriate — nothing is changed automatically.
+          </p>
+          <ul className="space-y-1.5">
+            {duplicates.map((d, i) => (
+              <li key={i} className="flex items-center gap-2 text-xs">
+                <span className="font-mono font-bold">{d.rowACode}</span>
+                <span className="text-text-muted">({d.rowAEmail})</span>
+                <span className="text-text-muted">↔</span>
+                <span className="font-mono font-bold">{d.rowBCode}</span>
+                <span className="text-text-muted">({d.rowBEmail})</span>
+                <span className="text-[10px] text-text-muted/70 italic ml-1">
+                  {d.reason === 'cross-code' ? 'erp_code → other row' : 'same email'}
+                </span>
+                <button onClick={() => selectDuplicatePair(d)}
+                  className="ml-auto px-2 py-0.5 border border-amber-500/40 text-amber-500 rounded text-[10px] font-bold hover:bg-amber-500/10">
+                  Select pair
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -249,7 +309,12 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                     title={m.person_code_id == null ? 'No person code — cannot merge' : 'Select to merge'}
                   />
                 </td>
-                <td className="px-3 py-1.5 font-mono text-xs font-bold whitespace-nowrap">{m.generated_code ?? '—'}</td>
+                <td className="px-3 py-1.5 font-mono text-xs font-bold whitespace-nowrap">
+                  {m.generated_code ?? '—'}
+                  {m.person_code_id != null && duplicateIds.has(m.person_code_id) && (
+                    <span className="ml-1.5 text-amber-500" title="Possible duplicate — see banner above">⚠</span>
+                  )}
+                </td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{m.display_name ?? m.email.split('@')[0]}</td>
                 <td className="px-3 py-1.5 text-text-muted text-xs whitespace-nowrap">{m.email}</td>
                 <td className="px-3 py-1.5">

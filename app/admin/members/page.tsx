@@ -3,6 +3,7 @@ import { requireAdminSession } from '@/lib/adminAuth'
 import { getAdminAccountId, getAllAccounts } from '@/lib/adminAccountId'
 import AdminShell from '@/components/AdminShell'
 import { pool } from '@/lib/db'
+import { findDuplicatePersonCodes } from '@/lib/personCodes'
 import MembersClient from './MembersClient'
 
 export default async function MembersPage() {
@@ -16,20 +17,23 @@ export default async function MembersPage() {
   }
   const accounts = session.isSuperAdmin ? await getAllAccounts() : []
 
-  const { rows: members } = await pool.query(
-    `SELECT am.email, am.role, am.active, am.last_login, am.created_at,
-            pc.id AS person_code_id, pc.generated_code, pc.display_name, pc.source, pc.holiday_country
-     FROM account_members am
-     LEFT JOIN person_codes pc ON pc.email = am.email AND pc.account_id = am.account_id
-     WHERE am.account_id = $1
-     ORDER BY am.active DESC, pc.display_name ASC NULLS LAST`,
-    [session.accountId]
-  )
+  const [{ rows: members }, duplicates] = await Promise.all([
+    pool.query(
+      `SELECT am.email, am.role, am.active, am.last_login, am.created_at,
+              pc.id AS person_code_id, pc.generated_code, pc.display_name, pc.source, pc.holiday_country
+       FROM account_members am
+       LEFT JOIN person_codes pc ON pc.email = am.email AND pc.account_id = am.account_id
+       WHERE am.account_id = $1
+       ORDER BY am.active DESC, pc.display_name ASC NULLS LAST`,
+      [session.accountId]
+    ),
+    findDuplicatePersonCodes(session.accountId),
+  ])
 
   return (
     <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
       <h1 className="text-xl font-bold mb-6">Members</h1>
-      <MembersClient members={members} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} />
+      <MembersClient members={members} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} duplicates={duplicates} />
     </AdminShell>
   )
 }

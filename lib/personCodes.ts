@@ -81,6 +81,7 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
   )
   const byEmail = new Map(existing.map(r => [r.email.toLowerCase(), r]))
   const byErpCode = new Map(existing.filter(r => r.erp_code).map(r => [r.erp_code!, r]))
+  const byAzureId = new Map(existing.filter(r => r.azure_object_id).map(r => [r.azure_object_id!, r]))
 
   // Merge users by email (case-insensitive), also match ERP users by code
   const merged = new Map<string, { erp?: RawUser; azure?: RawUser; google?: RawUser }>()
@@ -107,8 +108,13 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
   const results: PersonCodeRecord[] = []
 
   for (const [emailKey, { erp, azure, google }] of merged) {
-    // Try to find existing record by email OR by ERP code
-    const existingRecord = byEmail.get(emailKey) ?? (erp?.erpCode ? byErpCode.get(erp.erpCode) : undefined)
+    // Try to find existing record by email, ERP code, or Azure object ID.
+    // The Azure fallback catches email changes in Azure — without it a
+    // renamed Azure user would silently create a duplicate row.
+    const existingRecord =
+      byEmail.get(emailKey) ??
+      (erp?.erpCode ? byErpCode.get(erp.erpCode) : undefined) ??
+      (azure?.azureObjectId ? byAzureId.get(azure.azureObjectId) : undefined)
     const displayName = erp?.displayName || azure?.displayName || google?.displayName || ''
     const email = erp?.email || azure?.email || google?.email || ''
     const sources = [erp && 'erp', azure && 'azure', google && 'google'].filter(Boolean) as string[]
@@ -195,6 +201,72 @@ function deriveNameFromEmail(email: string): string {
     .filter(Boolean)
     .map(p => p[0]?.toUpperCase() + p.slice(1))
     .join(' ')
+}
+
+export interface DuplicateCandidate {
+  reason: string
+  rowAId: string
+  rowACode: string
+  rowAEmail: string
+  rowBId: string
+  rowBCode: string
+  rowBEmail: string
+}
+
+/**
+ * Detect pairs of person_codes rows that appear to be the same person.
+ * Called from the admin UI to surface a merge prompt. We look for:
+ *
+ * 1. Cross-reference: one row's erp_code equals another row's
+ *    generated_code. This is the "Diana case" — ERP renamed someone to
+ *    an email that was already used by an Azure-only row, so the Azure
+ *    row gained an erp_code while an orphan ERP row with the matching
+ *    generated_code still exists.
+ * 2. Email duplicates: two active rows share an email (case-insensitive).
+ *    Shouldn't happen thanks to the unique index, but surface it if the
+ *    index is somehow disabled or a historical collision survived.
+ */
+export async function findDuplicatePersonCodes(accountId: string): Promise<DuplicateCandidate[]> {
+  const { rows } = await pool.query<{
+    reason: string
+    a_id: string
+    a_code: string
+    a_email: string
+    b_id: string
+    b_code: string
+    b_email: string
+  }>(
+    `SELECT 'cross-code' AS reason,
+            a.id AS a_id, a.generated_code AS a_code, a.email AS a_email,
+            b.id AS b_id, b.generated_code AS b_code, b.email AS b_email
+       FROM person_codes a
+       JOIN person_codes b
+         ON b.account_id = a.account_id
+        AND b.id <> a.id
+        AND b.generated_code = a.erp_code
+      WHERE a.account_id = $1 AND a.erp_code IS NOT NULL
+        AND a.erp_code <> a.generated_code
+      UNION ALL
+      SELECT 'email-duplicate' AS reason,
+             a.id, a.generated_code, a.email,
+             b.id, b.generated_code, b.email
+        FROM person_codes a
+        JOIN person_codes b
+          ON b.account_id = a.account_id
+         AND b.id < a.id
+         AND LOWER(b.email) = LOWER(a.email)
+       WHERE a.account_id = $1`,
+    [accountId],
+  )
+  return rows.map(r => ({
+    reason: r.reason,
+    rowAId: r.a_id,
+    rowACode: r.a_code,
+    rowAEmail: r.a_email,
+    rowBId: r.b_id,
+    rowBCode: r.b_code,
+    rowBEmail: r.b_email,
+  }))
 }
 
 export interface MergeResult {
