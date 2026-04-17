@@ -4,6 +4,9 @@ import { getGoogleConfig, getCalendarClient, buildGoogleMeetConferenceData, getO
 import { getValidAccessTokenForUser } from '@/lib/google/userOAuth'
 import { emailForCode } from '@/lib/emailForCode'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
+import { getCachedEvents } from '@/lib/cache/events'
+import { hasCompletedInitialSync } from '@/lib/cache/syncState'
+import { isRangeCovered } from '@/lib/sync/erp'
 import type { Activity } from '@/types'
 
 export async function GET(req: NextRequest) {
@@ -26,44 +29,71 @@ export async function GET(req: NextRequest) {
 
   const personList = persons.split(',').map(p => p.trim())
 
-  // --- Domain-wide delegation events ---
-  const domainWideEvents: Activity[] = []
+  // Decide once whether the cache can serve this range, for each source.
+  const withinWindow = isRangeCovered(dateFrom, dateTo)
+  const [domainSyncDone, userSyncDone] = await Promise.all([
+    hasCompletedInitialSync(session.accountId, 'google'),
+    hasCompletedInitialSync(session.accountId, 'google-user'),
+  ])
+  const useDomainCache = withinWindow && domainSyncDone
+  const useUserCache = withinWindow && userSyncDone
+
+  // --- Domain-wide delegation events (source='google') ---
+  let domainWideEvents: Activity[] = []
 
   try {
-    const results = await Promise.all(personList.map(async code => {
-      const email = await emailForCode(code, session.accountId)
-      if (!email) return []
+    if (useDomainCache) {
+      domainWideEvents = await getCachedEvents(session.accountId, personList, dateFrom, dateTo, 'google')
+    }
+    if (!useDomainCache || domainWideEvents.length === 0) {
+      const results = await Promise.all(personList.map(async code => {
+        const email = await emailForCode(code, session.accountId)
+        if (!email) return []
 
-      const events = await fetchGoogleEventsForPerson(email, session.accountId, dateFrom, dateTo)
-      if (events === null) return [] // Google not configured
+        const events = await fetchGoogleEventsForPerson(email, session.accountId, dateFrom, dateTo)
+        if (events === null) return [] // Google not configured
 
-      return events.map(ev => mapGoogleEvent(ev, code, session.email, undefined, email))
-    }))
+        return events.map(ev => mapGoogleEvent(ev, code, session.email, undefined, email))
+      }))
 
-    domainWideEvents.push(...results.flat())
+      domainWideEvents = results.flat()
+    }
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 
-  // --- Per-user OAuth calendars ---
-  const { events: perUserRaw, warnings } = await fetchPerUserGoogleEvents(
-    session.email,
-    session.accountId,
-    dateFrom,
-    dateTo,
-    'items(id,summary,description,start,end,organizer,attendees,conferenceData,htmlLink,status)',
-  )
+  // --- Per-user OAuth calendars (source='google-user') ---
+  let perUserEvents: Activity[] = []
+  const warnings: string[] = []
 
-  const perUserEvents: Activity[] = []
-  for (const { event: ev, calendarId, calendarName, accountEmail, tokenId, color } of perUserRaw) {
-    if (ev.status === 'cancelled') continue
-    perUserEvents.push(mapGoogleEvent(ev, session.userCode, session.email, {
-      googleCalendarId: calendarId,
-      googleCalendarName: calendarName,
-      googleAccountEmail: accountEmail,
-      googleTokenId: tokenId,
-      icsColor: color,
-    }))
+  if (useUserCache) {
+    try {
+      perUserEvents = await getCachedEvents(session.accountId, personList, dateFrom, dateTo, 'google-user')
+    } catch (e) {
+      console.warn('[google] Per-user cache read failed:', e)
+    }
+  }
+  if (!useUserCache || perUserEvents.length === 0) {
+    const { events: perUserRaw, warnings: liveWarnings } = await fetchPerUserGoogleEvents(
+      session.email,
+      session.accountId,
+      dateFrom,
+      dateTo,
+      'items(id,summary,description,start,end,organizer,attendees,conferenceData,htmlLink,status)',
+    )
+    warnings.push(...liveWarnings)
+
+    perUserEvents = []
+    for (const { event: ev, calendarId, calendarName, accountEmail, tokenId, color } of perUserRaw) {
+      if (ev.status === 'cancelled') continue
+      perUserEvents.push(mapGoogleEvent(ev, session.userCode, session.email, {
+        googleCalendarId: calendarId,
+        googleCalendarName: calendarName,
+        googleAccountEmail: accountEmail,
+        googleTokenId: tokenId,
+        icsColor: color,
+      }))
+    }
   }
 
   // Deduplicate per-user events against domain-wide events by Google event ID
