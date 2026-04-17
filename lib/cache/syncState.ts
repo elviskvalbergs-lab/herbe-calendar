@@ -20,6 +20,24 @@ export async function hasCompletedInitialSync(
   return rows[0]?.ok ?? false
 }
 
+/**
+ * Return the set of connection IDs (including '' for account-level sources)
+ * that have completed a full sync for this account+source. Read paths that
+ * iterate per connection use this to decide cache-vs-live independently —
+ * one failing connection no longer poisons the cache for the others.
+ */
+export async function getSyncedConnectionIds(
+  accountId: string,
+  source: string,
+): Promise<Set<string>> {
+  const { rows } = await pool.query<{ connection_id: string }>(
+    `SELECT connection_id FROM sync_state
+     WHERE account_id = $1 AND source = $2 AND last_full_sync_at IS NOT NULL`,
+    [accountId, source],
+  )
+  return new Set(rows.map(r => r.connection_id))
+}
+
 export interface SyncState {
   accountId: string
   source: string

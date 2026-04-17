@@ -3,8 +3,9 @@ import { pool } from '@/lib/db'
 import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { getCachedEvents } from '@/lib/cache/events'
-import { hasCompletedInitialSync } from '@/lib/cache/syncState'
-import { fetchErpActivities } from '@/lib/herbe/recordUtils'
+import { hasCompletedInitialSync, getSyncedConnectionIds } from '@/lib/cache/syncState'
+import { fetchErpActivitiesForConnection } from '@/lib/herbe/recordUtils'
+import { getErpConnections } from '@/lib/accountConfig'
 import { isRangeCovered } from '@/lib/sync/erp'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } from '@/lib/googleUtils'
@@ -125,22 +126,23 @@ export async function GET(
 
   const allActivities: (Record<string, unknown> | Activity)[] = []
 
-  // Fetch Herbe activities: cache only when the range is inside the sync
-  // window and the account has completed a full sync; live otherwise.
+  // Fetch Herbe activities: per-connection cache-vs-live. For each ERP
+  // connection: serve from cache if synced AND range is within the window,
+  // else live-fetch just that connection. A failing connection doesn't
+  // block the others.
   if (!hiddenCalendarsSet.has('herbe')) {
-    const [withinWindow, initialSyncDone] = await Promise.all([
-      Promise.resolve(isRangeCovered(dateFrom, cappedDateTo)),
-      hasCompletedInitialSync(accountId),
+    const withinWindow = isRangeCovered(dateFrom, cappedDateTo)
+    const [connections, syncedIds] = await Promise.all([
+      getErpConnections(accountId),
+      getSyncedConnectionIds(accountId, 'herbe'),
     ])
-    const canUseCache = withinWindow && initialSyncDone
-    let erpActivities: (Record<string, unknown> | Activity)[] = []
-    if (canUseCache) {
-      erpActivities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo)
-    }
-    if (!canUseCache || erpActivities.length === 0) {
-      erpActivities = await fetchErpActivities(accountId, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true })
-    }
-    allActivities.push(...erpActivities)
+    const perConn = await Promise.all(connections.map(async conn => {
+      if (withinWindow && syncedIds.has(conn.id)) {
+        return getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo, 'herbe', conn.id)
+      }
+      return fetchErpActivitiesForConnection(conn, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true })
+    }))
+    allActivities.push(...perConn.flat())
   }
 
   // Outlook cache-first check: cache when the range is covered AND the

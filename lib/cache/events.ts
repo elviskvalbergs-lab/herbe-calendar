@@ -12,7 +12,10 @@ export interface CachedEventRow {
 }
 
 /**
- * Read cached ERP events for given person codes and date range.
+ * Read cached events for given person codes and date range.
+ * Optional connectionId filter scopes results to a single connection — used by
+ * per-connection read paths where each connection decides cache-vs-live
+ * independently.
  */
 export async function getCachedEvents(
   accountId: string,
@@ -20,14 +23,27 @@ export async function getCachedEvents(
   dateFrom: string,
   dateTo: string,
   source = 'herbe',
+  connectionId?: string,
 ): Promise<Activity[]> {
+  if (connectionId === undefined) {
+    const { rows } = await pool.query<{ data: Activity }>(
+      `SELECT data FROM cached_events
+       WHERE account_id = $1
+         AND person_code = ANY($2)
+         AND date BETWEEN $3 AND $4
+         AND source = $5`,
+      [accountId, personCodes, dateFrom, dateTo, source],
+    )
+    return rows.map(r => r.data)
+  }
   const { rows } = await pool.query<{ data: Activity }>(
     `SELECT data FROM cached_events
      WHERE account_id = $1
        AND person_code = ANY($2)
        AND date BETWEEN $3 AND $4
-       AND source = $5`,
-    [accountId, personCodes, dateFrom, dateTo, source],
+       AND source = $5
+       AND connection_id = $6`,
+    [accountId, personCodes, dateFrom, dateTo, source, connectionId],
   )
   return rows.map(r => r.data)
 }

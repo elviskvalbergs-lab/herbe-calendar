@@ -8,7 +8,7 @@ import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/goog
 import { emailForCode } from '@/lib/emailForCode'
 import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
 import { getCachedEvents } from '@/lib/cache/events'
-import { hasCompletedInitialSync } from '@/lib/cache/syncState'
+import { hasCompletedInitialSync, getSyncedConnectionIds } from '@/lib/cache/syncState'
 import { isRangeCovered } from '@/lib/sync/erp'
 import { format, endOfMonth, parseISO } from 'date-fns'
 
@@ -51,29 +51,23 @@ export async function GET(req: NextRequest) {
     result[date].count++
   }
 
-  // ERP: cache when the range is inside the sync window AND the account
-  // has completed a full sync; live otherwise. Prevents the sparse-cache
-  // trap where a pre-sync write-through row makes cached.length > 0 and
-  // blocks the live fallback.
+  // ERP: per-connection cache-vs-live. For each connection, if it has
+  // completed a full sync and the range is inside the sync window, serve
+  // from cache; otherwise live-fetch that connection only. One failing
+  // connection no longer hides month-view dots from the others.
   try {
-    const [withinWindow, initialSyncDone] = await Promise.all([
-      Promise.resolve(isRangeCovered(dateFrom, dateTo)),
-      hasCompletedInitialSync(session.accountId),
+    const withinWindow = isRangeCovered(dateFrom, dateTo)
+    const [connections, syncedIds] = await Promise.all([
+      getErpConnections(session.accountId),
+      getSyncedConnectionIds(session.accountId, 'herbe'),
     ])
-    const canUseCache = withinWindow && initialSyncDone
-    let usedCache = false
-    if (canUseCache) {
-      const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo)
-      if (cached.length > 0) {
+    for (const conn of connections) {
+      if (withinWindow && syncedIds.has(conn.id)) {
+        const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo, 'herbe', conn.id)
         for (const ev of cached) {
           if (ev.date) addEntry(ev.date, 'herbe')
         }
-        usedCache = true
-      }
-    }
-    if (!usedCache) {
-      const connections = await getErpConnections(session.accountId)
-      for (const conn of connections) {
+      } else {
         try {
           const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
           for (const record of raw) {

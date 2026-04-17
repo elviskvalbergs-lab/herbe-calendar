@@ -14,6 +14,7 @@ jest.mock('@/lib/cache/events', () => ({
 }))
 jest.mock('@/lib/cache/syncState', () => ({
   hasCompletedInitialSync: jest.fn().mockResolvedValue(true),
+  getSyncedConnectionIds: jest.fn().mockResolvedValue(new Set(['env-fallback'])),
 }))
 jest.mock('@/lib/sync/erp', () => ({
   buildCacheRows: jest.fn().mockReturnValue([]),

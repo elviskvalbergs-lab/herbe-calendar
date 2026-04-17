@@ -6,9 +6,9 @@ import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import { getCachedEvents, upsertCachedEvents } from '@/lib/cache/events'
-import { hasCompletedInitialSync } from '@/lib/cache/syncState'
+import { getSyncedConnectionIds } from '@/lib/cache/syncState'
 import { buildCacheRows, isRangeCovered } from '@/lib/sync/erp'
-import { fetchErpActivities } from '@/lib/herbe/recordUtils'
+import { fetchErpActivitiesForConnection } from '@/lib/herbe/recordUtils'
 import type { Activity } from '@/types'
 
 export async function GET(req: Request) {
@@ -32,25 +32,22 @@ export async function GET(req: Request) {
     const personList = persons.split(',').map(p => p.trim())
 
     const effectiveTo = dateTo ?? dateFrom
-    // Cache only when (a) the range is fully covered by the sync window and
-    // (b) the account has completed at least one full sync — otherwise the
-    // cache could be empty or contain only a handful of write-through rows
-    // and we'd hide the rest of the user's events.
-    const [withinWindow, initialSyncDone] = await Promise.all([
-      Promise.resolve(isRangeCovered(dateFrom, effectiveTo)),
-      hasCompletedInitialSync(session.accountId),
+    // Per-connection cache-vs-live. For each ERP connection: if it has
+    // completed a full sync AND the range is inside the sync window, serve
+    // from cache; otherwise live-fetch that connection. One failing
+    // connection no longer hides events from the others.
+    const withinWindow = isRangeCovered(dateFrom, effectiveTo)
+    const [connections, syncedIds] = await Promise.all([
+      getErpConnections(session.accountId),
+      getSyncedConnectionIds(session.accountId, 'herbe'),
     ])
-    const canUseCache = withinWindow && initialSyncDone
-    let allResults: Activity[] = []
-    if (canUseCache) {
-      allResults = await getCachedEvents(session.accountId, personList, dateFrom, effectiveTo)
-    }
-    if (!canUseCache || allResults.length === 0) {
-      allResults = await fetchErpActivities(
-        session.accountId, personList, dateFrom, effectiveTo,
-        { includePrivateFields: true },
-      )
-    }
+    const perConnection = await Promise.all(connections.map(async conn => {
+      if (withinWindow && syncedIds.has(conn.id)) {
+        return getCachedEvents(session.accountId, personList, dateFrom, effectiveTo, 'herbe', conn.id)
+      }
+      return fetchErpActivitiesForConnection(conn, personList, dateFrom, effectiveTo, { includePrivateFields: true })
+    }))
+    const allResults: Activity[] = perConnection.flat()
 
     // Track day_viewed (fire-and-forget)
     if (dateFrom && session.email) {

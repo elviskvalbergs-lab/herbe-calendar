@@ -4,6 +4,7 @@ jest.mock('@/lib/cache/events', () => ({
 }))
 jest.mock('@/lib/cache/syncState', () => ({
   hasCompletedInitialSync: jest.fn().mockResolvedValue(true),
+  getSyncedConnectionIds: jest.fn().mockResolvedValue(new Set()),
 }))
 jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn().mockResolvedValue({ ok: false }),

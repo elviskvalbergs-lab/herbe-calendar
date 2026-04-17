@@ -85,53 +85,65 @@ export async function fetchErpActivities(
   dateTo: string,
   opts: { includePrivateFields?: boolean } = {}
 ): Promise<Activity[]> {
-  const personSet = new Set(personCodes)
-  const results: Activity[] = []
-
   let connections: ErpConnection[] = []
   try {
     connections = await getErpConnections(accountId)
   } catch (e) {
     console.error('[herbe/recordUtils] getErpConnections failed:', e)
-    return results
+    return []
   }
 
-  await Promise.all(connections.map(async (conn) => {
-    try {
-      const raw = await herbeFetchAll(REGISTERS.activities, {
-        sort: 'TransDate',
-        range: `${dateFrom}:${dateTo}`,
-      }, 100, conn)
+  const perConn = await Promise.all(connections.map(conn =>
+    fetchErpActivitiesForConnection(conn, personCodes, dateFrom, dateTo, opts)
+  ))
+  return perConn.flat()
+}
 
-      const calendarRecords = raw.filter(r => isCalendarRecord(r as Record<string, unknown>))
+/**
+ * Live-fetch ERP activities from a single connection, mapped to Activity[]
+ * and filtered to the requested person codes (main + CC). Non-throwing —
+ * logs and returns [] on failure so a broken connection doesn't poison the
+ * caller's union of results.
+ */
+export async function fetchErpActivitiesForConnection(
+  conn: ErpConnection,
+  personCodes: string[],
+  dateFrom: string,
+  dateTo: string,
+  opts: { includePrivateFields?: boolean } = {}
+): Promise<Activity[]> {
+  const personSet = new Set(personCodes)
+  const results: Activity[] = []
+  try {
+    const raw = await herbeFetchAll(REGISTERS.activities, {
+      sort: 'TransDate',
+      range: `${dateFrom}:${dateTo}`,
+    }, 100, conn)
 
-      for (const record of calendarRecords) {
-        const r = record as Record<string, unknown>
-        const { main, cc } = parsePersons(r)
-        const mapOpts: MapHerbeOptions = {
-          includePrivateFields: opts.includePrivateFields,
-          erpConnectionId: conn.id,
-          erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined,
-        }
+    const calendarRecords = raw.filter(r => isCalendarRecord(r as Record<string, unknown>))
 
-        // Main person rows
-        for (const p of main) {
-          if (personSet.has(p)) {
-            results.push(mapHerbeRecord(r, p, mapOpts))
-          }
-        }
+    for (const record of calendarRecords) {
+      const r = record as Record<string, unknown>
+      const { main, cc } = parsePersons(r)
+      const mapOpts: MapHerbeOptions = {
+        includePrivateFields: opts.includePrivateFields,
+        erpConnectionId: conn.id,
+        erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined,
+      }
 
-        // CC rows (only if not already in main)
-        for (const ccCode of cc) {
-          if (personSet.has(ccCode) && !main.includes(ccCode)) {
-            results.push(mapHerbeRecord(r, ccCode, mapOpts))
-          }
+      for (const p of main) {
+        if (personSet.has(p)) {
+          results.push(mapHerbeRecord(r, p, mapOpts))
         }
       }
-    } catch (e) {
-      console.warn(`[herbe/recordUtils] ERP "${conn.name}" failed:`, String(e))
+      for (const ccCode of cc) {
+        if (personSet.has(ccCode) && !main.includes(ccCode)) {
+          results.push(mapHerbeRecord(r, ccCode, mapOpts))
+        }
+      }
     }
-  }))
-
+  } catch (e) {
+    console.warn(`[herbe/recordUtils] ERP "${conn.name}" failed:`, String(e))
+  }
   return results
 }
