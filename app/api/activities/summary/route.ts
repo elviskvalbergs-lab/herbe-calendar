@@ -89,48 +89,103 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* non-fatal */ }
 
-  // Outlook
+  // Outlook: cache when the range is inside the sync window AND the account
+  // has completed a full outlook sync; live otherwise.
   try {
-    for (const code of personList) {
-      try {
-        const email = await emailForCode(code, session.accountId)
-        if (!email) continue
-        const events = await fetchOutlookEventsMinimal(email, session.accountId, dateFrom, dateTo)
-        if (events) {
-          for (const ev of events) {
-            const date = (ev.start?.dateTime ?? '').slice(0, 10)
-            if (date) addEntry(date, 'outlook')
-          }
+    const [withinWindow, outlookSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, dateTo)),
+      hasCompletedInitialSync(session.accountId, 'outlook'),
+    ])
+    const canUseOutlookCache = withinWindow && outlookSyncDone
+    let usedCache = false
+    if (canUseOutlookCache) {
+      const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo, 'outlook')
+      if (cached.length > 0) {
+        for (const ev of cached) {
+          if (ev.date) addEntry(ev.date, 'outlook')
         }
-      } catch { /* non-fatal */ }
+        usedCache = true
+      }
+    }
+    if (!usedCache) {
+      for (const code of personList) {
+        try {
+          const email = await emailForCode(code, session.accountId)
+          if (!email) continue
+          const events = await fetchOutlookEventsMinimal(email, session.accountId, dateFrom, dateTo)
+          if (events) {
+            for (const ev of events) {
+              const date = (ev.start?.dateTime ?? '').slice(0, 10)
+              if (date) addEntry(date, 'outlook')
+            }
+          }
+        } catch { /* non-fatal */ }
+      }
     }
   } catch { /* non-fatal */ }
 
-  // Google (domain-wide)
+  // Google (domain-wide): cache when covered and synced; live otherwise.
   try {
-    for (const code of personList) {
-      try {
-        const email = await emailForCode(code, session.accountId)
-        if (!email) continue
-        const items = await fetchGoogleEventsForPerson(email, session.accountId, dateFrom, dateTo, 'items(start)')
-        if (items) {
-          for (const ev of items) {
-            const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
-            if (date) addEntry(date, 'google')
-          }
+    const [withinWindow, googleSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, dateTo)),
+      hasCompletedInitialSync(session.accountId, 'google'),
+    ])
+    const canUseGoogleCache = withinWindow && googleSyncDone
+    let usedCache = false
+    if (canUseGoogleCache) {
+      const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo, 'google')
+      if (cached.length > 0) {
+        for (const ev of cached) {
+          if (ev.date) addEntry(ev.date, 'google')
         }
-      } catch { /* non-fatal */ }
+        usedCache = true
+      }
+    }
+    if (!usedCache) {
+      for (const code of personList) {
+        try {
+          const email = await emailForCode(code, session.accountId)
+          if (!email) continue
+          const items = await fetchGoogleEventsForPerson(email, session.accountId, dateFrom, dateTo, 'items(start)')
+          if (items) {
+            for (const ev of items) {
+              const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
+              if (date) addEntry(date, 'google')
+            }
+          }
+        } catch { /* non-fatal */ }
+      }
     }
   } catch { /* non-fatal */ }
 
-  // Google (per-user)
+  // Google (per-user): cache when covered and synced; live otherwise.
   try {
-    const { events: perUserEvents } = await fetchPerUserGoogleEvents(
-      session.email, session.accountId, dateFrom, dateTo, 'items(start)',
-    )
-    for (const { event: ev, accountEmail } of perUserEvents) {
-      const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
-      if (date) addEntry(date, `google-user:${accountEmail}`)
+    const [withinWindow, googleUserSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, dateTo)),
+      hasCompletedInitialSync(session.accountId, 'google-user'),
+    ])
+    const canUseGoogleUserCache = withinWindow && googleUserSyncDone
+    let usedCache = false
+    if (canUseGoogleUserCache) {
+      const cached = await getCachedEvents(session.accountId, personList, dateFrom, dateTo, 'google-user')
+      if (cached.length > 0) {
+        for (const ev of cached) {
+          if (ev.date) {
+            const accountEmail = ev.googleAccountEmail ?? ''
+            addEntry(ev.date, `google-user:${accountEmail}`)
+          }
+        }
+        usedCache = true
+      }
+    }
+    if (!usedCache) {
+      const { events: perUserEvents } = await fetchPerUserGoogleEvents(
+        session.email, session.accountId, dateFrom, dateTo, 'items(start)',
+      )
+      for (const { event: ev, accountEmail } of perUserEvents) {
+        const date = (ev.start?.dateTime ?? ev.start?.date ?? '').slice(0, 10)
+        if (date) addEntry(date, `google-user:${accountEmail}`)
+      }
     }
   } catch { /* non-fatal */ }
 

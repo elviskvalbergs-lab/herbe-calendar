@@ -143,6 +143,14 @@ export async function GET(
     allActivities.push(...erpActivities)
   }
 
+  // Outlook cache-first check: cache when the range is covered AND the
+  // account has completed a full outlook sync.
+  const [outlookWithinWindow, outlookSyncDone] = await Promise.all([
+    Promise.resolve(isRangeCovered(dateFrom, cappedDateTo)),
+    hasCompletedInitialSync(accountId, 'outlook'),
+  ])
+  const canUseOutlookCache = outlookWithinWindow && outlookSyncDone
+
   // Fetch Outlook/ICS activities per person
   for (const code of personCodes) {
     try {
@@ -158,28 +166,36 @@ export async function GET(
         console.warn(`[share/activities] ICS fetch failed for ${code}:`, String(e))
       }
 
-      // Graph calendar view
+      // Graph calendar view — cache-first when available, then live fallback
       let graphEvents: Record<string, unknown>[] = []
-      try {
-        const rawEvents = await fetchOutlookEventsForPerson(email, accountId, dateFrom, cappedDateTo)
-        if (rawEvents) {
-          graphEvents = rawEvents.map(ev => {
-            const startDtStr = ev.start?.dateTime ?? ''
-            const endDtStr = ev.end?.dateTime ?? ''
-            return {
-              id: ev.id,
-              source: 'outlook' as const,
-              isExternal: false,
-              personCode: code,
-              description: ev.subject ?? '',
-              date: startDtStr.slice(0, 10),
-              timeFrom: startDtStr.slice(11, 16),
-              timeTo: endDtStr.slice(11, 16),
-            }
-          })
+      if (canUseOutlookCache) {
+        const cached = await getCachedEvents(accountId, [code], dateFrom, cappedDateTo, 'outlook')
+        if (cached.length > 0) {
+          graphEvents = cached as unknown as Record<string, unknown>[]
         }
-      } catch (e) {
-        console.warn(`[share/activities] Graph fetch failed for ${code}:`, String(e))
+      }
+      if (graphEvents.length === 0) {
+        try {
+          const rawEvents = await fetchOutlookEventsForPerson(email, accountId, dateFrom, cappedDateTo)
+          if (rawEvents) {
+            graphEvents = rawEvents.map(ev => {
+              const startDtStr = ev.start?.dateTime ?? ''
+              const endDtStr = ev.end?.dateTime ?? ''
+              return {
+                id: ev.id,
+                source: 'outlook' as const,
+                isExternal: false,
+                personCode: code,
+                description: ev.subject ?? '',
+                date: startDtStr.slice(0, 10),
+                timeFrom: startDtStr.slice(11, 16),
+                timeTo: endDtStr.slice(11, 16),
+              }
+            })
+          }
+        } catch (e) {
+          console.warn(`[share/activities] Graph fetch failed for ${code}:`, String(e))
+        }
       }
 
       // Deduplicate ICS vs Graph
@@ -204,42 +220,80 @@ export async function GET(
     }
   }
 
-  // Fetch Google Calendar events per person (domain-wide delegation)
-  if (!hiddenCalendarsSet.has('google'))
-  for (const code of personCodes) {
-    try {
-      const email = await emailForCode(code, accountId)
-      if (!email) continue
-      const googleEvents = await fetchGoogleEventsForPerson(email, accountId, dateFrom, cappedDateTo)
-      if (!googleEvents) continue // Google not configured
-      for (const ev of googleEvents) {
-        const mapped = mapGoogleEvent(ev, code, ownerEmail)
-        allActivities.push(mapped as unknown as Record<string, unknown>)
+  // Fetch Google Calendar events per person (domain-wide delegation).
+  // Cache when the range is covered AND the account has completed a full
+  // google sync; live otherwise.
+  if (!hiddenCalendarsSet.has('google')) {
+    const [googleWithinWindow, googleSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, cappedDateTo)),
+      hasCompletedInitialSync(accountId, 'google'),
+    ])
+    const canUseGoogleCache = googleWithinWindow && googleSyncDone
+    let usedCache = false
+    if (canUseGoogleCache) {
+      const cached = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo, 'google')
+      if (cached.length > 0) {
+        for (const ev of cached) {
+          allActivities.push(ev as unknown as Record<string, unknown>)
+        }
+        usedCache = true
       }
-    } catch (e) {
-      console.warn(`[share/activities] Google domain-wide fetch failed for ${code}:`, String(e))
+    }
+    if (!usedCache) {
+      for (const code of personCodes) {
+        try {
+          const email = await emailForCode(code, accountId)
+          if (!email) continue
+          const googleEvents = await fetchGoogleEventsForPerson(email, accountId, dateFrom, cappedDateTo)
+          if (!googleEvents) continue // Google not configured
+          for (const ev of googleEvents) {
+            const mapped = mapGoogleEvent(ev, code, ownerEmail)
+            allActivities.push(mapped as unknown as Record<string, unknown>)
+          }
+        } catch (e) {
+          console.warn(`[share/activities] Google domain-wide fetch failed for ${code}:`, String(e))
+        }
+      }
     }
   }
 
-  // Fetch per-user OAuth Google calendars (owner's connected accounts)
+  // Fetch per-user OAuth Google calendars (owner's connected accounts).
+  // Same cache-or-live guard as above.
   if (!hiddenCalendarsSet.has('google')) {
-    try {
-      const { events: perUserRaw } = await fetchPerUserGoogleEvents(
-        ownerEmail, accountId, dateFrom, cappedDateTo,
-        'items(id,summary,start,end,organizer,attendees,status)',
-      )
-      for (const { event: ev, calendarName, color } of perUserRaw) {
-        if (ev.status === 'cancelled') continue
-        // Assign to first person code since per-user calendars aren't person-specific
-        const code = personCodes[0] ?? ''
-        const mapped = mapGoogleEvent(ev, code, ownerEmail, {
-          googleCalendarName: calendarName,
-          icsColor: color,
-        })
-        allActivities.push(mapped as unknown as Record<string, unknown>)
+    const [perUserWithinWindow, perUserSyncDone] = await Promise.all([
+      Promise.resolve(isRangeCovered(dateFrom, cappedDateTo)),
+      hasCompletedInitialSync(accountId, 'google-user'),
+    ])
+    const canUsePerUserCache = perUserWithinWindow && perUserSyncDone
+    let usedCache = false
+    if (canUsePerUserCache) {
+      const cached = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo, 'google-user')
+      if (cached.length > 0) {
+        for (const ev of cached) {
+          allActivities.push(ev as unknown as Record<string, unknown>)
+        }
+        usedCache = true
       }
-    } catch (e) {
-      console.warn('[share/activities] Per-user Google fetch failed:', String(e))
+    }
+    if (!usedCache) {
+      try {
+        const { events: perUserRaw } = await fetchPerUserGoogleEvents(
+          ownerEmail, accountId, dateFrom, cappedDateTo,
+          'items(id,summary,start,end,organizer,attendees,status)',
+        )
+        for (const { event: ev, calendarName, color } of perUserRaw) {
+          if (ev.status === 'cancelled') continue
+          // Assign to first person code since per-user calendars aren't person-specific
+          const code = personCodes[0] ?? ''
+          const mapped = mapGoogleEvent(ev, code, ownerEmail, {
+            googleCalendarName: calendarName,
+            icsColor: color,
+          })
+          allActivities.push(mapped as unknown as Record<string, unknown>)
+        }
+      } catch (e) {
+        console.warn('[share/activities] Per-user Google fetch failed:', String(e))
+      }
     }
   }
 
