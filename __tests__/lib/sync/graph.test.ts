@@ -27,3 +27,60 @@ describe('buildOutlookCacheRows', () => {
     expect(buildOutlookCacheRows(ev, 'acc-1', 'EKS', 'eks@example.com')).toHaveLength(0)
   })
 })
+
+import { syncAllOutlook } from '@/lib/sync/graph'
+
+jest.mock('@/lib/db', () => ({
+  pool: { query: jest.fn() },
+}))
+jest.mock('@/lib/accountConfig', () => ({
+  getAzureConfig: jest.fn(),
+}))
+jest.mock('@/lib/cache/accountPersons', () => ({
+  listAccountPersons: jest.fn(),
+}))
+jest.mock('@/lib/outlookUtils', () => {
+  const actual = jest.requireActual('@/lib/outlookUtils')
+  return { ...actual, fetchOutlookEventsForPerson: jest.fn() }
+})
+jest.mock('@/lib/cache/events', () => ({
+  upsertCachedEvents: jest.fn().mockResolvedValue(undefined),
+}))
+jest.mock('@/lib/cache/syncState', () => ({
+  getSyncState: jest.fn().mockResolvedValue(null),
+  updateSyncState: jest.fn().mockResolvedValue(undefined),
+}))
+
+import { pool } from '@/lib/db'
+import { getAzureConfig } from '@/lib/accountConfig'
+import { listAccountPersons } from '@/lib/cache/accountPersons'
+import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
+import { upsertCachedEvents } from '@/lib/cache/events'
+
+describe('syncAllOutlook', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('iterates accounts, skips when Azure not configured', async () => {
+    ;(pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ id: 'acc-1' }] })
+    ;(getAzureConfig as jest.Mock).mockResolvedValueOnce(null)
+    const result = await syncAllOutlook('full')
+    expect(result.accounts).toBe(1)
+    expect(result.connections).toBe(0)
+    expect(result.events).toBe(0)
+    expect(upsertCachedEvents).not.toHaveBeenCalled()
+  })
+
+  it('fetches per-person and upserts when Azure is configured', async () => {
+    ;(pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ id: 'acc-1' }] })
+    ;(getAzureConfig as jest.Mock).mockResolvedValueOnce({ tenantId: 't', clientId: 'c', clientSecret: 's', senderEmail: 'x@y' })
+    ;(listAccountPersons as jest.Mock).mockResolvedValueOnce([
+      { code: 'EKS', email: 'eks@example.com' },
+    ])
+    ;(fetchOutlookEventsForPerson as jest.Mock).mockResolvedValueOnce([
+      { id: 'ev-1', subject: 'Mtg', start: { dateTime: '2026-04-15T09:00:00' }, end: { dateTime: '2026-04-15T10:00:00' } },
+    ])
+    const result = await syncAllOutlook('full')
+    expect(result.events).toBe(1)
+    expect(upsertCachedEvents).toHaveBeenCalledTimes(1)
+  })
+})
