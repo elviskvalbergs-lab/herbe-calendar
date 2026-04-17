@@ -3,6 +3,9 @@ import { graphFetch } from '@/lib/graph/client'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
 import { getAzureConfig } from '@/lib/accountConfig'
 import type { AzureConfig } from '@/lib/accountConfig'
+import { upsertCachedEvents, deleteCachedEvent, type CachedEventRow } from '@/lib/cache/events'
+import { buildOutlookCacheRows } from '@/lib/sync/graph'
+import { listAccountPersons } from '@/lib/cache/accountPersons'
 
 /** Verify the session user is the organizer of the Outlook event */
 async function assertOrganizer(eventId: string, email: string, azureConfig: AzureConfig): Promise<NextResponse | null> {
@@ -43,6 +46,44 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       body: JSON.stringify(body),
     }, azureConfig)
     const data = await res.json()
+
+    // Write-through: refetch the updated event and upsert cached rows for all attendees with a person_code
+    if (res.ok) {
+      try {
+        // Drop stale rows for this event first — attendee list may have changed
+        await deleteCachedEvent(session.accountId, 'outlook', id)
+        const refetch = await graphFetch(
+          `/users/${session.email}/events/${id}?$select=id,subject,start,end,organizer,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,attendees,location,bodyPreview,webLink,responseStatus`,
+          { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+          azureConfig,
+        )
+        if (refetch.ok) {
+          const updated = await refetch.json()
+          const people = await listAccountPersons(session.accountId)
+          const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
+          const codes = new Set<string>()
+          const orgCode = emailToCode.get(session.email.toLowerCase())
+          if (orgCode) codes.add(orgCode)
+          for (const att of (updated.attendees ?? []) as Array<{ emailAddress?: { address?: string } }>) {
+            const addr = att.emailAddress?.address?.toLowerCase()
+            if (addr) {
+              const c = emailToCode.get(addr)
+              if (c) codes.add(c)
+            }
+          }
+          const rows: CachedEventRow[] = []
+          for (const code of codes) {
+            rows.push(...buildOutlookCacheRows(updated, session.accountId, code, session.email))
+          }
+          if (rows.length > 0) {
+            upsertCachedEvents(rows).catch(e => console.warn('[outlook/PUT] cache write-through failed:', e))
+          }
+        }
+      } catch (e) {
+        console.warn('[outlook/PUT] cache write-through error:', e)
+      }
+    }
+
     return NextResponse.json(data, { status: res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -66,6 +107,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     if (denied) return denied
 
     const res = await graphFetch(`/users/${session.email}/events/${id}`, { method: 'DELETE' }, azureConfig)
+
+    if (res.ok) {
+      deleteCachedEvent(session.accountId, 'outlook', id).catch(e =>
+        console.warn('[outlook/DELETE] cache write-through failed:', e)
+      )
+    }
+
     return new NextResponse(null, { status: res.ok ? 204 : res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

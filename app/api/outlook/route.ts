@@ -7,9 +7,11 @@ import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { emailForCode } from '@/lib/emailForCode'
 import { fetchOutlookEventsForPerson, mapOutlookEvent } from '@/lib/outlookUtils'
-import { getCachedEvents } from '@/lib/cache/events'
+import { getCachedEvents, upsertCachedEvents, type CachedEventRow } from '@/lib/cache/events'
 import { hasCompletedInitialSync } from '@/lib/cache/syncState'
 import { isRangeCovered } from '@/lib/sync/erp'
+import { buildOutlookCacheRows } from '@/lib/sync/graph'
+import { listAccountPersons } from '@/lib/cache/accountPersons'
 
 export async function GET(req: NextRequest) {
   let session
@@ -113,6 +115,34 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     }, postAzureConfig)
     const data = await res.json()
+
+    // Write-through: cache the created event for every attendee with a person_code
+    if (res.ok) {
+      try {
+        const accountPersons = await listAccountPersons(session.accountId)
+        const emailToCode = new Map(accountPersons.map(p => [p.email.toLowerCase(), p.code]))
+        const attendeeEmails: string[] = (data?.attendees ?? [])
+          .map((a: { emailAddress?: { address?: string } }) => a.emailAddress?.address?.toLowerCase())
+          .filter((x: string | undefined): x is string => !!x)
+        const codes = new Set<string>()
+        const orgCode = emailToCode.get(session.email.toLowerCase())
+        if (orgCode) codes.add(orgCode)
+        for (const addr of attendeeEmails) {
+          const c = emailToCode.get(addr)
+          if (c) codes.add(c)
+        }
+        const rows: CachedEventRow[] = []
+        for (const code of codes) {
+          rows.push(...buildOutlookCacheRows(data, session.accountId, code, session.email))
+        }
+        if (rows.length > 0) {
+          upsertCachedEvents(rows).catch(e => console.warn('[outlook/POST] cache write-through failed:', e))
+        }
+      } catch (e) {
+        console.warn('[outlook/POST] cache write-through error:', e)
+      }
+    }
+
     return NextResponse.json(data, { status: res.ok ? 201 : res.status })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
