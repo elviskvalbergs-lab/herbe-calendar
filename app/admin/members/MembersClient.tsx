@@ -37,7 +37,20 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
       body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
     })
     if (res.ok) {
-      setMembers(prev => [...prev, { email: addEmail.trim(), role: addRole, active: true, last_login: null, created_at: new Date().toISOString(), person_code_id: null, generated_code: null, display_name: null, source: null, holiday_country: null }])
+      const data = await res.json().catch(() => ({}))
+      const pc = data.personCode ?? {}
+      setMembers(prev => [...prev, {
+        email: addEmail.trim(),
+        role: addRole,
+        active: true,
+        last_login: null,
+        created_at: new Date().toISOString(),
+        person_code_id: pc.id ?? null,
+        generated_code: pc.generated_code ?? null,
+        display_name: pc.display_name ?? null,
+        source: pc.source ?? 'manual',
+        holiday_country: null,
+      }])
       setAddEmail('')
       setMessage('Member added')
     } else {
@@ -165,11 +178,13 @@ export default function MembersClient({ members: initial, accountId, isSuperAdmi
                 <td className="px-3 py-1.5 text-text-muted text-xs whitespace-nowrap">{m.email}</td>
                 <td className="px-3 py-1.5">
                   <div className="flex gap-1 flex-wrap">
-                    {(m.source ?? 'erp').split('+').map(s => (
+                    {(m.source ?? 'manual').split('+').map(s => (
                       <span key={s} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                         s === 'google' ? 'bg-emerald-500/10 text-emerald-500' :
                         s === 'azure' ? 'bg-blue-500/10 text-blue-500' :
-                        'bg-amber-500/10 text-amber-500'
+                        s === 'erp' ? 'bg-amber-500/10 text-amber-500' :
+                        s === 'manual' ? 'bg-violet-500/10 text-violet-500' :
+                        'bg-border/40 text-text-muted'
                       }`}>
                         {s === 'azure' ? 'microsoft' : s}
                       </span>
