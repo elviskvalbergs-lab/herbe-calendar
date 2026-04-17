@@ -227,7 +227,11 @@ export default function MembersClient({
                 <span className="font-mono font-bold">{d.rowBCode}</span>
                 <span className="text-text-muted">({d.rowBEmail})</span>
                 <span className="text-[10px] text-text-muted/70 italic ml-1">
-                  {d.reason === 'cross-code' ? 'erp_code → other row' : 'same email'}
+                  {d.reason === 'cross-code'
+                    ? 'erp_code → other row'
+                    : d.reason === 'same-name'
+                    ? 'same display name'
+                    : 'same email'}
                 </span>
                 <button onClick={() => selectDuplicatePair(d)}
                   className="ml-auto px-2 py-0.5 border border-amber-500/40 text-amber-500 rounded text-[10px] font-bold hover:bg-amber-500/10">

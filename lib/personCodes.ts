@@ -255,6 +255,18 @@ export async function findDuplicatePersonCodes(accountId: string): Promise<Dupli
           ON b.account_id = a.account_id
          AND b.id < a.id
          AND LOWER(b.email) = LOWER(a.email)
+       WHERE a.account_id = $1
+      UNION ALL
+      SELECT 'same-name' AS reason,
+             a.id, a.generated_code, a.email,
+             b.id, b.generated_code, b.email
+        FROM person_codes a
+        JOIN person_codes b
+          ON b.account_id = a.account_id
+         AND b.id < a.id
+         AND LOWER(TRIM(b.display_name)) = LOWER(TRIM(a.display_name))
+         AND LENGTH(TRIM(a.display_name)) > 0
+         AND LOWER(a.email) <> LOWER(b.email)
        WHERE a.account_id = $1`,
     [accountId],
   )
