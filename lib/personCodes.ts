@@ -203,6 +203,150 @@ function deriveNameFromEmail(email: string): string {
     .join(' ')
 }
 
+export interface MemberReferenceCounts {
+  favoritesReferencing: number
+  sharedCalendars: number
+  cachedEvents: number
+}
+
+/**
+ * Count the references that would be affected by deleting a member.
+ * The caller decides whether to refuse deletion or cascade-delete.
+ */
+export async function countMemberReferences(
+  accountId: string,
+  email: string,
+  generatedCode: string | null,
+): Promise<MemberReferenceCounts> {
+  const code = generatedCode ?? ''
+  const [favs, cals, cached] = await Promise.all([
+    code
+      ? pool.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM user_favorites
+           WHERE account_id = $1 AND $2 = ANY(person_codes)`,
+          [accountId, code],
+        )
+      : Promise.resolve({ rows: [{ n: 0 }] }),
+    code
+      ? pool.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM user_calendars
+           WHERE target_person_code = $1
+             AND user_email IN (SELECT email FROM account_members WHERE account_id = $2)`,
+          [code, accountId],
+        )
+      : Promise.resolve({ rows: [{ n: 0 }] }),
+    code
+      ? pool.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM cached_events
+           WHERE account_id = $1 AND person_code = $2`,
+          [accountId, code],
+        )
+      : Promise.resolve({ rows: [{ n: 0 }] }),
+  ])
+  return {
+    favoritesReferencing: favs.rows[0]?.n ?? 0,
+    sharedCalendars: cals.rows[0]?.n ?? 0,
+    cachedEvents: cached.rows[0]?.n ?? 0,
+  }
+}
+
+export interface DeleteResult {
+  accountMemberDeleted: boolean
+  personCodeDeleted: boolean
+  favoritesUpdated: number
+  calendarsDeleted: number
+  cachedEventsDeleted: number
+}
+
+/**
+ * Hard delete a member: removes the account_members row, the person_code
+ * row (if any), and optionally cascades into references. When `cascade`
+ * is false the delete refuses if anything references the code; when
+ * `cascade` is true it removes references too.
+ */
+export async function deleteMember(
+  accountId: string,
+  email: string,
+  generatedCode: string | null,
+  cascade: boolean,
+): Promise<DeleteResult> {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    if (generatedCode && !cascade) {
+      const refs = await countMemberReferences(accountId, email, generatedCode)
+      if (refs.favoritesReferencing + refs.sharedCalendars + refs.cachedEvents > 0) {
+        await client.query('ROLLBACK')
+        throw new Error(
+          `Cannot delete — code "${generatedCode}" is still referenced ` +
+          `(${refs.favoritesReferencing} favorites, ${refs.sharedCalendars} shared calendars, ${refs.cachedEvents} cached events). ` +
+          `Use cascade to remove them.`,
+        )
+      }
+    }
+
+    let favoritesUpdated = 0
+    let calendarsDeleted = 0
+    let cachedEventsDeleted = 0
+    if (generatedCode && cascade) {
+      const favResult = await client.query(
+        `UPDATE user_favorites
+           SET person_codes = ARRAY(
+             SELECT p FROM unnest(person_codes) AS p WHERE p <> $1
+           )
+         WHERE account_id = $2 AND $1 = ANY(person_codes)`,
+        [generatedCode, accountId],
+      )
+      favoritesUpdated = favResult.rowCount ?? 0
+
+      const calResult = await client.query(
+        `DELETE FROM user_calendars
+         WHERE target_person_code = $1
+           AND user_email IN (SELECT email FROM account_members WHERE account_id = $2)`,
+        [generatedCode, accountId],
+      )
+      calendarsDeleted = calResult.rowCount ?? 0
+
+      const cacheResult = await client.query(
+        `DELETE FROM cached_events WHERE account_id = $1 AND person_code = $2`,
+        [accountId, generatedCode],
+      )
+      cachedEventsDeleted = cacheResult.rowCount ?? 0
+    }
+
+    let personCodeDeleted = false
+    if (generatedCode) {
+      const pcResult = await client.query(
+        `DELETE FROM person_codes WHERE account_id = $1 AND generated_code = $2`,
+        [accountId, generatedCode],
+      )
+      personCodeDeleted = (pcResult.rowCount ?? 0) > 0
+    }
+
+    const amResult = await client.query(
+      `DELETE FROM account_members
+       WHERE account_id = $1 AND LOWER(email) = LOWER($2)`,
+      [accountId, email],
+    )
+    const accountMemberDeleted = (amResult.rowCount ?? 0) > 0
+
+    await client.query('COMMIT')
+    return {
+      accountMemberDeleted,
+      personCodeDeleted,
+      favoritesUpdated,
+      calendarsDeleted,
+      cachedEventsDeleted,
+    }
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw e
+  } finally {
+    client.release()
+  }
+}
+
 export interface DuplicateCandidate {
   reason: string
   rowAId: string
@@ -402,17 +546,14 @@ export async function mergePersonCodes(
       ],
     )
 
-    // 6. Deactivate the losing email in account_members (only if it differs
-    //    from the winning email — no point deactivating our own row).
-    let memberDeactivated = false
-    if (fromRow.email.toLowerCase() !== intoRow.email.toLowerCase()) {
-      const memberResult = await client.query(
-        `UPDATE account_members SET active = false
-         WHERE account_id = $1 AND LOWER(email) = LOWER($2) AND active = true`,
-        [accountId, fromRow.email],
-      )
-      memberDeactivated = (memberResult.rowCount ?? 0) > 0
-    }
+    // Previously this step also deactivated the losing email in
+    // account_members. That was a mistake: after a subsequent ERP/Azure
+    // sync, the winning person_code's email can switch *to* the losing
+    // email (common when the admin enters the new address in ERP before
+    // merging), which would leave the merged person visible as inactive.
+    // Leave account_members alone; orphan rows can be reviewed and
+    // deleted explicitly via the delete action.
+    const memberDeactivated = false
 
     await client.query('COMMIT')
     return {

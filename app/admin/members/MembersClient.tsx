@@ -46,6 +46,12 @@ export default function MembersClient({
   const [mergeSelected, setMergeSelected] = useState<Set<string>>(new Set())
   const [merging, setMerging] = useState(false)
   const [mergeConfirm, setMergeConfirm] = useState<null | { from: Member; into: Member }>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<null | {
+    member: Member
+    refs: { favoritesReferencing: number; sharedCalendars: number; cachedEvents: number } | null
+    loading: boolean
+  }>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const duplicateIds = new Set(duplicates.flatMap(d => [d.rowAId, d.rowBId]))
 
@@ -175,6 +181,54 @@ export default function MembersClient({
     setMergeConfirm(c => c ? { from: c.into, into: c.from } : c)
   }
 
+  async function openDeleteConfirm(member: Member) {
+    setDeleteConfirm({ member, refs: null, loading: true })
+    try {
+      const res = await fetch('/api/admin/members/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: member.email,
+          generatedCode: member.generated_code,
+          dryRun: true,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setDeleteConfirm(dc => dc ? { ...dc, loading: false, refs: data.dryRun ? data : { favoritesReferencing: 0, sharedCalendars: 0, cachedEvents: 0 } } : dc)
+    } catch {
+      setDeleteConfirm(dc => dc ? { ...dc, loading: false, refs: { favoritesReferencing: 0, sharedCalendars: 0, cachedEvents: 0 } } : dc)
+    }
+  }
+
+  async function confirmDelete(cascade: boolean) {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/admin/members/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: deleteConfirm.member.email,
+          generatedCode: deleteConfirm.member.generated_code,
+          cascade,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setMessage(`Deleted ${deleteConfirm.member.email}${cascade ? ` · removed from ${data.favoritesUpdated} favorites, ${data.calendarsDeleted} shared calendars, ${data.cachedEventsDeleted} cached events` : ''}`)
+        setDeleteConfirm(null)
+        window.location.reload()
+      } else {
+        setMessage(`Delete failed: ${data.error || res.status}`)
+      }
+    } catch (e) {
+      setMessage(`Delete failed: ${String(e)}`)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   async function confirmMerge() {
     if (!mergeConfirm) return
     setMerging(true)
@@ -300,6 +354,7 @@ export default function MembersClient({
               <th className="px-3 py-2 whitespace-nowrap">Login</th>
               <th className="px-3 py-2 whitespace-nowrap">Status</th>
               <th className="px-3 py-2 whitespace-nowrap">Holidays</th>
+              <th className="px-3 py-2"></th>
               {isSuperAdmin && <th className="px-3 py-2"></th>}
             </tr>
           </thead>
@@ -390,6 +445,15 @@ export default function MembersClient({
                     ))}
                   </select>
                 </td>
+                <td className="px-3 py-1.5">
+                  <button
+                    onClick={() => openDeleteConfirm(m)}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors"
+                    title="Delete member"
+                  >
+                    Delete
+                  </button>
+                </td>
                 {isSuperAdmin && (
                   <td className="px-3 py-1.5">
                     <button
@@ -412,6 +476,57 @@ export default function MembersClient({
         </table>
         </div>
       </div>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !deleting && setDeleteConfirm(null)}>
+          <div className="bg-surface border border-border rounded-xl p-5 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-bold mb-3">Delete member</h3>
+            <p className="text-xs text-text-muted mb-4">
+              Removing <span className="text-text font-semibold">{deleteConfirm.member.display_name ?? deleteConfirm.member.email}</span> ({deleteConfirm.member.email}) and its person_code row <span className="font-mono font-bold">{deleteConfirm.member.generated_code ?? '—'}</span>.
+            </p>
+
+            {deleteConfirm.loading ? (
+              <p className="text-xs text-text-muted">Checking references…</p>
+            ) : deleteConfirm.refs && (
+              <>
+                <div className="rounded-lg border border-border bg-bg p-3 mb-4 text-xs space-y-1">
+                  <p className="text-text-muted">Existing references to this code:</p>
+                  <p>• Favorites referencing: <span className="font-bold">{deleteConfirm.refs.favoritesReferencing}</span></p>
+                  <p>• Shared ICS calendars: <span className="font-bold">{deleteConfirm.refs.sharedCalendars}</span></p>
+                  <p>• Cached events: <span className="font-bold">{deleteConfirm.refs.cachedEvents}</span></p>
+                </div>
+                {(deleteConfirm.refs.favoritesReferencing + deleteConfirm.refs.sharedCalendars + deleteConfirm.refs.cachedEvents) > 0 ? (
+                  <p className="text-[11px] text-amber-500 mb-4">
+                    Cascade delete will also remove these references.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-text-muted mb-4">
+                    No references found — safe to delete.
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
+                    className="px-3 py-1.5 border border-border rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">
+                    Cancel
+                  </button>
+                  {(deleteConfirm.refs.favoritesReferencing + deleteConfirm.refs.sharedCalendars + deleteConfirm.refs.cachedEvents) > 0 && (
+                    <button onClick={() => confirmDelete(true)} disabled={deleting}
+                      className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold disabled:opacity-50">
+                      {deleting ? 'Deleting…' : 'Cascade delete'}
+                    </button>
+                  )}
+                  {(deleteConfirm.refs.favoritesReferencing + deleteConfirm.refs.sharedCalendars + deleteConfirm.refs.cachedEvents) === 0 && (
+                    <button onClick={() => confirmDelete(false)} disabled={deleting}
+                      className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-bold disabled:opacity-50">
+                      {deleting ? 'Deleting…' : 'Delete'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {mergeConfirm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !merging && setMergeConfirm(null)}>
