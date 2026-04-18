@@ -97,17 +97,26 @@ async function syncAccountGoogleDomainWide(
     }
     const { dateFrom, dateTo } = fullSyncRange()
     const rows: CachedEventRow[] = []
-    for (const { code, email } of people) {
-      const events = await fetchGoogleEventsForPerson(email, accountId, dateFrom, dateTo)
-      if (!events) continue
-      for (const ev of events) {
-        rows.push(...buildGoogleCacheRows(ev, {
-          source: 'google',
-          accountId,
-          personCode: code,
-          personEmail: email,
-          sessionEmail: email,
-        }))
+
+    // Fetch in parallel with concurrency limit
+    const CONCURRENCY = 10
+    for (let i = 0; i < people.length; i += CONCURRENCY) {
+      const batch = people.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(
+        batch.map(async ({ code, email }) => {
+          const events = await fetchGoogleEventsForPerson(email, accountId, dateFrom, dateTo)
+          if (!events) return []
+          return events.flatMap(ev => buildGoogleCacheRows(ev, {
+            source: 'google',
+            accountId,
+            personCode: code,
+            personEmail: email,
+            sessionEmail: email,
+          }))
+        })
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled') rows.push(...r.value)
       }
     }
     await batchUpsert(rows)

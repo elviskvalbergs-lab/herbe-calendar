@@ -19,16 +19,26 @@ export async function PATCH(req: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
   const { email, role, active, id: personCodeId, holidayCountry } = body
 
   // Holiday country override is keyed on person_codes.id
   if (holidayCountry !== undefined && personCodeId !== undefined) {
-    await pool.query(
-      'UPDATE person_codes SET holiday_country = $1 WHERE id = $2 AND account_id = $3',
-      [holidayCountry || null, personCodeId, session.accountId]
-    )
-    return NextResponse.json({ ok: true })
+    try {
+      await pool.query(
+        'UPDATE person_codes SET holiday_country = $1 WHERE id = $2 AND account_id = $3',
+        [holidayCountry || null, personCodeId, session.accountId]
+      )
+      return NextResponse.json({ ok: true })
+    } catch (e) {
+      console.error('[members PATCH] holiday country update failed:', String(e))
+      return NextResponse.json({ error: 'Failed to update holiday country' }, { status: 500 })
+    }
   }
 
   if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })

@@ -13,6 +13,7 @@ const ZOOM_TOKEN_URL = 'https://zoom.us/oauth/token'
 const ZOOM_API_BASE = 'https://api.zoom.us/v2'
 const CONFIG_CACHE = new Map<string, { data: ZoomConfig | null; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
+const MAX_CACHE = 50
 
 export async function getZoomConfig(accountId: string): Promise<ZoomConfig | null> {
   const cached = CONFIG_CACHE.get(accountId)
@@ -24,6 +25,7 @@ export async function getZoomConfig(accountId: string): Promise<ZoomConfig | nul
       [accountId]
     )
     if (rows.length === 0) {
+      if (CONFIG_CACHE.size >= MAX_CACHE) CONFIG_CACHE.clear()
       CONFIG_CACHE.set(accountId, { data: null, ts: Date.now() })
       return null
     }
@@ -32,6 +34,7 @@ export async function getZoomConfig(accountId: string): Promise<ZoomConfig | nul
       clientId: rows[0].client_id,
       clientSecret: decrypt(rows[0].client_secret),
     }
+    if (CONFIG_CACHE.size >= MAX_CACHE) CONFIG_CACHE.clear()
     CONFIG_CACHE.set(accountId, { data: config, ts: Date.now() })
     return config
   } catch (e) {
@@ -68,6 +71,11 @@ async function getAccessToken(config: ZoomConfig): Promise<string> {
   const data = await res.json()
   if (!data.access_token) throw new Error('No access_token in Zoom response')
 
+  if (tokenCacheMap.size >= MAX_CACHE) {
+    const now = Date.now()
+    for (const [k, v] of tokenCacheMap) { if (now >= v.expiresAt) tokenCacheMap.delete(k) }
+    if (tokenCacheMap.size >= MAX_CACHE) tokenCacheMap.clear()
+  }
   tokenCacheMap.set(cacheKey, {
     token: data.access_token,
     expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,

@@ -147,6 +147,8 @@ export default function MembersClient({
     })
     if (res.ok) {
       setMembers(prev => prev.map(m => m.email === email ? { ...m, role: newRole } : m))
+    } else {
+      setMessage(`Failed to update role for ${email}`)
     }
     setSaving(null)
   }
@@ -160,6 +162,8 @@ export default function MembersClient({
     })
     if (res.ok) {
       setMembers(prev => prev.map(m => m.email === email ? { ...m, active } : m))
+    } else {
+      setMessage(`Failed to ${active ? 'activate' : 'deactivate'} ${email}`)
     }
     setSaving(null)
   }
@@ -571,9 +575,10 @@ export default function MembersClient({
       </div>
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !deleting && setDeleteConfirm(null)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !deleting && setDeleteConfirm(null)}
+          role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
           <div className="bg-surface border border-border rounded-xl p-5 max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-3">Delete member</h3>
+            <h3 id="delete-dialog-title" className="text-sm font-bold mb-3">Delete member</h3>
             <p className="text-xs text-text-muted mb-4">
               Removing <span className="text-text font-semibold">{deleteConfirm.member.display_name ?? deleteConfirm.member.email}</span> ({deleteConfirm.member.email}) and its person_code row <span className="font-mono font-bold">{deleteConfirm.member.generated_code ?? '—'}</span>.
             </p>
@@ -622,9 +627,10 @@ export default function MembersClient({
       )}
 
       {mergeConfirm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !merging && setMergeConfirm(null)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => !merging && setMergeConfirm(null)}
+          role="dialog" aria-modal="true" aria-labelledby="merge-dialog-title">
           <div className="bg-surface border border-border rounded-xl p-5 max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-3">Merge two members</h3>
+            <h3 id="merge-dialog-title" className="text-sm font-bold mb-3">Merge two members</h3>
             <p className="text-xs text-text-muted mb-4">
               Rewrites favorites, ICS calendar attachments, and cached events from the <span className="text-text font-semibold">losing</span> code to the <span className="text-text font-semibold">winning</span> code, then deletes the losing person_codes row.
             </p>

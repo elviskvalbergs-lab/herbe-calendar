@@ -5,8 +5,9 @@ interface GraphTokenCache {
   expiresAt: number
 }
 
-// Per-account token cache (keyed by tenantId+clientId)
+// Per-account token cache (keyed by tenantId+clientId), bounded
 const tokenCacheMap = new Map<string, GraphTokenCache>()
+const MAX_TOKEN_CACHE = 50
 
 function cacheKey(config: AzureConfig): string {
   return `${config.tenantId}:${config.clientId}`
@@ -41,6 +42,11 @@ async function getGraphToken(config: AzureConfig): Promise<string> {
   if (!res.ok) throw new Error(`Graph OAuth failed: ${res.status}`)
   const data = await res.json()
   const entry = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 }
+  if (tokenCacheMap.size >= MAX_TOKEN_CACHE) {
+    const now = Date.now()
+    for (const [k, v] of tokenCacheMap) { if (now >= v.expiresAt) tokenCacheMap.delete(k) }
+    if (tokenCacheMap.size >= MAX_TOKEN_CACHE) tokenCacheMap.clear()
+  }
   tokenCacheMap.set(key, entry)
   return entry.token
 }

@@ -28,6 +28,7 @@ function normalizePemKey(key: string): string {
 
 const configCache = new Map<string, { data: GoogleConfig | null; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
+const MAX_CACHE = 50
 
 export async function getGoogleConfig(accountId: string): Promise<GoogleConfig | null> {
   const cached = configCache.get(accountId)
@@ -49,6 +50,7 @@ export async function getGoogleConfig(accountId: string): Promise<GoogleConfig |
         adminEmail: rows[0].admin_email,
         domain: rows[0].domain,
       }
+      if (configCache.size >= MAX_CACHE) configCache.clear()
       configCache.set(accountId, { data: config, ts: Date.now() })
       return config
     }
@@ -56,6 +58,7 @@ export async function getGoogleConfig(accountId: string): Promise<GoogleConfig |
     console.warn('[google] Config lookup failed:', String(e))
   }
 
+  if (configCache.size >= MAX_CACHE) configCache.clear()
   configCache.set(accountId, { data: null, ts: Date.now() })
   return null
 }

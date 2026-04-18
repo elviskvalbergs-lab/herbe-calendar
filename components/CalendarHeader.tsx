@@ -75,9 +75,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
 
       {/* Date navigation */}
       {(viewStep > 1 || isMonth) && (
-        <button onClick={() => isMonth ? navigateMonth(-1) : navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
+        <button onClick={() => isMonth ? navigateMonth(-1) : navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Previous month' : `Back ${viewStep} days`} aria-label={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
       )}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)">‹</button>
+      <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)" aria-label="Previous day">‹</button>
       <button
         onClick={() => setMonthNavOpen(true)}
         className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap"
@@ -85,9 +85,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       >
         {format(parseISO(state.date), 'd MMM yyyy')}
       </button>
-      <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)">›</button>
+      <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)" aria-label="Next day">›</button>
       {(viewStep > 1 || isMonth) && (
-        <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
+        <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`} aria-label={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
       )}
       {/* View toggle — pill buttons */}
       <div className="flex rounded-lg border border-border overflow-hidden">
@@ -180,6 +180,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         onClick={() => signOut()}
         className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title="Sign out"
+        aria-label="Sign out"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -194,6 +195,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           onClick={() => setHamburgerOpen(o => !o)}
           className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
           title="Menu"
+          aria-label="Menu"
+          aria-expanded={hamburgerOpen}
         >☰</button>
         {hamburgerOpen && (
           <>
@@ -290,6 +293,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         onClick={onToggleZoom}
         className="hidden lg:flex items-center gap-1 text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title={zoom === 1 ? 'Zoom in (2x) — Z' : 'Zoom out (1x) — Z'}
+        aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -304,6 +308,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         onClick={onRefresh}
         className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
         title="Refresh"
+        aria-label="Refresh"
       >↻</button>
 
       {/* Keyboard shortcuts — desktop only */}
@@ -311,6 +316,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         onClick={onShortcuts}
         className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
         title="Keyboard shortcuts (?)"
+        aria-label="Keyboard shortcuts"
       >
         ?
       </button>

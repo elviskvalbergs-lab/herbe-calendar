@@ -72,6 +72,7 @@ async function herbeFetchRaw(url: string, init: RequestInit = {}): Promise<Respo
         method: (init.method ?? 'GET').toUpperCase(),
         headers,
         insecureHTTPParser: true,
+        timeout: 30_000,
       },
       (res) => {
         const responseHeaders = new Headers()
@@ -98,6 +99,7 @@ async function herbeFetchRaw(url: string, init: RequestInit = {}): Promise<Respo
       }
     )
 
+    req.on('timeout', () => { req.destroy(new Error('ERP request timed out after 30s')) })
     req.on('error', reject)
     if (init.body) req.write(init.body)
     req.end()

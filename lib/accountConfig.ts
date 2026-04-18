@@ -24,10 +24,21 @@ export interface ErpConnection {
   serpUuid?: string | null
 }
 
-// Cache per account, 5 min TTL
+// Cache per account, 5 min TTL, bounded to prevent unbounded growth
 const azureCache = new Map<string, { data: AzureConfig | null; ts: number }>()
 const erpCache = new Map<string, { data: ErpConnection[]; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
+const MAX_CACHE_ENTRIES = 50
+
+/** Evict expired entries from a TTL cache; clear all if still over limit. */
+function evictStale(cache: Map<string, { ts: number }>) {
+  if (cache.size <= MAX_CACHE_ENTRIES) return
+  const now = Date.now()
+  for (const [key, val] of cache) {
+    if (now - val.ts >= CACHE_TTL) cache.delete(key)
+  }
+  if (cache.size > MAX_CACHE_ENTRIES) cache.clear()
+}
 
 function decryptField(data: Buffer | null): string {
   if (!data || data.length === 0) return ''
@@ -51,6 +62,7 @@ export async function getAzureConfig(accountId: string): Promise<AzureConfig | n
         clientSecret: decryptField(rows[0].client_secret),
         senderEmail: rows[0].sender_email,
       }
+      evictStale(azureCache)
       azureCache.set(accountId, { data: config, ts: Date.now() })
       return config
     }
@@ -59,6 +71,7 @@ export async function getAzureConfig(accountId: string): Promise<AzureConfig | n
     return null // don't cache failures — retry on next request
   }
 
+  evictStale(azureCache)
   azureCache.set(accountId, { data: null, ts: Date.now() })
   return null
 }
@@ -89,6 +102,7 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
         active: r.active,
         serpUuid: r.serp_uuid || null,
       }))
+      evictStale(erpCache)
       erpCache.set(accountId, { data: connections, ts: Date.now() })
       return connections
     }
@@ -97,6 +111,7 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
     return [] // don't cache failures — retry on next request
   }
 
+  evictStale(erpCache)
   erpCache.set(accountId, { data: [], ts: Date.now() })
   return []
 }

@@ -27,12 +27,14 @@ async function isEmailRegistered(email: string): Promise<{ registered: boolean; 
       userCache.set(lower, { userCode: code, expiresAt: Date.now() + USER_CACHE_TTL_MS })
       return { registered: true, userCode: code }
     }
-    // Not in person_codes yet — check if person_codes table has any records.
-    // If empty (first run, users not synced yet), allow login so user can trigger /api/users sync.
-    const { rows } = await pool.query('SELECT COUNT(*)::int AS cnt FROM person_codes')
-    if (rows[0]?.cnt === 0) {
-      console.warn('[auth] person_codes table empty (first run), allowing login for:', lower)
-      return { registered: true, userCode: '' }
+    // First-run bootstrap: allow any email when person_codes is empty AND env flag is set.
+    // Without the flag this bypass is disabled, preventing an empty table from collapsing auth.
+    if (process.env.ALLOW_FIRST_RUN_LOGIN === '1') {
+      const { rows } = await pool.query('SELECT COUNT(*)::int AS cnt FROM person_codes')
+      if (rows[0]?.cnt === 0) {
+        console.warn('[auth] person_codes table empty (first run), allowing login for:', lower)
+        return { registered: true, userCode: '' }
+      }
     }
     userCache.set(lower, { userCode: '', expiresAt: Date.now() + USER_CACHE_TTL_MS })
     return { registered: false, userCode: '' }

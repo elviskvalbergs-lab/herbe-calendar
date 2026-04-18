@@ -39,12 +39,20 @@ export async function getHolidays(countryCode: string, year: number): Promise<Ho
   }
 
   const holidays = await fetchFromApi(countryCode, year)
-  for (const h of holidays) {
+  if (holidays.length > 0) {
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    for (let i = 0; i < holidays.length; i++) {
+      const h = holidays[i]
+      const off = i * 6
+      placeholders.push(`($${off + 1}, $${off + 2}, $${off + 3}, $${off + 4}, $${off + 5}, $${off + 6})`)
+      values.push(countryCode, year, h.date, h.name, h.nameEn ?? null, h.type)
+    }
     await pool.query(
       `INSERT INTO cached_holidays (country_code, year, date, name, name_en, type)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (country_code, date) DO UPDATE SET name = $4, name_en = $5, type = $6, fetched_at = now()`,
-      [countryCode, year, h.date, h.name, h.nameEn ?? null, h.type]
+       VALUES ${placeholders.join(', ')}
+       ON CONFLICT (country_code, date) DO UPDATE SET name = EXCLUDED.name, name_en = EXCLUDED.name_en, type = EXCLUDED.type, fetched_at = now()`,
+      values,
     )
   }
   return holidays
@@ -60,12 +68,13 @@ export async function getHolidaysForRange(
   const yearFrom = parseInt(dateFrom.slice(0, 4))
   const yearTo = parseInt(dateTo.slice(0, 4))
 
-  const allHolidays: Holiday[] = []
+  const promises: Promise<Holiday[]>[] = []
   for (const cc of uniqueCountries) {
     for (let y = yearFrom; y <= yearTo; y++) {
-      allHolidays.push(...(await getHolidays(cc, y)))
+      promises.push(getHolidays(cc, y))
     }
   }
+  const allHolidays = (await Promise.all(promises)).flat()
 
   const result = new Map<string, Holiday[]>()
   for (const h of allHolidays) {

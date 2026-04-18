@@ -21,7 +21,9 @@ export function verifyCookieValue(signed: string): string | null {
   const hmac = signed.slice(0, dotIdx)
   const value = signed.slice(dotIdx + 1)
   const expected = createHmac(HMAC_ALGO, getKey()).update(value).digest('hex')
-  if (hmac.length !== expected.length) return null
-  const valid = timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expected, 'hex'))
+  const hmacBuf = Buffer.from(hmac, 'hex')
+  const expectedBuf = Buffer.from(expected, 'hex')
+  if (hmacBuf.length !== expectedBuf.length) return null
+  const valid = timingSafeEqual(hmacBuf, expectedBuf)
   return valid ? value : null
 }

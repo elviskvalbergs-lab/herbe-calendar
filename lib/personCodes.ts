@@ -43,23 +43,22 @@ export function generateCode(displayName: string): string {
 /**
  * Find a unique code by appending a number suffix if needed.
  * e.g. "EKS" → "EKS", "EKS2", "EKS3", ...
+ * Fetches all codes with the same prefix in one query to avoid N+1 round-trips.
  */
 export async function findUniqueCode(baseCode: string, accountId: string, excludeEmail?: string): Promise<string> {
-  // Check if base code is available within this account
-  const { rows } = await pool.query(
-    'SELECT generated_code FROM person_codes WHERE account_id = $1 AND generated_code = $2' + (excludeEmail ? ' AND email != $3' : ''),
-    excludeEmail ? [accountId, baseCode, excludeEmail] : [accountId, baseCode]
+  // Fetch all codes starting with baseCode in one query
+  const { rows } = await pool.query<{ generated_code: string }>(
+    'SELECT generated_code FROM person_codes WHERE account_id = $1 AND generated_code LIKE $2'
+      + (excludeEmail ? ' AND email != $3' : ''),
+    excludeEmail ? [accountId, `${baseCode}%`, excludeEmail] : [accountId, `${baseCode}%`]
   )
-  if (rows.length === 0) return baseCode
+  const taken = new Set(rows.map(r => r.generated_code))
 
-  // Try with numeric suffixes
+  if (!taken.has(baseCode)) return baseCode
+
   for (let i = 2; i < 100; i++) {
     const candidate = `${baseCode}${i}`
-    const { rows: r } = await pool.query(
-      'SELECT generated_code FROM person_codes WHERE account_id = $1 AND generated_code = $2' + (excludeEmail ? ' AND email != $3' : ''),
-      excludeEmail ? [accountId, candidate, excludeEmail] : [accountId, candidate]
-    )
-    if (r.length === 0) return candidate
+    if (!taken.has(candidate)) return candidate
   }
   throw new Error(`Could not generate unique code for base "${baseCode}"`)
 }
@@ -105,30 +104,25 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
     merged.set(key, { erp: u })
   }
 
-  const results: PersonCodeRecord[] = []
+  // Build a set of all existing codes for in-memory uniqueness resolution
+  const takenCodes = new Set(existing.map(r => r.generated_code))
 
-  // Detach azure_object_id from any row other than `keepId`. Needed when an
-  // Azure user's email changes to match an existing ERP-only row — the
-  // matched-by-email row has to adopt the azure_object_id, but the old
-  // Azure-only row still owns it and the unique index would reject the
-  // UPDATE. Clearing it from the loser first resolves the collision; the
-  // loser becomes a candidate for the admin duplicate-merge flow.
-  async function detachAzureIdFromOthers(azureId: string | null, keepId: string | null) {
-    if (!azureId) return
-    const conflicting = byAzureId.get(azureId)
-    if (!conflicting) return
-    if (keepId && conflicting.id === keepId) return
-    await pool.query(
-      'UPDATE person_codes SET azure_object_id = NULL, updated_at = now() WHERE id = $1',
-      [conflicting.id],
-    )
-    byAzureId.delete(azureId)
+  /** Resolve a unique code entirely in-memory (0 DB queries). */
+  function resolveUniqueCode(baseCode: string): string {
+    if (!takenCodes.has(baseCode)) { takenCodes.add(baseCode); return baseCode }
+    for (let i = 2; i < 100; i++) {
+      const candidate = `${baseCode}${i}`
+      if (!takenCodes.has(candidate)) { takenCodes.add(candidate); return candidate }
+    }
+    throw new Error(`Could not generate unique code for base "${baseCode}"`)
   }
 
+  // --- Phase 1: compute all operations (pure, no DB queries) ---
+  const detachIds: string[] = []  // row IDs to null out azure_object_id
+  const updates: { id: string; displayName: string; source: string; azureObjectId: string | null; erpCode: string | null; email: string }[] = []
+  const inserts: { azureObjectId: string | null; erpCode: string | null; code: string; email: string; displayName: string; source: string }[] = []
+
   for (const [emailKey, { erp, azure, google }] of merged) {
-    // Try to find existing record by email, ERP code, or Azure object ID.
-    // The Azure fallback catches email changes in Azure — without it a
-    // renamed Azure user would silently create a duplicate row.
     const existingRecord =
       byEmail.get(emailKey) ??
       (erp?.erpCode ? byErpCode.get(erp.erpCode) : undefined) ??
@@ -140,43 +134,79 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
     const azureObjectId = azure?.azureObjectId || null
     const erpCode = erp?.erpCode || null
 
-    if (existingRecord) {
-      await detachAzureIdFromOthers(azureObjectId, existingRecord.id)
-      // Update existing record
-      const { rows } = await pool.query<PersonCodeRecord>(
-        `UPDATE person_codes
-         SET display_name = $1, source = $2,
-             azure_object_id = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE azure_object_id END,
-             erp_code = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE erp_code END,
-             email = $5, updated_at = now()
-         WHERE id = $6
-         RETURNING *`,
-        [displayName, source, azureObjectId, erpCode, email, existingRecord.id]
-      )
-      if (rows[0]) results.push(rows[0])
-    } else {
-      await detachAzureIdFromOthers(azureObjectId, null)
-      // Generate code for new user: use ERP code if available, otherwise generate
-      const code = erpCode ?? await findUniqueCode(generateCode(displayName), accountId, email)
-      try {
-        const { rows } = await pool.query<PersonCodeRecord>(
-          `INSERT INTO person_codes (account_id, azure_object_id, erp_code, generated_code, email, display_name, source)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           RETURNING *`,
-          [accountId, azureObjectId || null, erpCode, code, email, displayName, source]
-        )
-        if (rows[0]) results.push(rows[0])
-      } catch (e) {
-        // Duplicate — skip (likely a race condition or duplicate email with different case)
-        console.warn(`[personCodes] Insert failed for ${email}:`, String(e))
-        // Try to fetch the existing one
-        const { rows } = await pool.query<PersonCodeRecord>(
-          'SELECT * FROM person_codes WHERE account_id = $1 AND LOWER(email) = $2',
-          [accountId, emailKey]
-        )
-        if (rows[0]) results.push(rows[0])
+    // Check for azure_object_id conflicts that need detaching
+    if (azureObjectId) {
+      const conflicting = byAzureId.get(azureObjectId)
+      if (conflicting && (!existingRecord || conflicting.id !== existingRecord.id)) {
+        detachIds.push(conflicting.id)
+        byAzureId.delete(azureObjectId)
       }
     }
+
+    if (existingRecord) {
+      updates.push({ id: existingRecord.id, displayName, source, azureObjectId, erpCode, email })
+    } else {
+      const code = erpCode ?? resolveUniqueCode(generateCode(displayName))
+      inserts.push({ azureObjectId, erpCode, code, email, displayName, source })
+    }
+  }
+
+  // --- Phase 2: execute batched DB operations ---
+  const results: PersonCodeRecord[] = []
+
+  // Batch detach conflicting azure_object_ids
+  if (detachIds.length > 0) {
+    await pool.query(
+      'UPDATE person_codes SET azure_object_id = NULL, updated_at = now() WHERE id = ANY($1::uuid[])',
+      [detachIds],
+    )
+  }
+
+  // Batch updates using UPDATE FROM VALUES
+  if (updates.length > 0) {
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    for (let i = 0; i < updates.length; i++) {
+      const u = updates[i]
+      const off = i * 6
+      placeholders.push(`($${off + 1}::uuid, $${off + 2}, $${off + 3}, $${off + 4}, $${off + 5}, $${off + 6})`)
+      values.push(u.id, u.displayName, u.source, u.azureObjectId, u.erpCode, u.email)
+    }
+    const { rows } = await pool.query<PersonCodeRecord>(
+      `UPDATE person_codes AS pc
+       SET display_name = v.display_name,
+           source = v.source,
+           azure_object_id = CASE WHEN v.azure_object_id IS NOT NULL THEN v.azure_object_id ELSE pc.azure_object_id END,
+           erp_code = CASE WHEN v.erp_code IS NOT NULL THEN v.erp_code ELSE pc.erp_code END,
+           email = v.email,
+           updated_at = now()
+       FROM (VALUES ${placeholders.join(', ')})
+         AS v(id, display_name, source, azure_object_id, erp_code, email)
+       WHERE pc.id = v.id
+       RETURNING pc.*`,
+      values,
+    )
+    results.push(...rows)
+  }
+
+  // Batch inserts using multi-row INSERT ON CONFLICT
+  if (inserts.length > 0) {
+    const values: unknown[] = []
+    const placeholders: string[] = []
+    for (let i = 0; i < inserts.length; i++) {
+      const ins = inserts[i]
+      const off = i * 7
+      placeholders.push(`($${off + 1}, $${off + 2}, $${off + 3}, $${off + 4}, $${off + 5}, $${off + 6}, $${off + 7})`)
+      values.push(accountId, ins.azureObjectId || null, ins.erpCode, ins.code, ins.email, ins.displayName, ins.source)
+    }
+    const { rows } = await pool.query<PersonCodeRecord>(
+      `INSERT INTO person_codes (account_id, azure_object_id, erp_code, generated_code, email, display_name, source)
+       VALUES ${placeholders.join(', ')}
+       ON CONFLICT (account_id, LOWER(email)) DO UPDATE SET updated_at = now()
+       RETURNING *`,
+      values,
+    )
+    results.push(...rows)
   }
 
   return results
@@ -237,18 +267,20 @@ export async function countMemberReferences(
   accountId: string,
   email: string,
   generatedCode: string | null,
+  queryFn: { query: typeof pool.query } = pool,
 ): Promise<MemberReferenceCounts> {
   const code = generatedCode ?? ''
+  const q = queryFn.query.bind(queryFn)
   const [favs, cals, cached] = await Promise.all([
     code
-      ? pool.query<{ n: number }>(
+      ? q<{ n: number }>(
           `SELECT COUNT(*)::int AS n FROM user_favorites
            WHERE account_id = $1 AND $2 = ANY(person_codes)`,
           [accountId, code],
         )
       : Promise.resolve({ rows: [{ n: 0 }] }),
     code
-      ? pool.query<{ n: number }>(
+      ? q<{ n: number }>(
           `SELECT COUNT(*)::int AS n FROM user_calendars
            WHERE target_person_code = $1
              AND user_email IN (SELECT email FROM account_members WHERE account_id = $2)`,
@@ -256,7 +288,7 @@ export async function countMemberReferences(
         )
       : Promise.resolve({ rows: [{ n: 0 }] }),
     code
-      ? pool.query<{ n: number }>(
+      ? q<{ n: number }>(
           `SELECT COUNT(*)::int AS n FROM cached_events
            WHERE account_id = $1 AND person_code = $2`,
           [accountId, code],
@@ -295,7 +327,7 @@ export async function deleteMember(
     await client.query('BEGIN')
 
     if (generatedCode && !cascade) {
-      const refs = await countMemberReferences(accountId, email, generatedCode)
+      const refs = await countMemberReferences(accountId, email, generatedCode, client)
       if (refs.favoritesReferencing + refs.sharedCalendars + refs.cachedEvents > 0) {
         await client.query('ROLLBACK')
         throw new Error(

@@ -72,11 +72,20 @@ async function syncAccountOutlook(
 
     const people = await listAccountPersons(accountId)
     const rows: CachedEventRow[] = []
-    for (const { code, email } of people) {
-      const events = await fetchOutlookEventsForPerson(email, accountId, dateFrom, dateTo, sessionEmail)
-      if (!events) continue
-      for (const ev of events) {
-        rows.push(...buildOutlookCacheRows(ev, accountId, code, sessionEmail))
+
+    // Fetch in parallel with concurrency limit to avoid overwhelming Graph API
+    const CONCURRENCY = 10
+    for (let i = 0; i < people.length; i += CONCURRENCY) {
+      const batch = people.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(
+        batch.map(async ({ code, email }) => {
+          const events = await fetchOutlookEventsForPerson(email, accountId, dateFrom, dateTo, sessionEmail)
+          if (!events) return []
+          return events.flatMap(ev => buildOutlookCacheRows(ev, accountId, code, sessionEmail))
+        })
+      )
+      for (const r of results) {
+        if (r.status === 'fulfilled') rows.push(...r.value)
       }
     }
 

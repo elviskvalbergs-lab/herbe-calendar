@@ -77,6 +77,12 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={activity.description || '(no title)'}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(activity) }
+      }}
       className="absolute left-px right-px rounded cursor-pointer select-none pointer-events-auto transition-shadow duration-150"
       style={{
         top,
