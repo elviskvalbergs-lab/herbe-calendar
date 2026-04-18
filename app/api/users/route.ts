@@ -146,32 +146,53 @@ export async function GET(req: NextRequest) {
       // Google feed. Manually-added members (source='manual') never appear
       // in those feeds, so pull the full person_codes list and fold in
       // anything that wasn't already returned.
-      const seen = new Set(personCodes.map(pc => pc.id))
-      const { rows: manualExtras } = await pool.query<{
-        id: string; generated_code: string; email: string; display_name: string;
-        erp_code: string | null; source: string | null
-      }>(
-        `SELECT id, generated_code, email, display_name, erp_code, source
-         FROM person_codes WHERE account_id = $1 AND id <> ALL($2::uuid[])`,
-        [session.accountId, Array.from(seen)],
-      )
+      const seenIds = new Set(personCodes.map(pc => pc.id))
+      const seenIdArray = Array.from(seenIds)
+      // Use a NOT IN approach — more portable than id <> ALL for empty lists
+      const extrasQuery = seenIdArray.length === 0
+        ? pool.query<{
+            id: string; generated_code: string; email: string; display_name: string;
+            erp_code: string | null; source: string | null
+          }>(
+            `SELECT id, generated_code, email, display_name, erp_code, source
+             FROM person_codes WHERE account_id = $1`,
+            [session.accountId],
+          )
+        : pool.query<{
+            id: string; generated_code: string; email: string; display_name: string;
+            erp_code: string | null; source: string | null
+          }>(
+            `SELECT id, generated_code, email, display_name, erp_code, source
+             FROM person_codes WHERE account_id = $1 AND NOT (id = ANY($2::uuid[]))`,
+            [session.accountId, seenIdArray],
+          )
+      const { rows: manualExtras } = await extrasQuery
       diagnostics.push(`manualExtras=${manualExtras.length}`)
-      result = [
-        ...personCodes.map(pc => ({
+
+      // Build by generated_code, last-write-wins — the manual extras
+      // shouldn't overlap (they're filtered by id), but this is a cheap
+      // belt-and-suspenders against duplicate codes ever reaching the UI.
+      const byCode = new Map<string, Record<string, unknown>>()
+      for (const pc of personCodes) {
+        byCode.set(pc.generated_code, {
           Code: pc.generated_code,
           Name: pc.display_name,
           emailAddr: pc.email,
           ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
           ...(pc.source ? { _source: pc.source } : {}),
-        })),
-        ...manualExtras.map(pc => ({
+        })
+      }
+      for (const pc of manualExtras) {
+        if (byCode.has(pc.generated_code)) continue
+        byCode.set(pc.generated_code, {
           Code: pc.generated_code,
           Name: pc.display_name,
           emailAddr: pc.email,
           ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
           ...(pc.source ? { _source: pc.source } : {}),
-        })),
-      ]
+        })
+      }
+      result = Array.from(byCode.values())
     } catch (e) {
       diagnostics.push(`sync=FAIL:${String(e).slice(0, 120)}`)
       result = rawUsers.map(u => ({
