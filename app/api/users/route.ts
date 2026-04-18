@@ -6,6 +6,7 @@ import { graphFetch } from '@/lib/graph/client'
 import { getErpConnections, getAzureConfig } from '@/lib/accountConfig'
 import { getGoogleConfig, listGoogleUsers } from '@/lib/google/client'
 import { syncPersonCodes, type RawUser } from '@/lib/personCodes'
+import { pool } from '@/lib/db'
 
 // Per-account cache: avoids re-fetching ERP + Azure + DB sync on every page load
 const usersCache = new Map<string, { response: { users: Record<string, unknown>[]; sources: { herbe: boolean; azure: boolean } }; ts: number }>()
@@ -141,13 +142,36 @@ export async function GET(req: NextRequest) {
     try {
       const personCodes = await syncPersonCodes(rawUsers, session.accountId)
       diagnostics.push(`synced=${personCodes.length}`)
-      result = personCodes.map(pc => ({
-        Code: pc.generated_code,
-        Name: pc.display_name,
-        emailAddr: pc.email,
-        ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
-        ...(pc.source ? { _source: pc.source } : {}),
-      }))
+      // syncPersonCodes only returns rows matched against the ERP/Azure/
+      // Google feed. Manually-added members (source='manual') never appear
+      // in those feeds, so pull the full person_codes list and fold in
+      // anything that wasn't already returned.
+      const seen = new Set(personCodes.map(pc => pc.id))
+      const { rows: manualExtras } = await pool.query<{
+        id: string; generated_code: string; email: string; display_name: string;
+        erp_code: string | null; source: string | null
+      }>(
+        `SELECT id, generated_code, email, display_name, erp_code, source
+         FROM person_codes WHERE account_id = $1 AND id <> ALL($2::uuid[])`,
+        [session.accountId, Array.from(seen)],
+      )
+      diagnostics.push(`manualExtras=${manualExtras.length}`)
+      result = [
+        ...personCodes.map(pc => ({
+          Code: pc.generated_code,
+          Name: pc.display_name,
+          emailAddr: pc.email,
+          ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
+          ...(pc.source ? { _source: pc.source } : {}),
+        })),
+        ...manualExtras.map(pc => ({
+          Code: pc.generated_code,
+          Name: pc.display_name,
+          emailAddr: pc.email,
+          ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
+          ...(pc.source ? { _source: pc.source } : {}),
+        })),
+      ]
     } catch (e) {
       diagnostics.push(`sync=FAIL:${String(e).slice(0, 120)}`)
       result = rawUsers.map(u => ({
