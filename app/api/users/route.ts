@@ -194,12 +194,40 @@ export async function GET(req: NextRequest) {
       }
       result = Array.from(byCode.values())
     } catch (e) {
+      // Sync failed — DO NOT rebuild the list from rawUsers. That path has
+      // no dedupe and synthesizes codes from name initials, which collides
+      // badly (e.g. "Elvis Kvalbergs" and "Evita Kopāne" both become "EK")
+      // and floods the picker with ghost rows. Instead, serve whatever
+      // person_codes are already in the DB — they're unique by
+      // generated_code and reflect the last successful sync.
       diagnostics.push(`sync=FAIL:${String(e).slice(0, 120)}`)
-      result = rawUsers.map(u => ({
-        Code: u.erpCode || u.displayName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 3),
-        Name: u.displayName,
-        emailAddr: u.email,
-      }))
+      console.error('[users] syncPersonCodes failed, falling back to DB read:', e)
+      try {
+        const { rows } = await pool.query<{
+          generated_code: string; email: string; display_name: string;
+          erp_code: string | null; source: string | null
+        }>(
+          `SELECT generated_code, email, display_name, erp_code, source
+             FROM person_codes WHERE account_id = $1`,
+          [session.accountId],
+        )
+        const byCode = new Map<string, Record<string, unknown>>()
+        for (const pc of rows) {
+          byCode.set(pc.generated_code, {
+            Code: pc.generated_code,
+            Name: pc.display_name,
+            emailAddr: pc.email,
+            ...(pc.erp_code ? { erpCode: pc.erp_code } : {}),
+            ...(pc.source ? { _source: pc.source } : {}),
+          })
+        }
+        result = Array.from(byCode.values())
+        diagnostics.push(`dbFallback=${result.length}`)
+      } catch (dbErr) {
+        diagnostics.push(`dbFallback=FAIL:${String(dbErr).slice(0, 120)}`)
+        console.error('[users] DB fallback also failed:', dbErr)
+        result = []
+      }
     }
 
     console.log(`[users] ${diagnostics.join(' | ')} | final=${result.length}`)

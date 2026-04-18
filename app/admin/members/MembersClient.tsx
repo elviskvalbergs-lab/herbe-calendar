@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 
 interface Member {
   email: string
-  role: 'admin' | 'member'
+  role: 'admin' | 'member' | null
   active: boolean
   last_login: string | null
   created_at: string
@@ -13,6 +13,7 @@ interface Member {
   display_name: string | null
   source: string | null
   holiday_country: string | null
+  is_orphan: boolean
 }
 
 interface DuplicateCandidate {
@@ -97,6 +98,7 @@ export default function MembersClient({
         display_name: pc.display_name ?? null,
         source: pc.source ?? 'manual',
         holiday_country: null,
+        is_orphan: false,
       }])
       setAddEmail('')
       setMessage('Member added')
@@ -198,6 +200,7 @@ export default function MembersClient({
       display_name: name,
       source,
       holiday_country: null,
+      is_orphan: false,
     })
     const a = toMember(d.rowAId, d.rowACode, d.rowAEmail, d.rowAErpCode, d.rowASource, d.rowADisplayName)
     const b = toMember(d.rowBId, d.rowBCode, d.rowBEmail, d.rowBErpCode, d.rowBSource, d.rowBDisplayName)
@@ -469,17 +472,21 @@ export default function MembersClient({
                   </div>
                 </td>
                 <td className="px-3 py-1.5">
-                  <button
-                    onClick={() => toggleRole(m.email, m.role === 'admin' ? 'member' : 'admin')}
-                    disabled={saving === m.email}
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
-                      m.role === 'admin'
-                        ? 'bg-primary/10 border-primary/30 text-primary'
-                        : 'bg-border/30 border-border text-text-muted hover:border-primary/30'
-                    }`}
-                  >
-                    {m.role}
-                  </button>
+                  {m.is_orphan ? (
+                    <span className="text-[10px] text-text-muted/60 italic">—</span>
+                  ) : (
+                    <button
+                      onClick={() => toggleRole(m.email, m.role === 'admin' ? 'member' : 'admin')}
+                      disabled={saving === m.email}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                        m.role === 'admin'
+                          ? 'bg-primary/10 border-primary/30 text-primary'
+                          : 'bg-border/30 border-border text-text-muted hover:border-primary/30'
+                      }`}
+                    >
+                      {m.role}
+                    </button>
+                  )}
                 </td>
                 <td className="px-3 py-1.5 text-[10px] text-text-muted whitespace-nowrap">
                   {m.last_login
@@ -487,17 +494,26 @@ export default function MembersClient({
                     : '—'}
                 </td>
                 <td className="px-3 py-1.5">
-                  <button
-                    onClick={() => toggleActive(m.email, !m.active)}
-                    disabled={saving === m.email}
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
-                      m.active
-                        ? 'bg-green-500/10 border-green-500/30 text-green-500'
-                        : 'bg-red-500/10 border-red-500/30 text-red-500'
-                    }`}
-                  >
-                    {m.active ? 'active' : 'inactive'}
-                  </button>
+                  {m.is_orphan ? (
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded border bg-amber-500/10 border-amber-500/30 text-amber-500"
+                      title="This person_code row has no matching account_members entry — it's a ghost. Merge or delete to clean up."
+                    >
+                      orphan
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => toggleActive(m.email, !m.active)}
+                      disabled={saving === m.email}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                        m.active
+                          ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                          : 'bg-red-500/10 border-red-500/30 text-red-500'
+                      }`}
+                    >
+                      {m.active ? 'active' : 'inactive'}
+                    </button>
+                  )}
                 </td>
                 <td className="px-3 py-1.5">
                   <select
@@ -531,18 +547,20 @@ export default function MembersClient({
                 </td>
                 {isSuperAdmin && (
                   <td className="px-3 py-1.5">
-                    <button
-                      onClick={() => {
-                        fetch('/api/admin/impersonate', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ email: m.email, accountId }),
-                        }).then(() => window.open('/cal', '_blank'))
-                      }}
-                      className="text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-colors"
-                    >
-                      View as
-                    </button>
+                    {!m.is_orphan && (
+                      <button
+                        onClick={() => {
+                          fetch('/api/admin/impersonate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: m.email, accountId }),
+                          }).then(() => window.open('/cal', '_blank'))
+                        }}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-colors"
+                      >
+                        View as
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
