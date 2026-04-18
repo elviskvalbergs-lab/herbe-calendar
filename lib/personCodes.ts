@@ -107,6 +107,24 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
 
   const results: PersonCodeRecord[] = []
 
+  // Detach azure_object_id from any row other than `keepId`. Needed when an
+  // Azure user's email changes to match an existing ERP-only row — the
+  // matched-by-email row has to adopt the azure_object_id, but the old
+  // Azure-only row still owns it and the unique index would reject the
+  // UPDATE. Clearing it from the loser first resolves the collision; the
+  // loser becomes a candidate for the admin duplicate-merge flow.
+  async function detachAzureIdFromOthers(azureId: string | null, keepId: string | null) {
+    if (!azureId) return
+    const conflicting = byAzureId.get(azureId)
+    if (!conflicting) return
+    if (keepId && conflicting.id === keepId) return
+    await pool.query(
+      'UPDATE person_codes SET azure_object_id = NULL, updated_at = now() WHERE id = $1',
+      [conflicting.id],
+    )
+    byAzureId.delete(azureId)
+  }
+
   for (const [emailKey, { erp, azure, google }] of merged) {
     // Try to find existing record by email, ERP code, or Azure object ID.
     // The Azure fallback catches email changes in Azure — without it a
@@ -123,6 +141,7 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
     const erpCode = erp?.erpCode || null
 
     if (existingRecord) {
+      await detachAzureIdFromOthers(azureObjectId, existingRecord.id)
       // Update existing record
       const { rows } = await pool.query<PersonCodeRecord>(
         `UPDATE person_codes
@@ -136,6 +155,7 @@ export async function syncPersonCodes(users: RawUser[], accountId: string): Prom
       )
       if (rows[0]) results.push(rows[0])
     } else {
+      await detachAzureIdFromOthers(azureObjectId, null)
       // Generate code for new user: use ERP code if available, otherwise generate
       const code = erpCode ?? await findUniqueCode(generateCode(displayName), accountId, email)
       try {
