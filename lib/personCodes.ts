@@ -352,9 +352,15 @@ export interface DuplicateCandidate {
   rowAId: string
   rowACode: string
   rowAEmail: string
+  rowAErpCode: string | null
+  rowASource: string | null
+  rowADisplayName: string
   rowBId: string
   rowBCode: string
   rowBEmail: string
+  rowBErpCode: string | null
+  rowBSource: string | null
+  rowBDisplayName: string
 }
 
 /**
@@ -373,16 +379,12 @@ export interface DuplicateCandidate {
 export async function findDuplicatePersonCodes(accountId: string): Promise<DuplicateCandidate[]> {
   const { rows } = await pool.query<{
     reason: string
-    a_id: string
-    a_code: string
-    a_email: string
-    b_id: string
-    b_code: string
-    b_email: string
+    a_id: string; a_code: string; a_email: string; a_erp: string | null; a_source: string | null; a_name: string
+    b_id: string; b_code: string; b_email: string; b_erp: string | null; b_source: string | null; b_name: string
   }>(
     `SELECT 'cross-code' AS reason,
-            a.id AS a_id, a.generated_code AS a_code, a.email AS a_email,
-            b.id AS b_id, b.generated_code AS b_code, b.email AS b_email
+            a.id AS a_id, a.generated_code AS a_code, a.email AS a_email, a.erp_code AS a_erp, a.source AS a_source, a.display_name AS a_name,
+            b.id AS b_id, b.generated_code AS b_code, b.email AS b_email, b.erp_code AS b_erp, b.source AS b_source, b.display_name AS b_name
        FROM person_codes a
        JOIN person_codes b
          ON b.account_id = a.account_id
@@ -392,8 +394,8 @@ export async function findDuplicatePersonCodes(accountId: string): Promise<Dupli
         AND a.erp_code <> a.generated_code
       UNION ALL
       SELECT 'email-duplicate' AS reason,
-             a.id, a.generated_code, a.email,
-             b.id, b.generated_code, b.email
+             a.id, a.generated_code, a.email, a.erp_code, a.source, a.display_name,
+             b.id, b.generated_code, b.email, b.erp_code, b.source, b.display_name
         FROM person_codes a
         JOIN person_codes b
           ON b.account_id = a.account_id
@@ -402,8 +404,8 @@ export async function findDuplicatePersonCodes(accountId: string): Promise<Dupli
        WHERE a.account_id = $1
       UNION ALL
       SELECT 'same-name' AS reason,
-             a.id, a.generated_code, a.email,
-             b.id, b.generated_code, b.email
+             a.id, a.generated_code, a.email, a.erp_code, a.source, a.display_name,
+             b.id, b.generated_code, b.email, b.erp_code, b.source, b.display_name
         FROM person_codes a
         JOIN person_codes b
           ON b.account_id = a.account_id
@@ -416,12 +418,10 @@ export async function findDuplicatePersonCodes(accountId: string): Promise<Dupli
   )
   return rows.map(r => ({
     reason: r.reason,
-    rowAId: r.a_id,
-    rowACode: r.a_code,
-    rowAEmail: r.a_email,
-    rowBId: r.b_id,
-    rowBCode: r.b_code,
-    rowBEmail: r.b_email,
+    rowAId: r.a_id, rowACode: r.a_code, rowAEmail: r.a_email,
+    rowAErpCode: r.a_erp, rowASource: r.a_source, rowADisplayName: r.a_name,
+    rowBId: r.b_id, rowBCode: r.b_code, rowBEmail: r.b_email,
+    rowBErpCode: r.b_erp, rowBSource: r.b_source, rowBDisplayName: r.b_name,
   }))
 }
 

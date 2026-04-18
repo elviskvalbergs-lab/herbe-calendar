@@ -20,9 +20,15 @@ interface DuplicateCandidate {
   rowAId: string
   rowACode: string
   rowAEmail: string
+  rowAErpCode: string | null
+  rowASource: string | null
+  rowADisplayName: string
   rowBId: string
   rowBCode: string
   rowBEmail: string
+  rowBErpCode: string | null
+  rowBSource: string | null
+  rowBDisplayName: string
 }
 
 export default function MembersClient({
@@ -53,6 +59,14 @@ export default function MembersClient({
     loading: boolean
   }>(null)
   const [deleting, setDeleting] = useState(false)
+  const [duplicatesCollapsed, setDuplicatesCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('members:duplicatesCollapsed') === '1'
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('members:duplicatesCollapsed', duplicatesCollapsed ? '1' : '0') } catch {}
+  }, [duplicatesCollapsed])
 
   const duplicateIds = new Set(duplicates.flatMap(d => [d.rowAId, d.rowBId]))
 
@@ -165,6 +179,38 @@ export default function MembersClient({
     setTimeout(() => {
       document.querySelector('table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
+  }
+
+  /** Open the merge modal directly from a duplicate pair, bypassing the
+   *  members list. Needed when one side of the pair has no
+   *  account_members row (e.g. email still jss@erp.local) so the members
+   *  list never renders it. */
+  function mergeDuplicatePair(d: DuplicateCandidate) {
+    const toMember = (id: string, code: string, email: string, erp: string | null, source: string | null, name: string): Member => ({
+      email,
+      role: 'member',
+      active: true,
+      last_login: null,
+      created_at: '',
+      person_code_id: id,
+      generated_code: code,
+      erp_code: erp,
+      display_name: name,
+      source,
+      holiday_country: null,
+    })
+    const a = toMember(d.rowAId, d.rowACode, d.rowAEmail, d.rowAErpCode, d.rowASource, d.rowADisplayName)
+    const b = toMember(d.rowBId, d.rowBCode, d.rowBEmail, d.rowBErpCode, d.rowBSource, d.rowBDisplayName)
+    // Same winner heuristic as openMergeConfirm
+    let into = a
+    if (a.erp_code && b.generated_code === a.erp_code) into = b
+    else if (b.erp_code && a.generated_code === b.erp_code) into = a
+    else if (a.generated_code === a.erp_code && b.generated_code !== b.erp_code) into = a
+    else if (b.generated_code === b.erp_code && a.generated_code !== a.erp_code) into = b
+    else if (a.source?.includes('erp') && !b.source?.includes('erp')) into = a
+    else if (b.source?.includes('erp') && !a.source?.includes('erp')) into = b
+    const from = into === a ? b : a
+    setMergeConfirm({ from, into })
   }
 
   function openMergeConfirm() {
@@ -283,34 +329,48 @@ export default function MembersClient({
 
       {duplicates.length > 0 && (
         <div className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
-          <p className="text-xs font-bold text-amber-500 mb-2">
-            {duplicates.length} possible duplicate{duplicates.length === 1 ? '' : 's'} detected
-          </p>
-          <p className="text-[11px] text-text-muted mb-2">
-            These person rows look like the same human (matched via ERP code cross-reference or shared email). Review and merge them if appropriate — nothing is changed automatically.
-          </p>
-          <ul className="space-y-1.5">
-            {duplicates.map((d, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs">
-                <span className="font-mono font-bold">{d.rowACode}</span>
-                <span className="text-text-muted">({d.rowAEmail})</span>
-                <span className="text-text-muted">↔</span>
-                <span className="font-mono font-bold">{d.rowBCode}</span>
-                <span className="text-text-muted">({d.rowBEmail})</span>
-                <span className="text-[10px] text-text-muted/70 italic ml-1">
-                  {d.reason === 'cross-code'
-                    ? 'erp_code → other row'
-                    : d.reason === 'same-name'
-                    ? 'same display name'
-                    : 'same email'}
-                </span>
-                <button onClick={() => selectDuplicatePair(d)}
-                  className="ml-auto px-2 py-0.5 border border-amber-500/40 text-amber-500 rounded text-[10px] font-bold hover:bg-amber-500/10">
-                  Select pair
-                </button>
-              </li>
-            ))}
-          </ul>
+          <button
+            onClick={() => setDuplicatesCollapsed(c => !c)}
+            className="w-full flex items-center gap-2 text-left"
+            aria-expanded={!duplicatesCollapsed}
+          >
+            <span className="text-text-muted text-xs">{duplicatesCollapsed ? '▸' : '▾'}</span>
+            <span className="text-xs font-bold text-amber-500">
+              {duplicates.length} possible duplicate{duplicates.length === 1 ? '' : 's'} detected
+            </span>
+            {duplicatesCollapsed && (
+              <span className="text-[10px] text-text-muted/70 ml-auto">click to expand</span>
+            )}
+          </button>
+          {!duplicatesCollapsed && (
+            <>
+              <p className="text-[11px] text-text-muted mt-2 mb-2">
+                These person rows look like the same human (matched via ERP code cross-reference, shared email, or shared display name). Review and merge them if appropriate — nothing is changed automatically.
+              </p>
+              <ul className="space-y-1.5">
+                {duplicates.map((d, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs">
+                    <span className="font-mono font-bold">{d.rowACode}</span>
+                    <span className="text-text-muted">({d.rowAEmail})</span>
+                    <span className="text-text-muted">↔</span>
+                    <span className="font-mono font-bold">{d.rowBCode}</span>
+                    <span className="text-text-muted">({d.rowBEmail})</span>
+                    <span className="text-[10px] text-text-muted/70 italic ml-1">
+                      {d.reason === 'cross-code'
+                        ? 'erp_code → other row'
+                        : d.reason === 'same-name'
+                        ? 'same display name'
+                        : 'same email'}
+                    </span>
+                    <button onClick={() => mergeDuplicatePair(d)}
+                      className="ml-auto px-2 py-0.5 border border-amber-500/40 text-amber-500 rounded text-[10px] font-bold hover:bg-amber-500/10">
+                      Merge
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
 
