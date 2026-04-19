@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { syncAllErp } from '@/lib/sync/erp'
 import { syncAllOutlook } from '@/lib/sync/graph'
 import { syncAllGoogle } from '@/lib/sync/google'
+import { purgeOldEvents } from '@/lib/analytics'
 
 export const maxDuration = 300
 
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
       syncAllOutlook(mode),
       syncAllGoogle(mode),
     ])
-    const summary = { erp, outlook, google }
+    const purgedAnalyticsEvents = await purgeOldEvents().catch(() => 0)
+    const summary = { erp, outlook, google, purgedAnalyticsEvents }
     console.log(`[sync/cron] ${mode} sync complete:`, JSON.stringify(summary))
     return NextResponse.json(summary)
   } catch (e) {
