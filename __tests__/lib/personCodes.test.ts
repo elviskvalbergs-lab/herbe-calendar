@@ -46,15 +46,3 @@ describe('generateCode', () => {
     expect(result).toBe('JĀŠ')
   })
 })
-
-describe('sourceConfig (legacy — always returns false, DB-based config now)', () => {
-  it('isHerbeConfigured always returns false', () => {
-    const { isHerbeConfigured } = require('@/lib/sourceConfig')
-    expect(isHerbeConfigured()).toBe(false)
-  })
-
-  it('isAzureConfigured always returns false', () => {
-    const { isAzureConfigured } = require('@/lib/sourceConfig')
-    expect(isAzureConfigured()).toBe(false)
-  })
-})
