@@ -37,7 +37,9 @@ export default function LoginPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            <label htmlFor="email-input" className="sr-only">Email address</label>
             <input
+              id="email-input"
               type="email"
               required
               value={email}
