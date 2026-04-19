@@ -8,7 +8,7 @@ import { trackEvent } from '@/lib/analytics'
 import { getCachedEvents, upsertCachedEvents } from '@/lib/cache/events'
 import { getSyncedConnectionIds } from '@/lib/cache/syncState'
 import { buildCacheRows, isRangeCovered } from '@/lib/sync/erp'
-import { fetchErpActivitiesForConnection } from '@/lib/herbe/recordUtils'
+import { fetchErpActivitiesForConnectionOrStale } from '@/lib/herbe/recordUtils'
 import type { Activity } from '@/types'
 
 export async function GET(req: Request) {
@@ -43,18 +43,28 @@ export async function GET(req: Request) {
     ])
     const perConnection = await Promise.all(connections.map(async conn => {
       if (withinWindow && syncedIds.has(conn.id)) {
-        return getCachedEvents(session.accountId, personList, dateFrom, effectiveTo, 'herbe', conn.id)
+        const activities = await getCachedEvents(session.accountId, personList, dateFrom, effectiveTo, 'herbe', conn.id)
+        return { activities, stale: false, name: conn.name }
       }
-      return fetchErpActivitiesForConnection(conn, personList, dateFrom, effectiveTo, { includePrivateFields: true })
+      const { activities, stale } = await fetchErpActivitiesForConnectionOrStale(
+        conn, session.accountId, personList, dateFrom, effectiveTo, { includePrivateFields: true },
+      )
+      return { activities, stale, name: conn.name }
     }))
-    const allResults: Activity[] = perConnection.flat()
+    const allResults: Activity[] = perConnection.flatMap(c => c.activities)
+    const staleConnections = perConnection.filter(c => c.stale).map(c => c.name)
 
     // Track day_viewed (fire-and-forget)
     if (dateFrom && session.email) {
       trackEvent(session.accountId, session.email, 'day_viewed', { date: dateFrom }).catch(() => {})
     }
 
-    return NextResponse.json(allResults, { headers: { 'Cache-Control': 'no-store' } })
+    // Envelope when any connection fell back to cache; plain array otherwise
+    // (backwards compatible with older clients that do `await res.json()` directly).
+    const payload: unknown = staleConnections.length > 0
+      ? { activities: allResults, staleConnections }
+      : allResults
+    return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

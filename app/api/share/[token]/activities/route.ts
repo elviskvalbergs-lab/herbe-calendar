@@ -4,7 +4,7 @@ import { deduplicateIcsAgainstGraph } from '@/lib/icsParser'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { getCachedEvents } from '@/lib/cache/events'
 import { hasCompletedInitialSync, getSyncedConnectionIds } from '@/lib/cache/syncState'
-import { fetchErpActivitiesForConnection } from '@/lib/herbe/recordUtils'
+import { fetchErpActivitiesForConnectionOrStale } from '@/lib/herbe/recordUtils'
 import { getErpConnections } from '@/lib/accountConfig'
 import { isRangeCovered } from '@/lib/sync/erp'
 import { fetchOutlookEventsForPerson } from '@/lib/outlookUtils'
@@ -125,11 +125,14 @@ export async function GET(
   const cappedDateTo = dateTo > maxDateStr ? maxDateStr : dateTo
 
   const allActivities: (Record<string, unknown> | Activity)[] = []
+  const staleConnections: string[] = []
 
   // Fetch Herbe activities: per-connection cache-vs-live. For each ERP
   // connection: serve from cache if synced AND range is within the window,
   // else live-fetch just that connection. A failing connection doesn't
-  // block the others.
+  // block the others. If live-fetch fails we serve the last cached rows
+  // and surface the connection name as stale so the viewer can see a
+  // warning instead of a silently emptier calendar.
   if (!hiddenCalendarsSet.has('herbe')) {
     const withinWindow = isRangeCovered(dateFrom, cappedDateTo)
     const [connections, syncedIds] = await Promise.all([
@@ -138,11 +141,18 @@ export async function GET(
     ])
     const perConn = await Promise.all(connections.map(async conn => {
       if (withinWindow && syncedIds.has(conn.id)) {
-        return getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo, 'herbe', conn.id)
+        const activities = await getCachedEvents(accountId, personCodes, dateFrom, cappedDateTo, 'herbe', conn.id)
+        return { activities, stale: false, name: conn.name }
       }
-      return fetchErpActivitiesForConnection(conn, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true })
+      const res = await fetchErpActivitiesForConnectionOrStale(
+        conn, accountId, personCodes, dateFrom, cappedDateTo, { includePrivateFields: true },
+      )
+      return { activities: res.activities, stale: res.stale, name: conn.name }
     }))
-    allActivities.push(...perConn.flat())
+    for (const c of perConn) {
+      allActivities.push(...c.activities)
+      if (c.stale) staleConnections.push(c.name)
+    }
   }
 
   // Outlook cache-first check: cache when the range is covered AND the
@@ -327,5 +337,9 @@ export async function GET(
     for (const [code, cc] of countryMap) personCountries[code] = cc
   }
 
-  return NextResponse.json({ activities: filtered, holidays: { dates: holidayData, personCountries } }, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({
+    activities: filtered,
+    holidays: { dates: holidayData, personCountries },
+    ...(staleConnections.length > 0 ? { staleConnections } : {}),
+  }, { headers: { 'Cache-Control': 'no-store' } })
 }

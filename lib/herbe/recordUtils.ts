@@ -1,6 +1,7 @@
 import { herbeFetchAll } from './client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from './constants'
 import { getErpConnections } from '@/lib/accountConfig'
+import { getCachedEvents } from '@/lib/cache/events'
 import type { Activity } from '@/types'
 import type { ErpConnection } from '@/lib/accountConfig'
 
@@ -112,38 +113,76 @@ export async function fetchErpActivitiesForConnection(
   dateTo: string,
   opts: { includePrivateFields?: boolean } = {}
 ): Promise<Activity[]> {
-  const personSet = new Set(personCodes)
-  const results: Activity[] = []
   try {
-    const raw = await herbeFetchAll(REGISTERS.activities, {
-      sort: 'TransDate',
-      range: `${dateFrom}:${dateTo}`,
-    }, 100, conn)
-
-    const calendarRecords = raw.filter(r => isCalendarRecord(r as Record<string, unknown>))
-
-    for (const record of calendarRecords) {
-      const r = record as Record<string, unknown>
-      const { main, cc } = parsePersons(r)
-      const mapOpts: MapHerbeOptions = {
-        includePrivateFields: opts.includePrivateFields,
-        erpConnectionId: conn.id,
-        erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined,
-      }
-
-      for (const p of main) {
-        if (personSet.has(p)) {
-          results.push(mapHerbeRecord(r, p, mapOpts))
-        }
-      }
-      for (const ccCode of cc) {
-        if (personSet.has(ccCode) && !main.includes(ccCode)) {
-          results.push(mapHerbeRecord(r, ccCode, mapOpts))
-        }
-      }
-    }
+    return await fetchErpActivitiesForConnectionOrThrow(conn, personCodes, dateFrom, dateTo, opts)
   } catch (e) {
     console.warn(`[herbe/recordUtils] ERP "${conn.name}" failed:`, String(e))
+    return []
+  }
+}
+
+/** Shared implementation used by the throwing and stale-fallback variants. */
+async function fetchErpActivitiesForConnectionOrThrow(
+  conn: ErpConnection,
+  personCodes: string[],
+  dateFrom: string,
+  dateTo: string,
+  opts: { includePrivateFields?: boolean } = {}
+): Promise<Activity[]> {
+  const personSet = new Set(personCodes)
+  const results: Activity[] = []
+  const raw = await herbeFetchAll(REGISTERS.activities, {
+    sort: 'TransDate',
+    range: `${dateFrom}:${dateTo}`,
+  }, 100, conn)
+
+  const calendarRecords = raw.filter(r => isCalendarRecord(r as Record<string, unknown>))
+
+  for (const record of calendarRecords) {
+    const r = record as Record<string, unknown>
+    const { main, cc } = parsePersons(r)
+    const mapOpts: MapHerbeOptions = {
+      includePrivateFields: opts.includePrivateFields,
+      erpConnectionId: conn.id,
+      erpConnectionName: conn.name !== 'Default (env)' ? conn.name : undefined,
+    }
+
+    for (const p of main) {
+      if (personSet.has(p)) {
+        results.push(mapHerbeRecord(r, p, mapOpts))
+      }
+    }
+    for (const ccCode of cc) {
+      if (personSet.has(ccCode) && !main.includes(ccCode)) {
+        results.push(mapHerbeRecord(r, ccCode, mapOpts))
+      }
+    }
   }
   return results
+}
+
+/**
+ * Live-fetch with cached fallback when the live call fails (e.g. expired
+ * token, ERP outage, network error). The cached rows may predate the
+ * current sync window — we accept that staleness so the user sees *something*
+ * instead of a blank calendar while the connection recovers. `stale` is true
+ * when the returned activities came from cache because the live call failed.
+ * Callers should surface a banner when any connection is stale.
+ */
+export async function fetchErpActivitiesForConnectionOrStale(
+  conn: ErpConnection,
+  accountId: string,
+  personCodes: string[],
+  dateFrom: string,
+  dateTo: string,
+  opts: { includePrivateFields?: boolean } = {}
+): Promise<{ activities: Activity[]; stale: boolean }> {
+  try {
+    const activities = await fetchErpActivitiesForConnectionOrThrow(conn, personCodes, dateFrom, dateTo, opts)
+    return { activities, stale: false }
+  } catch (e) {
+    console.warn(`[herbe/recordUtils] ERP "${conn.name}" live-fetch failed, falling back to cache:`, String(e))
+    const cached = await getCachedEvents(accountId, personCodes, dateFrom, dateTo, 'herbe', conn.id)
+    return { activities: cached, stale: cached.length > 0 }
+  }
 }

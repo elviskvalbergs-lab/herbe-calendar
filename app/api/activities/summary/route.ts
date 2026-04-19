@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { getErpConnections } from '@/lib/accountConfig'
-import { herbeFetchAll } from '@/lib/herbe/client'
-import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchOutlookEventsMinimal } from '@/lib/outlookUtils'
 import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents } from '@/lib/googleUtils'
 import { emailForCode } from '@/lib/emailForCode'
-import { isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
+import { fetchErpActivitiesForConnectionOrStale } from '@/lib/herbe/recordUtils'
 import { getCachedEvents } from '@/lib/cache/events'
 import { hasCompletedInitialSync, getSyncedConnectionIds } from '@/lib/cache/syncState'
 import { isRangeCovered } from '@/lib/sync/erp'
 import { format, endOfMonth, parseISO } from 'date-fns'
 
 type DaySummary = { sources: string[]; count: number }
-type SummaryResponse = { summary: Record<string, DaySummary>; holidays: Record<string, { name: string; country: string }[]> }
+type SummaryResponse = {
+  summary: Record<string, DaySummary>
+  holidays: Record<string, { name: string; country: string }[]>
+  staleConnections?: string[]
+}
 const cache = new Map<string, { data: SummaryResponse; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 
@@ -42,8 +44,8 @@ export async function GET(req: NextRequest) {
   const dateFrom = `${month}-01`
   const dateTo = format(endOfMonth(parseISO(dateFrom)), 'yyyy-MM-dd')
   const personList = persons.split(',').map(p => p.trim())
-  const personSet = new Set(personList)
   const result: Record<string, { sources: Set<string>; count: number }> = {}
+  const staleConnections: string[] = []
 
   function addEntry(date: string, source: string) {
     if (!result[date]) result[date] = { sources: new Set(), count: 0 }
@@ -53,8 +55,10 @@ export async function GET(req: NextRequest) {
 
   // ERP: per-connection cache-vs-live. For each connection, if it has
   // completed a full sync and the range is inside the sync window, serve
-  // from cache; otherwise live-fetch that connection only. One failing
-  // connection no longer hides month-view dots from the others.
+  // from cache; otherwise live-fetch that connection only. On live-fetch
+  // failure we fall back to cached rows (even if the sync_state is in
+  // error) so the month view doesn't silently drop dots while the
+  // connection recovers.
   try {
     const withinWindow = isRangeCovered(dateFrom, dateTo)
     const [connections, syncedIds] = await Promise.all([
@@ -68,17 +72,13 @@ export async function GET(req: NextRequest) {
           if (ev.date) addEntry(ev.date, 'herbe')
         }
       } else {
-        try {
-          const raw = await herbeFetchAll(REGISTERS.activities, { sort: 'TransDate', range: `${dateFrom}:${dateTo}` }, 100, conn)
-          for (const record of raw) {
-            const r = record as Record<string, unknown>
-            if (!isCalendarRecord(r)) continue
-            const { main, cc } = parsePersons(r)
-            if ([...main, ...cc].some(p => personSet.has(p))) {
-              addEntry(String(r['TransDate'] ?? ''), 'herbe')
-            }
-          }
-        } catch { /* non-fatal */ }
+        const { activities, stale } = await fetchErpActivitiesForConnectionOrStale(
+          conn, session.accountId, personList, dateFrom, dateTo,
+        )
+        for (const ev of activities) {
+          if (ev.date) addEntry(ev.date, 'herbe')
+        }
+        if (stale) staleConnections.push(conn.name)
       }
     }
   } catch { /* non-fatal */ }
@@ -212,7 +212,11 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* non-fatal */ }
 
-  const responseData: SummaryResponse = { summary: serialized, holidays: holidayDates }
+  const responseData: SummaryResponse = {
+    summary: serialized,
+    holidays: holidayDates,
+    ...(staleConnections.length > 0 ? { staleConnections } : {}),
+  }
   cache.set(cacheKey, { data: responseData, ts: Date.now() })
   return NextResponse.json(responseData, { headers: { 'Cache-Control': 'no-store' } })
 }

@@ -645,7 +645,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         fetch(`/api/activities?persons=${codes}&${dateParam}`)
           .then(async (res) => {
             if (res.ok) {
-              loaded.herbe = await res.json()
+              const data = await res.json()
+              if (Array.isArray(data)) {
+                loaded.herbe = data
+              } else {
+                loaded.herbe = data.activities ?? []
+                if (data.staleConnections?.length) {
+                  icsWarnings.push(`ERP ${data.staleConnections.join(', ')} using cached data (connection unreachable)`)
+                }
+              }
             } else {
               const e = await res.json().catch(() => null)
               errors.push(`ERP: ${e?.error ?? res.status}`)
@@ -752,7 +760,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       const pfParam = pfDate === pfTo ? `date=${pfDate}` : `dateFrom=${pfDate}&dateTo=${pfTo}`
       // Fire-and-forget prefetch
       Promise.all([
-        sources.herbe ? fetch(`/api/activities?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []) : Promise.resolve([]),
+        sources.herbe ? fetch(`/api/activities?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
         sources.azure ? fetch(`/api/outlook?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
         sources.google ? fetch(`/api/google?persons=${codes}&${pfParam}`).then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : d.activities ?? []) : Promise.resolve([]),
       ]).then(([h, o, g]) => {
