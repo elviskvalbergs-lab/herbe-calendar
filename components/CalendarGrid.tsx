@@ -184,12 +184,14 @@ export default function CalendarGrid({
       className="flex-1 overflow-auto relative"
     >
       {/* Subtle loading indicator — thin animated bar at top */}
-      {loading && (
-        <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
-          <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
-          <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
-        </div>
-      )}
+      <div aria-live="polite" aria-busy={loading}>
+        {loading && (
+          <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+            <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
+          </div>
+        )}
+      </div>
 
       {/* Edge navigation: prev button (left edge) */}
       {atLeft && needsHScroll && (
