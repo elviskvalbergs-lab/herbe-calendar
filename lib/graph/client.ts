@@ -5,6 +5,8 @@ interface GraphTokenCache {
   expiresAt: number
 }
 
+const API_TIMEOUT_MS = 30_000
+
 // Per-account token cache (keyed by tenantId+clientId), bounded
 const tokenCacheMap = new Map<string, GraphTokenCache>()
 const MAX_TOKEN_CACHE = 50
@@ -37,6 +39,7 @@ async function getGraphToken(config: AzureConfig): Promise<string> {
         client_secret: config.clientSecret,
         scope: 'https://graph.microsoft.com/.default',
       }),
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
     }
   )
   if (!res.ok) throw new Error(`Graph OAuth failed: ${res.status}`)
@@ -61,6 +64,7 @@ export async function graphFetch(path: string, options?: RequestInit, azureConfi
       'Content-Type': 'application/json',
       ...(options?.headers ?? {}),
     },
+    signal: options?.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
   })
 }
 
