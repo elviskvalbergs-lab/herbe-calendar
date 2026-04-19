@@ -14,6 +14,7 @@ const ZOOM_API_BASE = 'https://api.zoom.us/v2'
 const CONFIG_CACHE = new Map<string, { data: ZoomConfig | null; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000
 const MAX_CACHE = 50
+const API_TIMEOUT_MS = 30_000
 
 export async function getZoomConfig(accountId: string): Promise<ZoomConfig | null> {
   const cached = CONFIG_CACHE.get(accountId)
@@ -61,6 +62,7 @@ async function getAccessToken(config: ZoomConfig): Promise<string> {
       grant_type: 'account_credentials',
       account_id: config.zoomAccountId,
     }),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
 
   if (!res.ok) {
@@ -103,6 +105,7 @@ export async function createZoomMeeting(
       duration: durationMinutes,
       settings: { join_before_host: true, waiting_room: false },
     }),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
 
   if (!res.ok) {
@@ -119,6 +122,7 @@ export async function testZoomConnection(config: ZoomConfig): Promise<{ ok: bool
     const token = await getAccessToken(config)
     const res = await fetch(`${ZOOM_API_BASE}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
     })
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
     const data = await res.json()
