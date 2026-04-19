@@ -63,13 +63,6 @@ async function syncAccountOutlook(
   try {
     await updateSyncState(accountId, SOURCE, '', { syncStatus: 'syncing' })
 
-    if (mode === 'full') {
-      await pool.query(
-        `DELETE FROM cached_events WHERE account_id = $1 AND source = $2`,
-        [accountId, SOURCE],
-      )
-    }
-
     const people = await listAccountPersons(accountId)
     const rows: CachedEventRow[] = []
 
@@ -89,7 +82,27 @@ async function syncAccountOutlook(
       }
     }
 
-    await batchUpsert(rows)
+    if (mode === 'full') {
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        await client.query(
+          `DELETE FROM cached_events WHERE account_id = $1 AND source = $2`,
+          [accountId, SOURCE],
+        )
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+          await upsertCachedEvents(rows.slice(i, i + BATCH_SIZE), client)
+        }
+        await client.query('COMMIT')
+      } catch (txErr) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw txErr
+      } finally {
+        client.release()
+      }
+    } else {
+      await batchUpsert(rows)
+    }
 
     await updateSyncState(accountId, SOURCE, '', {
       syncCursor: null,

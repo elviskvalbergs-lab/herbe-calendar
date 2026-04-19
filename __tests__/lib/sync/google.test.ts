@@ -55,8 +55,12 @@ describe('buildGoogleCacheRows', () => {
 
 import { syncAllGoogle } from '@/lib/sync/google'
 
+const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }), release: jest.fn() }
 jest.mock('@/lib/db', () => ({
-  pool: { query: jest.fn() },
+  pool: {
+    query: jest.fn(),
+    connect: jest.fn(() => Promise.resolve(mockClient)),
+  },
 }))
 jest.mock('@/lib/google/client', () => ({
   getGoogleConfig: jest.fn(),

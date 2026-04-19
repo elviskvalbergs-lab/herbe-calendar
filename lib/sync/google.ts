@@ -89,12 +89,6 @@ async function syncAccountGoogleDomainWide(
 
   try {
     await updateSyncState(accountId, 'google', '', { syncStatus: 'syncing' })
-    if (mode === 'full') {
-      await pool.query(
-        `DELETE FROM cached_events WHERE account_id = $1 AND source = 'google'`,
-        [accountId],
-      )
-    }
     const { dateFrom, dateTo } = fullSyncRange()
     const rows: CachedEventRow[] = []
 
@@ -119,7 +113,27 @@ async function syncAccountGoogleDomainWide(
         if (r.status === 'fulfilled') rows.push(...r.value)
       }
     }
-    await batchUpsert(rows)
+    if (mode === 'full') {
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        await client.query(
+          `DELETE FROM cached_events WHERE account_id = $1 AND source = 'google'`,
+          [accountId],
+        )
+        for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+          await upsertCachedEvents(rows.slice(i, i + BATCH_SIZE), client)
+        }
+        await client.query('COMMIT')
+      } catch (txErr) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw txErr
+      } finally {
+        client.release()
+      }
+    } else {
+      await batchUpsert(rows)
+    }
     await updateSyncState(accountId, 'google', '', {
       syncCursor: null,
       syncStatus: 'idle',
@@ -159,12 +173,6 @@ async function syncAccountGoogleUser(
 
     try {
       await updateSyncState(accountId, 'google-user', token.id, { syncStatus: 'syncing' })
-      if (mode === 'full') {
-        await pool.query(
-          `DELETE FROM cached_events WHERE account_id = $1 AND source = 'google-user' AND connection_id = $2`,
-          [accountId, token.id],
-        )
-      }
       const { dateFrom, dateTo } = fullSyncRange()
       const { events: fetched, warnings } = await fetchPerUserGoogleEvents(token.user_email, accountId, dateFrom, dateTo)
       const rows: CachedEventRow[] = []
@@ -183,7 +191,27 @@ async function syncAccountGoogleUser(
           color: item.color,
         }))
       }
-      await batchUpsert(rows)
+      if (mode === 'full') {
+        const client = await pool.connect()
+        try {
+          await client.query('BEGIN')
+          await client.query(
+            `DELETE FROM cached_events WHERE account_id = $1 AND source = 'google-user' AND connection_id = $2`,
+            [accountId, token.id],
+          )
+          for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+            await upsertCachedEvents(rows.slice(i, i + BATCH_SIZE), client)
+          }
+          await client.query('COMMIT')
+        } catch (txErr) {
+          await client.query('ROLLBACK').catch(() => {})
+          throw txErr
+        } finally {
+          client.release()
+        }
+      } else {
+        await batchUpsert(rows)
+      }
       await updateSyncState(accountId, 'google-user', token.id, {
         syncCursor: null,
         syncStatus: 'idle',

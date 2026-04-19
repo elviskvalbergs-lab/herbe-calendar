@@ -50,8 +50,12 @@ export async function getCachedEvents(
 
 /**
  * Upsert one or more cached events. Uses a multi-row INSERT ... ON CONFLICT.
+ * Accepts an optional queryable (pool or transaction client) for use inside transactions.
  */
-export async function upsertCachedEvents(events: CachedEventRow[]): Promise<void> {
+export async function upsertCachedEvents(
+  events: CachedEventRow[],
+  queryable: { query: (...args: any[]) => Promise<any> } = pool,
+): Promise<void> {
   if (events.length === 0) return
 
   const values: unknown[] = []
@@ -64,7 +68,7 @@ export async function upsertCachedEvents(events: CachedEventRow[]): Promise<void
     idx += 7
   }
 
-  await pool.query(
+  await queryable.query(
     `INSERT INTO cached_events (source, source_id, account_id, connection_id, person_code, date, data, cached_at)
      VALUES ${placeholders.join(', ')}
      ON CONFLICT (account_id, source, source_id, person_code)

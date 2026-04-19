@@ -30,8 +30,12 @@ describe('buildOutlookCacheRows', () => {
 
 import { syncAllOutlook } from '@/lib/sync/graph'
 
+const mockClient = { query: jest.fn().mockResolvedValue({ rows: [] }), release: jest.fn() }
 jest.mock('@/lib/db', () => ({
-  pool: { query: jest.fn() },
+  pool: {
+    query: jest.fn(),
+    connect: jest.fn(() => Promise.resolve(mockClient)),
+  },
 }))
 jest.mock('@/lib/accountConfig', () => ({
   getAzureConfig: jest.fn(),

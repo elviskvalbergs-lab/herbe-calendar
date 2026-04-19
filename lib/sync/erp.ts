@@ -147,20 +147,15 @@ async function syncConnection(
 // ─── fullReconciliation (internal) ─────────────────────────────────────
 
 /**
- * Deletes all cached_events for this connection, then does full fetch
- * and inserts fresh data.
+ * Fetches fresh data for this connection, then atomically deletes the old
+ * cache and inserts the new data inside a transaction to prevent data loss.
  */
 async function fullReconciliation(
   accountId: string,
   conn: ErpConnection,
 ): Promise<{ events: number; error?: string }> {
   try {
-    // Delete all cached events for this connection
-    await pool.query(
-      `DELETE FROM cached_events WHERE account_id = $1 AND source = $2 AND connection_id = $3`,
-      [accountId, SOURCE, conn.id],
-    )
-
+    // Fetch FIRST, before deleting anything
     const { dateFrom, dateTo } = fullSyncRange()
     const { records, sequence } = await herbeFetchWithSequence(
       REGISTERS.activities,
@@ -175,7 +170,24 @@ async function fullReconciliation(
       rows.push(...buildCacheRows(r, accountId, conn.id, conn.name))
     }
 
-    await batchUpsert(rows)
+    // Atomic delete + insert inside a transaction
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query(
+        `DELETE FROM cached_events WHERE account_id = $1 AND source = $2 AND connection_id = $3`,
+        [accountId, SOURCE, conn.id],
+      )
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        await upsertCachedEvents(rows.slice(i, i + BATCH_SIZE), client)
+      }
+      await client.query('COMMIT')
+    } catch (txErr) {
+      await client.query('ROLLBACK').catch(() => {})
+      throw txErr
+    } finally {
+      client.release()
+    }
 
     await updateSyncState(accountId, SOURCE, conn.id, {
       syncCursor: sequence,
@@ -245,22 +257,16 @@ export async function syncAllErp(mode: SyncMode = 'incremental'): Promise<SyncRe
 // ─── forceSyncRange (exported) ─────────────────────────────────────────
 
 /**
- * Deletes cache for a date range, fetches fresh from all ERP connections
- * for that account, upserts results.
+ * Fetches fresh data from all ERP connections for the given date range,
+ * then atomically deletes the old cache and inserts new data in a transaction.
  */
 export async function forceSyncRange(
   accountId: string,
   dateFrom: string,
   dateTo: string,
 ): Promise<{ eventsUpserted: number }> {
-  // Delete existing cache for this range
-  await pool.query(
-    `DELETE FROM cached_events WHERE account_id = $1 AND source = $2 AND date BETWEEN $3 AND $4`,
-    [accountId, SOURCE, dateFrom, dateTo],
-  )
-
   const connections = await getErpConnections(accountId)
-  let total = 0
+  const allRows: CachedEventRow[] = []
 
   for (const conn of connections) {
     const { records } = await herbeFetchWithSequence(
@@ -269,16 +275,29 @@ export async function forceSyncRange(
       1000,
       conn,
     )
-
-    const rows: CachedEventRow[] = []
     for (const raw of records) {
       const r = raw as Record<string, unknown>
-      rows.push(...buildCacheRows(r, accountId, conn.id, conn.name))
+      allRows.push(...buildCacheRows(r, accountId, conn.id, conn.name))
     }
-
-    await batchUpsert(rows)
-    total += rows.length
   }
 
-  return { eventsUpserted: total }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(
+      `DELETE FROM cached_events WHERE account_id = $1 AND source = $2 AND date BETWEEN $3 AND $4`,
+      [accountId, SOURCE, dateFrom, dateTo],
+    )
+    for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
+      await upsertCachedEvents(allRows.slice(i, i + BATCH_SIZE), client)
+    }
+    await client.query('COMMIT')
+  } catch (txErr) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw txErr
+  } finally {
+    client.release()
+  }
+
+  return { eventsUpserted: allRows.length }
 }
