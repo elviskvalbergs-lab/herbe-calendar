@@ -48,7 +48,8 @@ export async function POST(req: NextRequest) {
       const result = await testErpConnection(conn)
       return NextResponse.json(result)
     } catch (e) {
-      return NextResponse.json({ ok: false, error: String(e) })
+      console.error('[admin/erp-connections] operation failed:', e)
+      return NextResponse.json({ ok: false, error: 'Internal server error' })
     }
   }
 
@@ -71,8 +72,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(rows[0], { status: 201 })
   } catch (e) {
-    console.error('[admin/erp-connections POST]', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[admin/erp-connections] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 

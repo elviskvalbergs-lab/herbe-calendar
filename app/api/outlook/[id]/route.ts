@@ -86,7 +86,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(data, { status: res.status })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[outlook/[id]] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -116,6 +117,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
     return new NextResponse(null, { status: res.ok ? 204 : res.status })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[outlook/[id]] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

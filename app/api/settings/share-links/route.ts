@@ -45,7 +45,8 @@ export async function GET(req: NextRequest) {
     )
     return NextResponse.json(rows.map(mapRow))
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/share-links] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -83,7 +84,8 @@ export async function POST(req: NextRequest) {
     )
     return NextResponse.json(mapRow(rows[0]), { status: 201 })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/share-links] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -154,7 +156,8 @@ export async function PUT(req: NextRequest) {
     )
     return NextResponse.json(mapRow(rows[0]))
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/share-links] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -190,6 +193,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/share-links] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

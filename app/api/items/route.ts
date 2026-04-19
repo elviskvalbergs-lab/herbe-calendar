@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
         .filter(r => r.Code)
       return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
     } catch (e) {
-      return NextResponse.json({ error: String(e) }, { status: 500 })
+      console.error('[items] operation failed:', e)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
   }
 
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(results, { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[items] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

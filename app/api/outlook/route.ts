@@ -88,7 +88,8 @@ export async function GET(req: NextRequest) {
     if (allWarnings.length > 0) response.warnings = allWarnings
     return NextResponse.json(response, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[outlook] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -145,6 +146,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(data, { status: res.ok ? 201 : res.status })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[outlook] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

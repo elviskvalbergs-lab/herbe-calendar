@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
     })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[activity-class-groups] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

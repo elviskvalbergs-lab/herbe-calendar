@@ -97,8 +97,8 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ error: 'Unknown config type' }, { status: 400 })
   } catch (e) {
-    console.error('[admin/config PUT]', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[admin/config] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -136,7 +136,8 @@ export async function POST(req: NextRequest) {
         await sendMailSmtp(config, session.email, 'Herbe Calendar SMTP Test', '<p>SMTP connection is working!</p>')
         return NextResponse.json({ ok: true, message: `Test email sent to ${session.email}` })
       } catch (e) {
-        return NextResponse.json({ ok: false, error: String(e) })
+        console.error('[admin/config] operation failed:', e)
+        return NextResponse.json({ ok: false, error: 'Internal server error' })
       }
     }
 
@@ -164,6 +165,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) })
+    console.error('[admin/config] operation failed:', e)
+    return NextResponse.json({ ok: false, error: 'Internal server error' })
   }
 }

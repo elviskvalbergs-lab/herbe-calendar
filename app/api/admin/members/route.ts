@@ -92,7 +92,8 @@ export async function POST(req: NextRequest) {
     const personCode = await ensurePersonCode(session.accountId, normalizedEmail, displayName)
     return NextResponse.json({ ok: true, personCode })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[admin/members] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -228,6 +229,7 @@ export async function PUT(req: NextRequest) {
       total: activeEmails.size,
     })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[admin/members] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

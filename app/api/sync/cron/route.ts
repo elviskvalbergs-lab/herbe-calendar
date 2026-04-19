@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     console.log(`[sync/cron] ${mode} sync complete:`, JSON.stringify(summary))
     return NextResponse.json(summary)
   } catch (e) {
-    console.error('[sync/cron] sync failed:', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[sync/cron] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

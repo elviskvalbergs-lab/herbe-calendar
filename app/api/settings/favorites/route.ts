@@ -20,7 +20,8 @@ export async function GET() {
     )
     return NextResponse.json(rows)
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/favorites] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -44,7 +45,8 @@ export async function POST(req: NextRequest) {
     )
     return NextResponse.json({ id: rows[0].id, name, view, personCodes, hiddenCalendars }, { status: 201 })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/favorites] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -61,6 +63,7 @@ export async function DELETE(req: NextRequest) {
     await pool.query('DELETE FROM user_favorites WHERE id = $1 AND user_email = $2 AND account_id = $3', [id, session.email, session.accountId])
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/favorites] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

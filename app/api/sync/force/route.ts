@@ -8,7 +8,8 @@ export async function POST(req: NextRequest) {
     session = await requireAdminSession()
   } catch (e) {
     const status = String(e).includes('FORBIDDEN') ? 403 : 401
-    return NextResponse.json({ error: String(e) }, { status })
+    console.error('[sync/force] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status })
   }
 
   const body = await req.json().catch(() => ({}))
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     const result = await forceSyncRange(session.accountId, dateFrom, dateTo)
     return NextResponse.json({ synced: true, ...result })
   } catch (e) {
-    console.error('[sync/force] failed:', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[sync/force] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

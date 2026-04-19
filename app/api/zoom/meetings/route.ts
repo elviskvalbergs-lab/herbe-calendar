@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const result = await createZoomMeeting(zoomConfig, topic, startTime, duration)
     return NextResponse.json(result)
   } catch (e) {
-    console.error('[zoom/meetings] creation failed:', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[zoom/meetings] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

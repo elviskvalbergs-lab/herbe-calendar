@@ -61,7 +61,8 @@ export async function GET(req: NextRequest) {
       domainWideEvents = results.flat()
     }
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[google] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
   // --- Per-user OAuth calendars (source='google-user') ---
@@ -246,6 +247,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: res.data.id }, { status: 201 })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[google] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

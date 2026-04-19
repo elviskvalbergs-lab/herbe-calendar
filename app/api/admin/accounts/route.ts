@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
     if (String(e).includes('unique')) {
       return NextResponse.json({ error: 'Slug already exists' }, { status: 409 })
     }
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[admin/accounts] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 

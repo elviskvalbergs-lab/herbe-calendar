@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
     session = await requireAdminSession()
   } catch (e) {
     const status = String(e).includes('FORBIDDEN') ? 403 : 401
-    return NextResponse.json({ error: String(e) }, { status })
+    console.error('[sync/nuke] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status })
   }
 
   const body = await req.json().catch(() => ({}))
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ cleared: true, eventsDeleted: deleted })
   } catch (e) {
-    console.error('[sync/nuke] failed:', e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[sync/nuke] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

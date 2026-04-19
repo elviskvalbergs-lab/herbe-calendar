@@ -66,7 +66,8 @@ export async function GET(req: Request) {
       : allResults
     return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[activities] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -195,6 +196,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(created, { status: 201 })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[activities] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

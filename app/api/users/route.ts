@@ -247,6 +247,7 @@ export async function GET(req: NextRequest) {
     const cacheHeader = result.length > 0 ? 'private, max-age=300' : 'no-store'
     return NextResponse.json(responseData, { headers: { 'Cache-Control': cacheHeader } })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[users] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

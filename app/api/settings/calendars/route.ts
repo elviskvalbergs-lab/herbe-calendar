@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     )
     return NextResponse.json(rows, { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/calendars] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -54,7 +55,8 @@ export async function POST(req: NextRequest) {
     )
     return NextResponse.json(rows[0], { status: 201 })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/calendars] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -94,7 +96,8 @@ export async function PUT(req: NextRequest) {
     )
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/calendars] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -111,6 +114,7 @@ export async function DELETE(req: NextRequest) {
     await pool.query('DELETE FROM user_calendars WHERE id = $1 AND user_email = $2 AND account_id = $3', [id, session.email, session.accountId])
     return NextResponse.json({ success: true })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[settings/calendars] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

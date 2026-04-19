@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const result = await deleteMember(session.accountId, email, generatedCode ?? null, !!cascade)
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    console.error('[admin/members/delete] operation failed:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
