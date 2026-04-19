@@ -38,22 +38,34 @@ function makeParams(cancelToken: string) {
 describe('GET /api/bookings/[cancelToken]', () => {
   beforeEach(() => jest.clearAllMocks())
 
-  it('returns booking details for valid cancel token', async () => {
-    const booking = {
+  it('returns booking details for valid cancel token, stripping sensitive fields', async () => {
+    const dbRow = {
       id: 1,
       cancel_token: 'valid-token',
+      share_token: 'share-secret',
+      share_link_id: 'link-1',
+      account_id: 'acc-1',
       template_name: 'Meeting',
       duration_minutes: 30,
       custom_fields: [],
     }
-    mockQuery.mockResolvedValueOnce({ rows: [booking] })
+    mockQuery.mockResolvedValueOnce({ rows: [dbRow] })
 
     const req = new NextRequest('http://localhost/api/bookings/valid-token')
     const res = await GET(req, makeParams('valid-token'))
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body).toEqual(booking)
+    expect(body).toEqual({
+      id: 1,
+      template_name: 'Meeting',
+      duration_minutes: 30,
+      custom_fields: [],
+    })
+    expect(body).not.toHaveProperty('cancel_token')
+    expect(body).not.toHaveProperty('share_token')
+    expect(body).not.toHaveProperty('share_link_id')
+    expect(body).not.toHaveProperty('account_id')
     expect(mockQuery).toHaveBeenCalledWith(
       expect.stringContaining('cancel_token'),
       ['valid-token']
