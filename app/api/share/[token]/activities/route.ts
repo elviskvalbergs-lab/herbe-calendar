@@ -62,6 +62,22 @@ export async function GET(
     return NextResponse.json({ error: 'dateFrom and dateTo are required' }, { status: 400 })
   }
 
+  // Validate date format and range
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/
+  if (!dateRe.test(dateFrom) || !dateRe.test(dateTo)) {
+    return NextResponse.json({ error: 'Invalid date format, use YYYY-MM-DD' }, { status: 400 })
+  }
+  if (dateFrom > dateTo) {
+    return NextResponse.json({ error: 'dateFrom must be before dateTo' }, { status: 400 })
+  }
+  // Cap range to 6 months to prevent expensive queries
+  const from = new Date(dateFrom)
+  const to = new Date(dateTo)
+  const sixMonths = 183 * 24 * 60 * 60 * 1000
+  if (to.getTime() - from.getTime() > sixMonths) {
+    return NextResponse.json({ error: 'Date range must not exceed 6 months' }, { status: 400 })
+  }
+
   // Validate token
   const { rows } = await pool.query(
     `SELECT
