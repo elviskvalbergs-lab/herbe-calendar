@@ -3,6 +3,7 @@ import { encrypt, decrypt } from '@/lib/crypto'
 import { randomBytes } from 'crypto'
 
 const CALENDLY_API = 'https://api.calendly.com'
+const API_TIMEOUT_MS = 30_000
 
 export interface CalendlyUserInfo {
   uri: string
@@ -23,6 +24,7 @@ export interface CalendlyEventType {
 export async function verifyPat(pat: string): Promise<CalendlyUserInfo> {
   const res = await fetch(`${CALENDLY_API}/users/me`, {
     headers: { Authorization: `Bearer ${pat}` },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`Calendly auth failed: ${res.status}`)
   const data = await res.json()
@@ -40,6 +42,7 @@ export async function verifyPat(pat: string): Promise<CalendlyUserInfo> {
 export async function fetchEventTypes(pat: string, userUri: string): Promise<CalendlyEventType[]> {
   const res = await fetch(`${CALENDLY_API}/event_types?user=${encodeURIComponent(userUri)}&active=true&count=100`, {
     headers: { Authorization: `Bearer ${pat}` },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`Calendly event types fetch failed: ${res.status}`)
   const data = await res.json()
@@ -73,6 +76,7 @@ export async function createWebhook(
       scope: 'user',
       signing_key: signingKey,
     }),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
   if (!res.ok) {
     const text = await res.text()
@@ -88,6 +92,7 @@ export async function deleteWebhook(pat: string, webhookUri: string): Promise<vo
   await fetch(`${CALENDLY_API}/webhook_subscriptions/${uuid}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${pat}` },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
 }
 
