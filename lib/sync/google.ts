@@ -160,70 +160,85 @@ async function syncAccountGoogleUser(
     [accountId],
   )
 
+  const tokenResults = await Promise.allSettled(
+    tokens.map(async (token) => {
+      let connections = 0
+      let events = 0
+      const errors: string[] = []
+
+      const personCode = emailToCode.get(token.user_email.toLowerCase())
+      if (!personCode) {
+        errors.push(`${accountId}/${token.user_email}: no person_code — skipped`)
+        return { connections, events, errors }
+      }
+
+      try {
+        await updateSyncState(accountId, 'google-user', token.id, { syncStatus: 'syncing' })
+        const { dateFrom, dateTo } = fullSyncRange()
+        const { events: fetched, warnings } = await fetchPerUserGoogleEvents(token.user_email, accountId, dateFrom, dateTo)
+        const rows: CachedEventRow[] = []
+        for (const item of fetched) {
+          if (item.tokenId !== token.id) continue
+          rows.push(...buildGoogleCacheRows(item.event, {
+            source: 'google-user',
+            accountId,
+            personCode,
+            personEmail: token.user_email,
+            sessionEmail: token.user_email,
+            tokenId: token.id,
+            calendarId: item.calendarId,
+            calendarName: item.calendarName,
+            accountEmail: item.accountEmail,
+            color: item.color,
+          }))
+        }
+        if (mode === 'full') {
+          const client = await pool.connect()
+          try {
+            await client.query('BEGIN')
+            await client.query(
+              `DELETE FROM cached_events WHERE account_id = $1 AND source = 'google-user' AND connection_id = $2`,
+              [accountId, token.id],
+            )
+            for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+              await upsertCachedEvents(rows.slice(i, i + BATCH_SIZE), client)
+            }
+            await client.query('COMMIT')
+          } catch (txErr) {
+            await client.query('ROLLBACK').catch(() => {})
+            throw txErr
+          } finally {
+            client.release()
+          }
+        } else {
+          await batchUpsert(rows)
+        }
+        await updateSyncState(accountId, 'google-user', token.id, {
+          syncCursor: null,
+          syncStatus: 'idle',
+          errorMessage: warnings.length ? warnings.join('; ').slice(0, 500) : null,
+          isFullSync: true,
+        })
+        connections++
+        events += rows.length
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        errors.push(`${accountId}/${token.id}: ${msg}`)
+        await updateSyncState(accountId, 'google-user', token.id, { syncStatus: 'error', errorMessage: msg }).catch(() => {})
+      }
+
+      return { connections, events, errors }
+    })
+  )
+
   let connections = 0
   let events = 0
   const errors: string[] = []
-
-  for (const token of tokens) {
-    const personCode = emailToCode.get(token.user_email.toLowerCase())
-    if (!personCode) {
-      errors.push(`${accountId}/${token.user_email}: no person_code — skipped`)
-      continue
-    }
-
-    try {
-      await updateSyncState(accountId, 'google-user', token.id, { syncStatus: 'syncing' })
-      const { dateFrom, dateTo } = fullSyncRange()
-      const { events: fetched, warnings } = await fetchPerUserGoogleEvents(token.user_email, accountId, dateFrom, dateTo)
-      const rows: CachedEventRow[] = []
-      for (const item of fetched) {
-        if (item.tokenId !== token.id) continue
-        rows.push(...buildGoogleCacheRows(item.event, {
-          source: 'google-user',
-          accountId,
-          personCode,
-          personEmail: token.user_email,
-          sessionEmail: token.user_email,
-          tokenId: token.id,
-          calendarId: item.calendarId,
-          calendarName: item.calendarName,
-          accountEmail: item.accountEmail,
-          color: item.color,
-        }))
-      }
-      if (mode === 'full') {
-        const client = await pool.connect()
-        try {
-          await client.query('BEGIN')
-          await client.query(
-            `DELETE FROM cached_events WHERE account_id = $1 AND source = 'google-user' AND connection_id = $2`,
-            [accountId, token.id],
-          )
-          for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-            await upsertCachedEvents(rows.slice(i, i + BATCH_SIZE), client)
-          }
-          await client.query('COMMIT')
-        } catch (txErr) {
-          await client.query('ROLLBACK').catch(() => {})
-          throw txErr
-        } finally {
-          client.release()
-        }
-      } else {
-        await batchUpsert(rows)
-      }
-      await updateSyncState(accountId, 'google-user', token.id, {
-        syncCursor: null,
-        syncStatus: 'idle',
-        errorMessage: warnings.length ? warnings.join('; ').slice(0, 500) : null,
-        isFullSync: true,
-      })
-      connections++
-      events += rows.length
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      errors.push(`${accountId}/${token.id}: ${msg}`)
-      await updateSyncState(accountId, 'google-user', token.id, { syncStatus: 'error', errorMessage: msg }).catch(() => {})
+  for (const r of tokenResults) {
+    if (r.status === 'fulfilled') {
+      connections += r.value.connections
+      events += r.value.events
+      errors.push(...r.value.errors)
     }
   }
   return { connections, events, errors }
