@@ -129,6 +129,9 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
             }
             next = iter.next()
           }
+          if (count >= 200) {
+            console.warn(`[icsParser] Recurring event expansion capped at 200 for "${event.summary}" — some occurrences may be missing`)
+          }
         } catch (e) {
           console.warn(`[outlook/ics] Failed to expand recurring event ${event.uid}:`, e)
         }
