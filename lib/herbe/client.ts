@@ -7,6 +7,7 @@ import { pool } from '@/lib/db'
 import { encrypt } from '@/lib/crypto'
 
 const HERBE_OAUTH_TOKEN_URL = 'https://standard-id.hansaworld.com/oauth-token'
+const MAX_PAGES = 100
 
 /** Refresh an expired per-connection OAuth token and persist the new one. */
 async function refreshConnectionToken(conn: ErpConnection): Promise<string | null> {
@@ -278,7 +279,12 @@ export async function herbeFetchAll(
 ): Promise<unknown[]> {
   const results: unknown[] = []
   let offset = 0
+  let pageCount = 0
   while (true) {
+    if (++pageCount > MAX_PAGES) {
+      console.warn(`[herbe] herbeFetchAll hit MAX_PAGES (${MAX_PAGES}) for ${register}`)
+      break
+    }
     const query = new URLSearchParams({ ...params, limit: String(limit), offset: String(offset) }).toString()
     const res = await herbeFetch(register, query, undefined, conn)
     if (!res.ok) throw new Error(`Herbe ${register} fetch failed: ${res.status}`)
@@ -326,8 +332,13 @@ export async function herbeFetchWithSequence(
   const records: unknown[] = []
   let lastSequence: string | null = null
   let offset = 0
+  let pageCount = 0
 
   while (true) {
+    if (++pageCount > MAX_PAGES) {
+      console.warn(`[herbe] herbeFetchWithSequence hit MAX_PAGES (${MAX_PAGES}) for ${register}`)
+      break
+    }
     const query = new URLSearchParams({ ...params, limit: String(limit), offset: String(offset) }).toString()
     const res = await herbeFetch(register, query, undefined, conn)
     if (!res.ok) throw new Error(`Herbe ${register} fetch failed: ${res.status}`)
