@@ -167,15 +167,27 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
         </div>
 
         {/* Step indicator */}
-        {step !== 'confirm' && (
-          <div className="flex px-5 pt-3 gap-1">
-            {(templates.length > 1 ? ['template', 'date', 'slot', 'form'] : ['date', 'slot', 'form']).map((s, i, steps) => (
-              <div key={s} className={`h-1 flex-1 rounded-full ${
-                i <= steps.indexOf(step) ? 'bg-primary' : 'bg-border'
-              }`} />
-            ))}
-          </div>
-        )}
+        {step !== 'confirm' && (() => {
+          const stepList = templates.length > 1 ? ['template', 'date', 'slot', 'form'] : ['date', 'slot', 'form']
+          const currentStep = stepList.indexOf(step) + 1
+          const totalSteps = stepList.length
+          return (
+            <div
+              role="progressbar"
+              aria-label={`Step ${currentStep} of ${totalSteps}`}
+              aria-valuenow={currentStep}
+              aria-valuemin={1}
+              aria-valuemax={totalSteps}
+              className="flex px-5 pt-3 gap-1"
+            >
+              {stepList.map((s, i, steps) => (
+                <div key={s} className={`h-1 flex-1 rounded-full ${
+                  i <= steps.indexOf(step) ? 'bg-primary' : 'bg-border'
+                }`} />
+              ))}
+            </div>
+          )
+        })()}
 
         <div className="p-5">
           {error && (

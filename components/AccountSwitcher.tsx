@@ -69,12 +69,14 @@ export default function AccountSwitcher({ currentAccountId, onClose }: Props) {
         {loading ? (
           <div className="p-4 text-xs text-text-muted text-center animate-pulse">Loading accounts...</div>
         ) : (
-          <div className="px-2 pb-2">
+          <div role="listbox" aria-label="Accounts" className="px-2 pb-2">
             {accounts.map((a, idx) => {
               const isCurrent = a.id === currentAccountId
               return (
                 <button
                   key={a.id}
+                  role="option"
+                  aria-selected={isCurrent}
                   onClick={() => switchTo(a.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors ${
                     focusedIdx === idx ? 'bg-primary/15' : 'hover:bg-border/30'

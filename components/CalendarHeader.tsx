@@ -202,7 +202,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           <>
             <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
             {/* right-0 ensures popup stays on screen regardless of where the hamburger is positioned */}
-            <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
+            <div role="menu" className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
               {userEmail && (
                 <div className="px-4 py-2 border-b border-border mb-1">
                   <p className="text-[10px] text-text-muted truncate">{userEmail}</p>
@@ -210,6 +210,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 </div>
               )}
               <button
+                role="menuitem"
                 onClick={() => { setHamburgerOpen(false); setMobileCalendarsOpen(true) }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
               >
@@ -222,6 +223,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 Calendars
               </button>
               <button
+                role="menuitem"
                 onClick={() => { setHamburgerOpen(false); setMobileFavsOpen(true) }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
               >
@@ -231,6 +233,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 Favorites
               </button>
               <button
+                role="menuitem"
                 onClick={() => { setHamburgerOpen(false); onColorSettings() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
               >
@@ -240,15 +243,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 Settings
               </button>
               <button
+                role="menuitem"
                 onClick={() => { setHamburgerOpen(false); onShortcuts() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
               >⌨️ Keyboard shortcuts</button>
               <button
+                role="menuitem"
                 onClick={() => { setHamburgerOpen(false); onRefresh() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border"
               >↻ Refresh</button>
               {accountName && onAccountSwitch && (
                 <button
+                  role="menuitem"
                   onClick={() => { setHamburgerOpen(false); onAccountSwitch() }}
                   className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-2"
                 >
@@ -262,6 +268,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               )}
               {isAdmin && (
                 <a
+                  role="menuitem"
                   href="/admin"
                   onClick={() => setHamburgerOpen(false)}
                   className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5"
@@ -273,6 +280,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 </a>
               )}
               <button
+                role="menuitem"
                 onClick={() => { setHamburgerOpen(false); signOut() }}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-border flex items-center gap-1.5 border-t border-border"
               >

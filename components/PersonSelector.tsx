@@ -38,6 +38,9 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="person-selector-title"
         className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[70vh] flex flex-col"
         onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
@@ -54,8 +57,10 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="p-4 border-b border-border">
-          <h2 className="font-bold mb-3">Select people</h2>
+          <h2 id="person-selector-title" className="font-bold mb-3">Select people</h2>
+          <label htmlFor="person-search" className="sr-only">Search people</label>
           <input
+            id="person-search"
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -63,13 +68,15 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
             className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
           />
         </div>
-        <div className="overflow-y-auto flex-1 p-2">
+        <div role="listbox" aria-label="People" className="overflow-y-auto flex-1 p-2">
           {filtered.map((p) => {
             const isSelected = local.some(s => s.code === p.code)
             const colorIndex = selected.findIndex(s => s.code === p.code)
             return (
               <button
                 key={p.code}
+                role="option"
+                aria-selected={isSelected}
                 onClick={() => toggle(p)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-border text-left"
                 title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
