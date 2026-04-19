@@ -8,6 +8,7 @@ import type { ColorOverrideRow } from '@/lib/activityColors'
 import BookingTemplateEditor, { type TemplateEditorHandle } from './BookingTemplateEditor'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -63,6 +64,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const templateEditorRef = useRef<TemplateEditorHandle>(null)
   const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
+  const dialogRef = useFocusTrap<HTMLDivElement>(true)
 
   /** Guard close actions — shows styled confirm dialog if template editor has unsaved changes */
   function guardedClose(action: () => void) {
@@ -253,6 +255,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={() => guardedClose(onClose)} />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
         className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden"
         onTouchStart={e => {
           // Only track swipe if started near the top (drag handle area, first 60px)
@@ -278,29 +284,45 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         {/* Header with Tabs */}
         <div className="px-4 pt-3 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold">Settings</h2>
-            <button onClick={() => guardedClose(onClose)} className="text-text-muted text-xl leading-none hover:text-text">✕</button>
+            <h2 id="settings-modal-title" className="font-bold">Settings</h2>
+            <button onClick={() => guardedClose(onClose)} aria-label="Close" className="text-text-muted text-xl leading-none hover:text-text">✕</button>
           </div>
-          <div className="flex gap-4 text-sm">
+          <div role="tablist" className="flex gap-4 text-sm">
             <button
+              role="tab"
+              id="tab-style"
+              aria-selected={activeTab === 'style'}
+              aria-controls="panel-style"
               onClick={() => setActiveTab('style')}
               className={`pb-2 px-1 ${activeTab === 'style' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
               Look & Feel
             </button>
             <button
+              role="tab"
+              id="tab-colors"
+              aria-selected={activeTab === 'colors'}
+              aria-controls="panel-colors"
               onClick={() => setActiveTab('colors')}
               className={`pb-2 px-1 ${activeTab === 'colors' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
               Colors
             </button>
             <button
+              role="tab"
+              id="tab-integrations"
+              aria-selected={activeTab === 'integrations'}
+              aria-controls="panel-integrations"
               onClick={() => setActiveTab('integrations')}
               className={`pb-2 px-1 ${activeTab === 'integrations' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
               Integrations
             </button>
             <button
+              role="tab"
+              id="tab-templates"
+              aria-selected={activeTab === 'templates'}
+              aria-controls="panel-templates"
               onClick={() => setActiveTab('templates')}
               className={`pb-2 px-1 ${activeTab === 'templates' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
             >
@@ -327,7 +349,12 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-4 space-y-6">
+        <div
+          role="tabpanel"
+          id={`panel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+          className="overflow-y-auto flex-1 p-4 space-y-6"
+        >
           {activeTab === 'style' && (
             <>
               {/* Theme */}
@@ -778,6 +805,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                         onClick={() => handleDeleteCal(c.id)}
                                         className="text-text-muted hover:text-red-400 p-1.5 text-xs"
                                         title="Remove"
+                                        aria-label="Remove calendar"
                                       >✕</button>
                                     </div>
                                   </div>

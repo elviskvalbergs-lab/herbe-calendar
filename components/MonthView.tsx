@@ -287,6 +287,8 @@ export default function MonthView({
                   return (
                     <div
                       key={dateStr}
+                      role="button"
+                      tabIndex={0}
                       className={`border-r border-border/20 last:border-r-0 flex flex-col min-h-0 overflow-hidden cursor-pointer hover:bg-border/10 transition-colors ${
                         !inMonth ? 'opacity-30' :
                         isHoliday ? 'bg-red-500/5' :
@@ -294,6 +296,12 @@ export default function MonthView({
                       }`}
                       style={multiDayBorder ? { borderTop: multiDayBorder } : undefined}
                       onClick={() => handleDayClick(dateStr)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleDayClick(dateStr)
+                        }
+                      }}
                     >
 
                       {/* Event pills */}
@@ -312,6 +320,8 @@ export default function MonthView({
                           return (
                             <div
                               key={act.id}
+                              role="button"
+                              tabIndex={isDesktop ? 0 : -1}
                               className="w-full mb-px cursor-pointer hover:brightness-125 rounded px-1 py-px truncate text-[9px] font-medium"
                               style={{ background: color + '20', color: readableAccentColor(color, !isLightMode) }}
                               onMouseEnter={isDesktop ? (e) => {
@@ -321,6 +331,13 @@ export default function MonthView({
                               } : undefined}
                               onMouseLeave={isDesktop ? () => setHoveredEvent(null) : undefined}
                               onClick={isDesktop ? (e: React.MouseEvent) => { e.stopPropagation(); onActivityClick?.(act) } : undefined}
+                              onKeyDown={isDesktop ? (e: React.KeyboardEvent) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  onActivityClick?.(act)
+                                }
+                              } : undefined}
                               title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
                             >
                               {act.description}
@@ -372,12 +389,14 @@ export default function MonthView({
 
     return (
       <div className="flex-1 flex overflow-hidden bg-bg relative">
-        {loading && (
-          <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
-            <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
-          </div>
-        )}
+        <div aria-live="polite" aria-busy={loading}>
+          {loading && (
+            <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
+              <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+              <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
+            </div>
+          )}
+        </div>
         {/* Left: month grid — desktop uses pills, mobile landscape uses compact dots */}
         <div className="shrink-0 border-r border-border flex flex-col" style={{ width: leftWidth }}>
           {renderMonthGrid(!isDesktop)}
