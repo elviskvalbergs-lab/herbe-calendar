@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 
 interface Props {
   message: string
@@ -20,6 +21,7 @@ export default function ConfirmDialog({
 }: Props) {
   const swipeStart = useRef<{ y: number } | null>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useFocusTrap<HTMLDivElement>(true)
 
   useEffect(() => {
     if (destructive) cancelRef.current?.focus()
@@ -39,6 +41,10 @@ export default function ConfirmDialog({
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Confirm action"
         className="bg-surface border border-border rounded-xl p-5 w-full max-w-sm shadow-xl"
         onClick={e => e.stopPropagation()}
         onTouchStart={e => { swipeStart.current = { y: e.touches[0].clientY } }}

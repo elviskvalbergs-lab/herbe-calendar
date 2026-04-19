@@ -5,6 +5,7 @@ import type { UserGoogleAccount } from '@/types'
 import ErrorBanner from './ErrorBanner'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import { readableAccentColor } from '@/lib/activityColors'
 import { format } from 'date-fns'
 import { serpLink } from '@/lib/serpLink'
@@ -190,7 +191,7 @@ export default function ActivityForm({
   const descInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
-  const modalRef = useRef<HTMLDivElement>(null)
+  const modalRef = useFocusTrap<HTMLDivElement>(true)
   const dragStartY = useRef<number | null>(null)
   const isDragging = useRef(false)
   const { confirmState, confirm: showConfirm, handleConfirm, handleCancel } = useConfirm()
@@ -776,6 +777,9 @@ export default function ActivityForm({
       <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-form-title"
         className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
       >
         {/* Drag handle (mobile) — touch here to drag-dismiss */}
@@ -795,7 +799,7 @@ export default function ActivityForm({
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
         >
-          <h2 className="font-bold flex items-center gap-2 flex-wrap">
+          <h2 id="activity-form-title" className="font-bold flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
             {/* Source badge */}
             {isEdit && isErpSource && activeErpConnection && activeErpConnection.name !== 'Default (env)' && (
@@ -896,7 +900,7 @@ export default function ActivityForm({
               <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400">View only</span>
             )}
           </h2>
-          <button onClick={handleClose} className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
+          <button onClick={handleClose} aria-label="Close" className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
         </div>
 
         {/* Calendar source label */}

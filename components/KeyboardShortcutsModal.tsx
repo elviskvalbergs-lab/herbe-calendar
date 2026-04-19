@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 
 interface Props {
   onClose: () => void
@@ -33,6 +34,7 @@ const SHORTCUTS = [
 
 export default function KeyboardShortcutsModal({ onClose }: Props) {
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const dialogRef = useFocusTrap<HTMLDivElement>(true)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -44,6 +46,10 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcuts-title"
         className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col"
         onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
@@ -60,8 +66,8 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="font-bold">Keyboard Shortcuts</h2>
-          <button onClick={onClose} className="text-text-muted text-xl leading-none">✕</button>
+          <h2 id="keyboard-shortcuts-title" className="font-bold">Keyboard Shortcuts</h2>
+          <button onClick={onClose} aria-label="Close" className="text-text-muted text-xl leading-none">✕</button>
         </div>
         <div className="overflow-y-auto flex-1 p-4 space-y-1">
           {SHORTCUTS.map((s, i) =>
