@@ -27,8 +27,8 @@ export async function GET(
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   }
 
-  // Strip internal fields from public response
-  const { account_id, ...booking } = rows[0]
+  // Strip internal and sensitive fields from public response
+  const { account_id, cancel_token, share_token, share_link_id, ...booking } = rows[0]
   return NextResponse.json(booking)
 }
 
