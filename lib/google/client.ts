@@ -42,7 +42,9 @@ export async function getGoogleConfig(accountId: string): Promise<GoogleConfig |
     if (rows[0] && rows[0].service_account_email) {
       let key = ''
       if (rows[0].service_account_key) {
-        try { key = decrypt(rows[0].service_account_key) } catch {}
+        try { key = decrypt(rows[0].service_account_key) } catch (e) {
+          console.error('[google] Failed to decrypt service account key for account', accountId, String(e))
+        }
       }
       const config: GoogleConfig = {
         serviceAccountEmail: rows[0].service_account_email,

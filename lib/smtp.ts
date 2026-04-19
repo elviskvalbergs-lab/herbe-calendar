@@ -27,7 +27,9 @@ export async function getSmtpConfig(accountId: string): Promise<SmtpConfig | nul
     if (rows[0] && rows[0].host) {
       let pwd = ''
       if (rows[0].password) {
-        try { pwd = decrypt(rows[0].password) } catch {}
+        try { pwd = decrypt(rows[0].password) } catch (e) {
+          console.error('[smtp] Failed to decrypt password for account', accountId, String(e))
+        }
       }
       const config: SmtpConfig = {
         host: rows[0].host,

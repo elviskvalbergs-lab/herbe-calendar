@@ -140,7 +140,9 @@ export async function GET(
               id: `ics-${code}-${ev.id as string}`,
             })
           }
-        } catch {}
+        } catch (e) {
+          console.warn('[feed.ics] Failed to build ICS event:', String(e))
+        }
       }
 
       // Outlook
@@ -175,9 +177,13 @@ export async function GET(
               }
             }
           }
-        } catch {}
+        } catch (e) {
+          console.warn('[feed.ics] Failed to build ICS event:', String(e))
+        }
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[feed.ics] Failed to build ICS event:', String(e))
+    }
   }
 
   // Build ICS calendar
