@@ -240,19 +240,25 @@ export async function syncAllGoogle(mode: SyncMode = 'incremental'): Promise<Syn
   )
   result.accounts = accounts.length
 
-  for (const account of accounts) {
-    const people = await listAccountPersons(account.id)
-    const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
-
-    const dw = await syncAccountGoogleDomainWide(account.id, mode, people)
-    if (dw.events > 0) result.connections++
-    result.events += dw.events
-    if (dw.error) result.errors.push(`${account.id}/google: ${dw.error}`)
-
-    const pu = await syncAccountGoogleUser(account.id, mode, emailToCode)
-    result.connections += pu.connections
-    result.events += pu.events
-    result.errors.push(...pu.errors)
+  const accountResults = await Promise.allSettled(
+    accounts.map(async (account) => {
+      const people = await listAccountPersons(account.id)
+      const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
+      const dw = await syncAccountGoogleDomainWide(account.id, mode, people)
+      const pu = await syncAccountGoogleUser(account.id, mode, emailToCode)
+      return { dw, pu }
+    })
+  )
+  for (const r of accountResults) {
+    if (r.status === 'fulfilled') {
+      const { dw, pu } = r.value
+      if (dw.events > 0) result.connections++
+      result.events += dw.events
+      if (dw.error) result.errors.push(`google: ${dw.error}`)
+      result.connections += pu.connections
+      result.events += pu.events
+      result.errors.push(...pu.errors)
+    }
   }
   return result
 }

@@ -231,23 +231,36 @@ export async function syncAllErp(mode: SyncMode = 'incremental'): Promise<SyncRe
   )
   result.accounts = accounts.length
 
-  for (const account of accounts) {
-    let connections: ErpConnection[]
-    try {
-      connections = await getErpConnections(account.id)
-    } catch (e) {
-      result.errors.push(`Account ${account.id}: ${String(e)}`)
-      continue
-    }
-
-    for (const conn of connections) {
-      result.connections++
-      const syncFn = mode === 'full' ? fullReconciliation : syncConnection
-      const { events, error } = await syncFn(account.id, conn)
-      result.events += events
-      if (error) {
-        result.errors.push(`${account.id}/${conn.name}: ${error}`)
+  const accountResults = await Promise.allSettled(
+    accounts.map(async (account) => {
+      let connections: ErpConnection[]
+      try {
+        connections = await getErpConnections(account.id)
+      } catch (e) {
+        return { events: 0, errors: [`Account ${account.id}: ${String(e)}`], connections: 0 }
       }
+
+      let events = 0
+      let connCount = 0
+      const errors: string[] = []
+
+      for (const conn of connections) {
+        connCount++
+        const syncFn = mode === 'full' ? fullReconciliation : syncConnection
+        const r = await syncFn(account.id, conn)
+        events += r.events
+        if (r.error) errors.push(`${account.id}/${conn.name}: ${r.error}`)
+      }
+
+      return { events, errors, connections: connCount }
+    })
+  )
+
+  for (const r of accountResults) {
+    if (r.status === 'fulfilled') {
+      result.connections += r.value.connections
+      result.events += r.value.events
+      result.errors.push(...r.value.errors)
     }
   }
 

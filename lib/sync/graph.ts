@@ -130,11 +130,15 @@ export async function syncAllOutlook(mode: SyncMode = 'incremental'): Promise<Sy
   )
   result.accounts = accounts.length
 
-  for (const account of accounts) {
-    const { events, error } = await syncAccountOutlook(account.id, mode)
-    if (events > 0) result.connections++
-    result.events += events
-    if (error) result.errors.push(`${account.id}: ${error}`)
+  const accountResults = await Promise.allSettled(
+    accounts.map(account => syncAccountOutlook(account.id, mode))
+  )
+  for (const r of accountResults) {
+    if (r.status === 'fulfilled') {
+      if (r.value.events > 0) result.connections++
+      result.events += r.value.events
+      if (r.value.error) result.errors.push(`outlook: ${r.value.error}`)
+    }
   }
   return result
 }
