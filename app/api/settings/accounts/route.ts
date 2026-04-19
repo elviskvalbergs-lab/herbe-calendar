@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     maxAge: 30 * 24 * 3600,
     httpOnly: true,
     sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
   })
   return res
 }
