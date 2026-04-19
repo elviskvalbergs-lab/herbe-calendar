@@ -89,8 +89,24 @@ export async function fetchOutlookEventsForPerson(
 
   // 404 = user not in tenant (e.g. placeholder/ICS-only user) — not an error, just no events
   if (!res.ok) return res.status === 404 ? [] : null
-  const data = await res.json()
-  return (data.value ?? []) as OutlookEvent[]
+  const allEvents: OutlookEvent[] = []
+  let data = await res.json()
+  allEvents.push(...((data.value ?? []) as OutlookEvent[]))
+
+  // Follow pagination via @odata.nextLink
+  let nextLink: string | undefined = data['@odata.nextLink']
+  while (nextLink) {
+    const pageRes = await graphFetch(
+      nextLink.replace('https://graph.microsoft.com/v1.0', ''),
+      { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+      azureConfig,
+    )
+    if (!pageRes.ok) break
+    data = await pageRes.json()
+    allEvents.push(...((data.value ?? []) as OutlookEvent[]))
+    nextLink = data['@odata.nextLink']
+  }
+  return allEvents
 }
 
 /**
@@ -114,8 +130,23 @@ export async function fetchOutlookEventsMinimal(
     azureConfig,
   )
   if (!res.ok) return null
-  const data = await res.json()
-  return (data.value ?? []) as Array<{ id: string; start: { dateTime: string }; end: { dateTime: string } }>
+  const allEvents: Array<{ id: string; start: { dateTime: string }; end: { dateTime: string } }> = []
+  let data = await res.json()
+  allEvents.push(...((data.value ?? []) as Array<{ id: string; start: { dateTime: string }; end: { dateTime: string } }>))
+
+  let nextLink: string | undefined = data['@odata.nextLink']
+  while (nextLink) {
+    const pageRes = await graphFetch(
+      nextLink.replace('https://graph.microsoft.com/v1.0', ''),
+      { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+      azureConfig,
+    )
+    if (!pageRes.ok) break
+    data = await pageRes.json()
+    allEvents.push(...((data.value ?? []) as Array<{ id: string; start: { dateTime: string }; end: { dateTime: string } }>))
+    nextLink = data['@odata.nextLink']
+  }
+  return allEvents
 }
 
 /**
