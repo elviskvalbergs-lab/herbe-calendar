@@ -4,28 +4,6 @@ import { requireSession } from '@/lib/herbe/auth-guard'
 import { pool } from '@/lib/db'
 import { validateIcsUrl, normalizeIcsUrl } from '@/lib/ics-allowlist'
 
-// Simple auto-migration helper
-let tableCheckedAt = 0
-const TABLE_CHECK_TTL = 60 * 60 * 1000 // 1 hour
-async function ensureTable() {
-  if (Date.now() - tableCheckedAt < TABLE_CHECK_TTL) return
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS user_calendars (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_email TEXT NOT NULL,
-      target_person_code TEXT NOT NULL,
-      name TEXT NOT NULL,
-      ics_url TEXT NOT NULL,
-      color TEXT,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    )`)
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_user_email ON user_calendars(user_email)`)
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_calendars_target_person_code ON user_calendars(target_person_code)`)
-  // Add color column if missing (existing tables)
-  await pool.query(`ALTER TABLE user_calendars ADD COLUMN IF NOT EXISTS color TEXT`)
-  tableCheckedAt = Date.now()
-}
-
 export async function GET(req: NextRequest) {
   let session
   try {
@@ -35,7 +13,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    await ensureTable()
     const { rows } = await pool.query(
       'SELECT id, target_person_code as "personCode", name, ics_url as "icsUrl", color, sharing FROM user_calendars WHERE user_email = $1 AND account_id = $2 ORDER BY created_at DESC',
       [session.email, session.accountId]
@@ -55,7 +32,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await ensureTable()
     const { name, icsUrl } = await req.json()
     if (!name || !icsUrl) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
@@ -91,7 +67,6 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    await ensureTable()
     const { id, name, icsUrl, color, sharing } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 

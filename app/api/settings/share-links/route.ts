@@ -3,29 +3,6 @@ import { auth } from '@/lib/auth'
 import { pool } from '@/lib/db'
 import crypto from 'crypto'
 
-let tableCheckedAt = 0
-const TABLE_CHECK_TTL = 60 * 60 * 1000 // 1 hour
-
-async function ensureTable() {
-  if (Date.now() - tableCheckedAt < TABLE_CHECK_TTL) return
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS favorite_share_links (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      favorite_id UUID NOT NULL REFERENCES user_favorites(id) ON DELETE CASCADE,
-      token TEXT NOT NULL UNIQUE,
-      name TEXT NOT NULL,
-      password_hash TEXT,
-      visibility TEXT NOT NULL CHECK (visibility IN ('busy', 'titles', 'full')),
-      expires_at TIMESTAMP WITH TIME ZONE,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      last_accessed_at TIMESTAMP WITH TIME ZONE,
-      access_count INTEGER NOT NULL DEFAULT 0
-    )`)
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_favorite_share_links_favorite_id ON favorite_share_links(favorite_id)`)
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_favorite_share_links_token ON favorite_share_links(token)`)
-  tableCheckedAt = Date.now()
-}
-
 function mapRow(row: Record<string, unknown>) {
   return {
     id: row.id,
@@ -49,7 +26,6 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    await ensureTable()
     const { searchParams } = new URL(req.url)
     const favoriteId = searchParams.get('favoriteId')
     if (!favoriteId) return NextResponse.json({ error: 'Missing favoriteId' }, { status: 400 })
@@ -78,7 +54,6 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    await ensureTable()
     const { favoriteId, name, visibility, expiresAt, password } = await req.json()
 
     if (!favoriteId || !name || !visibility) {
@@ -117,7 +92,6 @@ export async function PUT(req: NextRequest) {
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    await ensureTable()
     const { id, name, visibility, expiresAt, password, bookingEnabled, bookingMaxDays, templateIds } = await req.json()
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
