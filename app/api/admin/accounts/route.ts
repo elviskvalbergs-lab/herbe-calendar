@@ -7,8 +7,8 @@ export async function GET(req: NextRequest) {
     await requireAdminSession('superadmin')
   } catch (e) {
     const msg = (e as Error).message
-    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
-    return new NextResponse('Forbidden', { status: 403 })
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { rows } = await pool.query(
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     await requireAdminSession('superadmin')
   } catch (e) {
     const msg = (e as Error).message
-    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
-    return new NextResponse('Forbidden', { status: 403 })
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { name, slug } = await req.json()
@@ -52,8 +52,8 @@ export async function PATCH(req: NextRequest) {
     await requireAdminSession('superadmin')
   } catch (e) {
     const msg = (e as Error).message
-    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
-    return new NextResponse('Forbidden', { status: 403 })
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { id, name, suspended, logoUrl } = await req.json()

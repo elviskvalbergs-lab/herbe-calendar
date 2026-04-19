@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
     session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
-    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
-    return new NextResponse('Forbidden', { status: 403 })
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const body = await req.json()
@@ -82,8 +82,8 @@ export async function PATCH(req: NextRequest) {
     session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
-    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
-    return new NextResponse('Forbidden', { status: 403 })
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const body = await req.json()
@@ -123,8 +123,8 @@ export async function DELETE(req: NextRequest) {
     session = await requireAdminSession('admin', getAccountIdFromCookie(req))
   } catch (e) {
     const msg = (e as Error).message
-    if (msg === 'UNAUTHORIZED') return new NextResponse('Unauthorized', { status: 401 })
-    return new NextResponse('Forbidden', { status: 403 })
+    if (msg === 'UNAUTHORIZED') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { id } = await req.json()
