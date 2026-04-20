@@ -414,12 +414,13 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
               {/* Theme */}
               <div className="space-y-2">
                 <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Theme</p>
-                <div className="flex rounded-lg overflow-hidden border border-border divide-x divide-border">
+                <div className="segmented" style={{ display: 'flex', width: 'fit-content' }}>
                   {(['dark', 'system', 'light'] as Theme[]).map(t => (
                     <button
                       key={t}
+                      aria-pressed={theme === t}
                       onClick={() => handleTheme(t)}
-                      className={`flex-1 py-1.5 capitalize text-xs ${theme === t ? 'bg-primary text-white' : 'text-text-muted hover:bg-border'}`}
+                      style={{ textTransform: 'capitalize' }}
                     >
                       {t === 'system' ? '⚙ System' : t === 'dark' ? '☾ Dark' : '☀ Light'}
                     </button>
@@ -430,12 +431,13 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
               {/* Event style */}
               <div className="space-y-2">
                 <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Event style</p>
-                <div className="flex rounded-lg overflow-hidden border border-border divide-x divide-border">
+                <div className="segmented" style={{ display: 'flex', width: 'fit-content' }}>
                   {(['solid', 'tinted', 'outlined'] as EvStyle[]).map(s => (
                     <button
                       key={s}
+                      aria-pressed={evStyle === s}
                       onClick={() => handleEvStyle(s)}
-                      className={`flex-1 py-1.5 capitalize text-xs ${evStyle === s ? 'bg-primary text-white' : 'text-text-muted hover:bg-border'}`}
+                      style={{ textTransform: 'capitalize' }}
                     >
                       {s}
                     </button>

@@ -3,6 +3,7 @@ import { useState, useRef, useLayoutEffect } from 'react'
 import { Activity, ShareVisibility } from '@/types'
 import { timeToTopPx } from '@/lib/time'
 import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
+import { useEvStyle } from '@/lib/useEvStyle'
 
 function OutlookIcon({ size = 11 }: { size?: number }) {
   return (
@@ -60,6 +61,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
   const wasTouchRef = useRef(false)
   const cardRef = useRef<HTMLDivElement>(null)
   const [alignRight, setAlignRight] = useState(false)
+  const evStyle = useEvStyle()
 
   useLayoutEffect(() => {
     if (!cardRef.current) { setAlignRight(false); return }
@@ -75,6 +77,68 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
   const fillPlanned = isLight ? '22' : '18'
   const fillCC = isLight ? '1a' : '0a'
 
+  // Resolve visual based on chosen event style.
+  // - solid: existing behaviour (coloured fill + left rail)
+  // - tinted: softer fill + 3px coloured rail, text tends to event colour
+  // - outlined: near-transparent bg, 1px coloured border + 3px rail
+  const variantStyles = (() => {
+    // Base states (planned / cc-only) take precedence over variant fill.
+    if (evStyle === 'solid') {
+      return {
+        background: isCC
+          ? `repeating-linear-gradient(45deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
+          : isPlanned
+            ? `repeating-linear-gradient(135deg, ${color}${fillPlanned}, ${color}${fillPlanned} 3px, transparent 3px, transparent 6px)`
+            : color + fillNormal,
+        border: undefined,
+        borderLeft: isOutlook
+          ? `3px dashed ${color}cc`
+          : isCC
+            ? `3px dotted ${color}8c`
+            : isPlanned
+              ? `3px dashed ${color}99`
+              : `3px solid ${color}`,
+        color: textColor,
+      }
+    }
+    if (evStyle === 'tinted') {
+      // Lighter fill — 16% colour over the surface, with a 3px rail.
+      const fill = isLight ? `${color}1f` : `${color}26`
+      const plannedFill = `${color}14`
+      return {
+        background: isCC
+          ? `repeating-linear-gradient(45deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
+          : isPlanned
+            ? `repeating-linear-gradient(135deg, ${color}2a, ${color}2a 3px, transparent 3px, transparent 6px), ${plannedFill}`
+            : fill,
+        border: undefined,
+        borderLeft: isCC
+          ? `3px dotted ${color}`
+          : isPlanned
+            ? `3px dashed ${color}`
+            : `3px solid ${color}`,
+        color: textColor,
+      }
+    }
+    // outlined
+    return {
+      background: isPlanned
+        ? `repeating-linear-gradient(135deg, ${color}1a, ${color}1a 3px, transparent 3px, transparent 6px)`
+        : 'transparent',
+      border: isCC
+        ? `1px dotted ${color}aa`
+        : isPlanned
+          ? `1px dashed ${color}aa`
+          : `1px solid ${color}aa`,
+      borderLeft: isCC
+        ? `3px dotted ${color}`
+        : isPlanned
+          ? `3px dashed ${color}`
+          : `3px solid ${color}`,
+      color: textColor,
+    }
+  })()
+
   return (
     <div
       role="button"
@@ -88,18 +152,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
         top,
         height,
         borderRadius: 2,
-        background: isCC
-          ? `repeating-linear-gradient(45deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
-          : isPlanned
-            ? `repeating-linear-gradient(135deg, ${color}${fillPlanned}, ${color}${fillPlanned} 3px, transparent 3px, transparent 6px)`
-            : color + fillNormal,
-        borderLeft: isOutlook
-          ? `3px dashed ${color}cc`
-          : isCC
-            ? `3px dotted ${color}8c`
-            : isPlanned
-              ? `3px dashed ${color}99`
-              : `3px solid ${color}`,
+        ...variantStyles,
         // Never use CSS opacity — it makes child elements (preview card) translucent too
         zIndex: (hovered || mobileSelected) ? 40 : undefined,
         boxShadow: hovered ? `0 2px 14px ${color}55` : undefined,
