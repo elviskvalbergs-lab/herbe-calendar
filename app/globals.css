@@ -1,5 +1,7 @@
 @import "tailwindcss";
-@import "./design.css";
+/* Import design system into the components layer so Tailwind utilities
+   (e.g. .hidden, lg:inline-flex) always win over component CSS. */
+@import "./design.css" layer(components);
 
 /* ==========================================================================
    FONTS — Poppins (self-hosted)

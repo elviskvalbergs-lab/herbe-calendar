@@ -77,15 +77,16 @@ export default function CalendarGrid({
   const effectiveStartHour = expandedUp ? earliestHour : GRID_START_HOUR
   const effectiveEndHour = expandedDown ? latestHour : GRID_END_HOUR
 
-  // Responsive max visible columns
-  const [maxVisibleCols, setMaxVisibleCols] = useState(2)
+  // Responsive max visible columns.
+  // - Desktop / tablet: 18 (effectively fits any reasonable view).
+  // - Phone (portrait or landscape): 5 — so 1D/3-person fits edge-to-edge
+  //   via flex (total ≤ 5), and 3-day view scrolls with ~2.5 person-columns
+  //   per date visible at once.
+  const [maxVisibleCols, setMaxVisibleCols] = useState(5)
   useEffect(() => {
     function update() {
       const w = window.innerWidth
-      const h = window.innerHeight
-      if (w >= 640) setMaxVisibleCols(18)
-      else if (w > h) setMaxVisibleCols(5)
-      else setMaxVisibleCols(2)
+      setMaxVisibleCols(w >= 640 ? 18 : 5)
     }
     update()
     window.addEventListener('resize', update)
