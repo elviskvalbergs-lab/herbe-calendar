@@ -795,7 +795,7 @@ export default function ActivityForm({
 
         {/* Header — also responds to swipe-down to dismiss on mobile */}
         <div
-          className="flex items-center justify-between px-4 py-3 border-b border-border sm:touch-auto touch-none"
+          className="modal-header sm:touch-auto touch-none"
           onTouchStart={handleDragHandleTouchStart}
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
@@ -901,7 +901,7 @@ export default function ActivityForm({
               <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400">View only</span>
             )}
           </h2>
-          <button onClick={handleClose} aria-label="Close" className="text-text-muted text-xl leading-none flex-shrink-0">✕</button>
+          <button onClick={handleClose} aria-label="Close" className="icon-btn shrink-0">✕</button>
         </div>
 
         {/* Calendar source label */}
@@ -948,19 +948,25 @@ export default function ActivityForm({
                 <>
                   <button
                     onClick={() => resetToCreate(savedActivity)}
-                    className="w-full border border-border text-text font-bold py-3 rounded-xl text-sm"
+                    className="btn btn-outline w-full"
+                    style={{ justifyContent: 'center', height: 40 }}
                   >
                     Create another (copy)
                   </button>
                   <button
                     onClick={() => resetToCreate(null, savedActivity?.timeTo)}
-                    className="w-full border border-border text-text-muted font-bold py-3 rounded-xl text-sm"
+                    className="btn btn-ghost w-full"
+                    style={{ justifyContent: 'center', height: 40 }}
                   >
                     Create blank
                   </button>
                 </>
               )}
-              <button onClick={onClose} className="w-full bg-primary text-white font-bold py-3 rounded-xl">
+              <button
+                onClick={onClose}
+                className="btn btn-primary w-full"
+                style={{ justifyContent: 'center', height: 40 }}
+              >
                 Close
               </button>
             </div>
@@ -968,7 +974,7 @@ export default function ActivityForm({
         )}
 
         {/* Scrollable body */}
-        {!savedActivity && <div className="overflow-y-auto flex-1 p-4 space-y-3">
+        {!savedActivity && <div className="modal-body flex-1 space-y-3" style={{ padding: '12px 16px' }}>
           {/* Join meeting button (Outlook Teams / Google Meet) */}
           {initial?.joinUrl && (
             <a
@@ -1852,41 +1858,43 @@ export default function ActivityForm({
         </div>}
 
         {/* Footer actions */}
-        {!savedActivity && <div className="p-4 border-t border-border">
-          {/* If editing but canEdit is false, show close only */}
+        {!savedActivity && <div className="modal-footer">
           {isEdit && !(canEdit ?? true) ? (
-            <div className="flex gap-2">
-              <button onClick={onClose} className="flex-1 border border-border text-text-muted font-bold py-3 rounded-xl hover:bg-border transition-colors">
+            <>
+              <button onClick={onClose} className="btn btn-outline">
                 Close
               </button>
+              <div className="spacer" />
               <button
                 onClick={handleDuplicate}
                 title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
-                className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
-              >
-                ⧉
-              </button>
-            </div>
+                className="icon-btn"
+                style={{ width: 32, height: 32, fontSize: 16 }}
+                aria-label="Duplicate activity"
+              >⧉</button>
+            </>
           ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 bg-primary text-white font-bold py-3 rounded-xl disabled:opacity-50"
-              >
-                {saving ? 'Saving…' : isEdit ? `Save changes` : `Create activity`}
-                {!saving && <span className="ml-2 opacity-60 text-xs font-normal">{saveShortcut}</span>}
-              </button>
+            <>
+              <button onClick={handleClose} className="btn btn-outline">Cancel</button>
+              <div className="spacer" />
               {isEdit && (
                 <button
                   onClick={handleDuplicate}
                   title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
-                  className="px-4 border border-border text-text-muted rounded-xl text-lg leading-none hover:border-primary/50 hover:text-text transition-colors"
-                >
-                  ⧉
-                </button>
+                  className="icon-btn"
+                  style={{ width: 32, height: 32, fontSize: 16 }}
+                  aria-label="Duplicate activity"
+                >⧉</button>
               )}
-            </div>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="btn btn-primary"
+                title={`Save (${saveShortcut})`}
+              >
+                {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
+              </button>
+            </>
           )}
         </div>}
       </div>

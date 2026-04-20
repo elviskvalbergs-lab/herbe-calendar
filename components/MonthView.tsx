@@ -263,7 +263,11 @@ export default function MonthView({
                 <div className="mh-top">
                   <span className={`mh-num ${today ? 'today' : ''}`}>{format(d, 'd')}</span>
                   {isHoliday && dateHolidays && (
-                    <span className="mh-holiday" title={dateHolidays.map(h => h.name).join(', ')}>
+                    <span
+                      className="mh-holiday"
+                      title={dateHolidays.map(h => h.name).join(', ')}
+                      data-full={dateHolidays.map(h => h.name).join(' · ')}
+                    >
                       {dateHolidays[0].name}
                     </span>
                   )}
