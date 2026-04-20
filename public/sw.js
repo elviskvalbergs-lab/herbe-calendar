@@ -1,4 +1,4 @@
-const CACHE_NAME = 'herbe-calendar-v1'
+const CACHE_NAME = 'herbe-calendar-v2'
 const OFFLINE_URL = '/'
 
 // Install: cache the app shell

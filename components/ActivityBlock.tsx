@@ -75,19 +75,23 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
     const cardW = isNarrow ? Math.min(280, window.innerWidth - 24) : 320
     const cardH = 320
     const MARGIN = 8
+    // Respect the app's top chrome (topbar) — never let the card hide
+    // beneath it. Falls back to MARGIN if no topbar element exists.
+    const topbar = document.querySelector('.topbar') as HTMLElement | null
+    const topMin = topbar ? topbar.getBoundingClientRect().bottom + 6 : MARGIN
+    const bottomMax = window.innerHeight - cardH - MARGIN
     // Prefer placing to the right of the block; fall back to left if it
-    // would overflow.
+    // would overflow horizontally.
     let left = rect.right + 6
     if (left + cardW > window.innerWidth - MARGIN) {
       left = rect.left - cardW - 6
     }
-    // If there's also not enough room on the left, pin to the viewport edge
-    // closest to the block and let the block be overlapped.
     left = Math.max(MARGIN, Math.min(left, window.innerWidth - cardW - MARGIN))
-    // Vertically: try to align the card's top with the block's top, but
-    // clamp so the whole card stays in view.
+    // Vertically: align with the block top when possible. For events near
+    // the top of the grid (under the topbar), clamp to topMin. For events
+    // near the bottom, clamp to bottomMax so the card stays fully visible.
     let top = rect.top
-    top = Math.max(MARGIN, Math.min(top, window.innerHeight - cardH - MARGIN))
+    top = Math.max(topMin, Math.min(top, bottomMax))
     setCardPos({ left, top })
   }, [hovered, mobileSelected])
 

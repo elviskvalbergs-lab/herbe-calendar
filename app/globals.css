@@ -84,7 +84,7 @@
   --color-surface: #192924;         /* chrome / header — app-bg-alt */
   --color-elevated: #24382F;        /* modals / cards — app-bg-elev */
   --color-border: rgba(255,255,255,0.14);
-  --color-primary: #CD4C38;         /* Rowanberry — brand accent */
+  --color-primary: #CD4C38;         /* Rowanberry — brand accent (overridable via [data-accent]) */
   --color-accent: #15B6CB;          /* High Sky (muted) — secondary cyan */
   --color-text: #E8EEEB;
   --color-text-muted: rgba(232,238,235,0.62);
@@ -98,6 +98,15 @@
   --font-sans: 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
+
+/* Accent override — unlayered so it beats Tailwind @theme defaults.
+   Default (rowanberry) uses the base --color-primary; picking another
+   accent sets both --color-primary (drives Tailwind bg-primary utilities)
+   and --app-accent (drives design-system component styles). */
+:root[data-accent="amber"]  { --color-primary: #E08A2B; --app-accent: #E08A2B; }
+:root[data-accent="moss"]   { --color-primary: #6B8E3D; --app-accent: #6B8E3D; }
+:root[data-accent="teal"]   { --color-primary: #2A8F94; --app-accent: #2A8F94; }
+:root[data-accent="indigo"] { --color-primary: #3F56A6; --app-accent: #3F56A6; }
 
 /* ==========================================================================
    FULL DESIGN TOKEN VOCABULARY — referenced by component CSS

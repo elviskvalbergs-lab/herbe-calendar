@@ -83,9 +83,9 @@ export default function MonthView({
   const showSide = true
 
   // Dynamic fit — measure cell height to decide how many chips fit.
-  // Uses a ResizeObserver so we re-compute whenever the grid's actual
-  // laid-out size changes (initial mount, rotation, split-pane resize,
-  // CSS media query cut-in, etc.).
+  // Portrait caps at 2 chips + "+N more" so the stacked agenda below
+  // always stays useful; landscape/desktop fit as many as the cell height
+  // allows. Uses ResizeObserver to re-compute on layout changes.
   useEffect(() => {
     const el = gridRef.current
     if (!el) return
@@ -96,13 +96,14 @@ export default function MonthView({
       const rowH = el.clientHeight / 6
       const available = Math.max(0, rowH - reserve)
       const fit = Math.max(1, Math.floor(available / chipH))
-      setMaxChips(prev => (prev === fit ? prev : fit))
+      const capped = layout === 'portrait' ? Math.min(fit, 2) : fit
+      setMaxChips(prev => (prev === capped ? prev : capped))
     }
     calc()
     const ro = new ResizeObserver(calc)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [layout])
 
   // On non-desktop, restrict to selected person
   const filteredActivities = useMemo(() => {
@@ -167,16 +168,9 @@ export default function MonthView({
   , [activitiesByDate, selectedDay])
 
   function handleCellClick(dateStr: string) {
-    // Portrait: tapping a date goes straight to day view. The agenda below
-    // is a reference for the *currently active* day, not something the user
-    // drills through cell by cell.
-    // Landscape / desktop: the agenda sits beside the grid, so the click
-    // should update the selected day and update the agenda in place.
-    if (layout === 'portrait') {
-      onSelectDate(dateStr)
-    } else {
-      onSelectedDayChange?.(dateStr)
-    }
+    // Agenda is always-visible now. A cell tap updates the selected day;
+    // "Open day view" in the agenda header drills in.
+    onSelectedDayChange?.(dateStr)
   }
 
   function handleResizeStart(e: React.PointerEvent) {

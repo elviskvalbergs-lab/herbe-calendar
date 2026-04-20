@@ -197,7 +197,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </button>
 
       {/* Hamburger — mobile only */}
-      <div className="relative lg:hidden ml-auto">
+      <div className="topbar-hamburger relative lg:hidden ml-auto">
         <button
           onClick={() => setHamburgerOpen(o => !o)}
           className="icon-btn"
