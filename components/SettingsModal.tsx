@@ -41,27 +41,27 @@ function applyEvStyle(s: EvStyle) {
   } catch {}
 }
 
-// Five brand-adjacent accent choices. Default = rowanberry.
-const ACCENT_CHOICES: { name: string; value: string }[] = [
-  { name: 'Rowanberry', value: '#CD4C38' },
-  { name: 'Amber',      value: '#E08A2B' },
-  { name: 'Moss',       value: '#6B8E3D' },
-  { name: 'Teal',       value: '#2A8F94' },
-  { name: 'Indigo',     value: '#3F56A6' },
+// Five brand-adjacent accent choices — stored as names (not hex) so the
+// data-accent attribute drives a stable CSS rule chain instead of inline
+// var mutations that can get reset by hydration or Tailwind re-render.
+type AccentName = 'rowanberry' | 'amber' | 'moss' | 'teal' | 'indigo'
+const ACCENT_CHOICES: { name: AccentName; label: string; value: string }[] = [
+  { name: 'rowanberry', label: 'Rowanberry', value: '#CD4C38' },
+  { name: 'amber',      label: 'Amber',      value: '#E08A2B' },
+  { name: 'moss',       label: 'Moss',       value: '#6B8E3D' },
+  { name: 'teal',       label: 'Teal',       value: '#2A8F94' },
+  { name: 'indigo',     label: 'Indigo',     value: '#3F56A6' },
 ]
+const ACCENT_NAMES: AccentName[] = ['rowanberry', 'amber', 'moss', 'teal', 'indigo']
 
-function applyAccent(color: string) {
+function applyAccent(name: AccentName) {
   try {
-    const root = document.documentElement
-    const isDefault = color === '#CD4C38'
-    if (isDefault) {
-      root.style.removeProperty('--app-accent')
-      root.style.removeProperty('--color-primary')
+    if (name === 'rowanberry') {
+      document.documentElement.removeAttribute('data-accent')
       localStorage.removeItem('accent')
     } else {
-      root.style.setProperty('--app-accent', color)
-      root.style.setProperty('--color-primary', color)
-      localStorage.setItem('accent', color)
+      document.documentElement.setAttribute('data-accent', name)
+      localStorage.setItem('accent', name)
     }
   } catch {}
 }
@@ -87,7 +87,7 @@ type Tab = 'style' | 'colors' | 'integrations' | 'templates'
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange, azureConfigured, googleConfigured, zoomConfigured }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
   const [evStyle, setEvStyle] = useState<EvStyle>('solid')
-  const [accent, setAccent] = useState<string>('#CD4C38')
+  const [accent, setAccent] = useState<AccentName>('rowanberry')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string; sharing?: string }
   const [customCals, setCustomCals] = useState<CustomCalendar[]>([])
@@ -133,8 +133,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
       setTheme(stored === 'light' ? 'light' : stored === 'dark' ? 'dark' : 'system')
       const storedStyle = localStorage.getItem('evStyle')
       setEvStyle(storedStyle === 'tinted' || storedStyle === 'outlined' ? storedStyle : 'solid')
-      const storedAccent = localStorage.getItem('accent')
-      setAccent(storedAccent && /^#[0-9A-F]{6}$/i.test(storedAccent) ? storedAccent : '#CD4C38')
+      const storedAccent = localStorage.getItem('accent') as AccentName | null
+      setAccent(storedAccent && ACCENT_NAMES.includes(storedAccent) ? storedAccent : 'rowanberry')
     } catch {}
   }, [])
 
@@ -262,7 +262,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
     applyEvStyle(s)
   }
 
-  function handleAccent(c: string) {
+  function handleAccent(c: AccentName) {
     setAccent(c)
     applyAccent(c)
   }
@@ -455,13 +455,13 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                 <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Accent color</p>
                 <div className="flex gap-2 items-center">
                   {ACCENT_CHOICES.map(c => {
-                    const isActive = accent.toUpperCase() === c.value.toUpperCase()
+                    const isActive = accent === c.name
                     return (
                       <button
-                        key={c.value}
-                        onClick={() => handleAccent(c.value)}
-                        title={c.name}
-                        aria-label={`Accent: ${c.name}`}
+                        key={c.name}
+                        onClick={() => handleAccent(c.name)}
+                        title={c.label}
+                        aria-label={`Accent: ${c.label}`}
                         aria-pressed={isActive}
                         className="w-8 h-8 flex items-center justify-center transition-transform active:scale-95"
                         style={{

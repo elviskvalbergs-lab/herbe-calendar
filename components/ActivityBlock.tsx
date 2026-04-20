@@ -59,16 +59,36 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
   const [hovered, setHovered] = useState(false)
   const touchIsTapRef = useRef(true)
   const wasTouchRef = useRef(false)
+  const blockRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
-  const [alignRight, setAlignRight] = useState(false)
+  const [cardPos, setCardPos] = useState<{ left: number; top: number } | null>(null)
   const evStyle = useEvStyle()
 
   useLayoutEffect(() => {
-    if (!cardRef.current) { setAlignRight(false); return }
-    const parentRect = cardRef.current.parentElement?.getBoundingClientRect()
-    if (!parentRect) return
-    // If activity is in the right half of the screen, align card to the right
-    setAlignRight(parentRect.left + parentRect.width / 2 > window.innerWidth / 2)
+    if (!hovered && !mobileSelected) { setCardPos(null); return }
+    const blockEl = blockRef.current
+    if (!blockEl) return
+    const rect = blockEl.getBoundingClientRect()
+    // Card size — match the default (320 / min 280 on mobile) + a generous
+    // height reserve that's larger than typical content so clamping works.
+    const isNarrow = window.innerWidth < 480
+    const cardW = isNarrow ? Math.min(280, window.innerWidth - 24) : 320
+    const cardH = 320
+    const MARGIN = 8
+    // Prefer placing to the right of the block; fall back to left if it
+    // would overflow.
+    let left = rect.right + 6
+    if (left + cardW > window.innerWidth - MARGIN) {
+      left = rect.left - cardW - 6
+    }
+    // If there's also not enough room on the left, pin to the viewport edge
+    // closest to the block and let the block be overlapped.
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - cardW - MARGIN))
+    // Vertically: try to align the card's top with the block's top, but
+    // clamp so the whole card stays in view.
+    let top = rect.top
+    top = Math.max(MARGIN, Math.min(top, window.innerHeight - cardH - MARGIN))
+    setCardPos({ left, top })
   }, [hovered, mobileSelected])
 
   const isLight = isLightMode
@@ -141,6 +161,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
 
   return (
     <div
+      ref={blockRef}
       role="button"
       tabIndex={0}
       aria-label={activity.description || '(no title)'}
@@ -256,12 +277,14 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
         return (
           <div
             ref={cardRef}
-            className={`ev-preview ${variantClass} ${alignRight ? 'right-0' : 'left-0'}`}
+            className={`ev-preview ${variantClass}`}
             style={{
-              position: 'absolute',
-              top: 0,
+              position: 'fixed',
+              left: cardPos?.left ?? 0,
+              top: cardPos?.top ?? 0,
               width: 320,
               maxWidth: 'calc(100vw - 24px)',
+              visibility: cardPos ? 'visible' : 'hidden',
               ['--ev-bg' as string]: color,
             }}
             onClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose?.(); onClick(activity) }}
@@ -284,7 +307,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
             <div className="evp-head">
               {!isBusy && (
                 <div className="evp-chips">
-                  <span className="evp-chip brand">{sourceShort}</span>
+                  <span className="evp-chip brand" style={{ color: textOnAccent(color) }}>{sourceShort}</span>
                   {isPlanned && <span className="evp-chip planned">Planned</span>}
                   {isCC && <span className="evp-chip cc-only">CC only</span>}
                   {activity.isExternal && <span className="evp-chip">External</span>}

@@ -17,6 +17,12 @@ input, select, textarea { font-family: inherit; }
    The dark tokens apply by default on :root; [data-theme="dark"] is an
    explicit alias so the same CSS works whether the attr is set or not.
 */
+/* Accent color variants — default (rowanberry) is already in :root. */
+:root[data-accent="amber"]  { --app-accent: #E08A2B; --color-primary: #E08A2B; }
+:root[data-accent="moss"]   { --app-accent: #6B8E3D; --color-primary: #6B8E3D; }
+:root[data-accent="teal"]   { --app-accent: #2A8F94; --color-primary: #2A8F94; }
+:root[data-accent="indigo"] { --app-accent: #3F56A6; --color-primary: #3F56A6; }
+
 :root,
 :root[data-theme="dark"] {
   --app-bg:        #13201C;  /* near-black with forest cast */
@@ -97,6 +103,7 @@ input, select, textarea { font-family: inherit; }
   background: var(--app-bg-alt);
   border-bottom: 1px solid var(--app-line);
   min-height: var(--shell-top-h);
+  flex-wrap: wrap;
 }
 .topbar .brand {
   display: flex; align-items: center; gap: 10px;
@@ -1719,11 +1726,21 @@ input, select, textarea { font-family: inherit; }
   }
 }
 
-/* Phone portrait — two-row topbar */
+/* Phone portrait — two-row topbar.
+   The spacer is invisible on row 1, fills the rest of the row, so the
+   hamburger sits flush right on the first row and everything after the
+   spacer wraps to row 2. */
 @media (max-width: 820px) and (orientation: portrait) {
-  .topbar { flex-wrap: wrap !important; row-gap: 4px; padding: 4px 6px; }
-  /* First-row essentials stay on top; everything else drops to second row. */
-  .topbar-spacer { flex-basis: 100% !important; height: 0; }
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 4px max(6px, env(safe-area-inset-left)) 4px max(6px, env(safe-area-inset-right));
+  }
+  .topbar-spacer { flex: 1 1 auto; height: 0; min-width: 0; }
+  /* Force the line break between row 1 and the items that should wrap.
+     Items AFTER the segmented wrap to row 2. */
+  .topbar .segmented { order: 10; }
+  .topbar .topbar-persons { order: 11; flex: 1 1 100%; }
 
   /* Month: stack agenda BELOW the grid. */
   .month-wrap {
@@ -1740,22 +1757,28 @@ input, select, textarea { font-family: inherit; }
   }
 }
 
-/* Phone landscape — keep single row, tighten gaps, make sure controls remain clickable */
+/* Phone landscape — single row, tight gaps, edge-safe padding */
 @media (max-width: 820px) and (orientation: landscape) {
-  .topbar { flex-wrap: nowrap !important; height: 44px !important; min-height: 44px !important; }
+  .topbar {
+    flex-wrap: nowrap;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 max(10px, env(safe-area-inset-left)) 0 max(10px, env(safe-area-inset-right));
+  }
   .topbar .person-chip { height: 22px; font-size: 10px; padding: 0 4px 0 6px; }
 }
 
-/* Landscape tablet/phone: keep a compact side rail for month view (mini-cal + agenda) */
-@media (max-width: 820px) and (orientation: landscape) and (min-width: 600px) {
-  .month-wrap { grid-template-columns: 1fr minmax(200px, 36%) !important; }
-  .month-side { display: flex !important; flex-direction: column; border-left: 1px solid var(--app-line); }
-  /* In landscape-month: LEFT rail is a compact mini-month with DOTS per day; RIGHT is agenda */
-  .month-main { padding: 4px 6px 6px; }
+/* Non-desktop landscape (phone + small tablet): compact side rail with
+   DOTS on the left, agenda on the right. Kicks in for any landscape
+   viewport below the desktop cut-in. */
+@media (max-width: 1279px) and (orientation: landscape) and (max-height: 900px) {
+  .month-wrap { grid-template-columns: 1fr minmax(260px, 38%) !important; grid-template-rows: 1fr !important; }
+  .month-side { display: flex !important; flex-direction: column; border-left: 1px solid var(--app-line); border-top: none !important; max-height: none !important; }
+  .month-main { padding: 4px 6px 6px; min-height: 0; }
   .month-main .month-head { grid-template-columns: repeat(7, 1fr); font-size: 9px; padding: 0 2px 2px; }
   .month-main .month-grid { gap: 1px; }
   .month-main .month-cell {
-    min-height: 44px;
+    min-height: 0;
     padding: 2px 3px;
     display: flex; flex-direction: column; gap: 1px;
   }
@@ -1774,6 +1797,21 @@ input, select, textarea { font-family: inherit; }
     font-size: 8px; color: var(--app-fg-subtle); font-weight: 600;
     line-height: 4px;
   }
+  /* Compact agenda header — single line instead of stacked eyebrow + big dnum */
+  .month-side-hdr { padding: 8px 12px 6px !important; }
+  .month-side-hdr .dow { display: none !important; }
+  .month-side-hdr .dnum { font-size: 14px !important; font-weight: 700; display: flex; align-items: baseline; gap: 8px; margin-top: 0; }
+  .month-side-hdr .dnum > span { font-size: 12px !important; color: var(--app-fg-muted) !important; margin-left: 0 !important; }
+  .month-side-hdr .agenda-open { margin-left: auto; }
+}
+
+/* Mobile portrait — single-line agenda header */
+@media (max-width: 820px) and (orientation: portrait) {
+  .month-side-hdr { padding: 8px 14px 6px !important; display: flex; align-items: center; gap: 8px; }
+  .month-side-hdr .dow { display: none !important; }
+  .month-side-hdr .dnum { font-size: 16px !important; font-weight: 700; display: flex; align-items: baseline; gap: 8px; margin-top: 0; flex: 1; }
+  .month-side-hdr .dnum > span { font-size: 12px !important; color: var(--app-fg-muted) !important; margin-left: 0 !important; }
+  .month-side-hdr .agenda-open { margin-left: auto; }
 }
 
 /* ============ Misc utilities ============ */

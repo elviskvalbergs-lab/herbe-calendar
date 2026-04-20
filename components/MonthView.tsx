@@ -5,6 +5,7 @@ import {
   eachDayOfInterval, isSameMonth, isToday, isSameDay,
 } from 'date-fns'
 import type { Activity } from '@/types'
+import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
 
 interface HolidayData {
   dates: Record<string, { name: string; country: string }[]>
@@ -30,7 +31,7 @@ interface Props {
 
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
-  onSelectDate, onSelectedDayChange, onActivityClick, loading, personCount = 1, dayViewPanel, onNavigateMonth,
+  onSelectDate, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
 }: Props) {
   const selectedDay = date
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
@@ -81,24 +82,27 @@ export default function MonthView({
   // Agenda is visible in every layout now (portrait stacks it below the grid via CSS).
   const showSide = true
 
-  // Dynamic fit — measure cell height to decide how many chips fit
+  // Dynamic fit — measure cell height to decide how many chips fit.
+  // Uses a ResizeObserver so we re-compute whenever the grid's actual
+  // laid-out size changes (initial mount, rotation, split-pane resize,
+  // CSS media query cut-in, etc.).
   useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const chipH = 17
+    const reserve = 22 + 3 + 14 // day-num row + top padding + "+N more" line
     function calc() {
-      if (!gridRef.current) return
-      // 6 rows of cells
-      const rowH = gridRef.current.clientHeight / 6
-      // cell: ~24px day-num row + ~4px padding + ~16px "+N more" reserve + 2px gap per chip
-      // chip row height ≈ 18px (14px line + 4px padding)
-      const chipH = 18
-      const reserve = 24 + 4 + 16
+      if (!el) return
+      const rowH = el.clientHeight / 6
       const available = Math.max(0, rowH - reserve)
       const fit = Math.max(1, Math.floor(available / chipH))
-      setMaxChips(fit)
+      setMaxChips(prev => (prev === fit ? prev : fit))
     }
     calc()
-    window.addEventListener('resize', calc)
-    return () => window.removeEventListener('resize', calc)
-  }, [layout, splitWidth])
+    const ro = new ResizeObserver(calc)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // On non-desktop, restrict to selected person
   const filteredActivities = useMemo(() => {
@@ -163,10 +167,15 @@ export default function MonthView({
   , [activitiesByDate, selectedDay])
 
   function handleCellClick(dateStr: string) {
-    if (showSide) {
-      onSelectedDayChange?.(dateStr)
-    } else {
+    // Portrait: tapping a date goes straight to day view. The agenda below
+    // is a reference for the *currently active* day, not something the user
+    // drills through cell by cell.
+    // Landscape / desktop: the agenda sits beside the grid, so the click
+    // should update the selected day and update the agenda in place.
+    if (layout === 'portrait') {
       onSelectDate(dateStr)
+    } else {
+      onSelectedDayChange?.(dateStr)
     }
   }
 
@@ -280,7 +289,7 @@ export default function MonthView({
                     <div
                       key={act.id}
                       className="mh-chip"
-                      style={{ ['--ev-bg' as string]: color }}
+                      style={{ ['--ev-bg' as string]: color, color: textOnAccent(color) }}
                       onClick={e => { e.stopPropagation(); onActivityClick?.(act) }}
                       onMouseEnter={isDesktop ? e => {
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -344,7 +353,7 @@ export default function MonthView({
             <div className="evp-accent" />
             <div className="evp-head">
               <div className="evp-chips">
-                <span className="evp-chip brand">{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'OUT' : act.source === 'google' ? 'GOO' : (act.icsCalendarName ? 'ICS' : 'EXT')}</span>
+                <span className="evp-chip brand" style={{ color: textOnAccent(color) }}>{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'OUT' : act.source === 'google' ? 'GOO' : (act.icsCalendarName ? 'ICS' : 'EXT')}</span>
                 {act.planned && <span className="evp-chip planned">Planned</span>}
                 {act.isExternal && <span className="evp-chip">External</span>}
                 {act.attendees && act.attendees.length > 0 && <span className="evp-chip">{act.attendees.length} attendees</span>}
@@ -441,20 +450,18 @@ export default function MonthView({
             <header className="month-side-hdr">
               <div className="dow">{format(parseISO(selectedDay), 'EEEE')}</div>
               <div className="dnum">
-                {format(parseISO(selectedDay), 'd')}
-                <span style={{ fontSize: 14, color: 'var(--app-fg-subtle)', fontWeight: 500, marginLeft: 6 }}>
+                <span>{format(parseISO(selectedDay), 'd')}</span>
+                <span>
                   {format(parseISO(selectedDay), 'MMMM yyyy')}
                 </span>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <button
-                  onClick={() => onSelectDate(selectedDay)}
-                  className="btn btn-outline btn-sm"
-                  title="Open day view"
-                >
-                  Open day view
-                </button>
-              </div>
+              <button
+                onClick={() => onSelectDate(selectedDay)}
+                className="btn btn-outline btn-sm agenda-open"
+                title="Open day view"
+              >
+                Open day view
+              </button>
             </header>
             <div className="month-side-body">
               {holidays?.dates?.[selectedDay]?.length ? (
@@ -514,7 +521,7 @@ export default function MonthView({
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="ms-title">{act.description || '(no title)'}</div>
                         <div className="ms-sub">
-                          <span style={{ color, fontWeight: 600 }}>{sourceLabel}</span>
+                          <span style={{ color: readableAccentColor(color, !isLightMode), fontWeight: 600 }}>{sourceLabel}</span>
                           {act.activityTypeCode && <> · {act.activityTypeCode}</>}
                           {act.customerName && <> · {act.customerName}</>}
                           {act.location && <> · {act.location}</>}

@@ -55,7 +55,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   }
 
   return (
-    <header className="topbar shrink-0 flex-wrap">
+    <header className="topbar shrink-0">
       {/* Brand */}
       <div className="brand">
         <span className="brand-b">herbe<span style={{ color: 'var(--app-accent)' }}>.</span></span>
@@ -135,7 +135,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       <div className="sep hidden lg:block" />
 
       {/* Person chips */}
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="topbar-persons flex items-center gap-1 flex-wrap">
         {state.selectedPersons.map((p, i) => {
           const c = personColor(i)
           return (
