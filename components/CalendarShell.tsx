@@ -858,7 +858,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               canEdit: canEditActivity(activity)
             })
           }
-          dayViewPanel={state.selectedPersons.length > 1 ? (
+          dayViewPanel={(
             <CalendarGrid
               state={{ ...state, view: 'day', date: monthSelectedDay }}
               activities={visibleActivities}
@@ -887,7 +887,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               onDrillDate={drillToDate}
               onDrillPerson={drillToPerson}
             />
-          ) : undefined}
+          )}
         />
       ) : (
         <CalendarGrid

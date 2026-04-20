@@ -313,7 +313,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
-        className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[min(80dvh,640px)] max-h-[calc(100dvh-32px)] flex flex-col overflow-hidden"
+        style={{ height: 'min(80dvh, 640px)', maxHeight: 'calc(100dvh - 32px)' }}
+        className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg flex flex-col overflow-hidden"
         onTouchStart={e => {
           // Only track swipe if started near the top (drag handle area, first 60px)
           const rect = e.currentTarget.getBoundingClientRect()

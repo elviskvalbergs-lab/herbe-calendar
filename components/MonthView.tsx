@@ -39,6 +39,9 @@ export default function MonthView({
   const [hoveredEvent, setHoveredEvent] = useState<Activity | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [pickedEvent, setPickedEvent] = useState<{ act: Activity; pos: { x: number; y: number } } | null>(null)
+  // Right-side panel mode: 'agenda' (default) shows the events list,
+  // 'day' shows a full day view of the selected day inline.
+  const [rightSide, setRightSide] = useState<'agenda' | 'day'>('agenda')
   const gridRef = useRef<HTMLDivElement>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [maxChips, setMaxChips] = useState(4)
@@ -386,14 +389,6 @@ export default function MonthView({
             onMouseEnter={isSticky ? undefined : cancelHide}
             onMouseLeave={isSticky ? undefined : scheduleHide}
           >
-            {isSticky && (
-              <button
-                aria-label="Close"
-                onClick={() => setPickedEvent(null)}
-                className="absolute flex items-center justify-center rounded-full text-base font-bold active:brightness-110"
-                style={{ top: 6, right: 6, width: 28, height: 28, background: 'rgba(0,0,0,0.25)', color: 'var(--app-fg)', zIndex: 1 }}
-              >✕</button>
-            )}
             <div className="evp-accent" />
             <div className="evp-head">
               <div className="evp-chips">
@@ -489,9 +484,26 @@ export default function MonthView({
         />
       )}
 
-      {/* Right side: day view panel (multi-person desktop) OR agenda */}
+      {/* Right side: day view panel (Day toggle, or multi-person desktop)
+          OR agenda (default). Toggle swaps the right panel inline; the
+          month grid on the left stays put. */}
       {showSide && (
-        showDayViewPanel ? (
+        rightSide === 'day' && dayViewPanel ? (
+          <aside className="month-side" style={{ overflow: 'hidden' }}>
+            <header className="month-side-hdr">
+              <div className="dow">{format(parseISO(selectedDay), 'EEEE')}</div>
+              <div className="dnum">
+                <span>{format(parseISO(selectedDay), 'd')}</span>
+                <span>{format(parseISO(selectedDay), 'MMMM yyyy')}</span>
+              </div>
+              <div className="segmented agenda-open" title="Switch view">
+                <button aria-pressed={true} disabled>Day</button>
+                <button onClick={() => setRightSide('agenda')} aria-pressed={false}>Agenda</button>
+              </div>
+            </header>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{dayViewPanel}</div>
+          </aside>
+        ) : showDayViewPanel ? (
           <div className="flex-1 min-w-0 overflow-hidden">{dayViewPanel}</div>
         ) : (
           <aside className="month-side">
@@ -505,9 +517,12 @@ export default function MonthView({
               </div>
               <div className="segmented agenda-open" title="Switch view">
                 <button
-                  onClick={() => onSelectDate(selectedDay)}
+                  onClick={() => {
+                    if (dayViewPanel) setRightSide('day')
+                    else onSelectDate(selectedDay)
+                  }}
                   aria-pressed={false}
-                  title="Open day view"
+                  title={dayViewPanel ? 'Show day view in this panel' : 'Open day view'}
                 >Day</button>
                 <button aria-pressed={true} disabled>Agenda</button>
               </div>

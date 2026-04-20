@@ -1811,24 +1811,26 @@ input, select, textarea { font-family: inherit; }
   .topbar .person-chip { padding: 0 4px 0 6px; font-size: 11.5px; }
   .topbar .btn { font-size: 12px; padding: 0 8px; }
 
-  /* Month: explicit 2-row grid — row 1 fixed to month-main's exact
-     pixel height (head + 6×70 grid = 448px), row 2 (agenda) fills the
-     rest of the wrap. Using a px length on row 1 instead of `auto`
-     prevents the row from over-sizing if cell content tries to expand. */
+  /* Month: position children absolutely so layout is bulletproof on
+     iOS Safari (where flex/grid auto-sizing has historically left
+     dead bands). month-main pinned 0–448px, agenda pinned 448px–end. */
   .month-wrap {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    grid-template-rows: 448px minmax(0, 1fr) !important;
+    display: block !important;
+    position: relative !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
     height: 100%;
     min-height: 0;
   }
   .month-main {
+    position: absolute !important;
+    top: 0; left: 0; right: 0;
+    height: 448px;
     display: flex;
     flex-direction: column;
-    min-height: 0;
     overflow: hidden;
   }
-  .month-main .month-head { height: 28px; min-height: 28px; }
+  .month-main .month-head { height: 28px; min-height: 28px; flex: 0 0 28px; }
   .month-main .month-grid {
     flex: 0 0 420px;
     grid-template-rows: repeat(6, 70px);
@@ -1839,6 +1841,8 @@ input, select, textarea { font-family: inherit; }
     padding: 1px 4px;
   }
   .month-side {
+    position: absolute !important;
+    top: 448px; left: 0; right: 0; bottom: 0;
     display: flex;
     flex-direction: column;
     border-left: none !important;
