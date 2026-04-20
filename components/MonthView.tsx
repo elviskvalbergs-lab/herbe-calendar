@@ -36,8 +36,17 @@ export default function MonthView({
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
   const [hoveredEvent, setHoveredEvent] = useState<Activity | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [pickedEvent, setPickedEvent] = useState<{ act: Activity; pos: { x: number; y: number } } | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const [maxChips, setMaxChips] = useState(4)
+
+  // Close picked preview on Esc
+  useEffect(() => {
+    if (!pickedEvent) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPickedEvent(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickedEvent])
   const monthStart = startOfMonth(parseISO(selectedDay))
   const monthEnd = endOfMonth(monthStart)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -298,9 +307,11 @@ export default function MonthView({
         </div>
       </div>
 
-      {/* Hover preview card (desktop only) */}
-      {hoveredEvent && isDesktop && (() => {
-        const act = hoveredEvent
+      {/* Preview card — hover (desktop) or clicked (sticky, any) */}
+      {((hoveredEvent && isDesktop && !pickedEvent) || pickedEvent) && (() => {
+        const isSticky = !!pickedEvent
+        const act = pickedEvent?.act ?? hoveredEvent!
+        const pos = pickedEvent?.pos ?? hoverPos
         const color = getActivityColor(act)
         const sourceLabel = act.source === 'herbe' ? (act.erpConnectionName ? `ERP · ${act.erpConnectionName}` : 'ERP')
           : act.source === 'outlook' ? 'Outlook'
@@ -310,13 +321,21 @@ export default function MonthView({
         const rsvpMap: Record<string, string> = { accepted: 'accepted', tentative: 'tentative', declined: 'declined', pending: 'pending' }
         const cardWidth = 320
         const cardMaxH = 360
-        const left = Math.max(8, Math.min(hoverPos.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - cardWidth - 8))
-        const top = Math.max(8, Math.min(hoverPos.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - cardMaxH - 8))
+        const left = Math.max(8, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - cardWidth - 8))
+        const top = Math.max(8, Math.min(pos.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - cardMaxH - 8))
         return (
+          <>
+            {isSticky && (
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setPickedEvent(null)}
+                aria-hidden
+              />
+            )}
           <div
             className={`ev-preview ${variantClass}`}
-            style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: 'none' }}
-            role="tooltip"
+            style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: isSticky ? 'auto' : 'none', zIndex: 95 }}
+            role={isSticky ? 'dialog' : 'tooltip'}
           >
             <div className="evp-accent" />
             <div className="evp-head">
@@ -382,7 +401,21 @@ export default function MonthView({
                 </div>
               )}
             </div>
+            {isSticky && (
+              <div className="evp-foot">
+                <button
+                  className="btn btn-sm"
+                  onClick={() => setPickedEvent(null)}
+                >Close</button>
+                <div className="spacer" />
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => { setPickedEvent(null); onActivityClick?.(act) }}
+                >Edit</button>
+              </div>
+            )}
           </div>
+          </>
         )
       })()}
 
@@ -452,10 +485,19 @@ export default function MonthView({
                     <div
                       key={act.id}
                       className="ms-event"
-                      onClick={() => onActivityClick?.(act)}
+                      onClick={(e) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setPickedEvent({ act, pos: { x: rect.right + 6, y: rect.top } })
+                      }}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivityClick?.(act) } }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setPickedEvent({ act, pos: { x: rect.right + 6, y: rect.top } })
+                        }
+                      }}
                     >
                       <div className="ms-time">
                         {act.isAllDay ? (

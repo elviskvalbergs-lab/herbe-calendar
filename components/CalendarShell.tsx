@@ -1012,10 +1012,18 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
       {/* FAB — mobile only, hidden when form is open */}
       {!formState.open && (
-        <div className="fixed bottom-5 right-5 z-50 lg:hidden flex items-center shadow-lg rounded-full overflow-hidden">
+        <div
+          className="fixed bottom-5 right-5 z-50 lg:hidden flex items-center overflow-hidden"
+          style={{
+            background: 'var(--app-accent)',
+            borderRadius: 999,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.15)',
+          }}
+        >
           <button
             onClick={toggleZoom}
-            className="bg-primary/80 text-white w-11 h-11 flex items-center justify-center border-r border-white/20"
+            className="w-11 h-11 flex items-center justify-center"
+            style={{ color: '#fff', background: 'rgba(255,255,255,0.10)', borderRight: '1px solid rgba(255,255,255,0.22)' }}
             title={zoom === 1 ? 'Zoom in (2x)' : 'Zoom out (1x)'}
             aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
           >
@@ -1028,7 +1036,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           </button>
           <button
             onClick={() => setFormState({ open: true, initial: { date: state.date } })}
-            className="bg-primary text-white text-xl font-bold w-11 h-11 flex items-center justify-center"
+            className="w-11 h-11 flex items-center justify-center"
+            style={{ color: '#fff', fontSize: 22, fontWeight: 700, lineHeight: 1 }}
             title="New activity"
             aria-label="New activity"
           >

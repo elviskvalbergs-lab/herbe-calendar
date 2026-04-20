@@ -11,6 +11,7 @@ import { useConfirm } from '@/lib/useConfirm'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 
 type Theme = 'dark' | 'light' | 'system'
+type EvStyle = 'solid' | 'tinted' | 'outlined'
 
 function applyTheme(t: Theme) {
   try {
@@ -24,6 +25,43 @@ function applyTheme(t: Theme) {
     } else {
       localStorage.setItem('theme', t)
       document.documentElement.setAttribute('data-theme', t)
+    }
+  } catch {}
+}
+
+function applyEvStyle(s: EvStyle) {
+  try {
+    if (s === 'solid') {
+      document.documentElement.removeAttribute('data-ev-style')
+      localStorage.removeItem('evStyle')
+    } else {
+      document.documentElement.setAttribute('data-ev-style', s)
+      localStorage.setItem('evStyle', s)
+    }
+  } catch {}
+}
+
+// Five brand-adjacent accent choices. Default = rowanberry.
+const ACCENT_CHOICES: { name: string; value: string }[] = [
+  { name: 'Rowanberry', value: '#CD4C38' },
+  { name: 'Amber',      value: '#E08A2B' },
+  { name: 'Moss',       value: '#6B8E3D' },
+  { name: 'Teal',       value: '#2A8F94' },
+  { name: 'Indigo',     value: '#3F56A6' },
+]
+
+function applyAccent(color: string) {
+  try {
+    const root = document.documentElement
+    const isDefault = color === '#CD4C38'
+    if (isDefault) {
+      root.style.removeProperty('--app-accent')
+      root.style.removeProperty('--color-primary')
+      localStorage.removeItem('accent')
+    } else {
+      root.style.setProperty('--app-accent', color)
+      root.style.setProperty('--color-primary', color)
+      localStorage.setItem('accent', color)
     }
   } catch {}
 }
@@ -48,6 +86,8 @@ type Tab = 'style' | 'colors' | 'integrations' | 'templates'
 
 export default function SettingsModal({ classGroups, colorMap, persons, connections, colorOverrides, error, onClose, onColorChange, onColorOverridesChange, azureConfigured, googleConfigured, zoomConfigured }: Props) {
   const [theme, setTheme] = useState<Theme>('system')
+  const [evStyle, setEvStyle] = useState<EvStyle>('solid')
+  const [accent, setAccent] = useState<string>('#CD4C38')
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string; sharing?: string }
   const [customCals, setCustomCals] = useState<CustomCalendar[]>([])
@@ -91,6 +131,10 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
     try {
       const stored = localStorage.getItem('theme')
       setTheme(stored === 'light' ? 'light' : stored === 'dark' ? 'dark' : 'system')
+      const storedStyle = localStorage.getItem('evStyle')
+      setEvStyle(storedStyle === 'tinted' || storedStyle === 'outlined' ? storedStyle : 'solid')
+      const storedAccent = localStorage.getItem('accent')
+      setAccent(storedAccent && /^#[0-9A-F]{6}$/i.test(storedAccent) ? storedAccent : '#CD4C38')
     } catch {}
   }, [])
 
@@ -211,6 +255,16 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   function handleTheme(t: Theme) {
     setTheme(t)
     applyTheme(t)
+  }
+
+  function handleEvStyle(s: EvStyle) {
+    setEvStyle(s)
+    applyEvStyle(s)
+  }
+
+  function handleAccent(c: string) {
+    setAccent(c)
+    applyAccent(c)
   }
 
   async function connectCalendly() {
@@ -373,6 +427,58 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                 </div>
               </div>
 
+              {/* Event style */}
+              <div className="space-y-2">
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Event style</p>
+                <div className="flex rounded-lg overflow-hidden border border-border divide-x divide-border">
+                  {(['solid', 'tinted', 'outlined'] as EvStyle[]).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => handleEvStyle(s)}
+                      className={`flex-1 py-1.5 capitalize text-xs ${evStyle === s ? 'bg-primary text-white' : 'text-text-muted hover:bg-border'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-text-muted">
+                  {evStyle === 'solid' && 'Bold filled blocks — high density legibility.'}
+                  {evStyle === 'tinted' && 'Soft coloured fill with a rail — lighter chrome.'}
+                  {evStyle === 'outlined' && 'Near-transparent, outlined blocks — minimal visual noise.'}
+                </p>
+              </div>
+
+              {/* Accent color */}
+              <div className="space-y-2">
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Accent color</p>
+                <div className="flex gap-2 items-center">
+                  {ACCENT_CHOICES.map(c => {
+                    const isActive = accent.toUpperCase() === c.value.toUpperCase()
+                    return (
+                      <button
+                        key={c.value}
+                        onClick={() => handleAccent(c.value)}
+                        title={c.name}
+                        aria-label={`Accent: ${c.name}`}
+                        aria-pressed={isActive}
+                        className="w-8 h-8 flex items-center justify-center transition-transform active:scale-95"
+                        style={{
+                          background: c.value,
+                          borderRadius: 6,
+                          boxShadow: isActive ? `0 0 0 2px var(--app-bg), 0 0 0 4px ${c.value}` : 'inset 0 0 0 1px rgba(255,255,255,0.12)',
+                        }}
+                      >
+                        {isActive && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-[10px] text-text-muted">Applied to buttons, current-time indicator, active states and the brand dot.</p>
+              </div>
             </>
           )}
 

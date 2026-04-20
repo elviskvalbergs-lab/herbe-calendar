@@ -84,11 +84,6 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         )}
         <button onClick={() => navigate(-1)} className="icon-btn" title="Previous day (←)" aria-label="Previous day">‹</button>
         <button
-          onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
-          className="btn btn-outline btn-sm hidden lg:inline-flex"
-          title="Jump to today (T)"
-        >Today</button>
-        <button
           onClick={() => setMonthNavOpen(true)}
           className="btn btn-ghost"
           title={isMonth ? 'Pick a month' : 'Pick a date'}
