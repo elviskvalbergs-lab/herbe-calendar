@@ -98,6 +98,10 @@ input, select, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--app-line);
   min-height: var(--shell-top-h);
   flex-wrap: wrap;
+  /* Sit above the calendar / agenda so dropdowns (hamburger, favorites)
+     render on top regardless of the grid's stacking contexts. */
+  position: relative;
+  z-index: 40;
 }
 .topbar .brand {
   display: flex; align-items: center; gap: 10px;
@@ -1776,29 +1780,40 @@ input, select, textarea { font-family: inherit; }
   .topbar > .topbar-hamburger { grid-area: ham; margin-left: 0 !important; }
   .topbar > .segmented      { grid-area: segment; justify-self: start; }
   .topbar > .topbar-persons { grid-area: persons; justify-self: start; min-width: 0; }
-  /* Hide non-grid items that are lg-only anyway, plus desktop separators. */
   .topbar > .sep,
   .topbar > .topbar-spacer { display: none !important; }
+  /* Visual breathing room between the top chrome and the content below. */
+  .topbar { margin-bottom: 2px; }
 
-  /* Month: stack agenda BELOW the grid. */
+  /* Month: stack agenda BELOW the grid at a RESERVED height so selecting
+     empty/weekend days doesn't let the agenda collapse and the grid
+     expand. Grid + agenda partition the available space up-front. */
   .month-wrap {
+    display: flex !important;
+    flex-direction: column !important;
     grid-template-columns: 1fr !important;
-    grid-template-rows: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto !important;
     min-height: 100% !important;
+  }
+  .month-main {
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .month-side {
     display: flex !important;
     flex-direction: column;
     border-left: none !important;
     border-top: 1px solid var(--app-line);
-    max-height: 42vh;
+    flex: 0 0 40vh;
+    max-height: 40vh;
   }
 }
 
 /* Phone landscape — single row, tight gaps, edge-safe padding.
    Covers up to the lg: breakpoint so wide iPhones in landscape
    (iPhone Pro Max landscape is 932px — above the old 820 cap) are
-   still forced to a single row. */
+   still forced to a single row. Person chips are shrunk a touch so
+   3+ persons don't push the hamburger off to a new row. */
 @media (max-width: 1023px) and (orientation: landscape) {
   .topbar {
     flex-wrap: nowrap;
@@ -1807,8 +1822,16 @@ input, select, textarea { font-family: inherit; }
     padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
     overflow-x: hidden;
   }
-  .topbar .person-chip { height: 22px; font-size: 10px; padding: 0 4px 0 6px; }
-  .topbar .topbar-persons { flex-wrap: nowrap; overflow: hidden; min-width: 0; }
+  .topbar .person-chip {
+    height: 20px;
+    font-size: 9.5px;
+    padding: 0 3px 0 5px;
+    gap: 4px;
+  }
+  .topbar .person-chip .p-dot { width: 6px; height: 6px; }
+  .topbar .person-chip .x { width: 12px; height: 12px; font-size: 12px; }
+  .topbar .topbar-persons { flex-wrap: nowrap; overflow-x: auto; min-width: 0; gap: 3px; scrollbar-width: none; }
+  .topbar .topbar-persons::-webkit-scrollbar { display: none; }
 }
 
 /* Non-desktop landscape (phone + small tablet): compact side rail with
@@ -1816,8 +1839,9 @@ input, select, textarea { font-family: inherit; }
    viewport below the desktop cut-in. */
 @media (max-width: 1279px) and (orientation: landscape) and (max-height: 900px) {
   .month-wrap { grid-template-columns: 1fr minmax(260px, 38%) !important; grid-template-rows: 1fr !important; }
-  .month-side { display: flex !important; flex-direction: column; border-left: 1px solid var(--app-line); border-top: none !important; max-height: none !important; }
-  .month-main { padding: 4px 6px 6px; min-height: 0; }
+  .month-side { display: flex !important; flex-direction: column; border-left: 1px solid var(--app-line); border-top: none !important; max-height: none !important; flex: none !important; }
+  /* Grid flush to edges — no inset padding in compact landscape. */
+  .month-main { padding: 0; min-height: 0; }
   .month-main .month-head { grid-template-columns: repeat(7, 1fr); font-size: 9px; padding: 0 2px 2px; }
   .month-main .month-grid { gap: 1px; }
   .month-main .month-cell {

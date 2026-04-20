@@ -126,7 +126,10 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
       }
     }
     if (evStyle === 'tinted') {
-      // Lighter fill — 16% colour over the surface, with a 3px rail.
+      // Lighter fill — low alpha over the surface, with a 3px rail.
+      // Text uses the theme's foreground so it reads against both the
+      // theme surface and the tint (using the event colour as text here
+      // fights with the tint of the same colour in the background).
       const fill = isLight ? `${color}1f` : `${color}26`
       const plannedFill = `${color}14`
       return {
@@ -141,10 +144,11 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
           : isPlanned
             ? `3px dashed ${color}`
             : `3px solid ${color}`,
-        color: textColor,
+        color: 'var(--app-fg)',
       }
     }
-    // outlined
+    // outlined — transparent bg, theme foreground text (contrasts against
+    // theme bg regardless of event colour).
     return {
       background: isPlanned
         ? `repeating-linear-gradient(135deg, ${color}1a, ${color}1a 3px, transparent 3px, transparent 6px)`
@@ -159,7 +163,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
         : isPlanned
           ? `3px dashed ${color}`
           : `3px solid ${color}`,
-      color: textColor,
+      color: 'var(--app-fg)',
     }
   })()
 
@@ -209,14 +213,14 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
       {isCompact ? (
-        <div className="px-1 flex items-center gap-0.5 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1, color: textColor }}>
+        <div className="px-1 flex items-center gap-0.5 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
           <p className="text-[9px] font-bold truncate flex-1">
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
           <span className="text-[8px] shrink-0 whitespace-nowrap" style={{ opacity: 0.72 }}>{activity.timeFrom}</span>
         </div>
       ) : (
-        <div className="px-1 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1, color: textColor }}>
+        <div className="px-1 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
           <p className="text-[10px] font-bold truncate">
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
@@ -233,8 +237,9 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
                 const totalShown = mainPips.length + ccPips.length
                 const totalAll = (activity.mainPersons?.length ?? 0) + (activity.ccPersons?.length ?? 0)
                 // Main pip: solid coloured chip, text chosen via textOnAccent.
-                // CC pip: outlined in textColor so it tracks the event's readable
-                // palette regardless of theme / variant.
+                // CC pip: outlined using currentColor so it inherits the
+                // variant-appropriate text colour (event colour in solid,
+                // theme-fg in tinted/outlined).
                 return (
                   <>
                     {mainPips.map(code => (
@@ -243,10 +248,10 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
                     ))}
                     {ccPips.map(code => (
                       <span key={code} className="text-[9px] rounded px-0.5 leading-[14px]"
-                        style={{ border: `1px dashed currentColor`, color: textColor, fontStyle: 'italic', opacity: 0.82 }}>{code}</span>
+                        style={{ border: `1px dashed currentColor`, color: 'currentColor', fontStyle: 'italic', opacity: 0.82 }}>{code}</span>
                     ))}
                     {totalAll > totalShown && (
-                      <span className="text-[9px]" style={{ color: textColor, opacity: 0.7 }}>+{totalAll - totalShown}</span>
+                      <span className="text-[9px]" style={{ opacity: 0.7 }}>+{totalAll - totalShown}</span>
                     )}
                   </>
                 )

@@ -276,7 +276,9 @@ export default function MonthView({
                   )}
                 </div>
 
-                {/* Event chips — dynamic fit (maxChips) */}
+                {/* Event chips — dynamic fit (maxChips).
+                    Click selects the chip's day (updates the agenda);
+                    drilling in happens via the agenda's "Open day view". */}
                 {dayActs.slice(0, maxChips).map(act => {
                   const color = getActivityColor(act)
                   return (
@@ -284,7 +286,10 @@ export default function MonthView({
                       key={act.id}
                       className="mh-chip"
                       style={{ ['--ev-bg' as string]: color, color: textOnAccent(color) }}
-                      onClick={e => { e.stopPropagation(); onActivityClick?.(act) }}
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (act.date) onSelectedDayChange?.(act.date)
+                      }}
                       onMouseEnter={isDesktop ? e => {
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                         setHoverPos({ x: rect.right + 6, y: rect.top })
