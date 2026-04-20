@@ -1845,6 +1845,12 @@ input, select, textarea { font-family: inherit; }
     max-height: none;
     min-height: 0;
   }
+  /* Tighten the agenda header on portrait so it doesn't look like a
+     dead band between the calendar and the events list. */
+  .month-side-hdr { padding: 4px 14px !important; height: 32px !important; }
+  .month-side-hdr .dnum { font-size: 16px !important; }
+  .month-side-hdr .dnum > span:last-child { font-size: 12px !important; }
+  .month-side-body { padding: 4px 14px 8px !important; }
 }
 
 /* Phone landscape — keep date / view / hamburger on row 1 always.
