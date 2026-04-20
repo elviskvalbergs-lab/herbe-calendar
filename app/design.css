@@ -1326,6 +1326,10 @@ input, select, textarea { font-family: inherit; }
   letter-spacing: 0;
 }
 .month-side-hdr .agenda-open { margin-left: auto; flex-shrink: 0; }
+/* The agenda-open segmented toggle — force the internal button sizing
+   so the active pill doesn't overflow its track. */
+.month-side-hdr .segmented.agenda-open { height: 26px; padding: 2px; gap: 1px; }
+.month-side-hdr .segmented.agenda-open button { height: 22px; padding: 0 10px; font-size: 11px; min-width: 40px; }
 .month-side-body { flex: 1; overflow-y: auto; padding: 6px 16px 12px; }
 .ms-event {
   display: flex; gap: 10px;
@@ -1813,13 +1817,15 @@ input, select, textarea { font-family: inherit; }
 
   /* Month: position children absolutely so layout is bulletproof on
      iOS Safari (where flex/grid auto-sizing has historically left
-     dead bands). month-main pinned 0–448px, agenda pinned 448px–end. */
+     dead bands). month-main pinned 0–448px, agenda pinned 448px–end.
+     The wrap has no explicit height — it inherits from its flex slot
+     in the parent (CalendarShell flex-col, h-dvh). */
   .month-wrap {
     display: block !important;
     position: relative !important;
     grid-template-columns: none !important;
     grid-template-rows: none !important;
-    height: 100%;
+    height: auto !important;
     min-height: 0;
   }
   .month-main {
@@ -1830,10 +1836,20 @@ input, select, textarea { font-family: inherit; }
     flex-direction: column;
     overflow: hidden;
   }
-  .month-main .month-head { height: 28px; min-height: 28px; flex: 0 0 28px; }
+  .month-main .month-head {
+    height: 28px;
+    min-height: 28px;
+    flex: 0 0 28px;
+  }
+  .month-main .month-head > div {
+    height: 28px;
+    padding: 0 6px;
+    line-height: 28px;
+  }
   .month-main .month-grid {
     flex: 0 0 420px;
     grid-template-rows: repeat(6, 70px);
+    min-height: 0;
   }
   .month-main .month-cell .mh-chip {
     font-size: 9.5px;
@@ -1972,7 +1988,8 @@ input, select, textarea { font-family: inherit; }
   }
   .month-side-hdr .dnum { font-size: 13px !important; }
   .month-side-hdr .dnum > span:last-child { font-size: 11px !important; }
-  .month-side-hdr .agenda-open { height: 22px; padding: 0 8px; font-size: 11px; }
+  .month-side-hdr .segmented.agenda-open { height: 22px; padding: 1px; }
+  .month-side-hdr .segmented.agenda-open button { height: 18px; padding: 0 8px; font-size: 10.5px; min-width: 32px; }
 }
 
 /* Mobile portrait — single-line agenda header */

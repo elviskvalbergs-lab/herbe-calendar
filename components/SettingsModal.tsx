@@ -409,6 +409,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           id={`panel-${activeTab}`}
           aria-labelledby={`tab-${activeTab}`}
           className="overflow-y-auto flex-1 min-h-0 p-4 space-y-6"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {activeTab === 'style' && (
             <>

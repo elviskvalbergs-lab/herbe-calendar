@@ -489,7 +489,7 @@ export default function MonthView({
           month grid on the left stays put. */}
       {showSide && (
         rightSide === 'day' && dayViewPanel ? (
-          <aside className="month-side" style={{ overflow: 'hidden' }}>
+          <aside className="month-side">
             <header className="month-side-hdr">
               <div className="dow">{format(parseISO(selectedDay), 'EEEE')}</div>
               <div className="dnum">
@@ -497,14 +497,14 @@ export default function MonthView({
                 <span>{format(parseISO(selectedDay), 'MMMM yyyy')}</span>
               </div>
               <div className="segmented agenda-open" title="Switch view">
-                <button aria-pressed={true} disabled>Day</button>
+                <button aria-pressed={true}>1D</button>
                 <button onClick={() => setRightSide('agenda')} aria-pressed={false}>Agenda</button>
               </div>
             </header>
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{dayViewPanel}</div>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {dayViewPanel}
+            </div>
           </aside>
-        ) : showDayViewPanel ? (
-          <div className="flex-1 min-w-0 overflow-hidden">{dayViewPanel}</div>
         ) : (
           <aside className="month-side">
             <header className="month-side-hdr">
@@ -523,8 +523,8 @@ export default function MonthView({
                   }}
                   aria-pressed={false}
                   title={dayViewPanel ? 'Show day view in this panel' : 'Open day view'}
-                >Day</button>
-                <button aria-pressed={true} disabled>Agenda</button>
+                >1D</button>
+                <button aria-pressed={true}>Agenda</button>
               </div>
             </header>
             <div className="month-side-body">
