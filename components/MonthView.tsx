@@ -2,10 +2,9 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  eachDayOfInterval, isSameMonth, isToday, isSameDay, getISOWeek,
+  eachDayOfInterval, isSameMonth, isToday, isSameDay,
 } from 'date-fns'
 import type { Activity } from '@/types'
-import { readableAccentColor } from '@/lib/activityColors'
 
 interface HolidayData {
   dates: Record<string, { name: string; country: string }[]>
@@ -14,7 +13,7 @@ interface HolidayData {
 
 interface Props {
   activities: Activity[]
-  date: string // first of month (YYYY-MM-DD)
+  date: string
   holidays: HolidayData
   personCode: string
   getActivityColor: (activity: Activity) => string
@@ -31,25 +30,26 @@ interface Props {
 
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
-  onSelectDate, onSelectWeek, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
+  onSelectDate, onSelectedDayChange, onActivityClick, loading, personCount = 1, dayViewPanel, onNavigateMonth,
 }: Props) {
-  // date prop IS the selected day; derive month from it
   const selectedDay = date
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
   const [hoveredEvent, setHoveredEvent] = useState<Activity | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  const swipeRef = useRef<{ x: number; y: number } | null>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [maxChips, setMaxChips] = useState(4)
   const monthStart = startOfMonth(parseISO(selectedDay))
   const monthEnd = endOfMonth(monthStart)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd })
 
-  // Layout mode: portrait (mobile), landscape (mobile), desktop
+  // Layout mode: portrait (narrow), landscape (short wide), desktop (full)
   const [layout, setLayout] = useState<'portrait' | 'landscape' | 'desktop'>('portrait')
   const [splitWidth, setSplitWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return 600
     const saved = localStorage.getItem('monthViewSplitWidth')
-    return saved ? Number(saved) : Math.round(window.innerWidth * 0.5)
+    return saved ? Number(saved) : Math.round(window.innerWidth * 0.58)
   })
   const isDraggingRef = useRef(false)
   const latestWidthRef = useRef(splitWidth)
@@ -58,11 +58,8 @@ export default function MonthView({
     function check() {
       const w = window.innerWidth
       const h = window.innerHeight
-      const isWide = w > h
-      // Desktop: wide screen AND tall enough (not a phone in landscape)
-      // Phone landscape typically has height < 500px
       if (w >= 768 && h >= 500) setLayout('desktop')
-      else if (isWide) setLayout('landscape')
+      else if (w > h) setLayout('landscape')
       else setLayout('portrait')
     }
     check()
@@ -71,16 +68,36 @@ export default function MonthView({
     return () => { window.removeEventListener('resize', check); window.removeEventListener('orientationchange', check) }
   }, [])
 
-  const isSplit = layout === 'landscape' || layout === 'desktop'
   const isDesktop = layout === 'desktop'
+  // Agenda is visible in every layout now (portrait stacks it below the grid via CSS).
+  const showSide = true
 
-  // On mobile, filter to user's own person code only
+  // Dynamic fit — measure cell height to decide how many chips fit
+  useEffect(() => {
+    function calc() {
+      if (!gridRef.current) return
+      // 6 rows of cells
+      const rowH = gridRef.current.clientHeight / 6
+      // cell: ~24px day-num row + ~4px padding + ~16px "+N more" reserve + 2px gap per chip
+      // chip row height ≈ 18px (14px line + 4px padding)
+      const chipH = 18
+      const reserve = 24 + 4 + 16
+      const available = Math.max(0, rowH - reserve)
+      const fit = Math.max(1, Math.floor(available / chipH))
+      setMaxChips(fit)
+    }
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [layout, splitWidth])
+
+  // On non-desktop, restrict to selected person
   const filteredActivities = useMemo(() => {
-    if (isDesktop) return activities // Desktop shows all persons
+    if (isDesktop) return activities
     return activities.filter(a => !a.personCode || a.personCode === personCode)
   }, [activities, isDesktop, personCode])
 
-  // Group activities by date (deduplicated by id)
+  // Activities by date (deduped)
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, Activity[]>()
     const seen = new Set<string>()
@@ -93,13 +110,20 @@ export default function MonthView({
       existing.push(a)
       map.set(a.date, existing)
     }
+    // Sort each day: all-day first, then by start time
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        if (a.isAllDay && !b.isAllDay) return -1
+        if (!a.isAllDay && b.isAllDay) return 1
+        return (a.timeFrom ?? '').localeCompare(b.timeFrom ?? '')
+      })
+    }
     return map
   }, [filteredActivities])
 
-  // Detect multi-day events: group consecutive all-day events with same base description
+  // Multi-day event detection (ERP all-day split across days)
   const multiDaySpans = useMemo(() => {
-    const spans: { description: string; color: string; startDate: string; endDate: string; id: string }[] = []
-    // Strip day counters like "(day 1/5)", " - Day 2 of 3", " (1/3)" from descriptions
+    const spans = new Map<string, string>() // date -> color
     function normalizeDesc(desc: string): string {
       return desc
         .replace(/\s*\(day \d+\/\d+\)/i, '')
@@ -107,434 +131,358 @@ export default function MonthView({
         .replace(/\s*\(\d+\/\d+\)/, '')
         .trim()
     }
-    const allDayByKey = new Map<string, { dates: string[]; desc: string }>()
+    const byKey = new Map<string, Activity[]>()
     for (const a of filteredActivities) {
       if (!a.isAllDay || !a.date) continue
       const key = normalizeDesc(a.description ?? '')
       if (!key) continue
-      const entry = allDayByKey.get(key) ?? { dates: [], desc: a.description ?? '' }
-      if (!entry.dates.includes(a.date)) entry.dates.push(a.date)
-      allDayByKey.set(key, entry)
+      const list = byKey.get(key) ?? []
+      list.push(a)
+      byKey.set(key, list)
     }
-    for (const [key, { dates, desc }] of allDayByKey) {
-      if (dates.length < 2) continue
-      dates.sort()
-      const act = activities.find(a => a.isAllDay && normalizeDesc(a.description ?? '') === key)
-      if (!act) continue
-      spans.push({ description: key, color: getActivityColor(act), startDate: dates[0], endDate: dates[dates.length - 1], id: act.id })
+    for (const list of byKey.values()) {
+      if (list.length < 2) continue
+      const color = getActivityColor(list[0])
+      for (const a of list) spans.set(a.date, color)
     }
     return spans
-  }, [activities, getActivityColor])
+  }, [filteredActivities, getActivityColor])
 
-  // Set of normalized descriptions that are shown as multi-day spans (exclude from per-day lists)
-  const multiDayDescSet = useMemo(() => {
-    return new Set(multiDaySpans.map(s => s.description))
-  }, [multiDaySpans])
+  // Selected day's events
+  const selectedDayEvents = useMemo(() =>
+    activitiesByDate.get(selectedDay) ?? []
+  , [activitiesByDate, selectedDay])
 
-  // Helper to check if an all-day activity is part of a multi-day span
-  function isInMultiDaySpan(act: Activity): boolean {
-    if (!act.isAllDay) return false
-    const normalized = (act.description ?? '')
-      .replace(/\s*\(day \d+\/\d+\)/i, '')
-      .replace(/\s*-?\s*day \d+\s*(of|\/)\s*\d+/i, '')
-      .replace(/\s*\(\d+\/\d+\)/, '')
-      .trim()
-    return multiDayDescSet.has(normalized)
-  }
-
-
-  // Build weeks
-  const weeks: Date[][] = []
-  for (let i = 0; i < allDays.length; i += 7) {
-    weeks.push(allDays.slice(i, i + 7))
-  }
-  const weekCount = weeks.length
-
-  // Measure grid to calc max events dynamically (all modes with pills)
-  const gridRef = useRef<HTMLDivElement>(null)
-  const [maxEvents, setMaxEvents] = useState(3)
-  useEffect(() => {
-    function calc() {
-      if (!gridRef.current) return
-      const rowHeight = gridRef.current.clientHeight / weekCount
-      const available = rowHeight - 20 - 12 // day number row + "+N" line
-      setMaxEvents(Math.max(1, Math.floor(available / 16)))
-    }
-    calc()
-    window.addEventListener('resize', calc)
-    return () => window.removeEventListener('resize', calc)
-  }, [weekCount, layout])
-
-  // Selected day's activities for landscape agenda
-  const selectedDayActivities = useMemo(() => {
-    const acts = activitiesByDate.get(selectedDay) ?? []
-    const allDay = acts.filter(a => a.isAllDay)
-    const timed = acts.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
-    return [...allDay, ...timed]
-  }, [activitiesByDate, selectedDay])
-
-  function handleDayClick(dateStr: string) {
-    if (isSplit) {
-      // Split modes: select the day (update header + agenda)
+  function handleCellClick(dateStr: string) {
+    if (showSide) {
       onSelectedDayChange?.(dateStr)
     } else {
-      // Portrait: click goes directly to day view
       onSelectDate(dateStr)
     }
   }
 
-  // Compact month grid (shared by both modes, landscape version is smaller)
-  function renderMonthGrid(compact: boolean) {
-    return (
+  function handleResizeStart(e: React.PointerEvent) {
+    if (!isDesktop) return
+    e.preventDefault()
+    isDraggingRef.current = true
+    const startX = e.clientX
+    const startWidth = splitWidth
+    function onMove(me: PointerEvent) {
+      if (!isDraggingRef.current) return
+      const newWidth = Math.max(280, Math.min(window.innerWidth - 300, startWidth + (me.clientX - startX)))
+      latestWidthRef.current = newWidth
+      setSplitWidth(newWidth)
+    }
+    function onUp() {
+      isDraggingRef.current = false
+      try { localStorage.setItem('monthViewSplitWidth', String(latestWidthRef.current)) } catch {}
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  // Detect per-person day view mode (desktop, multiple people — shows day view on the side instead of agenda)
+  const showDayViewPanel = isDesktop && personCount > 1 && !!dayViewPanel
+
+  const wrapStyle: React.CSSProperties = { background: 'var(--app-bg)' }
+  if (isDesktop) {
+    wrapStyle.gridTemplateColumns = `${splitWidth}px 4px 1fr`
+  }
+
+  return (
+    <div
+      className={`month-wrap flex-1 overflow-hidden relative${showDayViewPanel ? '' : ''}`}
+      style={wrapStyle}
+    >
+      {loading && (
+        <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden" style={{ gridColumn: '1 / -1' }}>
+          <div className="h-full" style={{ width: '30%', background: 'var(--app-accent)', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+          <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
+        </div>
+      )}
+
+      {/* Main grid */}
       <div
-        className={`flex flex-col ${compact ? 'h-full' : 'flex-1'} overflow-hidden`}
+        className="month-main min-w-0"
         onTouchStart={e => { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
           if (!swipeRef.current) return
           const dx = e.changedTouches[0].clientX - swipeRef.current.x
           const dy = e.changedTouches[0].clientY - swipeRef.current.y
           swipeRef.current = null
-          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
-            onNavigateMonth?.(dx < 0 ? 1 : -1)
-          }
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) onNavigateMonth?.(dx < 0 ? 1 : -1)
         }}
       >
-        {/* Day headers — subtle, same style as week numbers */}
-        <div className="grid grid-cols-7 shrink-0">
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-            <div key={i} className="text-center text-[9px] text-text-muted/30 font-medium py-0.5">{d}</div>
-          ))}
+        <div className="month-head">
+          {['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d => <div key={d}>{d}</div>)}
         </div>
+        <div ref={gridRef} className="month-grid">
+          {allDays.map(d => {
+            const ds = format(d, 'yyyy-MM-dd')
+            const inMonth = isSameMonth(d, monthStart)
+            const isSel = isSameDay(d, parseISO(selectedDay))
+            const today = isToday(d)
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6
+            const dateHolidays = holidays?.dates?.[ds]
+            const isHoliday = dateHolidays && dateHolidays.length > 0
+            const dayActs = activitiesByDate.get(ds) ?? []
+            const spanColor = multiDaySpans.get(ds)
 
-        {/* Grid */}
-        <div ref={compact ? undefined : gridRef} className="flex-1 grid" style={{ gridTemplateRows: `repeat(${weekCount}, 1fr)` }}>
-          {weeks.map((week, wi) => {
-            const weekNum = getISOWeek(week[0])
-            const monday = format(week[0], 'yyyy-MM-dd')
+            const cellClasses = [
+              'month-cell',
+              !inMonth && 'other',
+              isSel && 'sel',
+              isWeekend && 'weekend',
+              isHoliday && 'holiday',
+            ].filter(Boolean).join(' ')
+
             return (
-              <div key={wi} className="border-b border-border/30 min-h-0 overflow-hidden flex flex-col">
-                {/* Day numbers row */}
-                <div className="grid grid-cols-7 shrink-0">
-                  {week.map((d) => {
-                    const ds = format(d, 'yyyy-MM-dd')
-                    const inM = isSameMonth(d, monthStart)
-                    const isSel = selectedDay === ds
-                    return (
-                      <div key={ds} className="px-1 pt-0.5 text-center cursor-pointer" onClick={() => handleDayClick(ds)}>
-                        <span className={`text-xs font-bold leading-tight px-1 rounded ${
-                          isToday(d) && isSel ? 'bg-primary text-white'
-                          : isToday(d) ? 'bg-primary/20 text-primary'
-                          : isSel ? 'bg-text text-bg'
-                          : !inM ? 'text-text-muted/40' : 'text-text'
-                        }`}>{format(d, 'd')}</span>
-                      </div>
-                    )
-                  })}
+              <div
+                key={ds}
+                role="button"
+                tabIndex={0}
+                className={cellClasses}
+                style={spanColor ? { borderTop: `1px solid ${spanColor}` } : undefined}
+                onClick={() => handleCellClick(ds)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && e.shiftKey) { e.preventDefault(); onSelectDate(ds) }
+                  else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCellClick(ds) }
+                }}
+              >
+                <div className="mh-top">
+                  <span className={`mh-num ${today ? 'today' : ''}`}>{format(d, 'd')}</span>
+                  {isHoliday && dateHolidays && (
+                    <span className="mh-holiday" title={dateHolidays.map(h => h.name).join(', ')}>
+                      {dateHolidays[0].name}
+                    </span>
+                  )}
                 </div>
-                {/* Day cell contents (events) */}
-                <div className="grid grid-cols-7 flex-1 min-h-0">
-                {week.map((day) => {
-                  const dateStr = format(day, 'yyyy-MM-dd')
-                  const inMonth = isSameMonth(day, monthStart)
-                  const dayActivities = activitiesByDate.get(dateStr) ?? []
-                  const isWeekend = day.getDay() === 0 || day.getDay() === 6
-                  const dateHolidays = holidays?.dates?.[dateStr]
-                  const isHoliday = dateHolidays && dateHolidays.length > 0
-                  const isSelected = selectedDay === dateStr
 
-                  // Sort: all-day first, then by time
-                  const allDay = dayActivities.filter(a => a.isAllDay)
-                  const timed = dayActivities.filter(a => !a.isAllDay).sort((a, b) => (a.timeFrom ?? '').localeCompare(b.timeFrom ?? ''))
-                  const sorted = [...allDay, ...timed]
-
-                  if (compact) {
-                    // Landscape compact: dots for all events + multi-day connector line at top
-                    const compactMultiDay = dayActivities.find(a => isInMultiDaySpan(a))
-                    const compactBorder = compactMultiDay ? `1px solid ${getActivityColor(compactMultiDay)}` : undefined
-                    const dotColors = dayActivities.map(a => getActivityColor(a)).slice(0, 8)
-                    return (
-                      <button
-                        key={dateStr}
-                        onClick={() => handleDayClick(dateStr)}
-                        className={`flex flex-col items-center justify-start gap-px py-0.5 border-r border-border/20 last:border-r-0 transition-colors ${
-                          isSelected ? 'bg-primary/15' :
-                          !inMonth ? 'opacity-30' :
-                          isHoliday ? 'bg-red-500/5' :
-                          isWeekend ? 'bg-border/10' :
-                          'hover:bg-border/10'
-                        }`}
-                        style={compactBorder ? { borderTop: compactBorder } : undefined}
-                      >
-                        {/* Source color dots */}
-                        {dotColors.length > 0 && (
-                          <div className="flex flex-wrap justify-center gap-px">
-                            {dotColors.map((color, i) => (
-                              <span key={i} className="w-1 h-1 rounded-full" style={{ background: color }} />
-                            ))}
-                          </div>
-                        )}
-                      </button>
-                    )
-                  }
-
-                  // Portrait: full cells with event pills
-                  const visible = sorted.slice(0, maxEvents)
-                  const moreCount = sorted.length - visible.length
-                  // Multi-day connector line (top border)
-                  const multiDayAct = dayActivities.find(a => isInMultiDaySpan(a))
-                  const multiDayBorder = multiDayAct ? `1px solid ${getActivityColor(multiDayAct)}` : undefined
-
+                {/* Event chips — dynamic fit (maxChips) */}
+                {dayActs.slice(0, maxChips).map(act => {
+                  const color = getActivityColor(act)
                   return (
                     <div
-                      key={dateStr}
-                      role="button"
-                      tabIndex={0}
-                      className={`border-r border-border/20 last:border-r-0 flex flex-col min-h-0 overflow-hidden cursor-pointer hover:bg-border/10 transition-colors ${
-                        !inMonth ? 'opacity-30' :
-                        isHoliday ? 'bg-red-500/5' :
-                        isWeekend ? 'bg-border/10' : ''
-                      }`}
-                      style={multiDayBorder ? { borderTop: multiDayBorder } : undefined}
-                      onClick={() => handleDayClick(dateStr)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          handleDayClick(dateStr)
-                        }
-                      }}
+                      key={act.id}
+                      className="mh-chip"
+                      style={{ ['--ev-bg' as string]: color }}
+                      onClick={e => { e.stopPropagation(); onActivityClick?.(act) }}
+                      onMouseEnter={isDesktop ? e => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setHoverPos({ x: rect.right + 6, y: rect.top })
+                        setHoveredEvent(act)
+                      } : undefined}
+                      onMouseLeave={isDesktop ? () => setHoveredEvent(null) : undefined}
+                      title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
                     >
-
-                      {/* Event pills */}
-                      <div className="flex-1 min-h-0 overflow-hidden px-0.5 pb-0.5">
-                        {isHoliday && (
-                          <div
-                            className="text-[8px] font-bold truncate rounded px-1 py-px mb-px"
-                            style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
-                            title={dateHolidays.map(h => h.name).join(', ')}
-                          >
-                            {dateHolidays[0].name}
-                          </div>
-                        )}
-                        {visible.map(act => {
-                          const color = getActivityColor(act)
-                          return (
-                            <div
-                              key={act.id}
-                              role="button"
-                              tabIndex={isDesktop ? 0 : -1}
-                              className="w-full mb-px cursor-pointer hover:brightness-125 rounded px-1 py-px truncate text-[9px] font-medium"
-                              style={{ background: color + '20', color: readableAccentColor(color, !isLightMode) }}
-                              onMouseEnter={isDesktop ? (e) => {
-                                const rect = e.currentTarget.getBoundingClientRect()
-                                setHoverPos({ x: rect.right + 4, y: rect.top })
-                                setHoveredEvent(act)
-                              } : undefined}
-                              onMouseLeave={isDesktop ? () => setHoveredEvent(null) : undefined}
-                              onClick={isDesktop ? (e: React.MouseEvent) => { e.stopPropagation(); onActivityClick?.(act) } : undefined}
-                              onKeyDown={isDesktop ? (e: React.KeyboardEvent) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  onActivityClick?.(act)
-                                }
-                              } : undefined}
-                              title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
-                            >
-                              {act.description}
-                            </div>
-                          )
-                        })}
-                        {moreCount > 0 && (
-                          <div className="text-[8px] text-text-muted/50 px-1 font-medium">+{moreCount}</div>
-                        )}
-                      </div>
+                      {act.isAllDay ? '' : `${act.timeFrom} `}{act.description || '(no title)'}
                     </div>
                   )
                 })}
+                {dayActs.length > maxChips && (
+                  <div className="mh-more">+{dayActs.length - maxChips} more</div>
+                )}
+
+                {/* Dots row (visible only in compact landscape via CSS) */}
+                <div className="dots-row">
+                  {dayActs.slice(0, 6).map(act => (
+                    <span key={act.id} className="dot" style={{ background: getActivityColor(act) }} />
+                  ))}
+                  {dayActs.length > 6 && <span className="dot-more">+{dayActs.length - 6}</span>}
                 </div>
               </div>
             )
           })}
         </div>
       </div>
-    )
-  }
 
-  // Split view — month grid left + day agenda right
-  if (isSplit) {
-    const selectedDateHolidays = holidays?.dates?.[selectedDay]
-    const leftWidth = isDesktop ? splitWidth : 280
-
-    function handleResizeStart(e: React.PointerEvent) {
-      if (!isDesktop) return
-      e.preventDefault()
-      isDraggingRef.current = true
-      const startX = e.clientX
-      const startWidth = splitWidth
-      function onMove(me: PointerEvent) {
-        if (!isDraggingRef.current) return
-        const newWidth = Math.max(280, Math.min(window.innerWidth - 300, startWidth + (me.clientX - startX)))
-        latestWidthRef.current = newWidth
-        setSplitWidth(newWidth)
-      }
-      function onUp() {
-        isDraggingRef.current = false
-        localStorage.setItem('monthViewSplitWidth', String(latestWidthRef.current))
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-      }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
-    }
-
-    return (
-      <div className="flex-1 flex overflow-hidden bg-bg relative">
-        <div aria-live="polite" aria-busy={loading}>
-          {loading && (
-            <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
-              <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
-              <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
-            </div>
-          )}
-        </div>
-        {/* Left: month grid — desktop uses pills, mobile landscape uses compact dots */}
-        <div className="shrink-0 border-r border-border flex flex-col" style={{ width: leftWidth }}>
-          {renderMonthGrid(!isDesktop)}
-        </div>
-
-        {/* Resize handle (desktop only) */}
-        {isDesktop && (
+      {/* Hover preview card (desktop only) */}
+      {hoveredEvent && isDesktop && (() => {
+        const act = hoveredEvent
+        const color = getActivityColor(act)
+        const sourceLabel = act.source === 'herbe' ? (act.erpConnectionName ? `ERP · ${act.erpConnectionName}` : 'ERP')
+          : act.source === 'outlook' ? 'Outlook'
+          : act.source === 'google' ? (act.googleCalendarName ?? 'Google')
+          : act.icsCalendarName ?? ''
+        const variantClass = act.planned ? 'planned' : ''
+        const rsvpMap: Record<string, string> = { accepted: 'accepted', tentative: 'tentative', declined: 'declined', pending: 'pending' }
+        const cardWidth = 320
+        const cardMaxH = 360
+        const left = Math.max(8, Math.min(hoverPos.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - cardWidth - 8))
+        const top = Math.max(8, Math.min(hoverPos.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - cardMaxH - 8))
+        return (
           <div
-            className="w-1 shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors"
-            onPointerDown={handleResizeStart}
-          />
-        )}
-
-        {/* Right: day view (multi-person) or agenda (single person) */}
-        {isDesktop && dayViewPanel ? (
-          <div className="flex-1 overflow-hidden">{dayViewPanel}</div>
-        ) : (
-        <div className="flex-1 overflow-y-auto px-4 py-3">
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-bold text-text">
-              {format(parseISO(selectedDay), 'EEEE, d MMMM yyyy')}
-            </h2>
-            <button
-              onClick={() => onSelectDate(selectedDay)}
-              className="text-[10px] text-primary hover:underline font-medium"
-            >
-              Open day view
-            </button>
-          </div>
-
-          {selectedDateHolidays && selectedDateHolidays.length > 0 && (
-            <div className="text-xs text-red-400 font-bold mb-2">
-              {selectedDateHolidays.map(h => h.name).join(', ')}
+            className={`ev-preview ${variantClass}`}
+            style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: 'none' }}
+            role="tooltip"
+          >
+            <div className="evp-accent" />
+            <div className="evp-head">
+              <div className="evp-chips">
+                <span className="evp-chip brand">{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'OUT' : act.source === 'google' ? 'GOO' : (act.icsCalendarName ? 'ICS' : 'EXT')}</span>
+                {act.planned && <span className="evp-chip planned">Planned</span>}
+                {act.isExternal && <span className="evp-chip">External</span>}
+                {act.attendees && act.attendees.length > 0 && <span className="evp-chip">{act.attendees.length} attendees</span>}
+              </div>
+              <div className="evp-title">{act.description || '(no title)'}</div>
+              <div className="evp-when">
+                {act.isAllDay ? 'All day' : `${act.timeFrom} – ${act.timeTo}`}
+                {act.date && <> · {format(parseISO(act.date), 'EEE d MMM')}</>}
+              </div>
             </div>
-          )}
+            <div className="evp-body">
+              {act.activityTypeCode && (
+                <div className="evp-row">
+                  <span className="k">Type</span>
+                  <span className="v">{act.activityTypeCode}{act.activityTypeName ? ` · ${act.activityTypeName}` : ''}</span>
+                </div>
+              )}
+              {act.customerName && (
+                <div className="evp-row">
+                  <span className="k">Customer</span>
+                  <span className="v">{act.customerName}</span>
+                </div>
+              )}
+              {act.projectName && (
+                <div className="evp-row">
+                  <span className="k">Project</span>
+                  <span className="v">{act.projectName}</span>
+                </div>
+              )}
+              {act.location && (
+                <div className="evp-row">
+                  <span className="k">Location</span>
+                  <span className="v">{act.location}</span>
+                </div>
+              )}
+              {sourceLabel && (
+                <div className="evp-row">
+                  <span className="k">Calendar</span>
+                  <span className="v">{sourceLabel}</span>
+                </div>
+              )}
+              {act.attendees && act.attendees.length > 0 && (
+                <div className="evp-attendees">
+                  {act.attendees.slice(0, 5).map((att, i) => {
+                    const initials = (att.name ?? att.email).split(/[\s@.]/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+                    const rsvp = att.responseStatus && rsvpMap[att.responseStatus as string]
+                    return (
+                      <div key={`${att.email}-${i}`} className="evp-att">
+                        <span className="evp-avatar" style={{ background: color }}>{initials || '?'}</span>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name ?? att.email}</span>
+                        {rsvp && <span className={`evp-rsvp ${rsvp}`}>{rsvp}</span>}
+                      </div>
+                    )
+                  })}
+                  {act.attendees.length > 5 && (
+                    <div style={{ fontSize: 10.5, color: 'var(--app-fg-subtle)', paddingLeft: 24 }}>+{act.attendees.length - 5} more</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
-          {selectedDayActivities.length === 0 ? (
-            <p className="text-sm text-text-muted">No events</p>
-          ) : (
-            <div className="space-y-1">
-              {selectedDayActivities.map(act => {
-                const color = getActivityColor(act)
-                return (
-                  <div
-                    key={act.id}
-                    className="flex items-start gap-3 py-2 border-b border-border/30 cursor-pointer hover:bg-border/10 rounded transition-colors"
-                    onClick={() => onActivityClick?.(act)}
-                  >
-                    <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
-                    <div className="flex-1 min-w-0">
-                      {/* Row 1: title + time */}
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-bold truncate" style={{ color: readableAccentColor(color, !isLightMode) }}>{act.description || '(no title)'}</span>
-                        <span className="text-[10px] text-text-muted shrink-0">
-                          {act.isAllDay ? 'all-day' : `${act.timeFrom}–${act.timeTo}`}
-                        </span>
-                        {act.planned && <span className="text-amber-500 text-[9px] shrink-0">(planned)</span>}
-                      </div>
-                      {/* Row 2: details inline */}
-                      <div className="text-[10px] text-text-muted truncate">
-                        {[
-                          act.activityTypeCode && (act.activityTypeName ? `${act.activityTypeCode} ${act.activityTypeName}` : act.activityTypeCode),
-                          act.customerName,
-                          act.projectName,
-                          act.location,
-                        ].filter(Boolean).join(' · ')}
-                      </div>
-                      {/* Row 3: source + calendar + join link */}
-                      <div className="flex items-center gap-2 text-[10px] text-text-muted/60">
-                        <span>{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'Outlook' : 'Google'}</span>
-                        {act.icsCalendarName && <span className="truncate">{act.icsCalendarName}</span>}
-                        {act.googleCalendarName && <span className="truncate">{act.googleCalendarName}</span>}
-                        {act.attendees && act.attendees.length > 0 && (
-                          <span>{act.attendees.length} attendee{act.attendees.length !== 1 ? 's' : ''}</span>
+      {/* Resize handle (desktop only, when sidebar is visible) */}
+      {isDesktop && showSide && (
+        <div
+          className="w-1 shrink-0 cursor-col-resize transition-colors"
+          style={{ background: 'var(--app-line)' }}
+          onPointerDown={handleResizeStart}
+        />
+      )}
+
+      {/* Right side: day view panel (multi-person desktop) OR agenda */}
+      {showSide && (
+        showDayViewPanel ? (
+          <div className="flex-1 min-w-0 overflow-hidden">{dayViewPanel}</div>
+        ) : (
+          <aside className="month-side">
+            <header className="month-side-hdr">
+              <div className="dow">{format(parseISO(selectedDay), 'EEEE')}</div>
+              <div className="dnum">
+                {format(parseISO(selectedDay), 'd')}
+                <span style={{ fontSize: 14, color: 'var(--app-fg-subtle)', fontWeight: 500, marginLeft: 6 }}>
+                  {format(parseISO(selectedDay), 'MMMM yyyy')}
+                </span>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={() => onSelectDate(selectedDay)}
+                  className="btn btn-outline btn-sm"
+                  title="Open day view"
+                >
+                  Open day view
+                </button>
+              </div>
+            </header>
+            <div className="month-side-body">
+              {holidays?.dates?.[selectedDay]?.length ? (
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: 'var(--app-accent)',
+                    padding: '4px 0 10px',
+                    borderBottom: '1px solid var(--app-line)',
+                    marginBottom: 6,
+                  }}
+                >
+                  {holidays.dates[selectedDay].map(h => h.name).join(' · ')}
+                </div>
+              ) : null}
+
+              {selectedDayEvents.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--app-fg-subtle)', fontSize: 12 }}>
+                  Nothing scheduled
+                </div>
+              ) : (
+                selectedDayEvents.map(act => {
+                  const color = getActivityColor(act)
+                  const sourceLabel = act.source === 'herbe' ? 'ERP'
+                    : act.source === 'outlook' ? 'OUT'
+                    : act.source === 'google' ? 'GOO'
+                    : act.source?.toUpperCase() ?? ''
+                  return (
+                    <div
+                      key={act.id}
+                      className="ms-event"
+                      onClick={() => onActivityClick?.(act)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivityClick?.(act) } }}
+                    >
+                      <div className="ms-time">
+                        {act.isAllDay ? (
+                          <span>all<br/>day</span>
+                        ) : (
+                          <>{act.timeFrom}<br/>{act.timeTo}</>
                         )}
-                        {act.joinUrl && (
-                          <a
-                            href={act.joinUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="text-[10px] font-bold shrink-0"
-                            style={{ color: act.videoProvider === 'meet' ? '#1a73e8' : act.videoProvider === 'teams' ? '#464EB8' : act.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb' }}
-                          >
-                            {act.videoProvider === 'meet' ? 'Meet'
-                              : act.videoProvider === 'teams' ? 'Teams'
-                              : act.videoProvider === 'zoom' ? 'Zoom'
-                              : 'Join'}
-                          </a>
-                        )}
+                      </div>
+                      <div className="ms-bar" style={{ background: color }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="ms-title">{act.description || '(no title)'}</div>
+                        <div className="ms-sub">
+                          <span style={{ color, fontWeight: 600 }}>{sourceLabel}</span>
+                          {act.activityTypeCode && <> · {act.activityTypeCode}</>}
+                          {act.customerName && <> · {act.customerName}</>}
+                          {act.location && <> · {act.location}</>}
+                          {act.icsCalendarName && <> · {act.icsCalendarName}</>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
-          )}
-        </div>
-        )}
-        {renderHoverCard()}
-      </div>
-    )
-  }
-
-  // Hover preview card for desktop month grid
-  function renderHoverCard() {
-    if (!hoveredEvent || !isDesktop) return null
-    const act = hoveredEvent
-    const color = getActivityColor(act)
-    return (
-      <div
-        className="fixed z-[60] bg-surface border border-border rounded-xl shadow-2xl p-3 min-w-[200px] max-w-[280px] pointer-events-none"
-        style={{ left: Math.min(hoverPos.x, window.innerWidth - 300), top: Math.min(hoverPos.y, window.innerHeight - 200) }}
-      >
-        <p className="text-xs font-bold leading-snug mb-1" style={{ color: readableAccentColor(color, !isLightMode) }}>{act.description || '(no title)'}</p>
-        <p className="text-[10px] text-text-muted">{act.isAllDay ? 'All day' : `${act.timeFrom} – ${act.timeTo}`}</p>
-        {act.activityTypeName && <p className="text-[10px] text-text-muted mt-0.5">{act.activityTypeCode} {act.activityTypeName}</p>}
-        {act.customerName && <p className="text-[10px] text-text-muted">{act.customerName}</p>}
-        {act.projectName && <p className="text-[10px] text-text-muted">{act.projectName}</p>}
-        {act.location && <p className="text-[10px] text-text-muted">{act.location}</p>}
-        {act.icsCalendarName && <p className="text-[10px] text-text-muted/60">{act.icsCalendarName}</p>}
-        {act.googleCalendarName && <p className="text-[10px] text-text-muted/60">{act.googleCalendarName}</p>}
-        <p className="text-[9px] text-text-muted/40 mt-1">Click to edit</p>
-      </div>
-    )
-  }
-
-  // Portrait: full month grid with event pills
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-bg relative">
-      {loading && (
-        <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
-          <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
-          <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
-        </div>
+          </aside>
+        )
       )}
-      {renderMonthGrid(false)}
-      {renderHoverCard()}
     </div>
   )
 }

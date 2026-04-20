@@ -773,14 +773,15 @@ export default function ActivityForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center" style={{ background: 'rgba(10,18,16,0.55)', backdropFilter: 'blur(2px)' }}>
+      <div className="absolute inset-0" onClick={handleClose} />
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="activity-form-title"
-        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+        className="modal relative w-full max-w-lg"
+        style={{ maxHeight: '92vh', borderRadius: '12px 12px 0 0' }}
       >
         {/* Drag handle (mobile) — touch here to drag-dismiss */}
         <div

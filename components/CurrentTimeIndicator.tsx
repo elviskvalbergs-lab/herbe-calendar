@@ -10,15 +10,13 @@ export default function CurrentTimeIndicator({ scale = 1, startHour }: { scale?:
     return () => clearInterval(timer)
   }, [])
 
-  const top = timeToTopPx(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, scale, startHour)
+  const hh = now.getHours().toString().padStart(2, '0')
+  const mm = now.getMinutes().toString().padStart(2, '0')
+  const top = timeToTopPx(`${hh}:${mm}`, scale, startHour)
 
   return (
-    <div
-      className="absolute left-0 right-0 z-10 pointer-events-none flex items-center"
-      style={{ top }}
-    >
-      <div className="w-2 h-2 rounded-full bg-primary ml-[-4px]" />
-      <div className="flex-1 h-[1.5px] bg-primary/40" />
+    <div className="now-line" style={{ top }}>
+      <span className="now-label">{`${hh}:${mm}`}</span>
     </div>
   )
 }

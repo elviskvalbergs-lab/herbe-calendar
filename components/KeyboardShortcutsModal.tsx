@@ -43,14 +43,15 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" style={{ background: 'rgba(10,18,16,0.55)', backdropFilter: 'blur(2px)' }}>
+      <div className="absolute inset-0" onClick={onClose} />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="keyboard-shortcuts-title"
-        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col"
+        className="modal relative w-full max-w-md"
+        style={{ maxHeight: '80vh', borderRadius: '12px 12px 0 0' }}
         onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
           if (swipeStart.current !== null) {
@@ -63,28 +64,28 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
         }}
       >
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-border" />
+          <div className="w-10 h-1 rounded-full" style={{ background: 'var(--app-line-strong)' }} />
         </div>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 id="keyboard-shortcuts-title" className="font-bold">Keyboard Shortcuts</h2>
-          <button onClick={onClose} aria-label="Close" className="text-text-muted text-xl leading-none">✕</button>
+        <div className="modal-header">
+          <h2 id="keyboard-shortcuts-title" className="mh-title">Keyboard Shortcuts</h2>
+          <div className="ml-auto" />
+          <button onClick={onClose} aria-label="Close" className="icon-btn">✕</button>
         </div>
-        <div className="overflow-y-auto flex-1 p-4 space-y-1">
+        <div className="modal-body space-y-1">
           {SHORTCUTS.map((s, i) =>
             'group' in s ? (
-              <p key={i} className="text-xs text-text-muted uppercase tracking-wide pt-3 pb-1 first:pt-0">{s.group}</p>
+              <p key={i} className="b-eyebrow" style={{ paddingTop: i === 0 ? 0 : 'var(--space-3)', paddingBottom: 'var(--space-1)', marginBottom: 0 }}>{s.group}</p>
             ) : (
               <div key={i} className="flex items-center justify-between py-1.5">
-                <span className="text-sm text-text-muted">{s.desc}</span>
-                <kbd className="ml-4 shrink-0 font-mono text-xs bg-bg border border-border rounded px-2 py-0.5 text-text-muted">{s.key}</kbd>
+                <span className="text-sm" style={{ color: 'var(--app-fg-muted)' }}>{s.desc}</span>
+                <span className="kbd ml-4 shrink-0">{s.key}</span>
               </div>
             )
           )}
         </div>
-        <div className="p-4 border-t border-border">
-          <button onClick={onClose} className="w-full bg-primary text-white font-bold py-3 rounded-xl">
-            Done
-          </button>
+        <div className="modal-footer">
+          <div className="spacer" />
+          <button onClick={onClose} className="btn btn-primary">Done</button>
         </div>
       </div>
     </div>

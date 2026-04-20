@@ -187,7 +187,7 @@ export default function CalendarGrid({
       <div aria-live="polite" aria-busy={loading}>
         {loading && (
           <div className="absolute top-0 left-0 right-0 z-30 h-0.5 overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: '30%', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
+            <div className="h-full" style={{ width: '30%', background: 'var(--app-accent)', animation: 'loading-slide 1s ease-in-out infinite alternate', position: 'relative' }} />
             <style>{`@keyframes loading-slide { from { margin-left: 0% } to { margin-left: 70% } }`}</style>
           </div>
         )}
@@ -246,54 +246,111 @@ export default function CalendarGrid({
         {dates.map((date, dateIdx) => {
           const isMultiDay = state.view !== 'day'
           const dateGroupMinW = personCount * colMinVw
+          const d = parseISO(date)
+          const isCurrentDay = isToday(d)
           return (
             <div
               key={date}
-              className={`flex-1 ${fitsOnScreen ? '' : 'shrink-0 sm:shrink'} flex flex-col${dateIdx > 0 ? ' border-l-2 border-border' : ''}`}
-              style={fitsOnScreen ? undefined : { minWidth: `${dateGroupMinW}vw` }}
+              className={`flex-1 ${fitsOnScreen ? '' : 'shrink-0 sm:shrink'} flex flex-col`}
+              style={{
+                ...(fitsOnScreen ? undefined : { minWidth: `${dateGroupMinW}vw` }),
+                ...(dateIdx > 0 ? { borderLeft: '1px solid var(--app-line-strong)' } : undefined),
+              }}
             >
-              <div className="sticky top-0 z-20 bg-surface">
-                {isMultiDay && (
-                  <div className="h-6 flex items-center justify-center border-b border-border/40 text-[11px] font-semibold tracking-wide relative">
-                    {visibility ? (
-                      <span className="text-text-muted">{format(parseISO(date), 'EEE dd/MM')}</span>
+              <div
+                className={`day-col-header sticky top-0 z-20${isCurrentDay ? ' today' : ''}`}
+                style={{
+                  background: 'var(--app-bg-alt)',
+                  borderBottom: '1px solid var(--app-line)',
+                  padding: '4px 8px 0',
+                  minWidth: 0,
+                }}
+              >
+                <div className="flex items-center justify-between gap-1" style={{ minHeight: 20 }}>
+                  {isMultiDay ? (
+                    visibility ? (
+                      <span style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--app-fg-subtle)' }}>
+                        {format(d, 'EEE')}
+                      </span>
                     ) : (
                       <button
                         onClick={() => onDrillDate?.(date)}
-                        className="text-text-muted underline decoration-border hover:text-text hover:decoration-text-muted active:text-primary transition-colors"
-                        title={`View ${format(parseISO(date), 'EEE dd/MM')} only`}
+                        style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--app-fg-subtle)' }}
+                        className="hover:text-text transition-colors"
+                        title={`View ${format(d, 'EEE dd/MM')} only`}
                       >
-                        {format(parseISO(date), 'EEE dd/MM')}
+                        {format(d, 'EEE')}
                       </button>
-                    )}
-                    {!visibility && (
-                      <button
-                        onClick={() => onNewForDate?.(date)}
-                        className="absolute right-1 text-primary font-bold text-sm leading-none hover:opacity-70"
-                        title={`New activity on ${format(parseISO(date), 'dd/MM')}`}
-                      >+</button>
-                    )}
-                  </div>
-                )}
-                <div className="flex h-6">
+                    )
+                  ) : <span />}
+                  <span
+                    style={{
+                      fontSize: isMultiDay ? 15 : 18,
+                      fontWeight: 700,
+                      letterSpacing: '-0.02em',
+                      lineHeight: 1.1,
+                      color: isCurrentDay ? 'var(--app-accent)' : 'var(--app-fg)',
+                    }}
+                  >
+                    {format(d, isMultiDay ? 'd' : 'EEE d MMM')}
+                  </span>
+                  {!visibility && isMultiDay ? (
+                    <button
+                      onClick={() => onNewForDate?.(date)}
+                      className="icon-btn"
+                      style={{ width: 18, height: 18, fontSize: 14, lineHeight: 1, color: 'var(--app-accent)' }}
+                      title={`New activity on ${format(d, 'dd/MM')}`}
+                    >+</button>
+                  ) : <span />}
+                </div>
+                {/* Sub-persons rail */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridAutoFlow: 'column',
+                    gridAutoColumns: '1fr',
+                    marginTop: 4,
+                    marginLeft: -8,
+                    marginRight: -8,
+                    borderTop: '1px solid var(--app-line)',
+                  }}
+                >
                   {state.selectedPersons.map((person, personIdx) => {
+                    const pcolor = personColor(personIdx)
                     const pa = activities.filter(a => a.personCode === person.code && a.date === date)
                     const hasOffGrid = pa.some(a => !a.isAllDay && (
                       timeToMinutes(a.timeFrom) < effectiveStartHour * 60 ||
                       timeToMinutes(a.timeTo) > effectiveEndHour * 60
                     ))
                     const hasAllDay = pa.some(a => a.isAllDay)
+                    const borderBottomColor = hasOffGrid ? '#ef4444' : hasAllDay ? '#e0a83c' : 'transparent'
                     return (
                       <div
                         key={person.code}
-                        className={`flex-1 flex items-center justify-center text-[10px] font-bold border-r border-border last:border-r-0 border-b ${hasOffGrid ? 'border-b-red-500' : hasAllDay ? 'border-b-amber-400' : 'border-b-border'}`}
-                        style={{ color: personColor(personIdx), ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          padding: '3px 6px 2px',
+                          textAlign: 'center',
+                          borderLeft: personIdx === 0 ? `2px solid ${pcolor}` : `1px solid var(--app-line)`,
+                          borderBottom: `2px solid ${borderBottomColor}`,
+                          color: pcolor,
+                          background: `color-mix(in oklab, ${pcolor} 12%, transparent)`,
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}),
+                        }}
                         title={`${person.name}${person.email ? ` <${person.email}>` : ''}`}
                       >
                         {!visibility && personCount > 1 ? (
                           <button
                             onClick={() => onDrillPerson?.(person.code)}
-                            className="underline decoration-border hover:decoration-current active:opacity-70"
+                            className="active:opacity-70"
+                            style={{ color: 'inherit' }}
                           >
                             {person.code}
                           </button>
@@ -345,20 +402,18 @@ export default function CalendarGrid({
                 })}
               </div>
 
-              {/* Bottom indicator bar — shows per person if they have activities past grid end */}
-              <div className="flex sticky bottom-0 z-20 bg-surface">
+              {/* Bottom indicator bar — per-person off-grid-after marker */}
+              <div className="flex sticky bottom-0 z-20" style={{ background: 'var(--app-bg-alt)' }}>
                 {state.selectedPersons.map((person) => {
                   const pa = activities.filter(a => a.personCode === person.code && a.date === date)
                   const hasAfter = pa.some(a => !a.isAllDay && timeToMinutes(a.timeTo) > effectiveEndHour * 60)
                   return (
                     <div
                       key={person.code}
-                      className="flex-1 border-r border-border last:border-r-0 relative"
-                      style={colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : undefined}
+                      className="flex-1 relative"
+                      style={{ borderRight: '1px solid var(--app-line)', ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
                     >
-                      {hasAfter && (
-                        <div className="h-px bg-red-500" />
-                      )}
+                      {hasAfter && <div style={{ height: 1, background: '#ef4444' }} />}
                     </div>
                   )
                 })}

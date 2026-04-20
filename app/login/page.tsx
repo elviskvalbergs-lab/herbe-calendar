@@ -25,9 +25,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-surface rounded-xl border border-border p-8">
-        <h1 className="text-2xl font-bold mb-1">herbe<span className="text-primary">.</span>calendar</h1>
-        <p className="text-text-muted text-sm mb-6">Sign in with your company email</p>
+      <div
+        className="w-full max-w-sm bg-surface border border-border p-8"
+        style={{ borderRadius: 4, boxShadow: 'var(--shadow-pop)' }}
+      >
+        <div className="mb-1" style={{ fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 28, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+          <span>herbe</span><span style={{ color: 'var(--burti-rowanberry)' }}>.</span><span>calendar</span>
+        </div>
+        <p className="b-eyebrow" style={{ marginBottom: 'var(--space-5)' }}>Sign in with your company email</p>
 
         {sent ? (
           <div className="text-center">
@@ -45,13 +50,15 @@ export default function LoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="you@burti.lv"
-              className="w-full bg-bg border border-border rounded-lg px-4 py-3 text-text placeholder-text-muted focus:outline-none focus:border-primary"
+              className="input"
+              style={{ height: 44, fontSize: 14 }}
             />
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white font-bold py-3 rounded-lg disabled:opacity-50"
+              className="btn btn-primary btn-lg w-full disabled:opacity-50"
+              style={{ justifyContent: 'center' }}
             >
               {loading ? 'Sending…' : 'Send sign-in link'}
             </button>

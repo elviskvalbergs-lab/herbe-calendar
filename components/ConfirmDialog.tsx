@@ -37,7 +37,8 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center px-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+      style={{ background: 'rgba(10,18,16,0.55)', backdropFilter: 'blur(2px)' }}
       onClick={onCancel}
     >
       <div
@@ -45,7 +46,8 @@ export default function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Confirm action"
-        className="bg-surface border border-border rounded-xl p-5 w-full max-w-sm shadow-xl"
+        className="modal w-full max-w-sm"
+        style={{ padding: 0 }}
         onClick={e => e.stopPropagation()}
         onTouchStart={e => { swipeStart.current = { y: e.touches[0].clientY } }}
         onTouchEnd={e => {
@@ -55,23 +57,23 @@ export default function ConfirmDialog({
           swipeStart.current = null
         }}
       >
-        <p className="text-sm text-text mb-4">{message}</p>
-        <div className="flex gap-2 justify-end">
+        <div className="modal-body">
+          <p className="text-sm" style={{ color: 'var(--app-fg)' }}>{message}</p>
+        </div>
+        <div className="modal-footer">
+          <div className="spacer" />
           <button
             ref={cancelRef}
             onClick={onCancel}
-            className="px-4 py-2 text-xs font-bold rounded-lg border border-border text-text-muted hover:bg-border/30 transition-colors"
+            className="btn btn-outline"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             autoFocus={!destructive}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${
-              destructive
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : 'bg-primary text-white hover:bg-primary/90'
-            }`}
+            className={destructive ? 'btn btn-danger' : 'btn btn-primary'}
+            style={destructive ? { background: 'var(--app-danger)', color: '#fff' } : undefined}
           >
             {confirmLabel}
           </button>

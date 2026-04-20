@@ -55,16 +55,18 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   }
 
   return (
-    <header className="flex items-center gap-1 lg:gap-2 px-2 lg:px-3 py-2 bg-surface border-b border-border shrink-0 flex-wrap">
-      {/* Title */}
-      <span className="font-bold text-base pr-0.5 lg:pr-1">
-        herbe<span className="text-primary">.</span>calendar
-      </span>
+    <header className="topbar shrink-0 flex-wrap">
+      {/* Brand */}
+      <div className="brand">
+        <span className="brand-b">herbe<span style={{ color: 'var(--app-accent)' }}>.</span></span>
+        <span style={{ fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--app-fg-subtle)', fontWeight: 500 }}>calendar</span>
+      </div>
       {accountName && (
         <button
           onClick={onAccountSwitch}
-          className="hidden lg:inline-flex items-center justify-center w-6 h-6 rounded-full overflow-hidden bg-primary/15 text-primary text-[10px] font-bold hover:bg-primary/25 mr-auto transition-colors"
+          className="icon-btn hidden lg:inline-flex mr-auto"
           title={`${accountName} — Switch account (⌃⌘A)`}
+          style={{ width: 26, height: 26, borderRadius: 3, overflow: 'hidden', background: 'rgba(205,76,56,0.15)', color: 'var(--app-accent)', fontSize: 10, fontWeight: 700 }}
         >
           {accountLogo
             ? <img src={accountLogo} alt={accountName} className="w-full h-full object-cover" />
@@ -73,46 +75,49 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       )}
       {!accountName && <span className="mr-auto" />}
 
-      {/* Date navigation */}
-      {(viewStep > 1 || isMonth) && (
-        <button onClick={() => isMonth ? navigateMonth(-1) : navigate(-viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Previous month' : `Back ${viewStep} days`} aria-label={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
-      )}
-      <button onClick={() => navigate(-1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Previous day (←)" aria-label="Previous day">‹</button>
-      <button
-        onClick={() => setMonthNavOpen(true)}
-        className="text-text-muted px-1.5 lg:px-2 py-1 rounded border border-border hover:bg-border text-sm font-semibold whitespace-nowrap"
-        title={isMonth ? 'Pick a month' : 'Pick a date'}
-      >
-        {format(parseISO(state.date), 'd MMM yyyy')}
-      </button>
-      <button onClick={() => navigate(1)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title="Next day (→)" aria-label="Next day">›</button>
-      {(viewStep > 1 || isMonth) && (
-        <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="text-text-muted px-1.5 lg:px-2 py-1.5 rounded border border-border hover:bg-border text-sm leading-none font-bold" title={isMonth ? 'Next month' : `Forward ${viewStep} days`} aria-label={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
-      )}
-      {/* View toggle — pill buttons */}
-      <div className="flex rounded-lg border border-border overflow-hidden">
+      <div className="sep hidden lg:block" />
+
+      {/* Date navigation group */}
+      <div className="topbar-group">
+        {(viewStep > 1 || isMonth) && (
+          <button onClick={() => isMonth ? navigateMonth(-1) : navigate(-viewStep)} className="icon-btn" title={isMonth ? 'Previous month' : `Back ${viewStep} days`} aria-label={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
+        )}
+        <button onClick={() => navigate(-1)} className="icon-btn" title="Previous day (←)" aria-label="Previous day">‹</button>
+        <button
+          onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
+          className="btn btn-outline btn-sm hidden lg:inline-flex"
+          title="Jump to today (T)"
+        >Today</button>
+        <button
+          onClick={() => setMonthNavOpen(true)}
+          className="btn btn-ghost"
+          title={isMonth ? 'Pick a month' : 'Pick a date'}
+          style={{ fontWeight: 600 }}
+        >
+          {format(parseISO(state.date), 'd MMM yyyy')}
+        </button>
+        <button onClick={() => navigate(1)} className="icon-btn" title="Next day (→)" aria-label="Next day">›</button>
+        {(viewStep > 1 || isMonth) && (
+          <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="icon-btn" title={isMonth ? 'Next month' : `Forward ${viewStep} days`} aria-label={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
+        )}
+      </div>
+
+      {/* View segmented control */}
+      <div className="segmented">
         {([
-          { view: 'day' as const, short: '1D', long: '1 day' },
-          { view: '3day' as const, short: '3D', long: '3 days' },
-          { view: '5day' as const, short: '5D', long: '5 days' },
-          { view: '7day' as const, short: '7D', long: '7 days' },
+          { view: 'day' as const, short: '1D', long: '1D' },
+          { view: '3day' as const, short: '3D', long: '3D' },
+          { view: '5day' as const, short: '5D', long: '5D' },
+          { view: '7day' as const, short: '7D', long: '7D' },
           { view: 'month' as const, short: '', long: 'Month' },
         ]).map(({ view: v, short, long }) => {
           const active = state.view === v
           return (
             <button
               key={v}
-              onClick={() => {
-                if (v === 'month') {
-                  onStateChange({ ...state, view: v })
-                } else {
-                  // Keep the selected date as the first day shown in any view
-                  onStateChange({ ...state, view: v })
-                }
-              }}
-              className={`text-[11px] font-bold px-1.5 lg:px-2 py-1 transition-colors border-r border-border last:border-r-0 ${
-                active ? 'bg-primary text-white' : 'bg-surface text-text-muted hover:bg-border/30'
-              }`}
+              onClick={() => onStateChange({ ...state, view: v })}
+              aria-pressed={active}
+              title={v === 'month' ? 'Month view' : `${long} view`}
             >
               {v === 'month' ? (
                 <>
@@ -132,27 +137,36 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         })}
       </div>
 
+      <div className="sep hidden lg:block" />
+
       {/* Person chips */}
       <div className="flex items-center gap-1 flex-wrap">
-        {state.selectedPersons.map((p, i) => (
-          <button
-            key={p.code}
-            onClick={() => onStateChange({ ...state, selectedPersons: state.selectedPersons.filter(sp => sp.code !== p.code) })}
-            className="px-2 py-0.5 rounded-full text-xs font-bold border cursor-pointer hover:opacity-70"
-            style={{
-              color: personColor(i),
-              borderColor: personColor(i) + '44',
-              background: personColor(i) + '22',
-            }}
-            title={`${p.name}${p.email ? ` <${p.email}>` : ''} (Click to remove)`}
-          >
-            {p.code} <span className="opacity-50">✕</span>
-          </button>
-        ))}
+        {state.selectedPersons.map((p, i) => {
+          const c = personColor(i)
+          return (
+            <span
+              key={p.code}
+              className="person-chip"
+              style={{ ['--pcolor' as string]: c }}
+              title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
+            >
+              <span className="p-dot" style={{ background: c }} />
+              <span>{p.code}</span>
+              <button
+                className="x"
+                onClick={() => onStateChange({ ...state, selectedPersons: state.selectedPersons.filter(sp => sp.code !== p.code) })}
+                title="Remove"
+                aria-label={`Remove ${p.code}`}
+              >×</button>
+            </span>
+          )
+        })}
         <button
           onClick={() => setSelectorOpen(true)}
-          className="text-text-muted text-xl leading-none px-1"
+          className="icon-btn"
           title="Add person"
+          aria-label="Add person"
+          style={{ fontSize: 16 }}
         >+</button>
         <span className="hidden lg:inline-flex">
           <FavoritesDropdown state={state} onApply={onApplyFavorite} hiddenCalendars={hiddenCalendars} />
@@ -162,23 +176,21 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </span>
       </div>
 
+      <div className="topbar-spacer" />
+
       {/* Admin — desktop only, admin/superadmin only */}
       {isAdmin && (
-        <a
-          href="/admin"
-          className="hidden lg:flex items-center gap-1 text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-          title="Admin panel"
-        >
+        <a href="/admin" className="icon-btn hidden lg:inline-flex" title="Admin panel" aria-label="Admin panel">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </a>
       )}
 
-      {/* Sign out — desktop only (mobile: in hamburger menu) */}
+      {/* Sign out — desktop only */}
       <button
         onClick={() => signOut()}
-        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        className="icon-btn hidden lg:inline-flex"
         title="Sign out"
         aria-label="Sign out"
       >
@@ -189,11 +201,11 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </svg>
       </button>
 
-      {/* Hamburger — mobile only; ml-auto keeps it right-aligned even when wrapping to new line */}
+      {/* Hamburger — mobile only */}
       <div className="relative lg:hidden ml-auto">
         <button
           onClick={() => setHamburgerOpen(o => !o)}
-          className="text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+          className="icon-btn"
           title="Menu"
           aria-label="Menu"
           aria-expanded={hamburgerOpen}
@@ -299,7 +311,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* Zoom toggle — desktop only */}
       <button
         onClick={onToggleZoom}
-        className="hidden lg:flex items-center gap-1 text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
+        className="icon-btn hidden lg:inline-flex"
         title={zoom === 1 ? 'Zoom in (2x) — Z' : 'Zoom out (1x) — Z'}
         aria-label={zoom === 1 ? 'Zoom in' : 'Zoom out'}
       >
@@ -312,38 +324,27 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       </button>
 
       {/* Refresh — desktop only */}
-      <button
-        onClick={onRefresh}
-        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Refresh"
-        aria-label="Refresh"
-      >↻</button>
+      <button onClick={onRefresh} className="icon-btn hidden lg:inline-flex" title="Refresh" aria-label="Refresh">↻</button>
 
       {/* Keyboard shortcuts — desktop only */}
-      <button
-        onClick={onShortcuts}
-        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm font-bold"
-        title="Keyboard shortcuts (?)"
-        aria-label="Keyboard shortcuts"
-      >
-        ?
-      </button>
+      <button onClick={onShortcuts} className="icon-btn hidden lg:inline-flex" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" style={{ fontWeight: 700 }}>?</button>
 
       {/* Help — desktop only */}
       <a
         href="/docs/getting-started"
         target="_blank"
         rel="noopener"
-        className="hidden lg:inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold shrink-0"
+        className="icon-btn hidden lg:inline-flex"
         title="Help: Getting started"
-      >?</a>
+        aria-label="Help"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </a>
 
       {/* Settings — desktop only */}
-      <button
-        onClick={onColorSettings}
-        className="hidden lg:block text-text-muted px-2 py-1.5 rounded-lg hover:bg-border text-sm"
-        title="Settings"
-      >
+      <button onClick={onColorSettings} className="icon-btn hidden lg:inline-flex" title="Settings" aria-label="Settings">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
@@ -352,7 +353,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* New activity — hidden on mobile (FAB is used instead) */}
       <button
         onClick={onNewActivity}
-        className="hidden lg:flex bg-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+        className="btn btn-primary hidden lg:inline-flex"
         title="New activity (⌃⌘N)"
       >
         + New

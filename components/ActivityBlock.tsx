@@ -83,21 +83,22 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(activity) }
       }}
-      className="absolute left-px right-px rounded cursor-pointer select-none pointer-events-auto transition-shadow duration-150"
+      className="absolute left-px right-px cursor-pointer select-none pointer-events-auto transition-shadow duration-150"
       style={{
         top,
         height,
+        borderRadius: 2,
         background: isCC
           ? `repeating-linear-gradient(45deg, ${color}${fillCC}, ${color}${fillCC} 4px, transparent 4px, transparent 8px)`
           : isPlanned
             ? `repeating-linear-gradient(135deg, ${color}${fillPlanned}, ${color}${fillPlanned} 3px, transparent 3px, transparent 6px)`
             : color + fillNormal,
         borderLeft: isOutlook
-          ? `2px dashed ${color}cc`
+          ? `3px dashed ${color}cc`
           : isCC
-            ? `2px solid ${color}8c`
+            ? `3px dotted ${color}8c`
             : isPlanned
-              ? `3px solid ${color}99`
+              ? `3px dashed ${color}99`
               : `3px solid ${color}`,
         // Never use CSS opacity — it makes child elements (preview card) translucent too
         zIndex: (hovered || mobileSelected) ? 40 : undefined,
@@ -180,156 +181,162 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
           onPointerDown={(e) => { e.stopPropagation(); onDragStart?.(e, activity, 'resize') }}
         />
       )}
-      {/* Detail card — hover on desktop only, tap on mobile */}
-      {((!isTouchDevice && hovered) || mobileSelected) && (
-        <div
-          ref={cardRef}
-          className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
-          style={{ top: 0, border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)', isolation: 'isolate' }}
-          onClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose?.(); onClick(activity) }}
-        >
-          {mobileSelected && (
-            <button
-              className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-text-muted active:bg-border text-base font-bold"
-              onTouchEnd={(e) => { e.stopPropagation() }}
-              onClick={(e) => {
-                e.stopPropagation()
-                globalCloseCooldown = true
-                setTimeout(() => { globalCloseCooldown = false }, 300)
-                onMobileClose?.()
-              }}
-            >
-              ✕
-            </button>
-          )}
-          {visibility === 'busy' ? (
-            <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>Busy</p>
-              <p className="text-xs text-text-muted">{activity.timeFrom} – {activity.timeTo}</p>
-            </>
-          ) : visibility === 'titles' ? (
-            <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>
-                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
-              </p>
-              <p className="text-xs text-text-muted">
-                {activity.timeFrom} – {activity.timeTo}
-                {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
-              </p>
-              {activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
-              )}
-              {activity.googleCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.googleCalendarName}{activity.googleAccountEmail ? ` (${activity.googleAccountEmail})` : ''}</p>
-              )}
-              {activity.source === 'google' && !activity.googleCalendarName && !activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 Google Calendar</p>
-              )}
-              {isOutlook && !activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
-              )}
-              {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: textColor }}>
-                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(no title)'}
-              </p>
-              <p className="text-xs text-text-muted">
-                {activity.timeFrom} – {activity.timeTo}
-                {isPlanned && <span className="ml-1 text-amber-500 text-[10px]">(planned)</span>}
-              </p>
-              {activity.activityTypeCode && (
-                <p className="text-[10px] mt-1" style={{ color: textColor }}>
-                  <span className="font-mono">{activity.activityTypeCode}</span>
-                  {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
-                    <span className="ml-1 not-italic">
-                      {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
-                    </span>
-                  )}
-                </p>
-              )}
-              {activity.projectName && (
-                <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
-              )}
-              {activity.customerName && (
-                <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
-              )}
-              {activity.location && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📍 {activity.location}</p>
-              )}
-              {activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
-              )}
-              {activity.googleCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.googleCalendarName}{activity.googleAccountEmail ? ` (${activity.googleAccountEmail})` : ''}</p>
-              )}
-              {activity.source === 'google' && !activity.googleCalendarName && !activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 Google Calendar</p>
-              )}
-              {isOutlook && !activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate"><OutlookIcon /> Outlook Calendar</p>
-              )}
-              {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
-                </p>
-              )}
-              {isCC && (
-                <p className="text-[10px] mt-1" style={{ color: color + '99', fontStyle: 'italic' }}>CC only</p>
-              )}
-              {activity.attendees && activity.attendees.length > 0 && (
-                <div className="flex flex-wrap gap-0.5 mt-1.5">
-                  {activity.attendees.slice(0, 6).map(att => (
-                    <span
-                      key={att.email}
-                      className="px-1.5 py-0 rounded-full text-[9px] font-bold border border-border/50 text-text-muted bg-border/20 truncate max-w-[80px]"
-                      title={`${att.name || att.email}${att.responseStatus ? ` (${att.responseStatus})` : ''}`}
-                    >
-                      {att.email.split('@')[0]}
-                    </span>
-                  ))}
-                  {activity.attendees.length > 6 && (
-                    <span className="text-[9px] text-text-muted">+{activity.attendees.length - 6}</span>
+      {/* Preview card — hover on desktop, tap on mobile. Uses the design's .ev-preview. */}
+      {((!isTouchDevice && hovered) || mobileSelected) && (() => {
+        const sourceShort = activity.source === 'herbe' ? 'ERP'
+          : activity.source === 'outlook' ? 'OUT'
+          : activity.source === 'google' ? 'GOO'
+          : activity.icsCalendarName ? 'ICS'
+          : 'EXT'
+        const calendarLabel = activity.icsCalendarName
+          ?? activity.googleCalendarName
+          ?? (activity.source === 'google' ? 'Google Calendar' : null)
+          ?? (isOutlook ? 'Outlook Calendar' : null)
+          ?? (activity.source === 'herbe' ? (activity.erpConnectionName ? `ERP · ${activity.erpConnectionName}` : 'ERP') : null)
+        const typeText = activity.activityTypeCode
+          ? `${activity.activityTypeCode}${(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) ? ` · ${getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}` : ''}`
+          : null
+        const rsvpMap: Record<string, string> = { accepted: 'accepted', tentative: 'tentative', declined: 'declined', pending: 'pending' }
+        const variantClass = isPlanned ? 'planned' : isCC ? 'cc-only' : ''
+        const isBusy = visibility === 'busy'
+        const isTitlesOnly = visibility === 'titles'
+        return (
+          <div
+            ref={cardRef}
+            className={`ev-preview ${variantClass} ${alignRight ? 'right-0' : 'left-0'}`}
+            style={{
+              position: 'absolute',
+              top: 0,
+              width: 320,
+              maxWidth: 'calc(100vw - 24px)',
+              ['--ev-bg' as string]: color,
+            }}
+            onClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose?.(); onClick(activity) }}
+          >
+            <div className="evp-accent" />
+            {mobileSelected && (
+              <button
+                className="absolute w-8 h-8 flex items-center justify-center rounded-full text-base font-bold active:brightness-110"
+                style={{ top: 6, right: 6, background: 'rgba(0,0,0,0.25)', color: 'var(--app-fg)' }}
+                onTouchEnd={(e) => { e.stopPropagation() }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  globalCloseCooldown = true
+                  setTimeout(() => { globalCloseCooldown = false }, 300)
+                  onMobileClose?.()
+                }}
+                aria-label="Close"
+              >✕</button>
+            )}
+            <div className="evp-head">
+              {!isBusy && (
+                <div className="evp-chips">
+                  <span className="evp-chip brand">{sourceShort}</span>
+                  {isPlanned && <span className="evp-chip planned">Planned</span>}
+                  {isCC && <span className="evp-chip cc-only">CC only</span>}
+                  {activity.isExternal && <span className="evp-chip">External</span>}
+                  {activity.attendees && activity.attendees.length > 0 && (
+                    <span className="evp-chip">{activity.attendees.length} attendee{activity.attendees.length !== 1 ? 's' : ''}</span>
                   )}
                 </div>
               )}
-              {activity.joinUrl && (
-                <a
-                  href={activity.joinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: activity.videoProvider === 'meet' ? '#1a73e8' : activity.videoProvider === 'teams' ? '#464EB8' : activity.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb' }}
-                >
-                  {activity.videoProvider === 'meet'
-                    ? <>🔗 Join Google Meet</>
-                    : activity.videoProvider === 'teams'
-                      ? <><TeamsIcon size={12} /> Join in Teams</>
-                      : activity.videoProvider === 'zoom'
-                        ? <>🔗 Join Zoom</>
-                        : <>🔗 Join meeting</>
-                  }
-                </a>
-              )}
-              {!visibility && (
-                <button
-                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold"
-                  style={{ background: color, color: textOnAccent(color) }}
-                  onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
-                >
-                  {canEdit ? 'Edit' : 'View details'}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
+              <div className="evp-title">
+                {isBusy ? 'Busy' : (activity.description || '(no title)')}
+              </div>
+              <div className="evp-when">
+                {activity.timeFrom} – {activity.timeTo}
+              </div>
+            </div>
+            {!isBusy && (
+              <div className="evp-body">
+                {!isTitlesOnly && typeText && (
+                  <div className="evp-row">
+                    <span className="k">Type</span>
+                    <span className="v">{typeText}</span>
+                  </div>
+                )}
+                {!isTitlesOnly && activity.customerName && (
+                  <div className="evp-row">
+                    <span className="k">Customer</span>
+                    <span className="v">{activity.customerName}</span>
+                  </div>
+                )}
+                {!isTitlesOnly && activity.projectName && (
+                  <div className="evp-row">
+                    <span className="k">Project</span>
+                    <span className="v">{activity.projectName}</span>
+                  </div>
+                )}
+                {!isTitlesOnly && activity.location && (
+                  <div className="evp-row">
+                    <span className="k">Location</span>
+                    <span className="v">{activity.location}</span>
+                  </div>
+                )}
+                {calendarLabel && (
+                  <div className="evp-row">
+                    <span className="k">Calendar</span>
+                    <span className="v">{calendarLabel}</span>
+                  </div>
+                )}
+                {!isTitlesOnly && activity.attendees && activity.attendees.length > 0 && (
+                  <div className="evp-attendees">
+                    {activity.attendees.slice(0, 5).map((att, i) => {
+                      const initials = (att.name ?? att.email).split(/[\s@.]/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+                      const rsvp = att.responseStatus && rsvpMap[att.responseStatus as string]
+                      return (
+                        <div key={`${att.email}-${i}`} className="evp-att">
+                          <span className="evp-avatar" style={{ background: color }}>{initials || '?'}</span>
+                          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name ?? att.email}</span>
+                          {rsvp && <span className={`evp-rsvp ${rsvp}`}>{rsvp}</span>}
+                        </div>
+                      )
+                    })}
+                    {activity.attendees.length > 5 && (
+                      <div style={{ fontSize: 10.5, color: 'var(--app-fg-subtle)', paddingLeft: 24 }}>
+                        +{activity.attendees.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {!isBusy && (activity.joinUrl || !visibility) && (
+              <div className="evp-foot">
+                {activity.joinUrl && (
+                  <a
+                    href={activity.joinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="btn btn-sm"
+                    style={{
+                      background: activity.videoProvider === 'meet' ? '#1a73e8' : activity.videoProvider === 'teams' ? '#464EB8' : activity.videoProvider === 'zoom' ? '#2D8CFF' : '#2563eb',
+                      color: '#fff',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {activity.videoProvider === 'meet' ? 'Join Meet'
+                      : activity.videoProvider === 'teams' ? <><TeamsIcon size={11} /> Join Teams</>
+                      : activity.videoProvider === 'zoom' ? 'Join Zoom'
+                      : 'Join meeting'}
+                  </a>
+                )}
+                <div className="spacer" />
+                {!visibility && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: color, color: textOnAccent(color), fontWeight: 600 }}
+                    onClick={(e) => { e.stopPropagation(); onMobileClose?.(); onClick(activity) }}
+                  >
+                    {canEdit ? 'Edit' : 'View details'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

@@ -45,3 +45,6 @@ next-env.d.ts
 .claude/
 .worktrees/
 .env*.local
+
+# Design reference bundle — not deployed
+/public/Herbe calendar redesign/
