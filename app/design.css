@@ -1280,12 +1280,42 @@ input, select, textarea { font-family: inherit; }
   display: flex; flex-direction: column;
   overflow: hidden;
 }
+/* Agenda header — a single row that matches the weekday header row
+   height in the month grid. Date + month/year on the left, "Open day
+   view" button flush right. */
 .month-side-hdr {
-  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  height: 36px;
   border-bottom: 1px solid var(--app-line);
+  flex-shrink: 0;
 }
-.month-side-hdr .dow { font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--app-fg-subtle); }
-.month-side-hdr .dnum { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin-top: 2px; }
+.month-side-hdr .dow { display: none; }
+.month-side-hdr .dnum {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-weight: 700;
+  line-height: 1;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  color: var(--app-fg);
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.month-side-hdr .dnum > span:last-child {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-fg-muted);
+  letter-spacing: 0;
+}
+.month-side-hdr .agenda-open { margin-left: auto; flex-shrink: 0; }
 .month-side-body { flex: 1; overflow-y: auto; padding: 6px 16px 12px; }
 .ms-event {
   display: flex; gap: 10px;

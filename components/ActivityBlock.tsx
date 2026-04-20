@@ -209,18 +209,18 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
       onPointerDown={canEdit ? (e) => onDragStart?.(e, activity, 'move') : undefined}
     >
       {isCompact ? (
-        <div className="px-1 flex items-center gap-0.5 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1 }}>
-          <p className="text-[9px] font-bold truncate flex-1" style={{ color: textColor }}>
+        <div className="px-1 flex items-center gap-0.5 h-full overflow-hidden" style={{ opacity: isCC ? 0.75 : 1, color: textColor }}>
+          <p className="text-[9px] font-bold truncate flex-1">
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
-          <span className="text-[8px] text-text-muted shrink-0 whitespace-nowrap">{activity.timeFrom}</span>
+          <span className="text-[8px] shrink-0 whitespace-nowrap" style={{ opacity: 0.72 }}>{activity.timeFrom}</span>
         </div>
       ) : (
-        <div className="px-1 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1 }}>
-          <p className="text-[10px] font-bold truncate" style={{ color: textColor }}>
+        <div className="px-1 py-0.5 overflow-hidden" style={{ height, opacity: isCC ? 0.75 : 1, color: textColor }}>
+          <p className="text-[10px] font-bold truncate">
             {activity.icsCalendarName ? '📅 ' : isOutlook ? <OutlookIcon /> : null}{activity.isExternal && !activity.icsCalendarName && '🌐 '}{isPlanned && !isCC && '○ '}{activity.description || '(no title)'}
           </p>
-          <p className="text-[9px] text-text-muted truncate">
+          <p className="text-[9px] truncate" style={{ opacity: 0.72 }}>
             {activity.timeFrom}–{activity.timeTo}
             {activity.customerName ? ` · ${activity.customerName}` : ''}
           </p>
@@ -232,18 +232,21 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
                 const ccPips = (activity.ccPersons ?? []).slice(0, Math.max(0, 3 - mainPips.length))
                 const totalShown = mainPips.length + ccPips.length
                 const totalAll = (activity.mainPersons?.length ?? 0) + (activity.ccPersons?.length ?? 0)
+                // Main pip: solid coloured chip, text chosen via textOnAccent.
+                // CC pip: outlined in textColor so it tracks the event's readable
+                // palette regardless of theme / variant.
                 return (
                   <>
                     {mainPips.map(code => (
                       <span key={code} className="text-[9px] rounded px-0.5 leading-4"
-                        style={{ background: color + '33', color: '#fff' }}>{code}</span>
+                        style={{ background: color, color: textOnAccent(color) }}>{code}</span>
                     ))}
                     {ccPips.map(code => (
                       <span key={code} className="text-[9px] rounded px-0.5 leading-[14px]"
-                        style={{ border: `1px dashed ${color}99`, color: color + 'cc', fontStyle: 'italic' }}>{code}</span>
+                        style={{ border: `1px dashed currentColor`, color: textColor, fontStyle: 'italic', opacity: 0.82 }}>{code}</span>
                     ))}
                     {totalAll > totalShown && (
-                      <span className="text-[9px]" style={{ color: color + '99' }}>+{totalAll - totalShown}</span>
+                      <span className="text-[9px]" style={{ color: textColor, opacity: 0.7 }}>+{totalAll - totalShown}</span>
                     )}
                   </>
                 )
@@ -312,8 +315,8 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
               {!isBusy && (
                 <div className="evp-chips">
                   <span className="evp-chip brand" style={{ color: textOnAccent(color) }}>{sourceShort}</span>
-                  {isPlanned && <span className="evp-chip planned">Planned</span>}
-                  {isCC && <span className="evp-chip cc-only">CC only</span>}
+                  {isPlanned && <span className="evp-chip planned" style={{ color: textOnAccent(color) }}>Planned</span>}
+                  {isCC && <span className="evp-chip cc-only" style={{ color: textColor, borderColor: textColor }}>CC only</span>}
                   {activity.isExternal && <span className="evp-chip">External</span>}
                   {activity.attendees && activity.attendees.length > 0 && (
                     <span className="evp-chip">{activity.attendees.length} attendee{activity.attendees.length !== 1 ? 's' : ''}</span>
@@ -366,7 +369,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
                       const rsvp = att.responseStatus && rsvpMap[att.responseStatus as string]
                       return (
                         <div key={`${att.email}-${i}`} className="evp-att">
-                          <span className="evp-avatar" style={{ background: color }}>{initials || '?'}</span>
+                          <span className="evp-avatar" style={{ background: color, color: textOnAccent(color) }}>{initials || '?'}</span>
                           <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name ?? att.email}</span>
                           {rsvp && <span className={`evp-rsvp ${rsvp}`}>{rsvp}</span>}
                         </div>

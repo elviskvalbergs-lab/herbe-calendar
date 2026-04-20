@@ -348,7 +348,7 @@ export default function MonthView({
             <div className="evp-head">
               <div className="evp-chips">
                 <span className="evp-chip brand" style={{ color: textOnAccent(color) }}>{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'OUT' : act.source === 'google' ? 'GOO' : (act.icsCalendarName ? 'ICS' : 'EXT')}</span>
-                {act.planned && <span className="evp-chip planned">Planned</span>}
+                {act.planned && <span className="evp-chip planned" style={{ color: textOnAccent(color) }}>Planned</span>}
                 {act.isExternal && <span className="evp-chip">External</span>}
                 {act.attendees && act.attendees.length > 0 && <span className="evp-chip">{act.attendees.length} attendees</span>}
               </div>
@@ -396,7 +396,7 @@ export default function MonthView({
                     const rsvp = att.responseStatus && rsvpMap[att.responseStatus as string]
                     return (
                       <div key={`${att.email}-${i}`} className="evp-att">
-                        <span className="evp-avatar" style={{ background: color }}>{initials || '?'}</span>
+                        <span className="evp-avatar" style={{ background: color, color: textOnAccent(color) }}>{initials || '?'}</span>
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name ?? att.email}</span>
                         {rsvp && <span className={`evp-rsvp ${rsvp}`}>{rsvp}</span>}
                       </div>
