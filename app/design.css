@@ -1840,22 +1840,29 @@ input, select, textarea { font-family: inherit; }
 @media (max-width: 1023px) and (orientation: landscape) {
   .topbar {
     flex-wrap: wrap;
-    /* min-height removed — let the topbar size to its actual content
-       (single 26px row + 6px padding ≈ 32px). When persons wrap to a
-       second row, the topbar grows naturally. */
+    /* min-height removed — topbar sizes to content (single 26px row +
+       6px padding ≈ 32px). Grows naturally when persons wrap. */
     min-height: 0;
     height: auto;
-    padding: 3px max(10px, env(safe-area-inset-right)) 3px max(10px, env(safe-area-inset-left));
+    /* Reserved padding-right for the absolutely-pinned hamburger so the
+       row-1 flex content can't overlap it. */
+    padding: 3px calc(max(10px, env(safe-area-inset-right)) + 32px) 3px max(10px, env(safe-area-inset-left));
     row-gap: 4px;
     align-content: flex-start;
     align-items: center;
+    position: relative;
   }
   .topbar > .topbar-spacer { display: none; }
-  .topbar > .topbar-hamburger { margin-left: auto !important; }
-  /* Persons sit at order 99 so they appear after row-1 essentials.
-     flex: 0 1 auto = sized by content. If they fit on row 1, they fit;
-     if they don't, the whole persons box wraps to row 2 as a single
-     flex line. The "calendar" eyebrow is hidden so a few persons fit. */
+  /* Hamburger pinned to the top-right corner so its position is stable
+     whether persons fit on row 1 or wrap to row 2. */
+  .topbar > .topbar-hamburger {
+    position: absolute;
+    top: 3px;
+    right: max(10px, env(safe-area-inset-right));
+    margin: 0 !important;
+  }
+  /* Persons after row-1 essentials (order 99). flex: 0 1 auto means
+     they sit on row 1 if they fit; the whole row drops to row 2 if not. */
   .topbar > .topbar-persons {
     order: 99;
     flex: 0 1 auto;
