@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { addDays, addMonths, subMonths, startOfMonth, startOfWeek, format, parseISO } from 'date-fns'
 import { Person, CalendarState, CalendarSource } from '@/types'
 import { signOut } from 'next-auth/react'
@@ -37,6 +38,17 @@ interface Props {
 export default function CalendarHeader({ state, onStateChange, people, onNewActivity, onRefresh, onColorSettings, onShortcuts, calendarSources, hiddenCalendars, onToggleCalendar, onSetAllCalendars, calendarSourcesOpen, onCalendarSourcesOpenChange, onApplyFavorite, zoom, onToggleZoom, accountName, onAccountSwitch, isAdmin, userEmail, accountLogo, monthSelectedDay }: Props) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [hamburgerOpen, setHamburgerOpen] = useState(false)
+  const hamburgerBtnRef = useRef<HTMLButtonElement>(null)
+  const [hamburgerMenuPos, setHamburgerMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    if (!hamburgerOpen || !hamburgerBtnRef.current) return
+    const rect = hamburgerBtnRef.current.getBoundingClientRect()
+    const right = Math.max(8, window.innerWidth - rect.right)
+    const top = rect.bottom + 4
+    setHamburgerMenuPos({ top, right })
+  }, [hamburgerOpen])
   const [mobileFavsOpen, setMobileFavsOpen] = useState(false)
   const [mobileCalendarsOpen, setMobileCalendarsOpen] = useState(false)
   const [monthNavOpen, setMonthNavOpen] = useState(false)
@@ -199,17 +211,17 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
       {/* Hamburger — mobile only */}
       <div className="topbar-hamburger relative lg:hidden ml-auto">
         <button
+          ref={hamburgerBtnRef}
           onClick={() => setHamburgerOpen(o => !o)}
           className="icon-btn"
           title="Menu"
           aria-label="Menu"
           aria-expanded={hamburgerOpen}
         >☰</button>
-        {hamburgerOpen && (
+        {mounted && hamburgerOpen && createPortal(
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setHamburgerOpen(false)} />
-            {/* right-0 ensures popup stays on screen regardless of where the hamburger is positioned */}
-            <div role="menu" className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
+            <div className="fixed inset-0" style={{ zIndex: 999 }} onClick={() => setHamburgerOpen(false)} />
+            <div role="menu" style={{ position: 'fixed', top: hamburgerMenuPos.top, right: hamburgerMenuPos.right, zIndex: 1000 }} className="bg-surface border border-border rounded-xl shadow-xl py-1 min-w-[180px]">
               {userEmail && (
                 <div className="px-4 py-2 border-b border-border mb-1">
                   <p className="text-[10px] text-text-muted truncate">{userEmail}</p>
@@ -299,7 +311,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
                 Sign out
               </button>
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
 

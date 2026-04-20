@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   format, parseISO, addMonths, subMonths, addDays,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -81,6 +82,7 @@ export default function MonthNavigator({
   }, [open, onClose])
 
   if (!open) return null
+  if (typeof document === 'undefined') return null
 
   // Calendar grid
   const monthStart = startOfMonth(parseISO(`${displayMonth}-01`))
@@ -122,9 +124,10 @@ export default function MonthNavigator({
     else if (deltaX < -50) goToNextMonth()
   }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] bg-black/50 flex items-start justify-center pt-16 px-4"
+      className="fixed inset-0 bg-black/50 flex items-start justify-center pt-16 px-4"
+      style={{ zIndex: 1000 }}
       onClick={onClose}
     >
       <div
@@ -259,6 +262,7 @@ export default function MonthNavigator({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

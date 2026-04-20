@@ -1782,12 +1782,19 @@ input, select, textarea { font-family: inherit; }
   .topbar > .topbar-persons { grid-area: persons; justify-self: start; min-width: 0; }
   .topbar > .sep,
   .topbar > .topbar-spacer { display: none !important; }
-  /* Visual breathing room between the top chrome and the content below. */
-  .topbar { margin-bottom: 2px; }
+  /* Padding below the chip/selector row gives the 1px breathing space
+     between row 2 and the topbar's bottom border. */
+  .topbar { padding-bottom: 1px; margin-bottom: 0; }
+  /* Same height for date selector and person chip — picked at 26px. */
+  .topbar .btn,
+  .topbar .person-chip,
+  .topbar .icon-btn { height: 26px; }
+  .topbar .icon-btn { width: 26px; }
+  .topbar .person-chip { padding: 0 4px 0 6px; }
 
-  /* Month: stack agenda BELOW the grid at a RESERVED height so selecting
-     empty/weekend days doesn't let the agenda collapse and the grid
-     expand. Grid + agenda partition the available space up-front. */
+  /* Month: grid is sized to fit 2 event chips per cell (~70px row),
+     agenda gets whatever's left below. Both visible from the start so
+     no layout shift when selecting empty/weekend days. */
   .month-wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -1795,60 +1802,89 @@ input, select, textarea { font-family: inherit; }
     grid-template-rows: auto !important;
     min-height: 100% !important;
   }
-  .month-main {
-    flex: 1 1 auto;
-    min-height: 0;
+  .month-main { flex: 0 0 auto; min-height: 0; }
+  .month-main .month-grid {
+    grid-template-rows: repeat(6, minmax(70px, auto));
+  }
+  .month-main .month-cell .mh-chip {
+    font-size: 9.5px;
+    line-height: 1.15;
+    padding: 1px 4px;
   }
   .month-side {
     display: flex !important;
     flex-direction: column;
     border-left: none !important;
     border-top: 1px solid var(--app-line);
-    flex: 0 0 40vh;
-    max-height: 40vh;
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
   }
 }
 
-/* Phone landscape — single row, tight gaps, edge-safe padding.
-   Covers up to the lg: breakpoint so wide iPhones in landscape
-   (iPhone Pro Max landscape is 932px — above the old 820 cap) are
-   still forced to a single row. Person chips are shrunk a touch so
-   3+ persons don't push the hamburger off to a new row. */
+/* Phone landscape — keep date / view / hamburger on row 1 always.
+   Persons sit at order 99 so they break to row 2 when too many; on
+   row 2 they remain a single horizontal flex (chips can wrap inside
+   if there are very many). Person chips inherit the default 26px
+   height so they match the date button visually. */
 @media (max-width: 1023px) and (orientation: landscape) {
   .topbar {
-    flex-wrap: nowrap;
-    height: 44px;
+    flex-wrap: wrap;
     min-height: 44px;
     padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
-    overflow-x: hidden;
+    row-gap: 4px;
+    align-content: flex-start;
   }
-  .topbar .person-chip {
-    height: 20px;
-    font-size: 9.5px;
-    padding: 0 3px 0 5px;
+  .topbar > .topbar-spacer { display: none; }
+  .topbar > .topbar-hamburger { margin-left: auto !important; }
+  .topbar > .topbar-persons {
+    order: 99;
+    flex: 1 1 100%;
+    min-width: 0;
+    flex-wrap: wrap;
     gap: 4px;
+    padding-bottom: 4px;
   }
-  .topbar .person-chip .p-dot { width: 6px; height: 6px; }
-  .topbar .person-chip .x { width: 12px; height: 12px; font-size: 12px; }
-  .topbar .topbar-persons { flex-wrap: nowrap; overflow-x: auto; min-width: 0; gap: 3px; scrollbar-width: none; }
-  .topbar .topbar-persons::-webkit-scrollbar { display: none; }
+  /* Same height across button / chip / icon — matches portrait. */
+  .topbar .btn,
+  .topbar .person-chip,
+  .topbar .icon-btn { height: 26px; }
+  .topbar .icon-btn { width: 26px; }
+  .topbar .person-chip { padding: 0 4px 0 6px; font-size: 11px; }
 }
 
 /* Non-desktop landscape (phone + small tablet): compact side rail with
    DOTS on the left, agenda on the right. Kicks in for any landscape
    viewport below the desktop cut-in. */
 @media (max-width: 1279px) and (orientation: landscape) and (max-height: 900px) {
-  .month-wrap { grid-template-columns: 1fr minmax(260px, 38%) !important; grid-template-rows: 1fr !important; }
-  .month-side { display: flex !important; flex-direction: column; border-left: 1px solid var(--app-line); border-top: none !important; max-height: none !important; flex: none !important; }
+  /* Wider agenda (~50%) so the dot grid stops looking empty and the
+     agenda has room. */
+  .month-wrap { grid-template-columns: 1fr minmax(320px, 48%) !important; grid-template-rows: 1fr !important; }
+  .month-side { display: flex !important; flex-direction: column; border-left: 1px solid var(--app-line); border-top: none !important; max-height: none !important; flex: none !important; min-height: 0; }
   /* Grid flush to edges — no inset padding in compact landscape. */
   .month-main { padding: 0; min-height: 0; }
-  .month-main .month-head { grid-template-columns: repeat(7, 1fr); font-size: 9px; padding: 0 2px 2px; }
-  .month-main .month-grid { gap: 1px; }
+  /* Match the .month-cell border style on the right edge so the gap to
+     the agenda border looks intentional, not a stray pixel. */
+  .month-main .month-head {
+    grid-template-columns: repeat(7, 1fr);
+    font-size: 9px;
+    padding: 0;
+    border-bottom: 1px solid var(--app-line);
+  }
+  .month-main .month-head > div {
+    padding: 4px 2px;
+    border-right: 1px solid var(--app-line);
+  }
+  .month-main .month-head > div:last-child { border-right: none; }
+  .month-main .month-grid { gap: 0; }
   .month-main .month-cell {
     min-height: 0;
     padding: 2px 3px;
     display: flex; flex-direction: column; gap: 1px;
+    border-right: 1px solid var(--app-line);
+    border-bottom: 1px solid var(--app-line);
   }
+  .month-main .month-cell:nth-child(7n) { border-right: none; }
   .month-main .month-cell .mh-chip { display: none; }
   .month-main .month-cell .mh-more { display: none; }
   .month-main .month-cell .mh-top { margin-bottom: 0; }
@@ -1857,19 +1893,20 @@ input, select, textarea { font-family: inherit; }
     display: flex !important; gap: 2px; flex-wrap: wrap; margin-top: 2px;
     min-height: 8px;
   }
-  .month-main .month-cell .dot {
-    width: 4px; height: 4px; border-radius: 50%;
-  }
+  .month-main .month-cell .dot { width: 4px; height: 4px; border-radius: 50%; }
   .month-main .month-cell .dot-more {
     font-size: 8px; color: var(--app-fg-subtle); font-weight: 600;
     line-height: 4px;
   }
-  /* Compact agenda header — single line instead of stacked eyebrow + big dnum */
-  .month-side-hdr { padding: 8px 12px 6px !important; }
-  .month-side-hdr .dow { display: none !important; }
-  .month-side-hdr .dnum { font-size: 14px !important; font-weight: 700; display: flex; align-items: baseline; gap: 8px; margin-top: 0; }
-  .month-side-hdr .dnum > span { font-size: 12px !important; color: var(--app-fg-muted) !important; margin-left: 0 !important; }
-  .month-side-hdr .agenda-open { margin-left: auto; }
+  /* Agenda header sized to match the weekday header row exactly. */
+  .month-side-hdr {
+    height: auto !important;
+    min-height: 0;
+    padding: 4px 12px !important;
+    line-height: 1;
+  }
+  .month-side-hdr .dnum { font-size: 13px !important; }
+  .month-side-hdr .dnum > span:last-child { font-size: 11px !important; }
 }
 
 /* Mobile portrait — single-line agenda header */

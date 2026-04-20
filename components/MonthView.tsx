@@ -6,6 +6,7 @@ import {
 } from 'date-fns'
 import type { Activity } from '@/types'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
+import { useEvStyle } from '@/lib/useEvStyle'
 
 interface HolidayData {
   dates: Record<string, { name: string; country: string }[]>
@@ -40,6 +41,7 @@ export default function MonthView({
   const [pickedEvent, setPickedEvent] = useState<{ act: Activity; pos: { x: number; y: number } } | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const [maxChips, setMaxChips] = useState(4)
+  const evStyle = useEvStyle()
 
   // Close picked preview on Esc
   useEffect(() => {
@@ -83,21 +85,24 @@ export default function MonthView({
   const showSide = true
 
   // Dynamic fit — measure cell height to decide how many chips fit.
-  // Portrait caps at 2 chips + "+N more" so the stacked agenda below
-  // always stays useful; landscape/desktop fit as many as the cell height
-  // allows. Uses ResizeObserver to re-compute on layout changes.
+  // Portrait always shows 2 chips (the cell CSS gives them enough height
+  // and the stacked agenda below takes whatever's left). Landscape/desktop
+  // fit as many as the cell height allows.
   useEffect(() => {
     const el = gridRef.current
     if (!el) return
     const chipH = 17
-    const reserve = 22 + 3 + 14 // day-num row + top padding + "+N more" line
+    const reserve = 22 + 3 + 14
     function calc() {
       if (!el) return
+      if (layout === 'portrait') {
+        setMaxChips(2)
+        return
+      }
       const rowH = el.clientHeight / 6
       const available = Math.max(0, rowH - reserve)
       const fit = Math.max(1, Math.floor(available / chipH))
-      const capped = layout === 'portrait' ? Math.min(fit, 2) : fit
-      setMaxChips(prev => (prev === capped ? prev : capped))
+      setMaxChips(prev => (prev === fit ? prev : fit))
     }
     calc()
     const ro = new ResizeObserver(calc)
@@ -285,7 +290,14 @@ export default function MonthView({
                     <div
                       key={act.id}
                       className="mh-chip"
-                      style={{ ['--ev-bg' as string]: color, color: textOnAccent(color) }}
+                      style={{
+                        ['--ev-bg' as string]: color,
+                        // Only force a contrasted text colour for the SOLID variant
+                        // (chip is the full event colour). In tinted/outlined the
+                        // chip bg is a faded version and the design CSS already
+                        // computes a colour-mixed readable text.
+                        ...(evStyle === 'solid' ? { color: textOnAccent(color) } : {}),
+                      }}
                       onClick={e => {
                         e.stopPropagation()
                         if (act.date) onSelectedDayChange?.(act.date)

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Person } from '@/types'
 import { personColor } from '@/lib/colors'
 
@@ -13,6 +14,15 @@ interface Props {
 export default function PersonSelector({ people, selected, onChange, onClose }: Props) {
   const [query, setQuery] = useState('')
   const [local, setLocal] = useState<Person[]>(selected)
+  const [mounted, setMounted] = useState(false)
+  // Computed top offset so the modal sits just below the topbar, leaving
+  // the already-selected person chips visible behind it.
+  const [topOffset, setTopOffset] = useState(80)
+  useEffect(() => {
+    setMounted(true)
+    const tb = document.querySelector('.topbar') as HTMLElement | null
+    if (tb) setTopOffset(tb.getBoundingClientRect().bottom + 4)
+  }, [])
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
@@ -34,14 +44,19 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
     onChange(next)  // immediate update to parent
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+  if (!mounted) return null
+  return createPortal(
+    <div
+      className="fixed left-0 right-0 bottom-0 flex items-start justify-center"
+      style={{ top: topOffset, zIndex: 1000 }}
+    >
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="person-selector-title"
-        className="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[70vh] flex flex-col"
+        className="relative bg-surface border border-border rounded-2xl w-full max-w-sm flex flex-col mx-3 mt-2"
+        style={{ maxHeight: `calc(100vh - ${topOffset}px - 16px)` }}
         onTouchStart={e => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
         onTouchEnd={e => {
           if (swipeStart.current !== null) {
@@ -106,6 +121,7 @@ export default function PersonSelector({ people, selected, onChange, onClose }: 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
