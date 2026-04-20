@@ -386,6 +386,14 @@ export default function MonthView({
             onMouseEnter={isSticky ? undefined : cancelHide}
             onMouseLeave={isSticky ? undefined : scheduleHide}
           >
+            {isSticky && (
+              <button
+                aria-label="Close"
+                onClick={() => setPickedEvent(null)}
+                className="absolute flex items-center justify-center rounded-full text-base font-bold active:brightness-110"
+                style={{ top: 6, right: 6, width: 28, height: 28, background: 'rgba(0,0,0,0.25)', color: 'var(--app-fg)', zIndex: 1 }}
+              >✕</button>
+            )}
             <div className="evp-accent" />
             <div className="evp-head">
               <div className="evp-chips">
@@ -495,13 +503,14 @@ export default function MonthView({
                   {format(parseISO(selectedDay), 'MMMM yyyy')}
                 </span>
               </div>
-              <button
-                onClick={() => onSelectDate(selectedDay)}
-                className="btn btn-outline btn-sm agenda-open"
-                title="Open day view"
-              >
-                Open day view
-              </button>
+              <div className="segmented agenda-open" title="Switch view">
+                <button
+                  onClick={() => onSelectDate(selectedDay)}
+                  aria-pressed={false}
+                  title="Open day view"
+                >Day</button>
+                <button aria-pressed={true} disabled>Agenda</button>
+              </div>
             </header>
             <div className="month-side-body">
               {holidays?.dates?.[selectedDay]?.length ? (

@@ -313,7 +313,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
-        className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[80vh] flex flex-col overflow-hidden"
+        className="relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg h-[min(80dvh,640px)] max-h-[calc(100dvh-32px)] flex flex-col overflow-hidden"
         onTouchStart={e => {
           // Only track swipe if started near the top (drag handle area, first 60px)
           const rect = e.currentTarget.getBoundingClientRect()
@@ -407,7 +407,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           role="tabpanel"
           id={`panel-${activeTab}`}
           aria-labelledby={`tab-${activeTab}`}
-          className="overflow-y-auto flex-1 p-4 space-y-6"
+          className="overflow-y-auto flex-1 min-h-0 p-4 space-y-6"
         >
           {activeTab === 'style' && (
             <>

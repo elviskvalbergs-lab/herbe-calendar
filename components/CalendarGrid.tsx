@@ -25,6 +25,7 @@ interface Props {
   onNewForDate?: (date: string) => void
   onDrillDate?: (date: string) => void
   onDrillPerson?: (personCode: string) => void
+  onSwitchToMonth?: () => void
   visibility?: ShareVisibility
   holidays?: { dates: Record<string, { name: string; country: string }[]>; personCountries: Record<string, string> }
 }
@@ -32,7 +33,7 @@ interface Props {
 export default function CalendarGrid({
   state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
   scale = 1, isLightMode = false, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
-  onDrillDate, onDrillPerson, visibility, holidays
+  onDrillDate, onDrillPerson, onSwitchToMonth, visibility, holidays
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
@@ -320,6 +321,11 @@ export default function CalendarGrid({
                       style={{ width: 18, height: 18, fontSize: 14, lineHeight: 1, color: 'var(--app-accent)' }}
                       title={`New activity on ${format(d, 'dd/MM')}`}
                     >+</button>
+                  ) : !visibility && !isMultiDay && onSwitchToMonth ? (
+                    <div className="segmented" title="Switch view" style={{ height: 22 }}>
+                      <button aria-pressed={true} disabled style={{ height: 18, fontSize: 10, padding: '0 6px' }}>Day</button>
+                      <button aria-pressed={false} onClick={() => onSwitchToMonth?.()} style={{ height: 18, fontSize: 10, padding: '0 6px' }}>Agenda</button>
+                    </div>
                   ) : <span />}
                 </div>
                 {/* Sub-persons rail */}

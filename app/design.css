@@ -1811,13 +1811,14 @@ input, select, textarea { font-family: inherit; }
   .topbar .person-chip { padding: 0 4px 0 6px; font-size: 11.5px; }
   .topbar .btn { font-size: 12px; padding: 0 8px; }
 
-  /* Month: explicit 2-row grid — row 1 sizes to month-main's content
-     (head + 6×70 cells), row 2 (agenda) fills the rest of the wrap.
-     No min-height tricks that overflow the parent flex slot. */
+  /* Month: explicit 2-row grid — row 1 fixed to month-main's exact
+     pixel height (head + 6×70 grid = 448px), row 2 (agenda) fills the
+     rest of the wrap. Using a px length on row 1 instead of `auto`
+     prevents the row from over-sizing if cell content tries to expand. */
   .month-wrap {
     display: grid !important;
     grid-template-columns: 1fr !important;
-    grid-template-rows: auto 1fr !important;
+    grid-template-rows: 448px minmax(0, 1fr) !important;
     height: 100%;
     min-height: 0;
   }
@@ -1827,9 +1828,9 @@ input, select, textarea { font-family: inherit; }
     min-height: 0;
     overflow: hidden;
   }
+  .month-main .month-head { height: 28px; min-height: 28px; }
   .month-main .month-grid {
-    flex: 0 0 auto;
-    /* Fixed 70px each row × 6 rows = 420px exactly. No auto-grow. */
+    flex: 0 0 420px;
     grid-template-rows: repeat(6, 70px);
   }
   .month-main .month-cell .mh-chip {

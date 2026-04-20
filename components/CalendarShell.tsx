@@ -926,6 +926,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           onNewForDate={(date) => setFormState({ open: true, initial: { date } })}
           onDrillDate={drillToDate}
           onDrillPerson={drillToPerson}
+          onSwitchToMonth={() => setState(s => ({ ...s, view: 'month' }))}
         />
       )}
       {status && state.view !== 'month' && (
