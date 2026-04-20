@@ -1768,13 +1768,15 @@ input, select, textarea { font-family: inherit; }
 @media (max-width: 1023px) and (orientation: portrait) {
   .topbar {
     display: grid !important;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    /* Row 1: brand | nav | view-segmented | (spacer) | hamburger
+       Row 2: persons (full width) */
+    grid-template-columns: auto auto auto minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
     grid-template-areas:
-      "brand    nav      ham"
-      "segment  persons  persons";
+      "brand    nav      segment  .         ham"
+      "persons  persons  persons  persons   persons";
     align-items: center;
-    column-gap: 6px;
+    column-gap: 4px;
     row-gap: 4px;
     padding: 4px max(8px, env(safe-area-inset-left)) 4px max(8px, env(safe-area-inset-right));
     min-height: auto;
@@ -1783,11 +1785,18 @@ input, select, textarea { font-family: inherit; }
   }
   .topbar > .brand          { grid-area: brand; }
   .topbar > .topbar-group   { grid-area: nav; justify-self: start; }
-  .topbar > .topbar-hamburger { grid-area: ham; margin-left: 0 !important; }
   .topbar > .segmented      { grid-area: segment; justify-self: start; }
+  .topbar > .topbar-hamburger { grid-area: ham; margin-left: 0 !important; }
   .topbar > .topbar-persons { grid-area: persons; justify-self: start; min-width: 0; }
   .topbar > .sep,
   .topbar > .topbar-spacer { display: none !important; }
+  /* Tighten nav on portrait so the row fits — small icon-buttons + small date btn. */
+  .topbar > .topbar-group > .icon-btn { width: 22px !important; height: 22px !important; min-height: 22px !important; }
+  .topbar > .topbar-group > .btn { padding: 0 6px !important; font-size: 11px !important; }
+  .topbar > .segmented { padding: 1px !important; gap: 0 !important; height: 24px !important; }
+  .topbar > .segmented button { padding: 0 5px !important; font-size: 10.5px !important; height: 20px !important; }
+  /* Brand: only "h." dot needed on portrait — saves another ~30px. */
+  .topbar > .brand .brand-b { font-size: 14px !important; }
   /* 2px chrome at the bottom: 1px topbar padding + 1px border. */
   .topbar {
     padding-top: 4px !important;

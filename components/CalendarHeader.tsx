@@ -213,8 +213,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         </svg>
       </button>
 
-      {/* Hamburger — mobile only */}
-      <div className="topbar-hamburger relative lg:hidden ml-auto">
+      {/* Hamburger — mobile only. No `relative` here — landscape CSS
+          uses position:absolute to pin it to the top-right corner. */}
+      <div className="topbar-hamburger lg:hidden">
         <button
           ref={hamburgerBtnRef}
           onClick={() => setHamburgerOpen(o => !o)}

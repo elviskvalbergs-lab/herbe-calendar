@@ -58,12 +58,24 @@ export default function MonthView({
     }
   }
 
-  // Close picked preview on Esc
+  // Close picked preview on Esc, and on click-outside. The click-outside
+  // handler ignores chips/agenda rows so clicking another event swaps the
+  // preview to that event instead of just closing it.
   useEffect(() => {
     if (!pickedEvent) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPickedEvent(null) }
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t) return
+      if (t.closest('.ev-preview') || t.closest('.mh-chip') || t.closest('.ms-event')) return
+      setPickedEvent(null)
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
   }, [pickedEvent])
   const monthStart = startOfMonth(parseISO(selectedDay))
   const monthEnd = endOfMonth(monthStart)
@@ -367,13 +379,6 @@ export default function MonthView({
         const top = Math.max(8, Math.min(pos.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - cardMaxH - 8))
         return (
           <>
-            {isSticky && (
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setPickedEvent(null)}
-                aria-hidden
-              />
-            )}
           <div
             className={`ev-preview ${variantClass}`}
             style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: 'auto', zIndex: 95 }}
