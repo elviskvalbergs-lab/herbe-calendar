@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, parseISO } from 'date-fns'
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, parseISO } from 'date-fns'
 import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource, UserGoogleAccount } from '@/types'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
@@ -10,7 +10,7 @@ import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import AccountSwitcher from './AccountSwitcher'
 import {
-  buildClassGroupColorMap, getActivityColor, loadColorOverrides,
+  buildClassGroupColorMap, loadColorOverrides,
   resolveColorWithOverrides, OUTLOOK_COLOR, GOOGLE_COLOR, FALLBACK_COLOR,
   SOURCE_COLOR_CODES, type ColorOverrideRow,
 } from '@/lib/activityColors'
@@ -581,7 +581,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       ? format(startOfWeek(startOfMonth(parseISO(state.date)), { weekStartsOn: 1 }), 'yyyy-MM-dd')
       : state.date
     const dateTo = state.view === 'month'
-      ? format(endOfMonth(parseISO(state.date)), 'yyyy-MM-dd')
+      ? format(endOfWeek(endOfMonth(parseISO(state.date)), { weekStartsOn: 1 }), 'yyyy-MM-dd')
       : state.view === '7day'
       ? format(addDays(parseISO(state.date), 6), 'yyyy-MM-dd')
       : state.view === '5day'
@@ -597,21 +597,19 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     const cacheKey = `${codes}:${dateFrom}:${dateTo}`
     activeFetchKeyRef.current = cacheKey
     const cacheEntry = activityCacheRef.current.get(cacheKey)
+    // Stale-while-revalidate: show cached data immediately (if any), then always
+    // background-refresh. The previous "skip refresh if < 60s old" behavior hid
+    // updates from the user — if the initial fetch returned incomplete data
+    // (e.g. sync still catching up), the user had no way to see the real state
+    // without manually switching views and back.
     if (cacheEntry && !bustIcsCache) {
       setActivities(cacheEntry.data)
-      // Skip background refresh if data is fresh (< 60 seconds old) AND has content
-      if (Date.now() - cacheEntry.ts < 60_000 && cacheEntry.data.length > 0) {
-        setLoading(false)
-        setStatus({ msg: `${cacheEntry.data.length} activities (cached)`, ok: true })
-        return
-      }
-      // Stale cache — show cached data but keep loading indicator for background refresh
       setLoading(true)
-    } else if (!cacheEntry) {
+      setStatus({ msg: `${cacheEntry.data.length} activities · refreshing…`, ok: true })
+    } else {
       setLoading(true)
+      setStatus({ msg: 'Loading...' })
     }
-
-    setStatus({ msg: 'Loading...' })
     const icsWarnings: string[] = []
     const errors: string[] = []
 
@@ -932,15 +930,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       )}
       {status && state.view !== 'month' && (
         <div
-          className="px-3 py-1 text-xs font-mono border-t shrink-0 flex items-center justify-between"
-          style={status.ok === false
-            ? { background: 'var(--status-err-bg)', borderColor: 'var(--status-err-border)', color: 'var(--status-err-text)' }
-            : status.ok === true
-            ? { background: 'var(--status-ok-bg)', borderColor: 'var(--status-ok-border)', color: 'var(--status-ok-text)' }
-            : undefined
-          }
+          className={`substrip tone-${status.ok === false ? 'error' : status.ok === true ? 'ok' : 'info'}`}
         >
-          <div>{status.ok === false ? '✗ ' : status.ok === true ? '✓ ' : '⟳ '}{status.msg}</div>
+          <div className="ss-primary">
+            <span className={`ss-dot ${status.ok === false ? 'error' : status.ok === true ? '' : 'info'}`} />
+            <span className="ss-detail">{status.msg}</span>
+          </div>
         </div>
       )}
 
