@@ -1782,19 +1782,22 @@ input, select, textarea { font-family: inherit; }
   .topbar > .topbar-persons { grid-area: persons; justify-self: start; min-width: 0; }
   .topbar > .sep,
   .topbar > .topbar-spacer { display: none !important; }
-  /* Padding below the chip/selector row gives the 1px breathing space
-     between row 2 and the topbar's bottom border. */
-  .topbar { padding-bottom: 1px; margin-bottom: 0; }
-  /* Same height for date selector and person chip — picked at 26px. */
+  /* 2px chrome at the bottom: 1px topbar padding + 1px border. */
+  .topbar {
+    padding-top: 4px !important;
+    padding-bottom: 2px !important;
+    margin-bottom: 0;
+  }
+  /* All interactive controls 26px tall — date selector matches chips. */
   .topbar .btn,
   .topbar .person-chip,
-  .topbar .icon-btn { height: 26px; }
-  .topbar .icon-btn { width: 26px; }
-  .topbar .person-chip { padding: 0 4px 0 6px; }
+  .topbar .icon-btn { height: 26px !important; min-height: 26px !important; }
+  .topbar .icon-btn { width: 26px !important; }
+  .topbar .person-chip { padding: 0 4px 0 6px; font-size: 11.5px; }
+  .topbar .btn { font-size: 12px; padding: 0 8px; }
 
-  /* Month: grid is sized to fit 2 event chips per cell (~70px row),
-     agenda gets whatever's left below. Both visible from the start so
-     no layout shift when selecting empty/weekend days. */
+  /* Month: grid is sized to fit exactly 2 event chips per cell.
+     Agenda fills whatever's left below — no dead space between them. */
   .month-wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -1802,9 +1805,16 @@ input, select, textarea { font-family: inherit; }
     grid-template-rows: auto !important;
     min-height: 100% !important;
   }
-  .month-main { flex: 0 0 auto; min-height: 0; }
+  .month-main {
+    flex: 0 0 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
   .month-main .month-grid {
-    grid-template-rows: repeat(6, minmax(70px, auto));
+    flex: 0 0 auto;
+    /* Fixed 70px each row × 6 rows = 420px exactly. No auto-grow. */
+    grid-template-rows: repeat(6, 70px);
   }
   .month-main .month-cell .mh-chip {
     font-size: 9.5px;
@@ -1831,26 +1841,35 @@ input, select, textarea { font-family: inherit; }
   .topbar {
     flex-wrap: wrap;
     min-height: 44px;
-    padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
+    /* 4px top + bottom — breathing room above row 1 + below row 2. */
+    padding: 4px max(10px, env(safe-area-inset-right)) 2px max(10px, env(safe-area-inset-left));
     row-gap: 4px;
     align-content: flex-start;
+    align-items: center;
   }
   .topbar > .topbar-spacer { display: none; }
   .topbar > .topbar-hamburger { margin-left: auto !important; }
+  /* Persons sit at order 99 so they appear after row-1 essentials.
+     flex: 0 1 auto = sized by content. If they fit on row 1, they fit;
+     if they don't, the whole persons box wraps to row 2 as a single
+     flex line. The "calendar" eyebrow is hidden so a few persons fit. */
   .topbar > .topbar-persons {
     order: 99;
-    flex: 1 1 100%;
+    flex: 0 1 auto;
     min-width: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
-    padding-bottom: 4px;
   }
-  /* Same height across button / chip / icon — matches portrait. */
+  /* Drop the "CALENDAR" wordmark next to the herbe. logo to free up
+     horizontal space for person chips on row 1. */
+  .topbar .brand > span:last-child { display: none !important; }
+  /* Heights match portrait: 26px for everything. */
   .topbar .btn,
   .topbar .person-chip,
-  .topbar .icon-btn { height: 26px; }
-  .topbar .icon-btn { width: 26px; }
-  .topbar .person-chip { padding: 0 4px 0 6px; font-size: 11px; }
+  .topbar .icon-btn { height: 26px !important; min-height: 26px !important; }
+  .topbar .icon-btn { width: 26px !important; }
+  .topbar .person-chip { padding: 0 4px 0 6px; font-size: 11.5px; }
+  .topbar .btn { font-size: 12px; padding: 0 8px; }
 }
 
 /* Non-desktop landscape (phone + small tablet): compact side rail with
@@ -1865,15 +1884,23 @@ input, select, textarea { font-family: inherit; }
   .month-main { padding: 0; min-height: 0; }
   /* Match the .month-cell border style on the right edge so the gap to
      the agenda border looks intentional, not a stray pixel. */
+  /* Weekday row + agenda header are LOCKED to the same row height (28px)
+     so the agenda title aligns with the weekday band exactly. */
   .month-main .month-head {
     grid-template-columns: repeat(7, 1fr);
     font-size: 9px;
     padding: 0;
     border-bottom: 1px solid var(--app-line);
+    height: 28px;
   }
   .month-main .month-head > div {
-    padding: 4px 2px;
+    padding: 0 2px;
     border-right: 1px solid var(--app-line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    line-height: 1;
   }
   .month-main .month-head > div:last-child { border-right: none; }
   .month-main .month-grid { gap: 0; }
@@ -1898,15 +1925,17 @@ input, select, textarea { font-family: inherit; }
     font-size: 8px; color: var(--app-fg-subtle); font-weight: 600;
     line-height: 4px;
   }
-  /* Agenda header sized to match the weekday header row exactly. */
+  /* Agenda header — exact same height (28px) as the weekday row. */
   .month-side-hdr {
-    height: auto !important;
-    min-height: 0;
-    padding: 4px 12px !important;
+    height: 28px !important;
+    min-height: 28px;
+    padding: 0 12px !important;
     line-height: 1;
+    align-items: center;
   }
   .month-side-hdr .dnum { font-size: 13px !important; }
   .month-side-hdr .dnum > span:last-child { font-size: 11px !important; }
+  .month-side-hdr .agenda-open { height: 22px; padding: 0 8px; font-size: 11px; }
 }
 
 /* Mobile portrait — single-line agenda header */
