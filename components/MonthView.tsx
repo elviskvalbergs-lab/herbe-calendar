@@ -40,8 +40,23 @@ export default function MonthView({
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [pickedEvent, setPickedEvent] = useState<{ act: Activity; pos: { x: number; y: number } } | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const hideTimerRef = useRef<number | null>(null)
   const [maxChips, setMaxChips] = useState(4)
   const evStyle = useEvStyle()
+
+  // Hover bridge: when the cursor leaves a chip, schedule a hide. If it
+  // enters the preview within the timeout, cancel — so the user can
+  // actually move into and click inside the preview.
+  function scheduleHide() {
+    if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = window.setTimeout(() => setHoveredEvent(null), 120)
+  }
+  function cancelHide() {
+    if (hideTimerRef.current) {
+      window.clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+  }
 
   // Close picked preview on Esc
   useEffect(() => {
@@ -59,9 +74,12 @@ export default function MonthView({
   // Layout mode: portrait (narrow), landscape (short wide), desktop (full)
   const [layout, setLayout] = useState<'portrait' | 'landscape' | 'desktop'>('portrait')
   const [splitWidth, setSplitWidth] = useState<number>(() => {
-    if (typeof window === 'undefined') return 600
+    if (typeof window === 'undefined') return 1000
     const saved = localStorage.getItem('monthViewSplitWidth')
-    return saved ? Number(saved) : Math.round(window.innerWidth * 0.58)
+    if (saved) return Number(saved)
+    // Default: give the agenda ~320px, calendar takes the rest. Floor at
+    // 600 so very narrow desktops still show a usable grid.
+    return Math.max(600, window.innerWidth - 320)
   })
   const isDraggingRef = useRef(false)
   const latestWidthRef = useRef(splitWidth)
@@ -85,14 +103,13 @@ export default function MonthView({
   const showSide = true
 
   // Dynamic fit — measure cell height to decide how many chips fit.
-  // Portrait always shows 2 chips (the cell CSS gives them enough height
-  // and the stacked agenda below takes whatever's left). Landscape/desktop
-  // fit as many as the cell height allows.
+  // Portrait always shows 2 chips. Desktop/landscape fit as many as the
+  // cell height allows (chips are tightened via CSS so more fit).
   useEffect(() => {
     const el = gridRef.current
     if (!el) return
-    const chipH = 17
-    const reserve = 22 + 3 + 14
+    const chipH = 14   // tighter desktop chips ≈ 14px row
+    const reserve = 20 + 2 + 13   // day-num + top padding + "+N more" line
     function calc() {
       if (!el) return
       if (layout === 'portrait') {
@@ -303,11 +320,12 @@ export default function MonthView({
                         if (act.date) onSelectedDayChange?.(act.date)
                       }}
                       onMouseEnter={isDesktop ? e => {
+                        cancelHide()
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                         setHoverPos({ x: rect.right + 6, y: rect.top })
                         setHoveredEvent(act)
                       } : undefined}
-                      onMouseLeave={isDesktop ? () => setHoveredEvent(null) : undefined}
+                      onMouseLeave={isDesktop ? () => scheduleHide() : undefined}
                       title={`${act.timeFrom ? act.timeFrom + ' ' : ''}${act.description}`}
                     >
                       {act.isAllDay ? '' : `${act.timeFrom} `}{act.description || '(no title)'}
@@ -358,8 +376,10 @@ export default function MonthView({
             )}
           <div
             className={`ev-preview ${variantClass}`}
-            style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: isSticky ? 'auto' : 'none', zIndex: 95 }}
+            style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: 'auto', zIndex: 95 }}
             role={isSticky ? 'dialog' : 'tooltip'}
+            onMouseEnter={isSticky ? undefined : cancelHide}
+            onMouseLeave={isSticky ? undefined : scheduleHide}
           >
             <div className="evp-accent" />
             <div className="evp-head">
@@ -425,19 +445,23 @@ export default function MonthView({
                 </div>
               )}
             </div>
-            {isSticky && (
-              <div className="evp-foot">
+            <div className="evp-foot">
+              {isSticky && (
                 <button
                   className="btn btn-sm"
                   onClick={() => setPickedEvent(null)}
                 >Close</button>
-                <div className="spacer" />
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => { setPickedEvent(null); onActivityClick?.(act) }}
-                >Edit</button>
-              </div>
-            )}
+              )}
+              <div className="spacer" />
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setPickedEvent(null)
+                  setHoveredEvent(null)
+                  onActivityClick?.(act)
+                }}
+              >Edit</button>
+            </div>
           </div>
           </>
         )

@@ -284,17 +284,35 @@ export default function CalendarGrid({
                       </button>
                     )
                   ) : <span />}
-                  <span
-                    style={{
-                      fontSize: isMultiDay ? 15 : 18,
-                      fontWeight: 700,
-                      letterSpacing: '-0.02em',
-                      lineHeight: 1.1,
-                      color: isCurrentDay ? 'var(--app-accent)' : 'var(--app-fg)',
-                    }}
-                  >
-                    {format(d, isMultiDay ? 'd' : 'EEE d MMM')}
-                  </span>
+                  {!visibility && isMultiDay ? (
+                    <button
+                      onClick={() => onDrillDate?.(date)}
+                      className="hover:underline transition-colors"
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        letterSpacing: '-0.02em',
+                        lineHeight: 1.1,
+                        color: isCurrentDay ? 'var(--app-accent)' : 'var(--app-fg)',
+                        cursor: 'pointer',
+                      }}
+                      title={`View ${format(d, 'EEE dd/MM')} only`}
+                    >
+                      {format(d, 'd')}
+                    </button>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: isMultiDay ? 15 : 18,
+                        fontWeight: 700,
+                        letterSpacing: '-0.02em',
+                        lineHeight: 1.1,
+                        color: isCurrentDay ? 'var(--app-accent)' : 'var(--app-fg)',
+                      }}
+                    >
+                      {format(d, isMultiDay ? 'd' : 'EEE d MMM')}
+                    </span>
+                  )}
                   {!visibility && isMultiDay ? (
                     <button
                       onClick={() => onNewForDate?.(date)}

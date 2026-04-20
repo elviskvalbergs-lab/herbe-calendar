@@ -1241,13 +1241,14 @@ input, select, textarea { font-family: inherit; }
   }
 }
 .month-cell .mh-chip {
-  font-size: 10.5px; line-height: 1.2;
-  padding: 1px 5px;
+  font-size: 10px; line-height: 1.15;
+  padding: 0 5px;
   color: #fff;
   border-radius: 1px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   background: var(--ev-bg, #2a8f94);
   border-left: 3px solid rgba(0,0,0,0.28);
+  height: 13px;
 }
 /* TINTED variant — soft background, colored text, left rail */
 :root[data-ev-style="tinted"] .month-cell .mh-chip {

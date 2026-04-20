@@ -103,6 +103,11 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         >
           {format(parseISO(state.date), 'd MMM yyyy')}
         </button>
+        <button
+          onClick={() => onStateChange({ ...state, date: format(new Date(), 'yyyy-MM-dd') })}
+          className="btn btn-outline btn-sm hidden lg:inline-flex"
+          title="Jump to today (T)"
+        >Today</button>
         <button onClick={() => navigate(1)} className="icon-btn" title="Next day (→)" aria-label="Next day">›</button>
         {(viewStep > 1 || isMonth) && (
           <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="icon-btn" title={isMonth ? 'Next month' : `Forward ${viewStep} days`} aria-label={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
