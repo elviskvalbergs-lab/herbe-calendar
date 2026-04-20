@@ -1147,10 +1147,15 @@ input, select, textarea { font-family: inherit; }
 .month-wrap {
   display: grid;
   grid-template-columns: 1fr 360px;
+  /* Single row that fills the wrap height — without 1fr the row was
+     auto-sized to content, letting cells expand to fit all events
+     instead of using flex: 1 inside .month-main to drive cap calc. */
+  grid-template-rows: 1fr;
   height: 100%;
+  min-height: 0;
 }
 .month-wrap.no-side { grid-template-columns: 1fr; }
-.month-main { display: flex; flex-direction: column; min-width: 0; }
+.month-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
 .month-head {
   display: grid;
