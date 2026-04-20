@@ -1840,9 +1840,12 @@ input, select, textarea { font-family: inherit; }
 @media (max-width: 1023px) and (orientation: landscape) {
   .topbar {
     flex-wrap: wrap;
-    min-height: 44px;
-    /* 4px top + bottom — breathing room above row 1 + below row 2. */
-    padding: 4px max(10px, env(safe-area-inset-right)) 2px max(10px, env(safe-area-inset-left));
+    /* min-height removed — let the topbar size to its actual content
+       (single 26px row + 6px padding ≈ 32px). When persons wrap to a
+       second row, the topbar grows naturally. */
+    min-height: 0;
+    height: auto;
+    padding: 3px max(10px, env(safe-area-inset-right)) 3px max(10px, env(safe-area-inset-left));
     row-gap: 4px;
     align-content: flex-start;
     align-items: center;
