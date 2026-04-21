@@ -1,5 +1,6 @@
 'use client'
-import React, { forwardRef, useId } from 'react'
+import React, { forwardRef, useEffect, useId, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { format, parseISO } from 'date-fns'
 import type { Activity, ShareVisibility } from '@/types'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
@@ -46,6 +47,8 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
     } = props
 
     const titleId = useId()
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => { setMounted(true) }, [])
     const isPlanned = activity.planned === true
     const isBusy = visibility === 'busy'
     const isTitlesOnly = visibility === 'titles'
@@ -76,7 +79,9 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
       ? 'All day'
       : `${activity.timeFrom} – ${activity.timeTo}`
 
-    return (
+    if (!mounted) return null
+
+    return createPortal(
       <div
         ref={ref}
         className={`ev-preview ${variantClass}`.trim()}
@@ -218,7 +223,8 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
             )}
           </div>
         )}
-      </div>
+      </div>,
+      document.body
     )
   }
 )
