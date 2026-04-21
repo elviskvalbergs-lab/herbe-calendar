@@ -14,7 +14,7 @@ interface TimeSlot {
   end: string
 }
 
-type Step = 'template' | 'date' | 'slot' | 'form' | 'confirm'
+type Step = 'template' | 'pick' | 'form' | 'done'
 
 interface Props {
   token: string
@@ -25,7 +25,7 @@ interface Props {
 }
 
 export default function BookingPage({ token, templates, title, maxDays = 60, onBack }: Props) {
-  const [step, setStep] = useState<Step>(templates.length === 1 ? 'date' : 'template')
+  const [step, setStep] = useState<Step>(templates.length === 1 ? 'pick' : 'template')
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(templates.length === 1 ? templates[0] : null)
   const [slots, setSlots] = useState<Record<string, TimeSlot[]>>({})
   const [slotsLoading, setSlotsLoading] = useState(false)
@@ -38,11 +38,9 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
   const [error, setError] = useState<string | null>(null)
   const [confirmData, setConfirmData] = useState<{ cancelToken: string; emailError?: string | null } | null>(null)
 
-  // Timezone
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const [timezone] = useState(browserTz)
 
-  // Date range for availability: use configurable maxDays from share link
   const dateRange = useMemo(() => {
     const today = new Date()
     const from = format(today, 'yyyy-MM-dd')
@@ -50,7 +48,6 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
     return { from, to }
   }, [maxDays])
 
-  // Fetch availability when template is selected
   useEffect(() => {
     if (!selectedTemplate) return
     setSlotsLoading(true)
@@ -65,10 +62,8 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
       .finally(() => setSlotsLoading(false))
   }, [selectedTemplate, token, dateRange])
 
-  // Available dates (those with slots)
   const availableDates = useMemo(() => Object.keys(slots).sort(), [slots])
 
-  // Auto-jump to first month with available dates
   useEffect(() => {
     if (availableDates.length > 0) {
       const firstDate = parseISO(availableDates[0])
@@ -81,25 +76,13 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
   function selectTemplate(t: Template) {
     setSelectedTemplate(t)
     setFieldValues({})
-    setStep('date')
-  }
-
-  function selectDate(date: string) {
-    setSelectedDate(date)
-    setSelectedSlot(null)
-    setStep('slot')
-  }
-
-  function selectSlot(slot: TimeSlot) {
-    setSelectedSlot(slot)
-    setStep('form')
+    setStep('pick')
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedTemplate || !selectedDate || !selectedSlot || !bookerEmail) return
 
-    // Validate required fields
     for (const field of selectedTemplate.custom_fields) {
       if (field.required && !fieldValues[field.label]?.trim()) {
         setError(`"${field.label}" is required`)
@@ -125,14 +108,12 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
       if (!res.ok) {
         setError(data.error || `Failed (${res.status})`)
         if (res.status === 409) {
-          // Slot no longer available — go back to slot selection
-          setStep('slot')
           setSelectedSlot(null)
         }
         return
       }
       setConfirmData({ cancelToken: data.cancelToken ?? data.booking?.cancel_token, emailError: data.emailError ?? null })
-      setStep('confirm')
+      setStep('done')
     } catch (e) {
       setError(String(e))
     } finally {
@@ -140,67 +121,62 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
     }
   }
 
+  const pageTitle = title || 'Book a meeting'
+  const durationLabel = selectedTemplate ? `${selectedTemplate.duration_minutes} min` : ''
+  const currentStepLabel = step === 'template' ? 'Choose meeting type'
+    : step === 'pick' ? 'Step 1 of 2'
+    : step === 'form' ? 'Step 2 of 2'
+    : 'Booked'
+
   return (
-    <div className="min-h-screen flex items-start justify-center pt-8 px-4 pb-4">
-      <div className="bg-surface border border-border rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-        {/* Header */}
-        <div className="px-5 pt-5 pb-3 border-b border-border flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-bold">{title || 'Book a Meeting'}</h1>
-            {selectedTemplate && step !== 'template' && (
-              <p className="text-xs text-text-muted mt-0.5">{selectedTemplate.name} ({selectedTemplate.duration_minutes} min)</p>
-            )}
-          </div>
-          {step !== 'confirm' && step !== 'date' && (
-            <button
-              onClick={() => {
-                if (step === 'form') setStep('slot')
-                else if (step === 'slot') setStep('date')
-                else if (step === 'template') onBack()
-                else if (step === 'date' && templates.length > 1) { setStep('template'); setSelectedTemplate(null) }
-              }}
-              className="text-text-muted text-xs hover:text-text"
-            >
-              Back
-            </button>
-          )}
+    <div className="booking-shell" data-theme="dark">
+      <aside className="booking-side">
+        <div className="bracket" />
+        <div className="bracket cyan" />
+        <div className="b-brand">
+          <span className="b-brand-b">herbe<span className="dot-r">.</span></span>
+          <span style={{ fontSize: 10, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: 10 }}>calendar</span>
         </div>
 
-        {/* Step indicator */}
-        {step !== 'confirm' && (() => {
-          const stepList = templates.length > 1 ? ['template', 'date', 'slot', 'form'] : ['date', 'slot', 'form']
-          const currentStep = stepList.indexOf(step) + 1
-          const totalSteps = stepList.length
-          return (
-            <div
-              role="progressbar"
-              aria-label={`Step ${currentStep} of ${totalSteps}`}
-              aria-valuenow={currentStep}
-              aria-valuemin={1}
-              aria-valuemax={totalSteps}
-              className="flex px-5 pt-3 gap-1"
-            >
-              {stepList.map((s, i, steps) => (
-                <div key={s} className={`h-1 flex-1 rounded-full ${
-                  i <= steps.indexOf(step) ? 'bg-primary' : 'bg-border'
-                }`} />
-              ))}
-            </div>
-          )
-        })()}
-
-        <div className="p-5">
-          {error && (
-            <div className="mb-4 px-3 py-2 rounded-lg bg-red-500/10 text-red-500 text-xs font-bold">
-              {error}
-              <button onClick={() => setError(null)} className="ml-2 text-red-400">x</button>
-            </div>
+        <div style={{ marginTop: 'auto' }}>
+          <div className="b-eyebrow">{selectedTemplate ? `Book a meeting · ${durationLabel}` : 'Book a meeting'}</div>
+          <h1>{pageTitle}</h1>
+          {selectedTemplate && (
+            <p className="b-desc">
+              Pick a date and time that works for you. You'll get a calendar invitation with the meeting link once confirmed.
+            </p>
           )}
 
-          {/* Step 1: Template selection */}
-          {step === 'template' && (
+          <div className="b-meta-list">
+            {selectedTemplate && (
+              <div className="ml-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {selectedTemplate.duration_minutes} minutes
+              </div>
+            )}
+            <div className="ml-row">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              {timezone}
+            </div>
+          </div>
+
+          <div className="b-foot">Powered by herbe.calendar</div>
+        </div>
+      </aside>
+
+      <main className="booking-main">
+        {error && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-red-500/10 text-red-500 text-xs font-bold">
+            {error}
+            <button onClick={() => setError(null)} className="ml-2 text-red-400">×</button>
+          </div>
+        )}
+
+        {step === 'template' && (
+          <div>
+            <div className="step-head">{currentStepLabel}</div>
+            <h2>Select a meeting type</h2>
             <div className="space-y-2">
-              <p className="text-xs text-text-muted mb-3">Select a meeting type:</p>
               {templates.map(t => (
                 <button
                   key={t.id}
@@ -212,46 +188,46 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
                 </button>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Step 2: Date selection — calendar month view */}
-          {step === 'date' && (
-            <div>
-              {slotsLoading ? (
-                <p className="text-center text-text-muted text-sm py-8 animate-pulse">Loading availability...</p>
-              ) : (
-                <div>
-                  {/* Month nav */}
-                  <div className="flex items-center justify-between mb-3">
+        {step === 'pick' && selectedTemplate && (
+          <div>
+            <div className="step-head">{currentStepLabel}</div>
+            <h2>Pick a date &amp; time</h2>
+            {slotsLoading ? (
+              <p className="text-center text-text-muted text-sm py-8 animate-pulse">Loading availability…</p>
+            ) : (
+              <div className="b-dates">
+                <div className="b-month">
+                  <div className="b-month-nav">
                     <button
                       type="button"
+                      className="icon-btn"
                       onClick={() => setCalendarMonth(m => subMonths(m, 1))}
                       disabled={isSameMonth(calendarMonth, new Date())}
-                      className="text-text-muted hover:text-text px-2 py-1 disabled:opacity-30"
+                      aria-label="Previous month"
                     >‹</button>
-                    <span className="text-sm font-bold">{format(calendarMonth, 'MMMM yyyy')}</span>
+                    <span>{format(calendarMonth, 'MMMM yyyy')}</span>
                     <button
                       type="button"
+                      className="icon-btn"
                       onClick={() => setCalendarMonth(m => addMonths(m, 1))}
                       disabled={isAfter(startOfMonth(addMonths(calendarMonth, 1)), parseISO(dateRange.to))}
-                      className="text-text-muted hover:text-text px-2 py-1 disabled:opacity-30"
+                      aria-label="Next month"
                     >›</button>
                   </div>
-                  {/* Day headers */}
-                  <div className="grid grid-cols-7 gap-0 mb-1">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-                      <div key={d} className="text-center text-[10px] text-text-muted font-bold py-1">{d}</div>
+                  <div className="b-month-grid">
+                    {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+                      <div key={i} className="d-h">{d}</div>
                     ))}
-                  </div>
-                  {/* Calendar grid */}
-                  <div className="grid grid-cols-7 gap-0">
                     {(() => {
                       const monthStart = startOfMonth(calendarMonth)
                       const monthEnd = endOfMonth(calendarMonth)
                       const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
                       const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
                       const today = new Date()
-                      const days: React.ReactElement[] = []
+                      const cells: React.ReactElement[] = []
                       let day = gridStart
                       while (day <= gridEnd) {
                         const dateStr = format(day, 'yyyy-MM-dd')
@@ -259,158 +235,158 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
                         const isPast = isBefore(day, today) && !isSameDay(day, today)
                         const hasSlots = availableDates.includes(dateStr)
                         const isToday = isSameDay(day, today)
-                        const d = day // capture for closure
-                        days.push(
-                          <button
+                        const isSel = selectedDate === dateStr
+                        const avail = hasSlots && !isPast && inMonth
+                        const cls = [
+                          'd-c',
+                          avail ? 'avail' : 'dis',
+                          isSel && 'sel',
+                          isToday && 'today',
+                        ].filter(Boolean).join(' ')
+                        const d = day
+                        cells.push(
+                          <div
                             key={dateStr}
-                            type="button"
-                            disabled={!hasSlots || isPast || !inMonth}
-                            onClick={() => { if (hasSlots && !isPast) selectDate(dateStr) }}
-                            className={`aspect-square flex items-center justify-center text-xs rounded-lg transition-colors relative ${
-                              !inMonth ? 'text-text-muted/20' :
-                              hasSlots && !isPast ? 'font-bold hover:bg-primary/15 cursor-pointer text-text' :
-                              'text-text-muted/40 cursor-default'
-                            } ${isToday ? 'ring-1 ring-primary/50' : ''}`}
+                            role="button"
+                            tabIndex={avail ? 0 : -1}
+                            aria-disabled={!avail}
+                            className={cls}
+                            onClick={() => { if (avail) { setSelectedDate(dateStr); setSelectedSlot(null) } }}
+                            onKeyDown={e => {
+                              if (!avail) return
+                              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDate(dateStr); setSelectedSlot(null) }
+                            }}
                           >
                             {format(d, 'd')}
-                            {hasSlots && inMonth && !isPast && (() => {
-                              const count = Math.min((slots[dateStr] ?? []).length, 3)
-                              return (
-                                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-[2px]">
-                                  {Array.from({ length: count }, (_, i) => (
-                                    <span key={i} className="w-1 h-1 rounded-full bg-primary" />
-                                  ))}
-                                </span>
-                              )
-                            })()}
-                          </button>
+                          </div>
                         )
                         day = addDays(day, 1)
                       }
-                      return days
+                      return cells
                     })()}
                   </div>
-                  {availableDates.length === 0 && (
-                    <p className="text-center text-text-muted text-xs mt-4">No available dates in the next 30 days.</p>
+                  {availableDates.length === 0 && !slotsLoading && (
+                    <p className="text-center text-text-muted text-xs mt-4">No available dates in the next {maxDays} days.</p>
                   )}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* Step 3: Slot selection */}
-          {step === 'slot' && selectedDate && (
-            <div className="space-y-2">
-              <p className="text-xs text-text-muted mb-3">
-                {format(parseISO(selectedDate), 'EEEE, d MMMM yyyy')} — select a time:
-              </p>
-              <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
-                {(slots[selectedDate] ?? []).map(slot => (
-                  <button
-                    key={slot.start}
-                    onClick={() => selectSlot(slot)}
-                    className={`px-2 py-2 rounded-lg border text-sm font-bold transition-colors ${
-                      selectedSlot?.start === slot.start
-                        ? 'border-primary bg-primary/15 text-primary'
-                        : 'border-border hover:border-primary/50 text-text-muted hover:text-text'
-                    }`}
-                  >
-                    {slot.start}
-                  </button>
-                ))}
+                <div className="b-slots">
+                  <div className="b-slots-head">
+                    {selectedDate
+                      ? format(parseISO(selectedDate), 'EEEE, d MMMM')
+                      : 'Select a date first'}
+                  </div>
+                  {selectedDate && (
+                    <div className="b-slot-grid">
+                      {(slots[selectedDate] ?? []).map(slot => (
+                        <button
+                          key={slot.start}
+                          className={`b-slot ${selectedSlot?.start === slot.start ? 'sel' : ''}`}
+                          onClick={() => setSelectedSlot(slot)}
+                        >
+                          {slot.start}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedDate && selectedSlot && (
+                    <div style={{ marginTop: 24 }}>
+                      <button
+                        className="btn btn-primary btn-lg"
+                        onClick={() => setStep('form')}
+                      >
+                        Continue →
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {/* Step 4: Booking form */}
-          {step === 'form' && selectedTemplate && selectedDate && selectedSlot && (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="p-3 rounded-lg bg-bg border border-border text-xs space-y-1">
-                <p><span className="text-text-muted">Date:</span> <span className="font-bold">{format(parseISO(selectedDate), 'EEEE, d MMMM yyyy')}</span></p>
-                <p><span className="text-text-muted">Time:</span> <span className="font-bold">{selectedSlot.start} – {selectedSlot.end}</span></p>
+        {step === 'form' && selectedTemplate && selectedDate && selectedSlot && (
+          <div>
+            <div className="step-head">{currentStepLabel}</div>
+            <h2>Your details</h2>
+
+            <div className="b-conf-box">
+              <div className="conf-time">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {format(parseISO(selectedDate), 'EEE, d MMM')} · {selectedSlot.start}–{selectedSlot.end}
               </div>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStep('pick')}>Change</button>
+            </div>
 
-              <div>
-                <label className="text-xs text-text-muted block mb-1">Your email *</label>
+            <form className="b-form" onSubmit={handleSubmit}>
+              <div className="frow">
+                <label>Your email *</label>
                 <input
                   type="email"
+                  className="input"
+                  placeholder="you@company.com"
                   value={bookerEmail}
                   onChange={e => setBookerEmail(e.target.value)}
                   required
-                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                  placeholder="you@company.com"
                 />
               </div>
-
               {selectedTemplate.custom_fields.map(field => (
-                <div key={field.label}>
-                  <label className="text-xs text-text-muted block mb-1">
-                    {field.label} {field.required && '*'}
-                  </label>
+                <div key={field.label} className="frow">
+                  <label>{field.label} {field.required && '*'}</label>
                   <input
                     type={field.type}
+                    className="input"
                     value={fieldValues[field.label] ?? ''}
                     onChange={e => setFieldValues(v => ({ ...v, [field.label]: e.target.value }))}
                     required={field.required}
-                    className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                   />
                 </div>
               ))}
-
-              <div className="text-[10px] text-text-muted">
-                Timezone: {timezone}
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button type="button" className="btn btn-outline btn-lg" onClick={() => setStep('pick')}>Back</button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-lg"
+                  disabled={submitting || !bookerEmail}
+                >
+                  {submitting ? 'Booking…' : 'Confirm booking'}
+                </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={submitting || !bookerEmail}
-                className="w-full py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:opacity-90 disabled:opacity-50"
-              >
-                {submitting ? 'Booking...' : 'Confirm Booking'}
-              </button>
             </form>
-          )}
+          </div>
+        )}
 
-          {/* Step 5: Confirmation */}
-          {step === 'confirm' && selectedTemplate && selectedDate && selectedSlot && (
-            <div className="text-center space-y-4 py-4">
-              <div className="w-12 h-12 rounded-full bg-green-500/15 flex items-center justify-center mx-auto">
-                <span className="text-green-500 text-xl">✓</span>
-              </div>
-              <div>
-                <p className="text-base font-bold">Booking Confirmed!</p>
-                <p className="text-xs text-text-muted mt-1">A confirmation email has been sent to {bookerEmail}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-bg border border-border text-xs space-y-1 text-left">
-                <p><span className="text-text-muted">Meeting:</span> <span className="font-bold">{selectedTemplate.name}</span></p>
-                <p><span className="text-text-muted">Date:</span> {format(parseISO(selectedDate), 'EEEE, d MMMM yyyy')}</p>
-                <p><span className="text-text-muted">Time:</span> {selectedSlot.start} – {selectedSlot.end} ({selectedTemplate.duration_minutes} min)</p>
-              </div>
-              {confirmData?.emailError ? (
-                <p className="text-[10px] text-amber-500">
-                  Note: confirmation email could not be sent. Save this page for your records.
-                </p>
-              ) : (
-                <p className="text-[10px] text-text-muted">
-                  A confirmation email has been sent with a cancellation link.
-                </p>
-              )}
-              <button
-                onClick={onBack}
-                className="text-xs text-text-muted hover:text-text"
-              >
-                Book another meeting
-              </button>
+        {step === 'done' && selectedTemplate && selectedDate && selectedSlot && (
+          <div className="b-confirmed">
+            <div className="big-check">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-          )}
-        </div>
+            <div className="step-head">Booked</div>
+            <h2>Your meeting is confirmed</h2>
+            <p className="conf-desc">
+              A confirmation has been sent to <strong style={{ color: 'var(--app-fg)' }}>{bookerEmail}</strong>.
+            </p>
 
-        <div className="px-5 pb-4 text-center">
-          <span className="text-[10px] text-text-muted">
-            herbe<span className="text-primary">.</span>calendar
-          </span>
-        </div>
-      </div>
+            <div className="b-conf-card">
+              <div className="row"><div className="k">Meeting</div><div className="v">{selectedTemplate.name}</div></div>
+              <div className="row"><div className="k">When</div><div className="v">{format(parseISO(selectedDate), 'EEEE, d MMMM yyyy')} · {selectedSlot.start}–{selectedSlot.end}</div></div>
+              <div className="row"><div className="k">Duration</div><div className="v">{selectedTemplate.duration_minutes} minutes</div></div>
+              <div className="row"><div className="k">Timezone</div><div className="v">{timezone}</div></div>
+            </div>
+
+            {confirmData?.emailError && (
+              <p className="text-[11px] text-amber-500">
+                Note: confirmation email could not be sent. Save this page for your records.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost btn-lg" onClick={onBack}>Book another</button>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   )
 }
