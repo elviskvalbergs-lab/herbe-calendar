@@ -1564,7 +1564,7 @@ export default function ActivityForm({
                           setCurrentGroup(getTypeGroup?.(type.code))
                           autoFillItemFromType(type.code)
                         }}
-                        className={`px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${
+                        className={`px-1.5 py-0.5 rounded-[5px] font-mono text-[11px] font-bold border transition-colors min-w-[32px] h-[22px] inline-flex items-center justify-center ${
                           isSelected ? 'border-current' : 'border-border text-text-muted hover:border-primary/50'
                         }`}
                         style={c ? (() => {
@@ -1634,7 +1634,7 @@ export default function ActivityForm({
                         const c = getTypeColor?.(t.code)
                         return (
                           <span
-                            className="font-mono text-xs w-12 shrink-0 rounded px-1 py-0.5 text-center border"
+                            className="font-mono text-[11px] font-bold min-w-[32px] h-[22px] shrink-0 rounded-[5px] px-1.5 inline-flex items-center justify-center border"
                             style={c ? { background: c + '22', color: readableAccentColor(c, isDarkTheme), borderColor: readableAccentColor(c, isDarkTheme) + '33' } : { color: 'var(--color-primary)', borderColor: 'transparent' }}
                           >
                             {t.code}
