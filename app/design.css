@@ -1699,6 +1699,14 @@ input, select, textarea { font-family: inherit; }
   .icon-btn { width: 28px; height: 28px; }
   .substrip { overflow: hidden; padding: 0 8px; }
   .modal { width: 100vw; max-height: 100vh; height: 100vh; border-radius: 0; }
+  /* Compact variant (e.g. confirm dialogs) stays a small centered popup */
+  .modal.modal-compact {
+    width: auto;
+    max-width: min(90vw, 420px);
+    height: auto;
+    max-height: min(80dvh, 80vh);
+    border-radius: 8px;
+  }
   .form-grid { grid-template-columns: 1fr; gap: 2px 0; }
   .form-grid > label { padding: 10px 0 2px; }
   .booking-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; min-height: 100dvh; overflow: auto; }

@@ -46,7 +46,7 @@ export default function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Confirm action"
-        className="modal w-full max-w-sm"
+        className="modal modal-compact w-full max-w-sm"
         style={{ padding: 0 }}
         onClick={e => e.stopPropagation()}
         onTouchStart={e => { swipeStart.current = { y: e.touches[0].clientY } }}
