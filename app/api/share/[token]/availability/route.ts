@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
-import { computeAvailableSlots, collectBusyBlocks, type BusyBlock } from '@/lib/availability'
+import { computeAvailableSlots, computeAllSlots, collectBusyBlocks, type BusyBlock } from '@/lib/availability'
 import { toTime } from '@/lib/herbe/recordUtils'
 import { isRateLimited } from '@/lib/rateLimit'
 import type { AvailabilityWindow } from '@/types'
@@ -139,6 +139,7 @@ export async function GET(
 
   // 6. Compute slots per day
   const slots: Record<string, { start: string; end: string }[]> = {}
+  const unavailableSlots: Record<string, { start: string; end: string }[]> = {}
   const current = new Date(dateFrom)
   const end = new Date(cappedDateTo)
 
@@ -167,9 +168,14 @@ export async function GET(
       continue
     }
     const dayBusy = busyByDate.get(dateStr) ?? []
-    const daySlots = computeAvailableSlots(dateStr, windows, dayBusy, durationMinutes, bufferMinutes)
+    const allCandidates = computeAllSlots(dateStr, windows, dayBusy, durationMinutes, bufferMinutes)
+    const daySlots = allCandidates.filter(s => s.available).map(({ start, end }) => ({ start, end }))
+    const dayUnavail = allCandidates.filter(s => !s.available).map(({ start, end }) => ({ start, end }))
     if (daySlots.length > 0) {
       slots[dateStr] = daySlots
+    }
+    if (dayUnavail.length > 0) {
+      unavailableSlots[dateStr] = dayUnavail
     }
     current.setDate(current.getDate() + 1)
   }
@@ -178,6 +184,7 @@ export async function GET(
   return NextResponse.json(
     {
       slots,
+      unavailableSlots,
       bookingMaxDays: maxDays,
       template: {
         name: template.name,

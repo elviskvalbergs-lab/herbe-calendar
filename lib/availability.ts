@@ -99,6 +99,54 @@ export function computeAvailableSlots(
 }
 
 /**
+ * Compute every candidate slot for a date, flagging which are busy.
+ * Used to render unavailable times as disabled in the booking UI.
+ */
+export function computeAllSlots(
+  date: string,
+  windows: AvailabilityWindow[],
+  busy: BusyBlock[],
+  durationMinutes: number,
+  bufferMinutes: number = 0,
+): { start: string; end: string; available: boolean }[] {
+  const dayOfWeek = getDay(parseISO(date))
+  const applicableWindows = windows.filter((w) => w.days.includes(dayOfWeek))
+  if (applicableWindows.length === 0) return []
+
+  const ranges = applicableWindows
+    .map((w) => ({ start: toMinutes(w.startTime), end: toMinutes(w.endTime) }))
+    .sort((a, b) => a.start - b.start)
+
+  const merged: { start: number; end: number }[] = []
+  for (const range of ranges) {
+    const last = merged[merged.length - 1]
+    if (last && range.start <= last.end) {
+      last.end = Math.max(last.end, range.end)
+    } else {
+      merged.push({ ...range })
+    }
+  }
+
+  const expandedBusy = busy.map((b) => ({
+    start: toMinutes(b.start) - bufferMinutes,
+    end: toMinutes(b.end) + bufferMinutes,
+  }))
+
+  const STEP = 30
+  const out: { start: string; end: string; available: boolean }[] = []
+
+  for (const window of merged) {
+    for (let start = window.start; start + durationMinutes <= window.end; start += STEP) {
+      const end = start + durationMinutes
+      const overlaps = expandedBusy.some((b) => start < b.end && end > b.start)
+      out.push({ start: fromMinutes(start), end: fromMinutes(end), available: !overlaps })
+    }
+  }
+
+  return out
+}
+
+/**
  * Collect all busy blocks for a set of person codes on a given date range.
  * Fetches from ERP, Outlook, ICS, and Google Calendar.
  */

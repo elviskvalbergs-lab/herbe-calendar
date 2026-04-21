@@ -28,6 +28,7 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
   const [step, setStep] = useState<Step>(templates.length === 1 ? 'pick' : 'template')
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(templates.length === 1 ? templates[0] : null)
   const [slots, setSlots] = useState<Record<string, TimeSlot[]>>({})
+  const [unavailableSlots, setUnavailableSlots] = useState<Record<string, TimeSlot[]>>({})
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
@@ -52,11 +53,13 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
     if (!selectedTemplate) return
     setSlotsLoading(true)
     setSlots({})
+    setUnavailableSlots({})
     fetch(`/api/share/${token}/availability?templateId=${selectedTemplate.id}&dateFrom=${dateRange.from}&dateTo=${dateRange.to}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) { setError(data.error); return }
         setSlots(data.slots ?? {})
+        setUnavailableSlots(data.unavailableSlots ?? {})
       })
       .catch(e => setError(String(e)))
       .finally(() => setSlotsLoading(false))
@@ -276,19 +279,26 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
                       ? format(parseISO(selectedDate), 'EEEE, d MMMM')
                       : 'Select a date first'}
                   </div>
-                  {selectedDate && (
-                    <div className="b-slot-grid">
-                      {(slots[selectedDate] ?? []).map(slot => (
-                        <button
-                          key={slot.start}
-                          className={`b-slot ${selectedSlot?.start === slot.start ? 'sel' : ''}`}
-                          onClick={() => setSelectedSlot(slot)}
-                        >
-                          {slot.start}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {selectedDate && (() => {
+                    const available = (slots[selectedDate] ?? []).map(s => ({ ...s, available: true }))
+                    const busy = (unavailableSlots[selectedDate] ?? []).map(s => ({ ...s, available: false }))
+                    const merged = [...available, ...busy].sort((a, b) => a.start.localeCompare(b.start))
+                    return (
+                      <div className="b-slot-grid">
+                        {merged.map(slot => (
+                          <button
+                            key={slot.start}
+                            className={`b-slot ${!slot.available ? 'dis' : ''} ${slot.available && selectedSlot?.start === slot.start ? 'sel' : ''}`}
+                            onClick={() => { if (slot.available) setSelectedSlot({ start: slot.start, end: slot.end }) }}
+                            disabled={!slot.available}
+                            aria-disabled={!slot.available}
+                          >
+                            {slot.start}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
                   {selectedDate && selectedSlot && (
                     <div style={{ marginTop: 24 }}>
                       <button
