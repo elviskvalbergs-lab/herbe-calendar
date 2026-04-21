@@ -1176,7 +1176,7 @@ input, select, textarea { font-family: inherit; }
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(6, 1fr);
+  grid-template-rows: repeat(var(--month-rows, 6), 1fr);
   min-height: 0;
 }
 .month-cell {
@@ -1831,7 +1831,7 @@ input, select, textarea { font-family: inherit; }
   .month-main {
     position: absolute !important;
     top: 0; left: 0; right: 0;
-    height: 448px;
+    height: calc(28px + var(--month-rows, 6) * 70px);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1847,8 +1847,8 @@ input, select, textarea { font-family: inherit; }
     line-height: 28px;
   }
   .month-main .month-grid {
-    flex: 0 0 420px;
-    grid-template-rows: repeat(6, 70px);
+    flex: 0 0 calc(var(--month-rows, 6) * 70px);
+    grid-template-rows: repeat(var(--month-rows, 6), 70px);
     min-height: 0;
   }
   .month-main .month-cell .mh-chip {
@@ -1858,7 +1858,7 @@ input, select, textarea { font-family: inherit; }
   }
   .month-side {
     position: absolute !important;
-    top: 448px; left: 0; right: 0; bottom: 0;
+    top: calc(28px + var(--month-rows, 6) * 70px); left: 0; right: 0; bottom: 0;
     display: flex;
     flex-direction: column;
     border-left: none !important;

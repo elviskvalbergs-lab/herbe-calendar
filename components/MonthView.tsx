@@ -7,6 +7,7 @@ import {
 import type { Activity } from '@/types'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
 import { useEvStyle } from '@/lib/useEvStyle'
+import { EventPreviewCard } from './EventPreviewCard'
 
 interface HolidayData {
   dates: Record<string, { name: string; country: string }[]>
@@ -235,7 +236,8 @@ export default function MonthView({
   // Detect per-person day view mode (desktop, multiple people — shows day view on the side instead of agenda)
   const showDayViewPanel = isDesktop && personCount > 1 && !!dayViewPanel
 
-  const wrapStyle: React.CSSProperties = { background: 'var(--app-bg)' }
+  const weekCount = Math.max(1, Math.ceil(allDays.length / 7))
+  const wrapStyle: React.CSSProperties = { background: 'var(--app-bg)', ['--month-rows' as string]: weekCount }
   if (isDesktop) {
     wrapStyle.gridTemplateColumns = `${splitWidth}px 4px 1fr`
   }
@@ -370,108 +372,27 @@ export default function MonthView({
         const act = pickedEvent?.act ?? hoveredEvent!
         const pos = pickedEvent?.pos ?? hoverPos
         const color = getActivityColor(act)
-        const sourceLabel = act.source === 'herbe' ? (act.erpConnectionName ? `ERP · ${act.erpConnectionName}` : 'ERP')
-          : act.source === 'outlook' ? 'Outlook'
-          : act.source === 'google' ? (act.googleCalendarName ?? 'Google')
-          : act.icsCalendarName ?? ''
-        const variantClass = act.planned ? 'planned' : ''
-        const rsvpMap: Record<string, string> = { accepted: 'accepted', tentative: 'tentative', declined: 'declined', pending: 'pending' }
         const cardWidth = 320
         const cardMaxH = 360
         const left = Math.max(8, Math.min(pos.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - cardWidth - 8))
         const top = Math.max(8, Math.min(pos.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - cardMaxH - 8))
         return (
-          <>
-          <div
-            className={`ev-preview ${variantClass}`}
-            style={{ left, top, ['--ev-bg' as string]: color, pointerEvents: 'auto', zIndex: 95 }}
-            role={isSticky ? 'dialog' : 'tooltip'}
+          <EventPreviewCard
+            activity={act}
+            color={color}
+            position={{ left, top }}
+            isSticky={isSticky}
+            positionMode="fixed"
+            showDate
+            onClose={isSticky ? () => setPickedEvent(null) : undefined}
+            onEdit={() => {
+              setPickedEvent(null)
+              setHoveredEvent(null)
+              onActivityClick?.(act)
+            }}
             onMouseEnter={isSticky ? undefined : cancelHide}
             onMouseLeave={isSticky ? undefined : scheduleHide}
-          >
-            <div className="evp-accent" />
-            <div className="evp-head">
-              <div className="evp-chips">
-                <span className="evp-chip brand" style={{ color: textOnAccent(color) }}>{act.source === 'herbe' ? 'ERP' : act.source === 'outlook' ? 'OUT' : act.source === 'google' ? 'GOO' : (act.icsCalendarName ? 'ICS' : 'EXT')}</span>
-                {act.planned && <span className="evp-chip planned" style={{ color: textOnAccent(color) }}>Planned</span>}
-                {act.isExternal && <span className="evp-chip">External</span>}
-                {act.attendees && act.attendees.length > 0 && <span className="evp-chip">{act.attendees.length} attendees</span>}
-              </div>
-              <div className="evp-title">{act.description || '(no title)'}</div>
-              <div className="evp-when">
-                {act.isAllDay ? 'All day' : `${act.timeFrom} – ${act.timeTo}`}
-                {act.date && <> · {format(parseISO(act.date), 'EEE d MMM')}</>}
-              </div>
-            </div>
-            <div className="evp-body">
-              {act.activityTypeCode && (
-                <div className="evp-row">
-                  <span className="k">Type</span>
-                  <span className="v">{act.activityTypeCode}{act.activityTypeName ? ` · ${act.activityTypeName}` : ''}</span>
-                </div>
-              )}
-              {act.customerName && (
-                <div className="evp-row">
-                  <span className="k">Customer</span>
-                  <span className="v">{act.customerName}</span>
-                </div>
-              )}
-              {act.projectName && (
-                <div className="evp-row">
-                  <span className="k">Project</span>
-                  <span className="v">{act.projectName}</span>
-                </div>
-              )}
-              {act.location && (
-                <div className="evp-row">
-                  <span className="k">Location</span>
-                  <span className="v">{act.location}</span>
-                </div>
-              )}
-              {sourceLabel && (
-                <div className="evp-row">
-                  <span className="k">Calendar</span>
-                  <span className="v">{sourceLabel}</span>
-                </div>
-              )}
-              {act.attendees && act.attendees.length > 0 && (
-                <div className="evp-attendees">
-                  {act.attendees.slice(0, 5).map((att, i) => {
-                    const initials = (att.name ?? att.email).split(/[\s@.]/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
-                    const rsvp = att.responseStatus && rsvpMap[att.responseStatus as string]
-                    return (
-                      <div key={`${att.email}-${i}`} className="evp-att">
-                        <span className="evp-avatar" style={{ background: color, color: textOnAccent(color) }}>{initials || '?'}</span>
-                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name ?? att.email}</span>
-                        {rsvp && <span className={`evp-rsvp ${rsvp}`}>{rsvp}</span>}
-                      </div>
-                    )
-                  })}
-                  {act.attendees.length > 5 && (
-                    <div style={{ fontSize: 10.5, color: 'var(--app-fg-subtle)', paddingLeft: 24 }}>+{act.attendees.length - 5} more</div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="evp-foot">
-              {isSticky && (
-                <button
-                  className="btn btn-sm"
-                  onClick={() => setPickedEvent(null)}
-                >Close</button>
-              )}
-              <div className="spacer" />
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  setPickedEvent(null)
-                  setHoveredEvent(null)
-                  onActivityClick?.(act)
-                }}
-              >Edit</button>
-            </div>
-          </div>
-          </>
+          />
         )
       })()}
 
