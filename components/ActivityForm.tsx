@@ -1384,6 +1384,7 @@ export default function ActivityForm({
               <div className="aed-input-wrap">
                 <input
                   type="time"
+                  lang="en-GB"
                   value={timeFrom}
                   onChange={e => {
                     const newFrom = e.target.value
@@ -1419,6 +1420,7 @@ export default function ActivityForm({
               <div className="aed-input-wrap">
                 <input
                   type="time"
+                  lang="en-GB"
                   value={timeTo}
                   onChange={e => setTimeTo(e.target.value)}
                   className="input aed-input"

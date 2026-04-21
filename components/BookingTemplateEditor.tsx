@@ -263,6 +263,7 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
                   <>
                     <input
                       type="time"
+                      lang="en-GB"
                       className={`${inputClass} w-24`}
                       value={startTime}
                       onChange={e => {
@@ -280,6 +281,7 @@ const BookingTemplateEditor = forwardRef<TemplateEditorHandle, Props>(function B
                     <span className="text-text-muted text-[10px]">–</span>
                     <input
                       type="time"
+                      lang="en-GB"
                       className={`${inputClass} w-24`}
                       value={endTime}
                       onChange={e => {
