@@ -155,9 +155,12 @@ export default function ShareCalendarShell({ token }: Props) {
   // Error screen
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-3 px-4 text-center">
-        <p className="text-lg font-semibold">{error}</p>
-        <p className="text-text-muted text-sm">Contact the person who shared this link.</p>
+      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4 text-center">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted">
+          herbe<span className="text-primary">.</span>calendar
+        </div>
+        <h1 className="text-2xl font-extrabold uppercase tracking-tight">{error}</h1>
+        <p className="text-text-muted text-sm max-w-sm">Contact the person who shared this link.</p>
       </div>
     )
   }
@@ -165,24 +168,24 @@ export default function ShareCalendarShell({ token }: Props) {
   // Password screen
   if (needsPassword) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
-        <p className="text-base font-semibold">This calendar is password protected</p>
+      <div className="flex flex-col items-center justify-center h-screen gap-5 px-4">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted">
+          herbe<span className="text-primary">.</span>calendar
+        </div>
+        <h1 className="text-xl font-extrabold uppercase tracking-tight">Password protected</h1>
         <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3 w-full max-w-xs">
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Enter password"
-            className="px-3 py-2 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:border-primary"
+            className="input"
             autoFocus
           />
           {passwordError && (
             <p className="text-red-500 text-xs">{passwordError}</p>
           )}
-          <button
-            type="submit"
-            className="px-4 py-2 bg-primary text-white rounded text-sm font-semibold hover:opacity-90"
-          >
+          <button type="submit" className="btn btn-primary btn-lg" style={{ justifyContent: 'center' }}>
             Open calendar
           </button>
         </form>
@@ -193,8 +196,11 @@ export default function ShareCalendarShell({ token }: Props) {
   // Loading screen
   if (!config) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-text-muted">Loading...</p>
+      <div className="flex flex-col items-center justify-center h-screen gap-3">
+        <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted">
+          herbe<span className="text-primary">.</span>calendar
+        </div>
+        <p className="text-text-muted text-sm animate-pulse">Loading…</p>
       </div>
     )
   }
