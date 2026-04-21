@@ -247,6 +247,8 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
                           isToday && 'today',
                         ].filter(Boolean).join(' ')
                         const d = day
+                        const slotCount = avail ? (slots[dateStr]?.length ?? 0) : 0
+                        const dotCount = slotCount === 0 ? 0 : slotCount <= 2 ? 1 : slotCount <= 5 ? 2 : 3
                         cells.push(
                           <div
                             key={dateStr}
@@ -261,6 +263,11 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
                             }}
                           >
                             {format(d, 'd')}
+                            {dotCount > 0 && (
+                              <span className="d-dots" aria-label={`${slotCount} slot${slotCount === 1 ? '' : 's'} available`}>
+                                {Array.from({ length: dotCount }).map((_, i) => <span key={i} />)}
+                              </span>
+                            )}
                           </div>
                         )
                         day = addDays(day, 1)
