@@ -2583,16 +2583,17 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 }
 .aed-spacer { flex: 1; }
 .aed-primary {
-  flex: 1;
-  min-height: 48px;
-  padding: 12px 20px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   background: var(--app-accent);
   color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 15px; font-weight: 600;
+  border: 1px solid var(--app-accent);
+  border-radius: 4px;
+  font-size: 12.5px; font-weight: 500;
   cursor: pointer;
+  white-space: nowrap;
 }
 .aed-primary:hover { background: var(--app-accent-hover, #b7432f); }
 .aed-kbd {
@@ -2615,13 +2616,14 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 }
 .aed-del-btn:hover { background: rgba(205,76,56,0.08); }
 .aed-dup-btn {
-  width: 48px; height: 48px;
+  width: 28px; height: 28px;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent;
   border: 1px solid var(--app-line-strong);
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--app-fg-muted);
   cursor: pointer;
+  font-size: 14px;
 }
 .aed-dup-btn:hover { border-color: var(--app-accent); color: var(--app-accent); }
 
