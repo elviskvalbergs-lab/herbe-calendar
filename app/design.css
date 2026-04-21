@@ -2110,6 +2110,7 @@ input, select, textarea { font-family: inherit; }
   max-width: 680px;
   width: 92vw;
   max-height: 88vh;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -2629,8 +2630,8 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   .aed-modal {
     width: 100vw;
     max-width: 100vw;
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     border-radius: 0;
   }
   .aed-header { padding: 12px 14px 10px; }
@@ -2852,8 +2853,12 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
     left: 0 !important; right: 0 !important;
     bottom: 0 !important; top: auto !important;
     width: 100% !important; max-width: 100% !important;
-    /* Leave only the topbar row visible above the sheet (~44px) */
-    max-height: calc(100vh - 44px) !important; height: auto !important;
+    /* Leave only the topbar row visible above the sheet (~44px).
+       Use 100dvh so iOS URL bar collapse/expand doesn't push the header
+       behind the URL bar when async content resizes the sheet. */
+    max-height: calc(100vh - 44px) !important;
+    max-height: calc(100dvh - 44px) !important;
+    height: auto !important;
     border-radius: 16px 16px 0 0 !important;
     transform: none !important;
     animation: sheet-up 260ms var(--ease-out, cubic-bezier(0.16,1,0.3,1));
