@@ -80,9 +80,10 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
     const topbar = document.querySelector('.topbar') as HTMLElement | null
     const topMin = topbar ? topbar.getBoundingClientRect().bottom + 6 : MARGIN
     const bottomMax = window.innerHeight - cardH - MARGIN
-    // Prefer below the banner; if it would overflow, place above it.
-    let top = rect.bottom + 6
-    if (top > bottomMax) top = rect.top - cardH - 6
+    // Prefer flush below the banner; if it would overflow, place flush above.
+    // Zero gap keeps the cursor path continuous so hover survives the move.
+    let top = rect.bottom
+    if (top > bottomMax) top = rect.top - cardH
     top = Math.max(topMin, Math.min(top, bottomMax))
     // Horizontally align with banner, keep within viewport.
     let left = rect.left

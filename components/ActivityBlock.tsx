@@ -73,11 +73,12 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
     const topbar = document.querySelector('.topbar') as HTMLElement | null
     const topMin = topbar ? topbar.getBoundingClientRect().bottom + 6 : MARGIN
     const bottomMax = window.innerHeight - cardH - MARGIN
-    // Prefer placing to the right of the block; fall back to left if it
-    // would overflow horizontally.
-    let left = rect.right + 6
+    // Prefer placing flush-right against the block; fall back to flush-left if it
+    // would overflow horizontally. Zero gap keeps the cursor path continuous
+    // from block → card so hover doesn't drop between them.
+    let left = rect.right
     if (left + cardW > window.innerWidth - MARGIN) {
-      left = rect.left - cardW - 6
+      left = rect.left - cardW
     }
     left = Math.max(MARGIN, Math.min(left, window.innerWidth - cardW - MARGIN))
     // Vertically: align with the block top when possible. For events near
