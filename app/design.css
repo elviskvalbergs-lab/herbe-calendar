@@ -1176,7 +1176,7 @@ input, select, textarea { font-family: inherit; }
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(var(--month-rows, 6), 1fr);
+  grid-template-rows: repeat(6, 1fr);
   min-height: 0;
 }
 .month-cell {

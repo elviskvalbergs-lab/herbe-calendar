@@ -1,5 +1,5 @@
 'use client'
-import React, { forwardRef } from 'react'
+import React, { forwardRef, useId } from 'react'
 import { format, parseISO } from 'date-fns'
 import type { Activity, ShareVisibility } from '@/types'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
@@ -15,7 +15,7 @@ function TeamsIcon({ size = 11 }: { size?: number }) {
 export interface EventPreviewCardProps {
   activity: Activity
   color: string
-  position: { left: number; top: number }
+  position: { left: number; top: number } | null
   /** pinned (clicked) vs hover tooltip — drives close-X visibility and ARIA role */
   isSticky?: boolean
   width?: number
@@ -23,6 +23,7 @@ export interface EventPreviewCardProps {
   /** show the date alongside the time range (useful when the card can surface any day) */
   showDate?: boolean
   isCC?: boolean
+  isLightMode?: boolean
   visibility?: ShareVisibility
   canEdit?: boolean
   getTypeName?: (code: string) => string
@@ -40,10 +41,11 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
   function EventPreviewCard(props, ref) {
     const {
       activity, color, position, isSticky = false, width = 320, positionMode = 'fixed',
-      showDate = false, isCC = false, visibility, canEdit = true, getTypeName,
+      showDate = false, isCC = false, isLightMode = false, visibility, canEdit = true, getTypeName,
       onClose, onEdit, onCardClick, onMouseEnter, onMouseLeave, style,
     } = props
 
+    const titleId = useId()
     const isPlanned = activity.planned === true
     const isBusy = visibility === 'busy'
     const isTitlesOnly = visibility === 'titles'
@@ -68,7 +70,7 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
     const rsvpMap: Record<string, string> = {
       accepted: 'accepted', tentative: 'tentative', declined: 'declined', pending: 'pending',
     }
-    const textColor = readableAccentColor(color, true)
+    const textColor = readableAccentColor(color, !isLightMode)
 
     const whenText = activity.isAllDay
       ? 'All day'
@@ -79,12 +81,14 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
         ref={ref}
         className={`ev-preview ${variantClass}`.trim()}
         role={isSticky ? 'dialog' : 'tooltip'}
+        aria-labelledby={titleId}
         style={{
           position: positionMode,
-          left: position.left,
-          top: position.top,
+          left: position?.left ?? 0,
+          top: position?.top ?? 0,
           width,
           maxWidth: 'calc(100vw - 24px)',
+          visibility: position ? 'visible' : 'hidden',
           ['--ev-bg' as string]: color,
           pointerEvents: 'auto',
           zIndex: 95,
@@ -116,7 +120,7 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
               )}
             </div>
           )}
-          <div className="evp-title">
+          <div id={titleId} className="evp-title">
             {isBusy ? 'Busy' : (activity.description || '(no title)')}
           </div>
           <div className="evp-when">

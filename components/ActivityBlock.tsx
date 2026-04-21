@@ -261,7 +261,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
         />
       )}
       {/* Preview card — hover on desktop, tap on mobile. */}
-      {((!isTouchDevice && hovered) || mobileSelected) && cardPos && (
+      {((!isTouchDevice && hovered) || mobileSelected) && (
         <EventPreviewCard
           ref={cardRef}
           activity={activity}
@@ -269,6 +269,7 @@ function ActivityBlockInner({ activity, color, height, onClick, onDragStart, can
           position={cardPos}
           isSticky={mobileSelected}
           isCC={isCC}
+          isLightMode={isLightMode}
           visibility={visibility}
           canEdit={canEdit}
           getTypeName={getTypeName}

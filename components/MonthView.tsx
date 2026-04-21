@@ -384,6 +384,7 @@ export default function MonthView({
             isSticky={isSticky}
             positionMode="fixed"
             showDate
+            isLightMode={isLightMode}
             onClose={isSticky ? () => setPickedEvent(null) : undefined}
             onEdit={() => {
               setPickedEvent(null)
