@@ -784,12 +784,12 @@ export default function ActivityForm({
       >
         {/* Drag handle (mobile) — touch here to drag-dismiss */}
         <div
-          className="flex justify-center pt-3 pb-1 sm:hidden cursor-grab active:cursor-grabbing touch-none"
+          className="aed-drag-handle"
           onTouchStart={handleDragHandleTouchStart}
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
         >
-          <div className="w-10 h-1 rounded-full bg-border" />
+          <div />
         </div>
 
         {/* Header — also responds to swipe-down to dismiss on mobile */}

@@ -1401,6 +1401,7 @@ input, select, textarea { font-family: inherit; }
 /* ============ Booking page ============ */
 .booking-shell {
   height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(320px, 460px) 1fr;
   background: var(--app-bg);
@@ -1700,7 +1701,7 @@ input, select, textarea { font-family: inherit; }
   .modal { width: 100vw; max-height: 100vh; height: 100vh; border-radius: 0; }
   .form-grid { grid-template-columns: 1fr; gap: 2px 0; }
   .form-grid > label { padding: 10px 0 2px; }
-  .booking-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; overflow: auto; }
+  .booking-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; min-height: 100dvh; overflow: auto; }
   /* Compact hero so calendar is visible on first load */
   .booking-side { padding: 16px 20px 14px; min-height: 0; }
   .booking-side .b-brand { padding-bottom: 10px; }
@@ -1716,9 +1717,10 @@ input, select, textarea { font-family: inherit; }
   .booking-side .bracket { display: none; }
 }
 
-/* Phone landscape: side-by-side layout with a narrow hero and a larger calendar */
-@media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
-  .booking-shell { grid-template-columns: minmax(150px, 180px) 1fr; grid-template-rows: 1fr; height: 100vh; overflow: hidden; }
+/* Phone landscape: side-by-side layout with a narrow hero and a larger calendar.
+   Width/height bounds cover iPhone Pro Max (≤1000×≤600) as well as smaller phones. */
+@media (max-width: 1000px) and (orientation: landscape) and (max-height: 600px) {
+  .booking-shell { grid-template-columns: minmax(150px, 180px) 1fr; grid-template-rows: 1fr; height: 100vh; height: 100dvh; overflow: hidden; }
   .booking-side { padding: 10px 12px; min-height: 0; }
   .booking-side .b-brand { padding-bottom: 4px; }
   .booking-side .b-brand-b { font-size: 17px; }
@@ -2118,6 +2120,23 @@ input, select, textarea { font-family: inherit; }
   padding: 18px 22px 14px;
   gap: 10px;
   border-bottom: 1px solid var(--app-line);
+  flex-shrink: 0;
+}
+.aed-drag-handle {
+  display: flex; justify-content: center;
+  padding: 10px 0 4px;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.aed-drag-handle:active { cursor: grabbing; }
+.aed-drag-handle > div {
+  width: 40px; height: 4px;
+  border-radius: 2px;
+  background: var(--app-line-strong);
+}
+@media (min-width: 901px) {
+  .aed-drag-handle { display: none; }
 }
 .aed-header-main { flex: 1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .aed-title {
@@ -2146,6 +2165,7 @@ input, select, textarea { font-family: inherit; }
   padding: 16px 22px 18px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .aed-tabs {
@@ -2558,6 +2578,7 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   padding: 14px 22px;
   border-top: 1px solid var(--app-line);
   background: var(--app-bg-alt);
+  flex-shrink: 0;
 }
 .aed-spacer { flex: 1; }
 .aed-primary {
@@ -2619,10 +2640,10 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   .aed-tabs { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
   .aed-tab { padding: 6px 6px; font-size: 11px; }
   /* Date narrower, time fields get more room */
-  .aed-dt-grid { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 1.1fr); gap: 4px; }
+  .aed-dt-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
   .aed-dt-grid > div { min-width: 0; }
-  .aed-dt-grid .aed-input { padding: 0 4px; font-size: 12px; height: 34px; min-width: 0; width: 100%; text-align: center; }
-  .aed-dt-grid input[type="date"] { font-size: 10.5px; letter-spacing: -0.02em; }
+  .aed-dt-grid .aed-input { padding: 0 6px; font-size: 12px; height: 34px; min-width: 0; width: 100%; text-align: center; }
+  .aed-dt-grid input[type="date"] { font-size: 11px; letter-spacing: -0.02em; }
   .aed-dt-grid input[type="time"] { font-size: 12px; }
   .aed-dt-grid .aed-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .aed-dt-grid .aed-stopwatch { margin-left: 0; }
@@ -2850,15 +2871,6 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
     font-size: 14px;
     gap: 4px;
     line-height: 1.2;
-  }
-  .aed-modal::before {
-    content: "";
-    display: block;
-    width: 40px; height: 4px;
-    border-radius: 2px;
-    background: var(--app-line-strong);
-    margin: 8px auto 0;
-    flex: 0 0 auto;
   }
   .backdrop { align-items: flex-end !important; }
 }
