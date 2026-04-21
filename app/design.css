@@ -2553,17 +2553,37 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
     max-height: 100vh;
     border-radius: 0;
   }
-  .aed-header { padding: 14px 16px 12px; }
-  .aed-body { padding: 14px 16px 20px; }
-  .aed-footer { padding: 12px 16px; }
-  .aed-tabs { grid-template-columns: 1fr; }
-  .aed-tab { border-right: none; border-bottom: 1px solid var(--app-line); }
-  .aed-tab:last-child { border-bottom: none; }
-  .aed-dt-grid { grid-template-columns: 1fr; gap: 6px; }
+  .aed-header { padding: 12px 14px 10px; }
+  .aed-body { padding: 10px 14px 14px; }
+  .aed-footer { padding: 8px 12px; gap: 6px; }
+  /* Tabs stay horizontal — one row for all three source tabs */
+  .aed-tabs { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
+  .aed-tab { padding: 6px 6px; font-size: 11px; }
+  /* Date / From / To on one row (4:3:3 like before) */
+  .aed-dt-grid { grid-template-columns: 4fr 3fr 3fr; gap: 6px; }
+  .aed-dt-grid .aed-input { padding: 0 8px; font-size: 12.5px; height: 34px; }
   .aed-rsvp { grid-template-columns: 1fr; }
-  .aed-primary { flex: 1; font-size: 16px; min-height: 52px; }
-  .aed-dur-chip { min-height: 40px; min-width: 52px; font-size: 13px; }
-  .aed-pchip { padding: 8px 14px; font-size: 13px; }
+  /* Inputs slightly tighter */
+  .aed-input { height: 36px; font-size: 13px; padding: 0 32px 0 10px; }
+  .aed-textarea { font-size: 13px; padding: 8px 10px; }
+  .aed-label { font-size: 9.5px; margin-bottom: 3px; margin-top: 8px; }
+  /* Smaller chips */
+  .aed-pchip { padding: 3px 10px; font-size: 11px; min-height: 22px; border-radius: 999px; }
+  /* Duration chips: single scrollable row with Actual alongside */
+  .aed-dur-row { flex-wrap: nowrap; gap: 6px; align-items: center; }
+  .aed-dur-chips { flex-wrap: nowrap; overflow-x: auto; gap: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .aed-dur-chips::-webkit-scrollbar { display: none; }
+  .aed-dur-chip { min-height: 26px; min-width: 0; padding: 3px 9px; font-size: 11px; flex: 0 0 auto; }
+  .aed-actual { padding: 3px 9px; font-size: 11px; min-height: 26px; white-space: nowrap; flex: 0 0 auto; }
+  /* Primary button — doesn't fill; content-sized, single line */
+  .aed-primary { flex: 0 1 auto; min-height: 36px; padding: 8px 14px; font-size: 13px; white-space: nowrap; gap: 8px; }
+  .aed-primary span:first-child { white-space: nowrap; }
+  .aed-kbd { font-size: 10px; padding: 1px 4px; }
+  .aed-dup-btn { width: 36px; height: 36px; }
+  .aed-del-btn { padding: 6px 10px; font-size: 12px; }
+  /* Tighter group spacing so everything fits one scroll */
+  .aed-body > .space-y-3 > * + * { margin-top: 8px; }
+  .aed-body .space-y-3 > * + * { margin-top: 8px; }
 }
 
 /* Bottom-right proto-switch needs mobile bump to not overlap primary button */
