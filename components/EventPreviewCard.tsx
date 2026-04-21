@@ -85,7 +85,7 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
       <div
         ref={ref}
         className={`ev-preview ${variantClass}`.trim()}
-        role={isSticky ? 'dialog' : 'tooltip'}
+        role={isSticky ? 'group' : 'tooltip'}
         aria-labelledby={titleId}
         style={{
           position: positionMode,
@@ -171,7 +171,7 @@ export const EventPreviewCard = forwardRef<HTMLDivElement, EventPreviewCardProps
                   const initials = (att.name ?? att.email).split(/[\s@.]/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
                   const rsvp = att.responseStatus && rsvpMap[att.responseStatus as string]
                   return (
-                    <div key={`${att.email}-${i}`} className="evp-att">
+                    <div key={i} className="evp-att">
                       <span className="evp-avatar" style={{ background: color, color: textOnAccent(color) }}>{initials || '?'}</span>
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name ?? att.email}</span>
                       {rsvp && <span className={`evp-rsvp ${rsvp}`}>{rsvp}</span>}

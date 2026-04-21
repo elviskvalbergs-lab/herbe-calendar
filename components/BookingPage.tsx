@@ -42,19 +42,29 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const [timezone] = useState(browserTz)
 
+  // Track today's date-string so dateRange stays fresh if the page is left open across midnight.
+  const [today, setToday] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  useEffect(() => {
+    const check = () => {
+      const t = format(new Date(), 'yyyy-MM-dd')
+      setToday(prev => (prev === t ? prev : t))
+    }
+    const iv = setInterval(check, 60_000)
+    document.addEventListener('visibilitychange', check)
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', check) }
+  }, [])
+
   const dateRange = useMemo(() => {
-    const today = new Date()
-    const from = format(today, 'yyyy-MM-dd')
-    const to = format(addDays(today, maxDays), 'yyyy-MM-dd')
-    return { from, to }
-  }, [maxDays])
+    const todayDate = parseISO(today)
+    return { from: today, to: format(addDays(todayDate, maxDays), 'yyyy-MM-dd') }
+  }, [maxDays, today])
 
   useEffect(() => {
     if (!selectedTemplate) return
     setSlotsLoading(true)
     setSlots({})
     setUnavailableSlots({})
-    fetch(`/api/share/${token}/availability?templateId=${selectedTemplate.id}&dateFrom=${dateRange.from}&dateTo=${dateRange.to}`)
+    fetch(`/api/share/${encodeURIComponent(token)}/availability?templateId=${encodeURIComponent(selectedTemplate.id)}&dateFrom=${dateRange.from}&dateTo=${dateRange.to}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) { setError(data.error); return }
@@ -96,7 +106,7 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
     setSubmitting(true)
     setError(null)
     try {
-      const res = await fetch(`/api/share/${token}/book`, {
+      const res = await fetch(`/api/share/${encodeURIComponent(token)}/book`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -395,6 +405,19 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
             {confirmData?.emailError && (
               <p className="text-[11px] text-amber-500">
                 Note: confirmation email could not be sent. Save this page for your records.
+              </p>
+            )}
+
+            {confirmData?.cancelToken && (
+              <p className="text-[11px]" style={{ color: 'var(--app-fg-subtle)' }}>
+                Need to cancel?{' '}
+                <a
+                  href={`/booking/cancel/${encodeURIComponent(confirmData.cancelToken)}`}
+                  className="underline"
+                  style={{ color: 'var(--app-fg)' }}
+                >
+                  Cancel this booking
+                </a>
               </p>
             )}
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { addDays, format, parseISO } from 'date-fns'
 import { pool } from '@/lib/db'
-import { computeAvailableSlots, computeAllSlots, collectBusyBlocks, type BusyBlock } from '@/lib/availability'
+import { computeAllSlots, collectBusyBlocks } from '@/lib/availability'
 import { toTime } from '@/lib/herbe/recordUtils'
 import { isRateLimited } from '@/lib/rateLimit'
 import type { AvailabilityWindow } from '@/types'
@@ -125,7 +126,8 @@ export async function GET(
         : new Date(b.booked_date).toISOString().slice(0, 10)
       const startTime = toTime(b.booked_time)
       const [h, m] = startTime.split(':').map(Number)
-      const endMins = h * 60 + m + b.duration_minutes
+      // Clamp end to 23:59 to avoid invalid HH:mm if the booking would spill past midnight.
+      const endMins = Math.min(24 * 60 - 1, h * 60 + m + b.duration_minutes)
       const endH = Math.floor(endMins / 60)
       const endM = endMins % 60
       const endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
@@ -140,8 +142,8 @@ export async function GET(
   // 6. Compute slots per day
   const slots: Record<string, { start: string; end: string }[]> = {}
   const unavailableSlots: Record<string, { start: string; end: string }[]> = {}
-  const current = new Date(dateFrom)
-  const end = new Date(cappedDateTo)
+  const startDate = parseISO(dateFrom)
+  const endDate = parseISO(cappedDateTo)
 
   // Holiday blocking
   const holidayDates = new Set<string>()
@@ -161,23 +163,15 @@ export async function GET(
     }
   }
 
-  while (current <= end) {
-    const dateStr = current.toISOString().slice(0, 10)
-    if (holidayDates.has(dateStr)) {
-      current.setDate(current.getDate() + 1)
-      continue
-    }
+  for (let current = startDate; current <= endDate; current = addDays(current, 1)) {
+    const dateStr = format(current, 'yyyy-MM-dd')
+    if (holidayDates.has(dateStr)) continue
     const dayBusy = busyByDate.get(dateStr) ?? []
     const allCandidates = computeAllSlots(dateStr, windows, dayBusy, durationMinutes, bufferMinutes)
     const daySlots = allCandidates.filter(s => s.available).map(({ start, end }) => ({ start, end }))
     const dayUnavail = allCandidates.filter(s => !s.available).map(({ start, end }) => ({ start, end }))
-    if (daySlots.length > 0) {
-      slots[dateStr] = daySlots
-    }
-    if (dayUnavail.length > 0) {
-      unavailableSlots[dateStr] = dayUnavail
-    }
-    current.setDate(current.getDate() + 1)
+    if (daySlots.length > 0) slots[dateStr] = daySlots
+    if (dayUnavail.length > 0) unavailableSlots[dateStr] = dayUnavail
   }
 
   // 7. Return response

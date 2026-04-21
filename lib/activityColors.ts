@@ -31,31 +31,34 @@ function luminance(hex: string): number {
  * On light backgrounds (light theme), light accent colors use a darkened version.
  * For the accent-tinted background (color + '33'), ensures text is always readable.
  */
+const readableAccentCache = new Map<string, string>()
 export function readableAccentColor(accentHex: string, isDarkTheme: boolean): string {
+  const cacheKey = `${accentHex}|${isDarkTheme ? 'd' : 'l'}`
+  const cached = readableAccentCache.get(cacheKey)
+  if (cached) return cached
   const lum = luminance(accentHex)
   const { r, g, b } = hexToRgb(accentHex)
+  let out = accentHex
   if (isDarkTheme) {
     // Dark theme: text on dark bg. Dark colors (low luminance) lack
     // contrast — lighten them by mixing toward white.
     if (lum < 0.12) {
-      const factor = 0.55 // how much to mix toward white
+      const factor = 0.55
       const dr = Math.round(r + (255 - r) * factor)
       const dg = Math.round(g + (255 - g) * factor)
       const db = Math.round(b + (255 - b) * factor)
-      return `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`
+      out = `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`
     }
-    return accentHex
-  }
-  // Light theme: text on light bg. Light colors (high luminance) need
-  // darkening to be readable.
-  if (lum > 0.4) {
+  } else if (lum > 0.4) {
+    // Light theme: text on light bg. Light colors (high luminance) need darkening.
     const factor = 0.45
     const dr = Math.round(r * factor)
     const dg = Math.round(g * factor)
     const db = Math.round(b * factor)
-    return `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`
+    out = `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`
   }
-  return accentHex
+  readableAccentCache.set(cacheKey, out)
+  return out
 }
 
 /**

@@ -39,10 +39,12 @@ function resolveAttendeesToPersonCodes(
     if (att.name) {
       const group = internalNameGroups.get(att.name.toLowerCase())
       if (group?.length === 1) { codes.add(group[0].code); continue }
+      // Ambiguous name match: only accept when the email domain also matches an internal person.
+      // Otherwise treat as external — blindly picking the first person by name misattributes events.
       if (group && att.email) {
         const attDomain = att.email.split('@')[1]?.toLowerCase()
         const domainMatch = group.find(p => p.email?.split('@')[1]?.toLowerCase() === attDomain)
-        if (domainMatch || group[0]) { codes.add((domainMatch ?? group[0]).code); continue }
+        if (domainMatch) { codes.add(domainMatch.code); continue }
       }
     }
     if (att.email) external.push(att.email)
@@ -792,13 +794,8 @@ export default function ActivityForm({
           <div />
         </div>
 
-        {/* Header — also responds to swipe-down to dismiss on mobile */}
-        <div
-          className="aed-header sm:touch-auto touch-none"
-          onTouchStart={handleDragHandleTouchStart}
-          onTouchMove={handleDragHandleTouchMove}
-          onTouchEnd={handleDragHandleTouchEnd}
-        >
+        {/* Header — drag-to-dismiss lives on .aed-drag-handle above so header taps (close, copy, etc.) stay clean. */}
+        <div className="aed-header">
           <h2 id="activity-form-title" className="aed-title flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
             {/* Source badge */}
