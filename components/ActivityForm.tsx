@@ -779,7 +779,7 @@ export default function ActivityForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="activity-form-title"
-        className="modal aed-modal"
+        className={`modal aed-modal ${isEdit ? 'aed-modal-edit' : 'aed-modal-new'}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Drag handle (mobile) — touch here to drag-dismiss */}
