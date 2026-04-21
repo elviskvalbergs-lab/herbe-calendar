@@ -2131,6 +2131,7 @@ input, select, textarea { font-family: inherit; }
   border-bottom: 1px solid var(--app-line);
   flex-shrink: 0;
 }
+.aed-header .aed-close { align-self: center; }
 .aed-drag-handle {
   display: flex; justify-content: center;
   padding: 10px 0 4px;

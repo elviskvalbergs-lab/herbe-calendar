@@ -799,6 +799,7 @@ export default function ActivityForm({
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
         >
+          <button onClick={handleClose} aria-label="Close" className="icon-btn shrink-0 aed-close">✕</button>
           <h2 id="activity-form-title" className="aed-title flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
             {/* Source badge */}
@@ -900,7 +901,6 @@ export default function ActivityForm({
               <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-400">View only</span>
             )}
           </h2>
-          <button onClick={handleClose} aria-label="Close" className="icon-btn shrink-0">✕</button>
         </div>
 
         {/* Calendar source label */}
