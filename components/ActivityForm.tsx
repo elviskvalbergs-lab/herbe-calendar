@@ -773,15 +773,14 @@ export default function ActivityForm({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center" style={{ background: 'rgba(10,18,16,0.55)', backdropFilter: 'blur(2px)' }}>
-      <div className="absolute inset-0" onClick={handleClose} />
+    <div className="backdrop" onClick={handleClose}>
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="activity-form-title"
-        className="modal relative w-full max-w-lg"
-        style={{ maxHeight: '92vh', borderRadius: '12px 12px 0 0' }}
+        className="modal aed-modal"
+        onClick={e => e.stopPropagation()}
       >
         {/* Drag handle (mobile) — touch here to drag-dismiss */}
         <div
@@ -795,12 +794,12 @@ export default function ActivityForm({
 
         {/* Header — also responds to swipe-down to dismiss on mobile */}
         <div
-          className="modal-header sm:touch-auto touch-none"
+          className="aed-header sm:touch-auto touch-none"
           onTouchStart={handleDragHandleTouchStart}
           onTouchMove={handleDragHandleTouchMove}
           onTouchEnd={handleDragHandleTouchEnd}
         >
-          <h2 id="activity-form-title" className="font-bold flex items-center gap-2 flex-wrap">
+          <h2 id="activity-form-title" className="aed-title flex items-center gap-2 flex-wrap">
             {isEdit ? 'Edit Activity' : 'New Activity'}
             {/* Source badge */}
             {isEdit && isErpSource && activeErpConnection && activeErpConnection.name !== 'Default (env)' && (
@@ -974,7 +973,7 @@ export default function ActivityForm({
         )}
 
         {/* Scrollable body */}
-        {!savedActivity && <div className="modal-body flex-1 space-y-3" style={{ padding: '12px 16px' }}>
+        {!savedActivity && <div className="aed-body flex-1 space-y-3">
           {/* Join meeting button (Outlook Teams / Google Meet) */}
           {initial?.joinUrl && (
             <a
@@ -992,7 +991,7 @@ export default function ActivityForm({
           {/* RSVP buttons — only for your own event (not colleagues') */}
           {isExternalCalSource && !initial?.isExternal && rsvpStatus !== 'organizer' && initial?.personCode === defaultPersonCode && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">RSVP</label>
+              <label className="aed-label">RSVP</label>
               <div className="flex gap-2">
                 {([
                   {
@@ -1058,12 +1057,12 @@ export default function ActivityForm({
 
           {/* Source toggle (create only) */}
           {!isEdit && (
-            <div className="flex rounded overflow-hidden border border-border divide-x divide-border text-sm font-bold">
+            <div className="aed-tabs">
               {erpConnections.map(conn => (
                 <button
                   key={conn.id}
                   onClick={() => setSource(conn.id)}
-                  className={`flex-1 py-2 truncate px-1 ${source === conn.id ? 'bg-primary text-white' : 'text-text-muted'}`}
+                  className={`aed-tab ${source === conn.id ? 'active' : ''}`}
                 >
                   {conn.name === 'Default (env)' ? 'ERP' : conn.name}
                 </button>
@@ -1072,7 +1071,7 @@ export default function ActivityForm({
                 <button
                   key="outlook"
                   onClick={() => setSource('outlook')}
-                  className={`flex-1 py-2 ${source === 'outlook' ? 'bg-primary text-white' : 'text-text-muted'}`}
+                  className={`aed-tab ${source === 'outlook' ? 'active' : ''}`}
                 >
                   Outlook
                 </button>
@@ -1081,7 +1080,7 @@ export default function ActivityForm({
                 <button
                   key="google"
                   onClick={() => setSource('google')}
-                  className={`flex-1 py-2 ${source === 'google' ? 'bg-primary text-white' : 'text-text-muted'}`}
+                  className={`aed-tab ${source === 'google' ? 'active' : ''}`}
                 >
                   Google
                 </button>
@@ -1092,14 +1091,14 @@ export default function ActivityForm({
           {/* Google calendar sub-picker (create only, when per-user accounts are available) */}
           {!isEdit && isGoogleSource && userGoogleAccounts && userGoogleAccounts.length > 0 && (
             <div className="mt-2">
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Calendar</label>
+              <label className="aed-label">Calendar</label>
               <select
                 value={selectedGoogleCalendar}
                 onChange={e => {
                   setSelectedGoogleCalendar(e.target.value)
                   try { localStorage.setItem('lastGoogleCalendar', e.target.value) } catch {}
                 }}
-                className="w-full bg-bg border border-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-primary"
+                className="select-field aed-input"
               >
                 <option value="">Primary (domain)</option>
                 {userGoogleAccounts.map(account => (
@@ -1133,14 +1132,14 @@ export default function ActivityForm({
             const hiddenCount = canEdit ? (personsExpanded ? 0 : Math.max(0, unselected.length - 3)) : 0
             return (
               <div>
-                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Person(s)</label>
-                <div className="flex flex-wrap gap-1">
+                <div className="aed-label">Person(s){isErpSource && <span className="req"> *</span>}</div>
+                <div className="aed-chips">
                   {people.filter(p => selectedPersonCodes.includes(p.code)).map(p => (
                     <button
                       key={p.code}
                       tabIndex={-1}
                       onClick={() => { if (!canEdit) return; setSelectedPersonCodes(prev => prev.filter(c => c !== p.code)) }}
-                      className={`px-2 py-0.5 rounded-full text-xs font-bold border bg-primary/20 border-primary text-primary ${canEdit ? 'hover:bg-primary/30 cursor-pointer' : 'cursor-default'} transition-colors`}
+                      className={`aed-pchip on ${canEdit ? '' : 'readonly'}`}
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
@@ -1151,7 +1150,7 @@ export default function ActivityForm({
                       key={p.code}
                       tabIndex={-1}
                       onClick={() => setSelectedPersonCodes(prev => [...prev, p.code])}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="aed-pchip"
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
@@ -1162,7 +1161,7 @@ export default function ActivityForm({
                       type="button"
                       tabIndex={-1}
                       onClick={() => setPersonsExpanded(true)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
+                      className="aed-pchip more"
                     >
                       +{hiddenCount} more
                     </button>
@@ -1172,9 +1171,9 @@ export default function ActivityForm({
                       type="button"
                       tabIndex={-1}
                       onClick={() => setPersonsExpanded(false)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
+                      className="aed-pchip more"
                     >
-                      Collapse
+                      Show less
                     </button>
                   )}
                 </div>
@@ -1198,13 +1197,12 @@ export default function ActivityForm({
             const hiddenCount = canEdit ? (ccPersonsExpanded ? 0 : Math.max(0, unselected.length - 3)) : 0
             return (
               <div>
-                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">CC Person(s)</label>
-                <div className="flex flex-wrap gap-1">
+                <div className="aed-label">CC Person(s)</div>
+                <div className="aed-chips ghost">
                   {people.filter(p => selectedCCPersonCodes.includes(p.code)).map(p => (
                     <button key={p.code} tabIndex={-1}
                       onClick={() => { if (!canEdit) return; setSelectedCCPersonCodes(prev => prev.filter(c => c !== p.code)) }}
-                      className={`px-2 py-0.5 rounded-full text-xs font-bold border transition-colors ${canEdit ? 'cursor-pointer' : 'cursor-default'}`}
-                      style={{ borderStyle: 'dashed', borderColor: 'var(--color-primary)', background: 'rgba(var(--color-primary-rgb, 205 76 56) / 0.1)', color: 'var(--color-primary)', opacity: 0.8 }}
+                      className={`aed-pchip on ${canEdit ? '' : 'readonly'}`}
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
@@ -1213,7 +1211,7 @@ export default function ActivityForm({
                   {visibleUnselected.map(p => (
                     <button key={p.code} tabIndex={-1}
                       onClick={() => setSelectedCCPersonCodes(prev => [...prev, p.code])}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-border text-text-muted hover:border-primary/50 hover:text-text transition-colors"
+                      className="aed-pchip"
                       title={`${p.name}${p.email ? ` <${p.email}>` : ''}`}
                     >
                       {p.code}
@@ -1222,7 +1220,7 @@ export default function ActivityForm({
                   {hiddenCount > 0 && (
                     <button type="button" tabIndex={-1}
                       onClick={() => setCCPersonsExpanded(true)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
+                      className="aed-pchip more"
                     >
                       +{hiddenCount} more
                     </button>
@@ -1230,9 +1228,9 @@ export default function ActivityForm({
                   {ccPersonsExpanded && unselected.length > 3 && (
                     <button type="button" tabIndex={-1}
                       onClick={() => setCCPersonsExpanded(false)}
-                      className="px-2 py-0.5 rounded-full text-xs font-bold border border-dashed border-primary/50 text-primary bg-primary/5 hover:bg-primary/15 transition-colors"
+                      className="aed-pchip more"
                     >
-                      Collapse
+                      Show less
                     </button>
                   )}
                 </div>
@@ -1243,13 +1241,10 @@ export default function ActivityForm({
           {/* External attendees (Outlook only) */}
           {isExternalCalSource && externalAttendees.length > 0 && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
-              <div className="flex flex-wrap gap-1">
+              <div className="aed-label">External Attendees</div>
+              <div className="aed-ext-chips">
                 {externalAttendees.map(email => (
-                  <span
-                    key={email}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border border-border bg-border/30 text-text-muted"
-                  >
+                  <span key={email} className="aed-ext-chip">
                     {email}
                     {canEdit && (
                       <button
@@ -1257,6 +1252,7 @@ export default function ActivityForm({
                         tabIndex={-1}
                         onClick={() => setExternalAttendees(prev => prev.filter(e => e !== email))}
                         className="text-text-muted/60 hover:text-text leading-none"
+                        aria-label={`Remove ${email}`}
                       >×</button>
                     )}
                   </span>
@@ -1267,9 +1263,9 @@ export default function ActivityForm({
           {isExternalCalSource && canEdit && (
             <div>
               {externalAttendees.length === 0 && (
-                <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">External Attendees</label>
+                <div className="aed-label">External Attendees</div>
               )}
-              <div className="flex gap-1.5">
+              <div className="aed-ext-row">
                 <input
                   value={externalAttendeeInput}
                   onChange={e => setExternalAttendeeInput(e.target.value)}
@@ -1279,13 +1275,14 @@ export default function ActivityForm({
                       addExternalAttendee()
                     }
                   }}
-                  className="flex-1 bg-bg border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary"
+                  className="input aed-input"
                   placeholder="Add external email..."
                 />
                 <button
                   type="button"
                   onClick={addExternalAttendee}
-                  className="px-4 py-1.5 rounded-lg border border-border text-sm font-bold text-text-muted hover:border-primary/50 hover:text-text active:bg-border transition-colors shrink-0"
+                  className="aed-add-btn"
+                  aria-label="Add external attendee"
                 >+</button>
               </div>
             </div>
@@ -1297,8 +1294,8 @@ export default function ActivityForm({
             aria-disabled={canEdit === false}
           >
           <div>
-            <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
+            <div className="aed-label-row">
+              <span className="aed-label-inline flex items-center gap-1.5">
                 Description
                 {!isEdit && (
                   <TemplateQuickPick
@@ -1340,15 +1337,15 @@ export default function ActivityForm({
                   />
                 )}
               </span>
-              <span className="normal-case font-normal text-[9px] tracking-normal">↹ Tab moves fields · {saveShortcut} saves</span>
-            </label>
-            <div className="relative">
+              <span className="aed-hint"><span className="aed-hint-ico">↹</span> Tab moves fields · <span className="kbd-mini">{saveShortcut}</span> saves</span>
+            </div>
+            <div className="aed-input-wrap">
               <input
                 ref={descInputRef}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 autoFocus={!isEdit && !initial?.timeFrom}
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-7"
+                className="input aed-input"
                 placeholder="What are you working on?"
               />
               {description && (
@@ -1356,60 +1353,61 @@ export default function ActivityForm({
                   type="button"
                   tabIndex={-1}
                   onClick={() => { setDescription(''); descInputRef.current?.focus() }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted/60 hover:text-text text-base leading-none"
-                >×</button>
+                  className="aed-clear"
+                  aria-label="Clear"
+                >✕</button>
               )}
             </div>
           </div>
 
           {/* Date + Time From + Time To */}
-          <div className="grid grid-cols-[4fr_3fr_3fr] gap-3 items-start">
-            <div className="min-w-0">
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                tabIndex={-1}
-                className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
-              />
+          <div className="aed-dt-grid">
+            <div>
+              <div className="aed-label">Date</div>
+              <div className="aed-input-wrap">
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  tabIndex={-1}
+                  className="input aed-input"
+                />
+              </div>
             </div>
-            <div className="min-w-0">
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
-                From
+            <div>
+              <div className="aed-label"><span>From</span>
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => setTimeFrom(smartDefaultStart())}
                   title="Apply auto-start time"
-                  className="text-text-muted/60 hover:text-primary transition-colors text-[11px] leading-none"
-                >
-                  ⏱
-                </button>
-              </label>
-              <input
-                type="time"
-                value={timeFrom}
-                onChange={e => {
-                  const newFrom = e.target.value
-                  if (timeFrom && timeTo && newFrom) {
-                    const [oh, om] = timeFrom.split(':').map(Number)
-                    const [nh, nm] = newFrom.split(':').map(Number)
-                    const [th, tm] = timeTo.split(':').map(Number)
-                    const delta = (nh * 60 + nm) - (oh * 60 + om)
-                    const newToMins = th * 60 + tm + delta
-                    if (newToMins > 0 && newToMins <= 24 * 60) {
-                      setTimeTo(`${String(Math.floor(newToMins / 60)).padStart(2, '0')}:${String(newToMins % 60).padStart(2, '0')}`)
+                  className="aed-stopwatch"
+                >⏱</button>
+              </div>
+              <div className="aed-input-wrap">
+                <input
+                  type="time"
+                  value={timeFrom}
+                  onChange={e => {
+                    const newFrom = e.target.value
+                    if (timeFrom && timeTo && newFrom) {
+                      const [oh, om] = timeFrom.split(':').map(Number)
+                      const [nh, nm] = newFrom.split(':').map(Number)
+                      const [th, tm] = timeTo.split(':').map(Number)
+                      const delta = (nh * 60 + nm) - (oh * 60 + om)
+                      const newToMins = th * 60 + tm + delta
+                      if (newToMins > 0 && newToMins <= 24 * 60) {
+                        setTimeTo(`${String(Math.floor(newToMins / 60)).padStart(2, '0')}:${String(newToMins % 60).padStart(2, '0')}`)
+                      }
                     }
-                  }
-                  setTimeFrom(newFrom)
-                }}
-                className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
-              />
+                    setTimeFrom(newFrom)
+                  }}
+                  className="input aed-input"
+                />
+              </div>
             </div>
-            <div className="min-w-0">
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1">
-                To
+            <div>
+              <div className="aed-label"><span>To</span>
                 <button
                   type="button"
                   tabIndex={-1}
@@ -1418,17 +1416,17 @@ export default function ActivityForm({
                     setTimeTo(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
                   }}
                   title="Set to current time"
-                  className="text-text-muted/60 hover:text-primary transition-colors text-[11px] leading-none"
-                >
-                  ⏱
-                </button>
-              </label>
-              <input
-                type="time"
-                value={timeTo}
-                onChange={e => setTimeTo(e.target.value)}
-                className="w-full bg-bg border border-border rounded-lg px-1 sm:px-2 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:border-primary"
-              />
+                  className="aed-stopwatch"
+                >⏱</button>
+              </div>
+              <div className="aed-input-wrap">
+                <input
+                  type="time"
+                  value={timeTo}
+                  onChange={e => setTimeTo(e.target.value)}
+                  className="input aed-input"
+                />
+              </div>
             </div>
           </div>
 
@@ -1449,30 +1447,30 @@ export default function ActivityForm({
               ? (() => { const [th, tm] = timeTo.split(':').map(Number); return th * 60 + tm - fromMins })()
               : null
             return (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {DURATIONS.map(({ label, mins }) => {
-                  const active = currentDur === mins
-                  const toMins = fromMins + mins
-                  const hh = String(Math.floor(toMins / 60) % 24).padStart(2, '0')
-                  const mm = String(toMins % 60).padStart(2, '0')
-                  return (
-                    <button
-                      key={mins}
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setTimeTo(`${hh}:${mm}`)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                        active ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30' : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
+              <div className="aed-dur-row">
+                <div className="aed-dur-chips">
+                  {DURATIONS.map(({ label, mins }) => {
+                    const active = currentDur === mins
+                    const toMins = fromMins + mins
+                    const hh = String(Math.floor(toMins / 60) % 24).padStart(2, '0')
+                    const mm = String(toMins % 60).padStart(2, '0')
+                    return (
+                      <button
+                        key={mins}
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setTimeTo(`${hh}:${mm}`)}
+                        className={`aed-dur-chip ${active ? 'on' : ''}`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
                 {isErpSource && (
                   <>
                     {initial?.okFlag && (
-                      <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-lg border bg-green-500/15 border-green-500/40 text-green-500">
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg border bg-green-500/15 border-green-500/40 text-green-500">
                         ✓ OK'd
                       </span>
                     )}
@@ -1481,13 +1479,11 @@ export default function ActivityForm({
                       tabIndex={-1}
                       onClick={() => setPlanned(p => !p)}
                       disabled={canEdit === false}
-                      className={`${initial?.okFlag ? '' : 'ml-auto '}text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
-                        planned
-                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-                          : 'border-border text-text-muted hover:border-primary/50 hover:text-text'
-                      } ${canEdit === false ? 'opacity-50 cursor-default' : ''}`}
+                      className={`aed-actual ${planned ? 'on' : ''} ${canEdit === false ? 'opacity-50 cursor-default' : ''}`}
+                      title={planned ? 'Planned — not yet actually performed' : 'Actual tracked time'}
                     >
-                      {planned ? '○ Planned' : '● Actual'}
+                      <span className="aed-actual-dot" />
+                      {planned ? 'Planned' : 'Actual'}
                     </button>
                   </>
                 )}
@@ -1497,14 +1493,14 @@ export default function ActivityForm({
 
           {/* Online meeting toggle (Outlook/Google — create and edit) */}
           {isExternalCalSource && (
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="aed-checkbox">
               <input
                 type="checkbox"
                 checked={isOnlineMeeting}
                 onChange={e => setIsOnlineMeeting(e.target.checked)}
-                className="accent-primary w-4 h-4"
               />
-              <span className="text-xs font-bold text-text-muted">
+              <span className="aed-check-box">{isOnlineMeeting && '✓'}</span>
+              <span className="aed-check-label">
                 {isGoogleSource ? 'Google Meet' : 'Teams meeting'}
               </span>
             </label>
@@ -1512,30 +1508,30 @@ export default function ActivityForm({
 
           {/* Zoom meeting checkbox (all sources, when Zoom is configured) */}
           {zoomConfigured && (
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="aed-checkbox">
               <input
                 type="checkbox"
                 checked={zoomMeeting}
                 onChange={e => setZoomMeeting(e.target.checked)}
-                className="accent-primary w-4 h-4"
               />
-              <span className="text-xs font-bold text-text-muted">Zoom meeting</span>
+              <span className="aed-check-box">{zoomMeeting && '✓'}</span>
+              <span className="aed-check-label">Zoom meeting</span>
             </label>
           )}
 
           {/* Location (Outlook/Google) */}
           {isExternalCalSource && (location || canEdit) && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">Location</label>
+              <div className="aed-label">Location</div>
               {canEdit ? (
                 <input
                   value={location}
                   onChange={e => setLocation(e.target.value)}
-                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  className="input aed-input"
                   placeholder="Add a location..."
                 />
               ) : (
-                <p className="text-sm text-text-muted">{location}</p>
+                <div className="aed-readonly-val">{location || '—'}</div>
               )}
             </div>
           )}
@@ -1543,10 +1539,12 @@ export default function ActivityForm({
           {/* Activity type (Herbe only) */}
           {isErpSource && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
-                Activity Type
-                {activityTypeCode && <span className="font-mono text-primary normal-case text-[11px]">{activityTypeCode}</span>}
-              </label>
+              <div className="aed-label-row">
+                <span className="aed-label-inline">
+                  Activity Type
+                  {activityTypeCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{activityTypeCode}</span>}
+                </span>
+              </div>
               {recentTypes.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-2">
                   {recentTypes.map(code => {
@@ -1584,7 +1582,7 @@ export default function ActivityForm({
                   })}
                 </div>
               )}
-              <div className="relative">
+              <div className="aed-input-wrap">
                 <input
                   value={activityTypeName}
                   onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value) }}
@@ -1602,7 +1600,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-7"
+                  className="input aed-input"
                   placeholder="Type code or name…"
                 />
                 {activityTypeName && (
@@ -1654,20 +1652,22 @@ export default function ActivityForm({
           {/* Project (Herbe only) */}
           {isErpSource && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
-                Project{currentGroup?.forceProj && <span className="text-red-400">*</span>}
-                {projectCode && <span className="font-mono text-primary normal-case text-[11px]">{projectCode}</span>}
-                {projectCode && (() => {
-                  const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/PRVc/${projectCode}` : serpLink('PRVc', projectCode, companyCode)
-                  return link ? (
-                    <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
-                      <SerpIcon />
-                    </a>
-                  ) : null
-                })()}
-                {projectSearchMsg && !searchingProjects && <span className="normal-case font-normal text-text-muted ml-auto">{projectSearchMsg}</span>}
-              </label>
-              <div className="relative">
+              <div className="aed-label-row">
+                <span className="aed-label-inline">
+                  Project{currentGroup?.forceProj && <span className="req"> *</span>}
+                  {projectCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{projectCode}</span>}
+                  {projectCode && (() => {
+                    const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/PRVc/${projectCode}` : serpLink('PRVc', projectCode, companyCode)
+                    return link ? (
+                      <a href={link} title="Open project in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors ml-1" onClick={e => e.stopPropagation()}>
+                        <SerpIcon />
+                      </a>
+                    ) : null
+                  })()}
+                </span>
+                {projectSearchMsg && !searchingProjects && <span className="aed-hint">{projectSearchMsg}</span>}
+              </div>
+              <div className="aed-input-wrap">
                 <input
                   ref={projectInputRef}
                   value={projectName}
@@ -1690,7 +1690,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-8"
+                  className="input aed-input"
                   placeholder="Type to search… (min 2 chars)"
                 />
                 {searchingProjects
@@ -1726,20 +1726,22 @@ export default function ActivityForm({
           {/* Customer (Herbe only) */}
           {isErpSource && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 flex items-center gap-1.5">
-                Customer{currentGroup?.forceCust && <span className="text-red-400">*</span>}
-                {customerCode && <span className="font-mono text-primary normal-case text-[11px]">{customerCode}</span>}
-                {customerCode && (() => {
-                  const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/CUVc/${customerCode}` : serpLink('CUVc', customerCode, companyCode)
-                  return link ? (
-                    <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
-                      <SerpIcon />
-                    </a>
-                  ) : null
-                })()}
-                {customerSearchMsg && !searchingCustomers && <span className="normal-case font-normal text-text-muted ml-auto">{customerSearchMsg}</span>}
-              </label>
-              <div className="relative">
+              <div className="aed-label-row">
+                <span className="aed-label-inline">
+                  Customer{currentGroup?.forceCust && <span className="req"> *</span>}
+                  {customerCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{customerCode}</span>}
+                  {customerCode && (() => {
+                    const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/CUVc/${customerCode}` : serpLink('CUVc', customerCode, companyCode)
+                    return link ? (
+                      <a href={link} title="Open customer in Standard ERP" tabIndex={-1} className="text-text-muted hover:text-primary transition-colors ml-1" onClick={e => e.stopPropagation()}>
+                        <SerpIcon />
+                      </a>
+                    ) : null
+                  })()}
+                </span>
+                {customerSearchMsg && !searchingCustomers && <span className="aed-hint">{customerSearchMsg}</span>}
+              </div>
+              <div className="aed-input-wrap">
                 <input
                   ref={customerInputRef}
                   value={customerName}
@@ -1760,7 +1762,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-8"
+                  className="input aed-input"
                   placeholder="Type to search… (min 2 chars)"
                 />
                 {searchingCustomers
@@ -1788,12 +1790,14 @@ export default function ActivityForm({
           {/* Item code (Herbe only, shown when ForceItem or when value already set) */}
           {isErpSource && (currentGroup?.forceItem || (Array.isArray(activityTypes) && activityTypes.find(t => t.code === activityTypeCode)?.itemCode)) && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block flex items-center gap-1">
-                Item{currentGroup?.forceItem && <span className="text-red-400 ml-0.5">*</span>}
-                {itemCode && <span className="font-mono text-primary normal-case text-[11px]">{itemCode}</span>}
-                {itemSearchMsg && <span className="normal-case font-normal text-text-muted ml-auto">{itemSearchMsg}</span>}
-              </label>
-              <div className="relative">
+              <div className="aed-label-row">
+                <span className="aed-label-inline">
+                  Item{currentGroup?.forceItem && <span className="req"> *</span>}
+                  {itemCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{itemCode}</span>}
+                </span>
+                {itemSearchMsg && <span className="aed-hint">{itemSearchMsg}</span>}
+              </div>
+              <div className="aed-input-wrap">
                 <input
                   value={itemName || itemCode}
                   onChange={e => {
@@ -1813,7 +1817,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary pr-8"
+                  className="input aed-input"
                   placeholder="Type to search… (min 2 chars)"
                 />
                 {(itemName || itemCode) && (
@@ -1842,14 +1846,14 @@ export default function ActivityForm({
           {/* Additional text / Notes */}
           {(isErpSource || isExternalCalSource) && (
             <div>
-              <label className="text-xs text-text-muted uppercase tracking-wide mb-1 block">
-                {isExternalCalSource ? 'Notes' : 'Additional Text'}{isErpSource && currentGroup?.forceTextInMatrix && <span className="text-red-400 ml-0.5">*</span>}
-              </label>
+              <div className="aed-label">
+                {isExternalCalSource ? 'Notes' : 'Additional Text'}{isErpSource && currentGroup?.forceTextInMatrix && <span className="req"> *</span>}
+              </div>
               <textarea
                 value={textInMatrix}
                 onChange={e => setTextInMatrix(e.target.value)}
                 rows={2}
-                className="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
+                className="textarea aed-textarea"
                 placeholder={isExternalCalSource ? 'Meeting notes...' : 'Optional additional description…'}
               />
             </div>
@@ -1858,42 +1862,55 @@ export default function ActivityForm({
         </div>}
 
         {/* Footer actions */}
-        {!savedActivity && <div className="modal-footer">
+        {!savedActivity && <div className="aed-footer">
           {isEdit && !(canEdit ?? true) ? (
             <>
               <button onClick={onClose} className="btn btn-outline">
                 Close
               </button>
-              <div className="spacer" />
+              <div className="aed-spacer" />
               <button
                 onClick={handleDuplicate}
                 title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
-                className="icon-btn"
-                style={{ width: 32, height: 32, fontSize: 16 }}
+                className="aed-dup-btn"
                 aria-label="Duplicate activity"
               >⧉</button>
             </>
           ) : (
             <>
+              {isEdit && (canEdit ?? true) && (
+                <button
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className="aed-del-btn"
+                  title="Delete activity"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Delete
+                </button>
+              )}
+              <div className="aed-spacer" />
               <button onClick={handleClose} className="btn btn-outline">Cancel</button>
-              <div className="spacer" />
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="aed-primary"
+                title={`Save (${saveShortcut})`}
+              >
+                <span>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}</span>
+                {!saving && <span className="aed-kbd">{saveShortcut}</span>}
+              </button>
               {isEdit && (
                 <button
                   onClick={handleDuplicate}
                   title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
-                  className="icon-btn"
-                  style={{ width: 32, height: 32, fontSize: 16 }}
+                  className="aed-dup-btn"
                   aria-label="Duplicate activity"
                 >⧉</button>
               )}
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="btn btn-primary"
-                title={`Save (${saveShortcut})`}
-              >
-                {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}
-              </button>
             </>
           )}
         </div>}
