@@ -2575,8 +2575,8 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   /* Tabs stay horizontal — one row for all three source tabs */
   .aed-tabs { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
   .aed-tab { padding: 6px 6px; font-size: 11px; }
-  /* Date / From / To on one row — date gets more room to avoid label/value overlap */
-  .aed-dt-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 3fr) minmax(0, 3fr); gap: 6px; }
+  /* Date / From / To on one row — equal columns, time fields get enough room */
+  .aed-dt-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
   .aed-dt-grid > div { min-width: 0; }
   .aed-dt-grid .aed-input { padding: 0 6px; font-size: 12px; height: 34px; min-width: 0; width: 100%; }
   .aed-dt-grid input[type="date"] { font-size: 11.5px; letter-spacing: -0.01em; }
@@ -2595,11 +2595,14 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   .aed-dur-chips::-webkit-scrollbar { display: none; }
   .aed-dur-chip { min-height: 26px; min-width: 0; padding: 3px 9px; font-size: 11px; flex: 0 0 auto; }
   .aed-actual { padding: 3px 9px; font-size: 11px; min-height: 26px; white-space: nowrap; flex: 0 0 auto; }
-  /* Primary button — content-sized, compact, single line */
-  .aed-primary { flex: 0 1 auto; min-height: 32px; padding: 6px 12px; font-size: 12.5px; white-space: nowrap; gap: 6px; }
+  /* Footer buttons — match sizes so Cancel/Save are visually balanced */
+  .aed-primary { flex: 0 1 auto; height: 34px; min-height: 34px; padding: 0 14px; font-size: 12.5px; white-space: nowrap; gap: 6px; }
   .aed-primary span:first-child { white-space: nowrap; }
   .aed-kbd { display: none; }
-  .aed-dup-btn { width: 32px; height: 32px; }
+  .aed-footer .btn-outline { height: 34px; padding: 0 14px; font-size: 12.5px; }
+  .aed-footer .btn-outline,
+  .aed-footer .btn-ghost { border-radius: 6px; }
+  .aed-dup-btn { width: 34px; height: 34px; }
   .aed-del-btn { padding: 5px 8px; font-size: 11.5px; }
   /* Tighter group spacing so everything fits one scroll */
   .aed-body > .space-y-3 > * + * { margin-top: 8px; }
