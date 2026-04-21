@@ -3,21 +3,11 @@ import { Activity, ShareVisibility } from '@/types'
 import { GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR, minutesToTime, timeToMinutes, snapToQuarter, pxToMinutes, timeToTopPx, durationToPx } from '@/lib/time'
 import { buildLanedActivities } from '@/lib/layout'
 import ActivityBlock from './ActivityBlock'
-import { readableAccentColor, textOnAccent } from '@/lib/activityColors'
+import { EventPreviewCard } from './EventPreviewCard'
+import { readableAccentColor } from '@/lib/activityColors'
 import { useRef, useState, useCallback, useLayoutEffect } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
-
-function OutlookIcon({ size = 11 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 opacity-60" style={{ verticalAlign: 'middle' }}>
-      <rect x="2" y="3" width="13" height="18" rx="1.5"/>
-      <circle cx="8.5" cy="12" r="3.5"/>
-      <path d="M15 7h6a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-6"/>
-      <path d="M15 10h5M15 14h5"/>
-    </svg>
-  )
-}
 
 interface Props {
   personCode: string
@@ -74,19 +64,36 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
   const [hovered, setHovered] = useState(false)
   const touchIsTapRef = useRef(true)
   const wasTouchRef = useRef(false)
+  const bannerRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
-  const [alignRight, setAlignRight] = useState(false)
-  const isOutlook = activity.source === 'outlook'
+  const [cardPos, setCardPos] = useState<{ left: number; top: number } | null>(null)
 
   useLayoutEffect(() => {
-    if (!cardRef.current) { setAlignRight(false); return }
-    const parentRect = cardRef.current.parentElement?.getBoundingClientRect()
-    if (!parentRect) return
-    setAlignRight(parentRect.left + parentRect.width / 2 > window.innerWidth / 2)
+    if (!hovered && !isMobileSelected) { setCardPos(null); return }
+    const el = bannerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const isNarrow = window.innerWidth < 480
+    const cardW = isNarrow ? Math.min(280, window.innerWidth - 24) : 320
+    const cardH = 320
+    const MARGIN = 8
+    const topbar = document.querySelector('.topbar') as HTMLElement | null
+    const topMin = topbar ? topbar.getBoundingClientRect().bottom + 6 : MARGIN
+    const bottomMax = window.innerHeight - cardH - MARGIN
+    // Prefer below the banner; if it would overflow, place above it.
+    let top = rect.bottom + 6
+    if (top > bottomMax) top = rect.top - cardH - 6
+    top = Math.max(topMin, Math.min(top, bottomMax))
+    // Horizontally align with banner, keep within viewport.
+    let left = rect.left
+    if (left + cardW > window.innerWidth - MARGIN) left = rect.right - cardW
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - cardW - MARGIN))
+    setCardPos({ left, top })
   }, [hovered, isMobileSelected])
 
   return (
     <div
+      ref={bannerRef}
       className="relative w-full"
       style={{ zIndex: (hovered || isMobileSelected) ? 40 : undefined }}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !allDayCloseCooldown && !allDayIsTouchDevice) setHovered(true) }}
@@ -118,106 +125,23 @@ function AllDayBanner({ activity, color, onClick, isMobileSelected, onMobileTap,
         {activity.description || '(all day)'}
       </button>
       {((!allDayIsTouchDevice && hovered) || isMobileSelected) && (
-        <div
+        <EventPreviewCard
           ref={cardRef}
-          className={`absolute z-50 rounded-xl shadow-2xl p-3 min-w-[180px] max-w-[240px] pointer-events-auto ${alignRight ? 'right-0' : 'left-0'}`}
-          style={{ top: 0, border: `1px solid ${color}88`, background: 'var(--color-surface)', color: 'var(--color-text)', isolation: 'isolate' }}
-          onClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose(); onClick(activity) }}
-        >
-          {isMobileSelected && (
-            <button
-              className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-full text-text-muted active:bg-border text-base font-bold"
-              onTouchEnd={(e) => { e.stopPropagation() }}
-              onClick={(e) => {
-                e.stopPropagation()
-                allDayCloseCooldown = true
-                setTimeout(() => { allDayCloseCooldown = false }, 300)
-                onMobileClose()
-              }}
-            >
-              ✕
-            </button>
-          )}
-          {(() => { const tc = readableAccentColor(color, !isLightMode); return visibility === 'busy' ? (
-            <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>Busy</p>
-              <p className="text-xs text-text-muted">All day</p>
-            </>
-          ) : visibility === 'titles' ? (
-            <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>
-                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
-              </p>
-              <p className="text-xs text-text-muted">All day</p>
-              {activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
-              )}
-              {isOutlook && !activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
-              )}
-              {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="text-xs font-bold leading-snug mb-1.5 pr-8" style={{ color: tc }}>
-                {activity.icsCalendarName ? '📅 ' : isOutlook ? <><OutlookIcon /> </> : null}{activity.description || '(all day)'}
-              </p>
-              <p className="text-xs text-text-muted">All day</p>
-              {activity.activityTypeCode && (
-                <p className="text-[10px] mt-1" style={{ color: tc }}>
-                  <span className="font-mono">{activity.activityTypeCode}</span>
-                  {(getTypeName?.(activity.activityTypeCode) || activity.activityTypeName) && (
-                    <span className="ml-1 not-italic">
-                      {getTypeName?.(activity.activityTypeCode) || activity.activityTypeName}
-                    </span>
-                  )}
-                </p>
-              )}
-              {activity.projectName && (
-                <p className="text-xs text-text-muted mt-1 truncate">{activity.projectName}</p>
-              )}
-              {activity.customerName && (
-                <p className="text-xs text-text-muted truncate">{activity.customerName}</p>
-              )}
-              {activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 {activity.icsCalendarName}</p>
-              )}
-              {isOutlook && !activity.icsCalendarName && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">📅 Outlook Calendar</p>
-              )}
-              {!isOutlook && activity.source === 'herbe' && (
-                <p className="text-[10px] mt-1 text-text-muted truncate">
-                  {activity.erpConnectionName ? `ERP: ${activity.erpConnectionName}` : 'ERP'}
-                </p>
-              )}
-              {activity.joinUrl && (
-                <a
-                  href={activity.joinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  className="flex items-center justify-center gap-1.5 mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold text-white"
-                  style={{ background: activity.icsCalendarName ? '#2563eb' : '#464EB8' }}
-                >
-                  🔗 Join meeting
-                </a>
-              )}
-              {!visibility && (
-                <button
-                  className="mt-2 w-full px-2 py-1.5 rounded text-[11px] font-bold"
-                  style={{ background: color, color: textOnAccent(color) }}
-                  onClick={(e) => { e.stopPropagation(); onMobileClose(); onClick(activity) }}
-                >
-                  View details
-                </button>
-              )}
-            </>
-          )})()}
-        </div>
+          activity={activity}
+          color={color}
+          position={cardPos}
+          isSticky={isMobileSelected}
+          isLightMode={isLightMode}
+          visibility={visibility}
+          getTypeName={getTypeName}
+          onClose={isMobileSelected ? () => {
+            allDayCloseCooldown = true
+            setTimeout(() => { allDayCloseCooldown = false }, 300)
+            onMobileClose()
+          } : undefined}
+          onEdit={() => { onMobileClose(); onClick(activity) }}
+          onCardClick={(e) => { e.stopPropagation(); if (visibility) return; onMobileClose(); onClick(activity) }}
+        />
       )}
     </div>
   )
