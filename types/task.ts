@@ -4,8 +4,8 @@ export interface Task {
   /** Source-prefixed id, e.g. "herbe:12345", "outlook:AAMkAG...", "google:xyz" */
   id: string
   source: TaskSource
-  /** ERP connection id (accounts can have multiple). Empty string for Outlook/Google. */
-  sourceConnectionId: string
+  /** ERP connection id (accounts can have multiple). Omitted for Outlook/Google. */
+  sourceConnectionId?: string
   title: string
   description?: string
   /** YYYY-MM-DD, omitted when no due date set */
