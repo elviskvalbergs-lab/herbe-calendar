@@ -70,3 +70,71 @@ export async function fetchGoogleTasks(
   const body = await tasksRes.json() as { items?: GoogleTaskApi[] }
   return { tasks: (body.items ?? []).map(t => mapGoogleTask(t, list.title)), configured: true }
 }
+
+async function resolveDefaultGoogleListId(accessToken: string): Promise<{ id: string; title: string }> {
+  const res = await tasksFetch(accessToken, '/users/@me/lists')
+  if (!res.ok) throw new Error(`lists ${res.status}`)
+  const body = await res.json() as { items?: GoogleListApi[] }
+  const list = body.items?.[0]
+  if (!list) throw new Error('no Google task list found')
+  return { id: list.id, title: list.title }
+}
+
+export interface CreateGoogleTaskInput {
+  title: string
+  description?: string
+  dueDate?: string
+}
+
+export async function createGoogleTask(
+  tokenId: string,
+  userEmail: string,
+  accountId: string,
+  input: CreateGoogleTaskInput,
+): Promise<Task> {
+  const accessToken = await getValidAccessTokenForUser(tokenId, userEmail, accountId)
+  if (!accessToken) throw new Error('Google access token unavailable')
+  const list = await resolveDefaultGoogleListId(accessToken)
+  const payload: Record<string, unknown> = { title: input.title }
+  if (input.description) payload.notes = input.description
+  if (input.dueDate) payload.due = `${input.dueDate}T00:00:00.000Z`
+  const res = await tasksFetch(accessToken, `/lists/${list.id}/tasks`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`create ${res.status}`)
+  const created = await res.json() as GoogleTaskApi
+  return mapGoogleTask(created, list.title)
+}
+
+export interface UpdateGoogleTaskInput {
+  done?: boolean
+  title?: string
+  description?: string
+  dueDate?: string | null
+}
+
+export async function updateGoogleTask(
+  tokenId: string,
+  userEmail: string,
+  accountId: string,
+  taskId: string,
+  input: UpdateGoogleTaskInput,
+): Promise<Task> {
+  const accessToken = await getValidAccessTokenForUser(tokenId, userEmail, accountId)
+  if (!accessToken) throw new Error('Google access token unavailable')
+  const list = await resolveDefaultGoogleListId(accessToken)
+  const payload: Record<string, unknown> = { id: taskId }
+  if (input.done !== undefined) payload.status = input.done ? 'completed' : 'needsAction'
+  if (input.title !== undefined) payload.title = input.title
+  if (input.description !== undefined) payload.notes = input.description
+  if (input.dueDate === null) payload.due = null
+  else if (input.dueDate !== undefined) payload.due = `${input.dueDate}T00:00:00.000Z`
+  const res = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`update ${res.status}`)
+  const updated = await res.json() as GoogleTaskApi
+  return mapGoogleTask(updated, list.title)
+}

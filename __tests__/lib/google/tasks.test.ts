@@ -67,3 +67,32 @@ describe('fetchGoogleTasks', () => {
     expect(r.tasks[0].listName).toBe('My Tasks')
   })
 })
+
+import { createGoogleTask, updateGoogleTask } from '@/lib/google/tasks'
+
+describe('createGoogleTask', () => {
+  it('POSTs to the default list and maps the response', async () => {
+    mockToken.mockResolvedValueOnce('abc-token')
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [{ id: 'L1', title: 'My Tasks' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'new', title: 'Buy', status: 'needsAction' }) }) as any
+    const t = await createGoogleTask('tok-1', 'u@x.com', 'acc-1', { title: 'Buy' })
+    expect(t.id).toBe('google:new')
+    const callArgs = (global.fetch as jest.Mock).mock.calls[1]
+    expect(callArgs[1].method).toBe('POST')
+    expect(JSON.parse(callArgs[1].body)).toMatchObject({ title: 'Buy' })
+  })
+})
+
+describe('updateGoogleTask', () => {
+  it('PATCHes status to completed when done=true', async () => {
+    mockToken.mockResolvedValueOnce('abc-token')
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [{ id: 'L1', title: 'My Tasks' }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 't', title: 'x', status: 'completed' }) }) as any
+    const t = await updateGoogleTask('tok-1', 'u@x.com', 'acc-1', 't', { done: true })
+    expect(t.done).toBe(true)
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body)
+    expect(body.status).toBe('completed')
+  })
+})
