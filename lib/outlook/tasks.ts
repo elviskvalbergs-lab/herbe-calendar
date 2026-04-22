@@ -78,3 +78,81 @@ export async function fetchOutlookTasks(
   const tasks = body.value.map(t => mapOutlookTask(t, defaultList.displayName))
   return { tasks, configured: true }
 }
+
+async function resolveDefaultListId(userEmail: string, azureConfig: AzureConfig): Promise<string> {
+  const enc = encodeURIComponent(userEmail)
+  const res = await graphFetch(`/users/${enc}/todo/lists`, undefined, azureConfig)
+  if (!res.ok) throw new Error(`lists fetch failed: ${res.status}`)
+  const body = await res.json() as { value: OutlookListApi[] }
+  const def = body.value.find(l => l.wellknownListName === 'defaultList')
+    ?? body.value.find(l => l.isDefaultFolder === true)
+    ?? body.value[0]
+  if (!def) throw new Error('no default To Do list')
+  return def.id
+}
+
+export interface CreateOutlookTaskInput {
+  title: string
+  description?: string
+  dueDate?: string
+}
+
+export async function createOutlookTask(
+  userEmail: string,
+  input: CreateOutlookTaskInput,
+  azureConfig: AzureConfig,
+): Promise<Task> {
+  const listId = await resolveDefaultListId(userEmail, azureConfig)
+  const enc = encodeURIComponent(userEmail)
+  const payload: Record<string, unknown> = {
+    title: input.title,
+    status: 'notStarted',
+  }
+  if (input.description) {
+    payload.body = { contentType: 'text', content: input.description }
+  }
+  if (input.dueDate) {
+    payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: 'UTC' }
+  }
+  const res = await graphFetch(
+    `/users/${enc}/todo/lists/${listId}/tasks`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    azureConfig,
+  )
+  if (!res.ok) throw new Error(`create failed: ${res.status}`)
+  const created = await res.json() as OutlookTaskApi
+  return mapOutlookTask(created, 'Tasks')
+}
+
+export interface UpdateOutlookTaskInput {
+  done?: boolean
+  title?: string
+  description?: string
+  dueDate?: string | null  // null clears
+}
+
+export async function updateOutlookTask(
+  userEmail: string,
+  taskId: string,
+  input: UpdateOutlookTaskInput,
+  azureConfig: AzureConfig,
+): Promise<Task> {
+  const listId = await resolveDefaultListId(userEmail, azureConfig)
+  const enc = encodeURIComponent(userEmail)
+  const payload: Record<string, unknown> = {}
+  if (input.done !== undefined) payload.status = input.done ? 'completed' : 'notStarted'
+  if (input.title !== undefined) payload.title = input.title
+  if (input.description !== undefined) payload.body = { contentType: 'text', content: input.description }
+  if (input.dueDate === null) payload.dueDateTime = null
+  else if (input.dueDate !== undefined) {
+    payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: 'UTC' }
+  }
+  const res = await graphFetch(
+    `/users/${enc}/todo/lists/${listId}/tasks/${taskId}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    azureConfig,
+  )
+  if (!res.ok) throw new Error(`update failed: ${res.status}`)
+  const updated = await res.json() as OutlookTaskApi
+  return mapOutlookTask(updated, 'Tasks')
+}

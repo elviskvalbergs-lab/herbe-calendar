@@ -1,4 +1,4 @@
-import { mapOutlookTask, fetchOutlookTasks, type OutlookTaskApi } from '@/lib/outlook/tasks'
+import { mapOutlookTask, fetchOutlookTasks, createOutlookTask, updateOutlookTask, type OutlookTaskApi } from '@/lib/outlook/tasks'
 
 jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn(),
@@ -71,5 +71,57 @@ describe('fetchOutlookTasks', () => {
     expect(mockGraph).toHaveBeenCalledTimes(2)
     expect((mockGraph.mock.calls[0][0] as string)).toContain('/users/u%40x.com/todo/lists')
     expect((mockGraph.mock.calls[1][0] as string)).toContain('/todo/lists/list-b/tasks')
+  })
+})
+
+describe('createOutlookTask', () => {
+  it('POSTs to default list with title + status notStarted', async () => {
+    mockGraph
+      .mockResolvedValueOnce({ // lists
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ // POST
+        ok: true,
+        json: async () => ({ id: 'NEW', title: 'Buy milk', status: 'notStarted' }),
+      })
+    const t = await createOutlookTask('u@x.com', { title: 'Buy milk' }, {} as any)
+    expect(t.id).toBe('outlook:NEW')
+    const [, opts] = mockGraph.mock.calls[1] as [string, any]
+    expect(opts.method).toBe('POST')
+    expect(JSON.parse(opts.body)).toMatchObject({ title: 'Buy milk', status: 'notStarted' })
+  })
+})
+
+describe('updateOutlookTask', () => {
+  it('PATCHes status to completed when done=true', async () => {
+    mockGraph
+      .mockResolvedValueOnce({ // lists
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ // PATCH
+        ok: true,
+        json: async () => ({ id: 'T', title: 'Buy milk', status: 'completed' }),
+      })
+    const t = await updateOutlookTask('u@x.com', 'T', { done: true }, {} as any)
+    expect(t.done).toBe(true)
+    const [, opts] = mockGraph.mock.calls[1] as [string, any]
+    expect(opts.method).toBe('PATCH')
+    expect(JSON.parse(opts.body)).toMatchObject({ status: 'completed' })
+  })
+
+  it('PATCHes title + dueDateTime when edit fields provided', async () => {
+    mockGraph
+      .mockResolvedValueOnce({ // lists
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T', title: 'New', status: 'notStarted' }) })
+    await updateOutlookTask('u@x.com', 'T', { title: 'New', dueDate: '2026-05-01' }, {} as any)
+    const [, opts] = mockGraph.mock.calls[1] as [string, any]
+    const payload = JSON.parse(opts.body)
+    expect(payload.title).toBe('New')
+    expect(payload.dueDateTime?.dateTime).toBe('2026-05-01T00:00:00')
   })
 })
