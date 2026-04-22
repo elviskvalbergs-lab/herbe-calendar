@@ -5,6 +5,7 @@ import {
   eachDayOfInterval, isSameMonth, isToday, isSameDay,
 } from 'date-fns'
 import type { Activity } from '@/types'
+import type { Task, TaskSource } from '@/types/task'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
 import { useEvStyle } from '@/lib/useEvStyle'
 import { EventPreviewCard } from './EventPreviewCard'
@@ -29,6 +30,16 @@ interface Props {
   isLightMode?: boolean
   personCount?: number
   dayViewPanel?: React.ReactNode
+  // Tasks panel props (wired in Task 17, rendered in Task 18)
+  tasks?: Task[]
+  taskSources?: { herbe: boolean; outlook: boolean; google: boolean }
+  taskErrors?: { source: TaskSource; msg: string; stale?: boolean }[]
+  tasksTab?: 'all' | TaskSource
+  onTasksTabChange?: (tab: 'all' | TaskSource) => void
+  onToggleTaskDone?: (task: Task, done: boolean) => void
+  onEditTask?: (task: Task) => void
+  onCopyTaskToEvent?: (task: Task) => void
+  onCreateTask?: (source: TaskSource) => void
 }
 
 export default function MonthView({

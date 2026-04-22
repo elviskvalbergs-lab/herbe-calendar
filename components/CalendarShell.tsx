@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, parseISO } from 'date-fns'
 import { Person, Activity, ActivityType, ActivityClassGroup, CalendarState, CalendarSource, UserGoogleAccount } from '@/types'
+import type { Task, TaskSource } from '@/types/task'
 import CalendarHeader from './CalendarHeader'
 import CalendarGrid from './CalendarGrid'
 import MonthView from './MonthView'
@@ -9,6 +10,7 @@ import ActivityForm from './ActivityForm'
 import SettingsModal from './SettingsModal'
 import KeyboardShortcutsModal from './KeyboardShortcutsModal'
 import AccountSwitcher from './AccountSwitcher'
+import { TasksSidebar } from './TasksSidebar'
 import {
   buildClassGroupColorMap, loadColorOverrides,
   resolveColorWithOverrides, OUTLOOK_COLOR, GOOGLE_COLOR, FALLBACK_COLOR,
@@ -76,6 +78,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     editId?: string
     canEdit?: boolean
   }>({ open: false })
+
+  // Tasks state
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [taskSources, setTaskSources] = useState<{ herbe: boolean; outlook: boolean; google: boolean }>({
+    herbe: true, outlook: false, google: false,
+  })
+  const [taskErrors, setTaskErrors] = useState<{ source: TaskSource; msg: string; stale?: boolean }[]>([])
+  const [tasksTab, setTasksTab] = useState<'all' | TaskSource>('all')
 
   // Month view selected day — tracks state.date for all views
   const [monthSelectedDay, setMonthSelectedDay] = useState<string>(state.date)
@@ -793,6 +803,61 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setUserGoogleAccounts).catch(() => {})
   }, [])
 
+  // Fetch tasks on mount
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const res = await fetch('/api/tasks')
+        if (!res.ok || !alive) return
+        const body = await res.json() as {
+          tasks: Task[]
+          configured: { herbe: boolean; outlook: boolean; google: boolean }
+          errors: { source: TaskSource; msg: string; stale?: boolean }[]
+        }
+        if (!alive) return
+        setTasks(body.tasks)
+        setTaskSources(body.configured)
+        setTaskErrors(body.errors)
+      } catch (e) {
+        console.warn('[CalendarShell] /api/tasks failed:', e)
+      }
+    })()
+    return () => { alive = false }
+  }, [])
+
+  // Task handlers
+  async function handleToggleTaskDone(task: Task, done: boolean) {
+    const prev = tasks
+    setTasks(ts => ts.map(t => t.id === task.id ? { ...t, done } : t))
+    const sourceId = task.id.split(':', 2)[1]
+    const body: Record<string, unknown> = { done }
+    if (task.source === 'herbe') body.connectionId = task.sourceConnectionId
+    try {
+      const res = await fetch(`/api/tasks/${task.source}/${sourceId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(`status ${res.status}`)
+    } catch (e) {
+      console.warn('task toggle failed:', e)
+      setTasks(prev)
+    }
+  }
+
+  function handleEditTask(_task: Task) {
+    // TODO Task 17 follow-up: open ActivityForm in task mode pre-filled from task.
+  }
+
+  function handleCopyTaskToEvent(_task: Task) {
+    // TODO Task 17 follow-up: open ActivityForm in event mode pre-filled from task.
+  }
+
+  function handleCreateTask(_source: TaskSource) {
+    // TODO Task 17 follow-up: open ActivityForm in task mode with the source pre-selected.
+  }
+
   return (
     <div className="flex flex-col h-dvh overflow-hidden bg-bg">
       <CalendarHeader
@@ -858,6 +923,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               canEdit: canEditActivity(activity)
             })
           }
+          tasks={tasks}
+          taskSources={taskSources}
+          taskErrors={taskErrors}
+          tasksTab={tasksTab}
+          onTasksTabChange={setTasksTab}
+          onToggleTaskDone={handleToggleTaskDone}
+          onEditTask={handleEditTask}
+          onCopyTaskToEvent={handleCopyTaskToEvent}
+          onCreateTask={handleCreateTask}
           dayViewPanel={(
             <CalendarGrid
               state={{ ...state, view: 'day', date: monthSelectedDay }}
