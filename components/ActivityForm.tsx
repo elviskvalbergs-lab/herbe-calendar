@@ -75,6 +75,7 @@ interface Props {
   availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
   userGoogleAccounts?: UserGoogleAccount[]
   zoomConfigured?: boolean
+  mode?: 'event' | 'task'
 }
 
 function SerpIcon() {
@@ -88,7 +89,7 @@ function SerpIcon() {
 }
 
 export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], availableSources, userGoogleAccounts, zoomConfigured
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], availableSources, userGoogleAccounts, zoomConfigured, mode = 'event'
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -1371,7 +1372,7 @@ export default function ActivityForm({
                 />
               </div>
             </div>
-            <div>
+            {mode === 'event' && <div>
               <div className="aed-label"><span>From</span>
                 <button
                   type="button"
@@ -1403,8 +1404,8 @@ export default function ActivityForm({
                   className="input aed-input"
                 />
               </div>
-            </div>
-            <div>
+            </div>}
+            {mode === 'event' && <div>
               <div className="aed-label"><span>To</span>
                 <button
                   type="button"
@@ -1426,11 +1427,11 @@ export default function ActivityForm({
                   className="input aed-input"
                 />
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Duration quick-select */}
-          {timeFrom && (() => {
+          {mode === 'event' && timeFrom && (() => {
             const DURATIONS = [
               { label: "5'", mins: 5 },
               { label: "10'", mins: 10 },
@@ -1491,7 +1492,7 @@ export default function ActivityForm({
           })()}
 
           {/* Online meeting toggle (Outlook/Google — create and edit) */}
-          {isExternalCalSource && (
+          {mode === 'event' && isExternalCalSource && (
             <label className="aed-checkbox">
               <input
                 type="checkbox"
@@ -1506,7 +1507,7 @@ export default function ActivityForm({
           )}
 
           {/* Zoom meeting checkbox (all sources, when Zoom is configured) */}
-          {zoomConfigured && (
+          {mode === 'event' && zoomConfigured && (
             <label className="aed-checkbox">
               <input
                 type="checkbox"
@@ -1519,7 +1520,7 @@ export default function ActivityForm({
           )}
 
           {/* Location (Outlook/Google) */}
-          {isExternalCalSource && (location || canEdit) && (
+          {mode === 'event' && isExternalCalSource && (location || canEdit) && (
             <div>
               <div className="aed-label">Location</div>
               {canEdit ? (
