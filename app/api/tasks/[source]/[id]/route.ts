@@ -77,6 +77,6 @@ export async function PATCH(
     return NextResponse.json({ error: 'unknown source' }, { status: 400 })
   } catch (e) {
     console.error(`[tasks PATCH ${source}/${id}]`, e)
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
