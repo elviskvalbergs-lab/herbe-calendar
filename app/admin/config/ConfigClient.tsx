@@ -632,6 +632,13 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
         </div>}
       </section>
 
+      {/* Task Sync Info */}
+      <p style={{ fontSize: 12, opacity: 0.7, marginTop: 12 }}>
+        Task sync (Microsoft To Do, Google Tasks) requires additional scopes.
+        If tasks don't appear in the sidebar after updating Microsoft or Google
+        app permissions, re-connect from this page.
+      </p>
+
       {/* Public Holidays */}
       <section className="bg-surface border border-border rounded-xl overflow-hidden">
         <button onClick={() => toggleSection('holidays')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-border/20 transition-colors">
