@@ -94,8 +94,9 @@ async function fetchErpAndCache(accountId: string, userEmail: string, personCode
       cacheRowsFrom(r.tasks, accountId, userEmail, 'herbe'))
     return { tasks: r.tasks, configured: true }
   } catch (e) {
+    console.error('[tasks] erp fetch failed:', e)
     const cached = await getCachedTasks(accountId, userEmail, 'herbe')
-    return { tasks: cached, configured: true, stale: cached.length > 0, error: String(e) }
+    return { tasks: cached, configured: true, stale: cached.length > 0, error: 'ERP fetch failed' }
   }
 }
 
@@ -112,8 +113,9 @@ async function fetchOutlookAndCache(accountId: string, userEmail: string, azureC
       cacheRowsFrom(r.tasks, accountId, userEmail, 'outlook'))
     return { tasks: r.tasks, configured: true }
   } catch (e) {
+    console.error('[tasks] outlook fetch failed:', e)
     const cached = await getCachedTasks(accountId, userEmail, 'outlook')
-    return { tasks: cached, configured: true, stale: cached.length > 0, error: String(e) }
+    return { tasks: cached, configured: true, stale: cached.length > 0, error: 'Outlook fetch failed' }
   }
 }
 
@@ -130,7 +132,8 @@ async function fetchGoogleAndCache(accountId: string, userEmail: string, tokenId
       cacheRowsFrom(r.tasks, accountId, userEmail, 'google'))
     return { tasks: r.tasks, configured: true }
   } catch (e) {
+    console.error('[tasks] google fetch failed:', e)
     const cached = await getCachedTasks(accountId, userEmail, 'google')
-    return { tasks: cached, configured: true, stale: cached.length > 0, error: String(e) }
+    return { tasks: cached, configured: true, stale: cached.length > 0, error: 'Google fetch failed' }
   }
 }

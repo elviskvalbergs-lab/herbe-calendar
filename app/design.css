@@ -3015,3 +3015,75 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+
+/* ==========================================================================
+   TASKS SIDEBAR
+   ========================================================================== */
+.tasks-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.tasks-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tasks-tabs button {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--fg-muted);
+  padding: 10px 6px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.tasks-tabs button[aria-pressed="true"] {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+.tasks-tabs button span {
+  color: var(--fg-subtle);
+  font-weight: 400;
+}
+.tasks-sidebar .task-row {
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+}
+.tasks-sidebar .task-row:hover {
+  background: var(--bg-elevated);
+}
+.tasks-sidebar .task-row.done .title,
+.tasks-sidebar .task-row.done {
+  opacity: 0.6;
+}
+.tasks-sidebar .overdue {
+  color: var(--burti-rowanberry);
+  border: 1px solid rgba(205,76,56,0.4);
+  background: rgba(205,76,56,0.1);
+  padding: 0 6px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.stale-banner {
+  background: rgba(224, 138, 43, 0.1);
+  border: 1px solid rgba(224, 138, 43, 0.4);
+  color: var(--cat-amber);
+  padding: 6px 12px;
+  margin: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+}
