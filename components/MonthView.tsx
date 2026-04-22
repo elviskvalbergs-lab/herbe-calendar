@@ -9,6 +9,7 @@ import type { Task, TaskSource } from '@/types/task'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
 import { useEvStyle } from '@/lib/useEvStyle'
 import { EventPreviewCard } from './EventPreviewCard'
+import { TasksSidebar } from './TasksSidebar'
 
 interface HolidayData {
   dates: Record<string, { name: string; country: string }[]>
@@ -45,6 +46,7 @@ interface Props {
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
   onSelectDate, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
+  tasks, taskSources, taskErrors, tasksTab, onTasksTabChange, onToggleTaskDone, onEditTask, onCopyTaskToEvent, onCreateTask,
 }: Props) {
   const selectedDay = date
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
@@ -53,7 +55,7 @@ export default function MonthView({
   const [pickedEvent, setPickedEvent] = useState<{ act: Activity; pos: { x: number; y: number } } | null>(null)
   // Right-side panel mode: 'agenda' (default) shows the events list,
   // 'day' shows a full day view of the selected day inline.
-  const [rightSide, setRightSide] = useState<'agenda' | 'day'>('agenda')
+  const [rightSide, setRightSide] = useState<'agenda' | 'day' | 'tasks'>('agenda')
   const gridRef = useRef<HTMLDivElement>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [maxChips, setMaxChips] = useState(4)
@@ -430,8 +432,9 @@ export default function MonthView({
                 <span>{format(parseISO(selectedDay), 'MMMM yyyy')}</span>
               </div>
               <div className="segmented agenda-open" title="Switch view">
-                <button aria-pressed={true}>1D</button>
+                <button aria-pressed={true}>Day</button>
                 <button onClick={() => setRightSide('agenda')} aria-pressed={false}>Agenda</button>
+                <button onClick={() => setRightSide('tasks')} aria-pressed={false}>Tasks</button>
               </div>
             </header>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -456,80 +459,97 @@ export default function MonthView({
                   }}
                   aria-pressed={false}
                   title={dayViewPanel ? 'Show day view in this panel' : 'Open day view'}
-                >1D</button>
-                <button aria-pressed={true}>Agenda</button>
+                >Day</button>
+                <button aria-pressed={rightSide === 'agenda'}>Agenda</button>
+                <button onClick={() => setRightSide('tasks')} aria-pressed={rightSide === 'tasks'}>Tasks</button>
               </div>
             </header>
-            <div className="month-side-body">
-              {holidays?.dates?.[selectedDay]?.length ? (
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    color: 'var(--app-accent)',
-                    padding: '4px 0 10px',
-                    borderBottom: '1px solid var(--app-line)',
-                    marginBottom: 6,
-                  }}
-                >
-                  {holidays.dates[selectedDay].map(h => h.name).join(' · ')}
-                </div>
-              ) : null}
+            {rightSide === 'tasks' ? (
+              <TasksSidebar
+                tasks={tasks ?? []}
+                configured={taskSources ?? { herbe: true, outlook: false, google: false }}
+                errors={taskErrors ?? []}
+                activeTab={tasksTab ?? 'all'}
+                onTabChange={onTasksTabChange ?? (() => {})}
+                handlers={{
+                  onToggleDone: onToggleTaskDone ?? (() => {}),
+                  onEdit: onEditTask ?? (() => {}),
+                  onCopyToEvent: onCopyTaskToEvent ?? (() => {}),
+                  onCreate: onCreateTask ?? (() => {}),
+                }}
+              />
+            ) : (
+              <div className="month-side-body">
+                {holidays?.dates?.[selectedDay]?.length ? (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      color: 'var(--app-accent)',
+                      padding: '4px 0 10px',
+                      borderBottom: '1px solid var(--app-line)',
+                      marginBottom: 6,
+                    }}
+                  >
+                    {holidays.dates[selectedDay].map(h => h.name).join(' · ')}
+                  </div>
+                ) : null}
 
-              {selectedDayEvents.length === 0 ? (
-                <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--app-fg-subtle)', fontSize: 12 }}>
-                  Nothing scheduled
-                </div>
-              ) : (
-                selectedDayEvents.map(act => {
-                  const color = getActivityColor(act)
-                  const sourceLabel = act.source === 'herbe' ? 'ERP'
-                    : act.source === 'outlook' ? 'OUT'
-                    : act.source === 'google' ? 'GOO'
-                    : act.source?.toUpperCase() ?? ''
-                  return (
-                    <div
-                      key={act.id}
-                      className="ms-event"
-                      onClick={(e) => {
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                        setPickedEvent({ act, pos: { x: rect.right + 6, y: rect.top } })
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
+                {selectedDayEvents.length === 0 ? (
+                  <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--app-fg-subtle)', fontSize: 12 }}>
+                    Nothing scheduled
+                  </div>
+                ) : (
+                  selectedDayEvents.map(act => {
+                    const color = getActivityColor(act)
+                    const sourceLabel = act.source === 'herbe' ? 'ERP'
+                      : act.source === 'outlook' ? 'OUT'
+                      : act.source === 'google' ? 'GOO'
+                      : act.source?.toUpperCase() ?? ''
+                    return (
+                      <div
+                        key={act.id}
+                        className="ms-event"
+                        onClick={(e) => {
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                           setPickedEvent({ act, pos: { x: rect.right + 6, y: rect.top } })
-                        }
-                      }}
-                    >
-                      <div className="ms-time">
-                        {act.isAllDay ? (
-                          <span>all<br/>day</span>
-                        ) : (
-                          <>{act.timeFrom}<br/>{act.timeTo}</>
-                        )}
-                      </div>
-                      <div className="ms-bar" style={{ background: color }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="ms-title">{act.description || '(no title)'}</div>
-                        <div className="ms-sub">
-                          <span style={{ color: readableAccentColor(color, !isLightMode), fontWeight: 600 }}>{sourceLabel}</span>
-                          {act.activityTypeCode && <> · {act.activityTypeCode}</>}
-                          {act.customerName && <> · {act.customerName}</>}
-                          {act.location && <> · {act.location}</>}
-                          {act.icsCalendarName && <> · {act.icsCalendarName}</>}
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setPickedEvent({ act, pos: { x: rect.right + 6, y: rect.top } })
+                          }
+                        }}
+                      >
+                        <div className="ms-time">
+                          {act.isAllDay ? (
+                            <span>all<br/>day</span>
+                          ) : (
+                            <>{act.timeFrom}<br/>{act.timeTo}</>
+                          )}
+                        </div>
+                        <div className="ms-bar" style={{ background: color }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="ms-title">{act.description || '(no title)'}</div>
+                          <div className="ms-sub">
+                            <span style={{ color: readableAccentColor(color, !isLightMode), fontWeight: 600 }}>{sourceLabel}</span>
+                            {act.activityTypeCode && <> · {act.activityTypeCode}</>}
+                            {act.customerName && <> · {act.customerName}</>}
+                            {act.location && <> · {act.location}</>}
+                            {act.icsCalendarName && <> · {act.icsCalendarName}</>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </aside>
         )
       )}
