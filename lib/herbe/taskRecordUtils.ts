@@ -111,3 +111,45 @@ async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: stri
   }
   return tasks
 }
+
+export function buildCompleteTaskBody(done: boolean): Record<string, string> {
+  return { OKFlag: done ? '1' : '0' }
+}
+
+export interface CreateTaskInput {
+  title: string
+  description?: string
+  personCode: string
+  dueDate?: string
+  activityTypeCode?: string
+  projectCode?: string
+  customerCode?: string
+}
+
+export function buildCreateTaskBody(input: CreateTaskInput): Record<string, string> {
+  const body: Record<string, string> = {
+    TodoFlag: '1',
+    Comment: input.title,
+    MainPersons: input.personCode,
+  }
+  if (input.description) body.Text = input.description
+  if (input.dueDate) body.TransDate = input.dueDate
+  if (input.activityTypeCode) body.ActType = input.activityTypeCode
+  if (input.projectCode) body.PRCode = input.projectCode
+  if (input.customerCode) body.CUCode = input.customerCode
+  return body
+}
+
+export interface EditTaskInput {
+  title?: string
+  description?: string
+  dueDate?: string
+}
+
+export function buildEditTaskBody(input: EditTaskInput): Record<string, string> {
+  const body: Record<string, string> = {}
+  if (input.title !== undefined) body.Comment = input.title
+  if (input.description !== undefined) body.Text = input.description
+  if (input.dueDate !== undefined) body.TransDate = input.dueDate
+  return body
+}

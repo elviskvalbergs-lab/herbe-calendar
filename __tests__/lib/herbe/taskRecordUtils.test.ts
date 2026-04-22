@@ -69,3 +69,36 @@ describe('regression: calendar/task filter independence', () => {
     expect(isTaskRecord({ TodoFlag: '1', OKFlag: '1' })).toBe(true)
   })
 })
+
+import { buildCompleteTaskBody, buildCreateTaskBody, buildEditTaskBody } from '@/lib/herbe/taskRecordUtils'
+
+describe('buildCompleteTaskBody', () => {
+  it('encodes OKFlag=1 for done=true', () => {
+    expect(buildCompleteTaskBody(true)).toEqual({ OKFlag: '1' })
+  })
+  it('encodes OKFlag=0 for done=false', () => {
+    expect(buildCompleteTaskBody(false)).toEqual({ OKFlag: '0' })
+  })
+})
+
+describe('buildCreateTaskBody', () => {
+  it('always sets TodoFlag=1 on new tasks', () => {
+    const body = buildCreateTaskBody({
+      title: 'Do the thing',
+      personCode: 'EKS',
+      dueDate: '2026-05-01',
+    })
+    expect(body.TodoFlag).toBe('1')
+    expect(body.Comment).toBe('Do the thing')
+    expect(body.MainPersons).toBe('EKS')
+    expect(body.TransDate).toBe('2026-05-01')
+  })
+})
+
+describe('buildEditTaskBody', () => {
+  it('passes only the fields provided', () => {
+    expect(buildEditTaskBody({ title: 'New' })).toEqual({ Comment: 'New' })
+    expect(buildEditTaskBody({ dueDate: '2026-05-05' })).toEqual({ TransDate: '2026-05-05' })
+    expect(buildEditTaskBody({ description: 'Notes' })).toEqual({ Text: 'Notes' })
+  })
+})
