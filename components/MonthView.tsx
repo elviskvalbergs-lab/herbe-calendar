@@ -460,7 +460,7 @@ export default function MonthView({
                   aria-pressed={false}
                   title={dayViewPanel ? 'Show day view in this panel' : 'Open day view'}
                 >Day</button>
-                <button aria-pressed={rightSide === 'agenda'}>Agenda</button>
+                <button onClick={() => setRightSide('agenda')} aria-pressed={rightSide === 'agenda'}>Agenda</button>
                 <button onClick={() => setRightSide('tasks')} aria-pressed={rightSide === 'tasks'}>Tasks</button>
               </div>
             </header>
