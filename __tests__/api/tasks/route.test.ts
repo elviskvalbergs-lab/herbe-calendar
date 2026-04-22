@@ -34,6 +34,8 @@ import { requireSession } from '@/lib/herbe/auth-guard'
 import { fetchErpTasks } from '@/lib/herbe/taskRecordUtils'
 import { fetchOutlookTasks } from '@/lib/outlook/tasks'
 import { fetchGoogleTasks } from '@/lib/google/tasks'
+import { getAzureConfig } from '@/lib/accountConfig'
+import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 
 const mockReq = (): Request => new Request('http://localhost/api/tasks')
 
@@ -51,6 +53,8 @@ it('returns 401 when no session', async () => {
 })
 
 it('returns 200 with merged tasks and configured flags', async () => {
+  ;(getAzureConfig as jest.Mock).mockResolvedValueOnce({ tenantId: 't', clientId: 'c', clientSecret: 's', senderEmail: 's@x.com' })
+  ;(getUserGoogleAccounts as jest.Mock).mockResolvedValueOnce([{ id: 'tok-1', googleEmail: 'g@x.com', calendars: [] }])
   ;(fetchErpTasks as jest.Mock).mockResolvedValueOnce({
     tasks: [{ id: 'herbe:1', source: 'herbe', sourceConnectionId: 'c1', title: 'E', done: false }],
     errors: [],
@@ -67,6 +71,7 @@ it('returns 200 with merged tasks and configured flags', async () => {
 })
 
 it('returns 200 even when a source errors; error is reported per-source', async () => {
+  ;(getAzureConfig as jest.Mock).mockResolvedValueOnce({ tenantId: 't', clientId: 'c', clientSecret: 's', senderEmail: 's@x.com' })
   ;(fetchOutlookTasks as jest.Mock).mockResolvedValueOnce({
     tasks: [], configured: true, error: 'network timeout',
   })

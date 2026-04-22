@@ -100,8 +100,9 @@ async function fetchErpAndCache(accountId: string, userEmail: string, personCode
 }
 
 async function fetchOutlookAndCache(accountId: string, userEmail: string, azureConfig: AzureConfig | null): Promise<SourceResult> {
+  if (!azureConfig) return { tasks: [], configured: false }
   try {
-    const r = await fetchOutlookTasks(userEmail, azureConfig as AzureConfig)
+    const r = await fetchOutlookTasks(userEmail, azureConfig)
     if (!r.configured) return { tasks: [], configured: false }
     if (r.error) {
       const cached = await getCachedTasks(accountId, userEmail, 'outlook')
@@ -117,8 +118,9 @@ async function fetchOutlookAndCache(accountId: string, userEmail: string, azureC
 }
 
 async function fetchGoogleAndCache(accountId: string, userEmail: string, tokenId: string | null): Promise<SourceResult> {
+  if (!tokenId) return { tasks: [], configured: false }
   try {
-    const r = await fetchGoogleTasks(tokenId as string, userEmail, accountId)
+    const r = await fetchGoogleTasks(tokenId, userEmail, accountId)
     if (!r.configured) return { tasks: [], configured: false }
     if (r.error) {
       const cached = await getCachedTasks(accountId, userEmail, 'google')
