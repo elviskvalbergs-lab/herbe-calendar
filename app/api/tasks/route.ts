@@ -1,0 +1,134 @@
+import { NextResponse } from 'next/server'
+import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
+import { fetchErpTasks } from '@/lib/herbe/taskRecordUtils'
+import { fetchOutlookTasks } from '@/lib/outlook/tasks'
+import { fetchGoogleTasks } from '@/lib/google/tasks'
+import {
+  getCachedTasks,
+  replaceCachedTasksForSource,
+  type CachedTaskRow,
+} from '@/lib/cache/tasks'
+import { getCodeByEmail } from '@/lib/personCodes'
+import { getAzureConfig } from '@/lib/accountConfig'
+import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
+import type { Task, TaskSource } from '@/types/task'
+import type { AzureConfig } from '@/lib/accountConfig'
+
+interface SourceErrorInfo { source: TaskSource; msg: string; stale?: boolean }
+
+async function getFirstGoogleTokenId(userEmail: string, accountId: string): Promise<string | null> {
+  const accounts = await getUserGoogleAccounts(userEmail, accountId)
+  return accounts[0]?.id ?? null
+}
+
+export async function GET(_req: Request) {
+  let session
+  try {
+    session = await requireSession()
+  } catch {
+    return unauthorized()
+  }
+
+  const { accountId, email } = session
+  const personCode = await getCodeByEmail(email, accountId)
+  const azureConfig = await getAzureConfig(accountId)
+  const googleTokenId = await getFirstGoogleTokenId(email, accountId)
+
+  const [erpR, outlookR, googleR] = await Promise.all([
+    fetchErpAndCache(accountId, email, personCode ? [personCode] : []),
+    fetchOutlookAndCache(accountId, email, azureConfig),
+    fetchGoogleAndCache(accountId, email, googleTokenId),
+  ])
+
+  const errors: SourceErrorInfo[] = []
+  if (erpR.error) errors.push({ source: 'herbe', msg: erpR.error, stale: erpR.stale })
+  if (outlookR.error) errors.push({ source: 'outlook', msg: outlookR.error, stale: outlookR.stale })
+  if (googleR.error) errors.push({ source: 'google', msg: googleR.error, stale: googleR.stale })
+
+  const tasks: Task[] = [
+    ...erpR.tasks, ...outlookR.tasks, ...googleR.tasks,
+  ]
+
+  const configured = {
+    herbe: true,
+    outlook: !!outlookR.configured,
+    google: !!googleR.configured,
+  }
+  return NextResponse.json({ tasks, configured, errors }, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+// -------- per-source helpers with cache fallback --------
+
+interface SourceResult {
+  tasks: Task[]
+  configured: boolean
+  stale?: boolean
+  error?: string
+}
+
+function cacheRowsFrom(
+  tasks: Task[],
+  accountId: string,
+  userEmail: string,
+  source: TaskSource,
+): CachedTaskRow[] {
+  return tasks.map(t => ({
+    accountId,
+    userEmail,
+    source,
+    connectionId: t.sourceConnectionId ?? '',
+    taskId: t.id,
+    payload: t as unknown as Record<string, unknown>,
+  }))
+}
+
+async function fetchErpAndCache(accountId: string, userEmail: string, personCodes: string[]): Promise<SourceResult> {
+  if (personCodes.length === 0) return { tasks: [], configured: true }
+  try {
+    const r = await fetchErpTasks(accountId, personCodes)
+    if (r.errors.length > 0 && r.tasks.length === 0) {
+      const cached = await getCachedTasks(accountId, userEmail, 'herbe')
+      return { tasks: cached, configured: true, stale: cached.length > 0, error: r.errors[0].msg }
+    }
+    await replaceCachedTasksForSource(accountId, userEmail, 'herbe',
+      cacheRowsFrom(r.tasks, accountId, userEmail, 'herbe'))
+    return { tasks: r.tasks, configured: true }
+  } catch (e) {
+    const cached = await getCachedTasks(accountId, userEmail, 'herbe')
+    return { tasks: cached, configured: true, stale: cached.length > 0, error: String(e) }
+  }
+}
+
+async function fetchOutlookAndCache(accountId: string, userEmail: string, azureConfig: AzureConfig | null): Promise<SourceResult> {
+  try {
+    const r = await fetchOutlookTasks(userEmail, azureConfig as AzureConfig)
+    if (!r.configured) return { tasks: [], configured: false }
+    if (r.error) {
+      const cached = await getCachedTasks(accountId, userEmail, 'outlook')
+      return { tasks: cached, configured: true, stale: cached.length > 0, error: r.error }
+    }
+    await replaceCachedTasksForSource(accountId, userEmail, 'outlook',
+      cacheRowsFrom(r.tasks, accountId, userEmail, 'outlook'))
+    return { tasks: r.tasks, configured: true }
+  } catch (e) {
+    const cached = await getCachedTasks(accountId, userEmail, 'outlook')
+    return { tasks: cached, configured: true, stale: cached.length > 0, error: String(e) }
+  }
+}
+
+async function fetchGoogleAndCache(accountId: string, userEmail: string, tokenId: string | null): Promise<SourceResult> {
+  try {
+    const r = await fetchGoogleTasks(tokenId as string, userEmail, accountId)
+    if (!r.configured) return { tasks: [], configured: false }
+    if (r.error) {
+      const cached = await getCachedTasks(accountId, userEmail, 'google')
+      return { tasks: cached, configured: true, stale: cached.length > 0, error: r.error }
+    }
+    await replaceCachedTasksForSource(accountId, userEmail, 'google',
+      cacheRowsFrom(r.tasks, accountId, userEmail, 'google'))
+    return { tasks: r.tasks, configured: true }
+  } catch (e) {
+    const cached = await getCachedTasks(accountId, userEmail, 'google')
+    return { tasks: cached, configured: true, stale: cached.length > 0, error: String(e) }
+  }
+}
