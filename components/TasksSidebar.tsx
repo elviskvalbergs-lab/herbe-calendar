@@ -51,6 +51,11 @@ export function TasksSidebar(props: {
         </div>
       ))}
 
+      <div style={{ padding: '4px 12px', fontSize: 10, opacity: 0.55 }}>
+        debug: {tasks.length} tasks · tab={activeTab} · configured=
+        {Object.entries(configured).filter(([, v]) => v).map(([k]) => k).join(',') || 'none'}
+      </div>
+
       <div className="tasks-scroll">
         <TasksList
           tab={activeTab}
