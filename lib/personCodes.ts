@@ -629,19 +629,26 @@ export async function mergePersonCodes(
  * Look up a person code by email.
  */
 export async function getCodeByEmail(email: string, accountId?: string): Promise<string | null> {
+  // Prefer erp_code when set — ERP records reference users by their ERP
+  // code (e.g. "EKS"), not the internal generated_code (e.g. "EKS3").
+  // generated_code is the fallback when the row has no ERP identity.
   if (accountId) {
-    const { rows } = await pool.query<{ generated_code: string }>(
-      'SELECT generated_code FROM person_codes WHERE account_id = $1 AND LOWER(email) = LOWER($2)',
+    const { rows } = await pool.query<{ code: string }>(
+      `SELECT COALESCE(NULLIF(erp_code, ''), generated_code) AS code
+         FROM person_codes
+        WHERE account_id = $1 AND LOWER(email) = LOWER($2)`,
       [accountId, email]
     )
-    return rows[0]?.generated_code ?? null
+    return rows[0]?.code ?? null
   }
-  // Fallback: search across all accounts (used during auth before account is known)
-  const { rows } = await pool.query<{ generated_code: string }>(
-    'SELECT generated_code FROM person_codes WHERE LOWER(email) = LOWER($1) LIMIT 1',
+  const { rows } = await pool.query<{ code: string }>(
+    `SELECT COALESCE(NULLIF(erp_code, ''), generated_code) AS code
+       FROM person_codes
+      WHERE LOWER(email) = LOWER($1)
+      LIMIT 1`,
     [email]
   )
-  return rows[0]?.generated_code ?? null
+  return rows[0]?.code ?? null
 }
 
 /**
