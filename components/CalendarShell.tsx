@@ -808,12 +808,16 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const loadTasks = useCallback(async () => {
     try {
       const res = await fetch('/api/tasks')
-      if (!res.ok) return
+      if (!res.ok) {
+        console.warn('[CalendarShell] /api/tasks non-ok:', res.status)
+        return
+      }
       const body = await res.json() as {
         tasks: Task[]
         configured: { herbe: boolean; outlook: boolean; google: boolean }
         errors: { source: TaskSource; msg: string; stale?: boolean }[]
       }
+      console.log('[CalendarShell] tasks loaded:', body.tasks.length, 'configured:', body.configured, 'errors:', body.errors)
       setTasks(body.tasks)
       setTaskSources(body.configured)
       setTaskErrors(body.errors)
