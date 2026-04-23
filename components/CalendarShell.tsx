@@ -845,11 +845,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }
 
   function activityShapeFromTask(task: Task, asEvent = false): Partial<Activity> {
+    // Tasks are personal — the signed-in user is always the MainPerson.
+    // Without this, the form falls through to the calendar's selectedPersons.
     const shape: Partial<Activity> = {
       source: task.source === 'herbe' ? 'herbe' : task.source,
       description: task.title,
       textInMatrix: task.description ?? task.erp?.textInMatrix,
       date: task.dueDate ?? format(new Date(), 'yyyy-MM-dd'),
+      personCode: userCode,
+      mainPersons: [userCode],
       activityTypeCode: task.erp?.activityTypeCode,
       projectCode: task.erp?.projectCode,
       projectName: task.erp?.projectName,
@@ -857,7 +861,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       customerName: task.erp?.customerName,
       erpConnectionId: task.sourceConnectionId,
     }
-    // asEvent: drop identity so a new event is created (not a PATCH on the task)
     if (asEvent) return shape
     return shape
   }
@@ -882,7 +885,11 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }
 
   function handleCreateTask(source: TaskSource) {
-    const initial: Partial<Activity> = { date: state.date }
+    const initial: Partial<Activity> = {
+      date: state.date,
+      personCode: userCode,
+      mainPersons: [userCode],
+    }
     if (source === 'outlook') initial.source = 'outlook'
     else if (source === 'google') initial.source = 'google'
     else initial.source = 'herbe'

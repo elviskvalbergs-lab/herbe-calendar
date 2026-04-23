@@ -87,9 +87,9 @@ export async function fetchErpTasks(
 async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: string[]): Promise<Task[]> {
   const personSet = new Set(personCodes)
   const today = new Date()
-  // Narrow window: recent done tasks + open/future tasks. Wider ranges blow
+  // Window: 1 year back (done tasks) + 6 months forward. Wider ranges blow
   // past MAX_PAGES on busy ERPs and truncate the most recent records.
-  const from = new Date(today); from.setMonth(from.getMonth() - 3)
+  const from = new Date(today); from.setFullYear(from.getFullYear() - 1)
   const to = new Date(today); to.setMonth(to.getMonth() + 6)
   const fmt = (d: Date) => d.toISOString().slice(0, 10)
   const raw = await herbeFetchAll(REGISTERS.activities, {
@@ -129,13 +129,16 @@ export interface CreateTaskInput {
 }
 
 export function buildCreateTaskBody(input: CreateTaskInput): Record<string, string> {
+  // Always stamp TransDate. Without it, the record is excluded from the
+  // task fetcher's date-range query and disappears from the sidebar.
+  const today = new Date().toISOString().slice(0, 10)
   const body: Record<string, string> = {
     TodoFlag: '1',
     Comment: input.title,
     MainPersons: input.personCode,
+    TransDate: input.dueDate ?? today,
   }
   if (input.description) body.Text = input.description
-  if (input.dueDate) body.TransDate = input.dueDate
   if (input.activityTypeCode) body.ActType = input.activityTypeCode
   if (input.projectCode) body.PRCode = input.projectCode
   if (input.customerCode) body.CUCode = input.customerCode
