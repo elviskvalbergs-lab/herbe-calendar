@@ -100,19 +100,24 @@ async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: stri
   }, 500, conn)
 
   const tasks: Task[] = []
+  let taskCount = 0
+  let matchedForUser = 0
   for (const record of raw) {
     const r = record as Record<string, unknown>
     if (!isTaskRecord(r)) continue
+    taskCount++
     const { main, cc } = parsePersons(r)
     const mainSet = new Set(main)
     const allPersons = [...main, ...cc.filter(p => !mainSet.has(p))]
     for (const p of allPersons) {
       if (personSet.has(p)) {
         tasks.push(mapHerbeTask(r, p, conn.id, conn.name))
+        matchedForUser++
         break // one task per record, not per person
       }
     }
   }
+  console.log(`[tasks/erp] ${conn.name}: fetched ${raw.length} records, ${taskCount} tasks, ${matchedForUser} matched user ${[...personSet].join(',')}`)
   return tasks
 }
 

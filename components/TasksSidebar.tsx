@@ -45,9 +45,9 @@ export function TasksSidebar(props: {
         ))}
       </div>
 
-      {errors.filter(e => e.stale).map(e => (
+      {errors.map(e => (
         <div key={e.source} className="stale-banner" role="alert">
-          {TAB_LABEL[e.source]}: showing last known state ({e.msg}).
+          {TAB_LABEL[e.source]}: {e.stale ? 'showing last known state' : "couldn't load"} — {e.msg}
         </div>
       ))}
 

@@ -125,10 +125,16 @@ async function fetchErpAndCache(accountId: string, userEmail: string, personCode
 }
 
 async function fetchOutlookAndCache(accountId: string, userEmail: string, azureConfig: AzureConfig | null): Promise<SourceResult> {
+  // "configured" means the admin has set up the connection. Tab visibility
+  // follows admin/user setup, not live-fetch success. Auth/scope failures
+  // surface as errors in-tab.
   if (!azureConfig) return { tasks: [], configured: false }
   try {
     const r = await fetchOutlookTasks(userEmail, azureConfig)
-    if (!r.configured) return { tasks: [], configured: false }
+    if (!r.configured) {
+      const cached = await safeGetCachedTasks(accountId, userEmail, 'outlook')
+      return { tasks: cached, configured: true, stale: cached.length > 0, error: 'Missing Tasks.ReadWrite.All admin consent' }
+    }
     if (r.error) {
       const cached = await safeGetCachedTasks(accountId, userEmail, 'outlook')
       return { tasks: cached, configured: true, stale: cached.length > 0, error: r.error }
@@ -148,7 +154,10 @@ async function fetchGoogleAndCache(accountId: string, userEmail: string, tokenId
   if (!tokenId) return { tasks: [], configured: false }
   try {
     const r = await fetchGoogleTasks(tokenId, userEmail, accountId)
-    if (!r.configured) return { tasks: [], configured: false }
+    if (!r.configured) {
+      const cached = await safeGetCachedTasks(accountId, userEmail, 'google')
+      return { tasks: cached, configured: true, stale: cached.length > 0, error: 'Google token missing Tasks scope — reconnect' }
+    }
     if (r.error) {
       const cached = await safeGetCachedTasks(accountId, userEmail, 'google')
       return { tasks: cached, configured: true, stale: cached.length > 0, error: r.error }
