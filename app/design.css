@@ -3024,6 +3024,13 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
+}
+.tasks-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .tasks-tabs {
   display: flex;

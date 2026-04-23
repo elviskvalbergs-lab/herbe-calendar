@@ -91,9 +91,9 @@ async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: stri
   const to = new Date(today); to.setFullYear(to.getFullYear() + 2)
   const fmt = (d: Date) => d.toISOString().slice(0, 10)
   const raw = await herbeFetchAll(REGISTERS.activities, {
-    sort: 'TransDate',
+    sort: '-TransDate',
     range: `${fmt(from)}:${fmt(to)}`,
-  }, 100, conn)
+  }, 500, conn)
 
   const tasks: Task[] = []
   for (const record of raw) {

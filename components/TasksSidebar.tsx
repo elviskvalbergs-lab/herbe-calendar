@@ -51,12 +51,14 @@ export function TasksSidebar(props: {
         </div>
       ))}
 
-      <TasksList
-        tab={activeTab}
-        tasks={tasks}
-        configured={configured}
-        handlers={handlers}
-      />
+      <div className="tasks-scroll">
+        <TasksList
+          tab={activeTab}
+          tasks={tasks}
+          configured={configured}
+          handlers={handlers}
+        />
+      </div>
     </div>
   )
 }
