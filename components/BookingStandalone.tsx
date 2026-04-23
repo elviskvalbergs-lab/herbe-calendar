@@ -27,7 +27,9 @@ export default function BookingStandalone({ token }: { token: string }) {
           return
         }
         setTemplates(data.templates)
-        if (data.favoriteName) setTitle(data.favoriteName)
+        // Prefer the share-link's own name over the underlying favorite name,
+        // since the link name is what the sharer titled this booking page.
+        if (data.linkName || data.favoriteName) setTitle(data.linkName || data.favoriteName)
         if (data.bookingMaxDays) setMaxDays(data.bookingMaxDays)
       })
       .catch(e => setError(e.message))

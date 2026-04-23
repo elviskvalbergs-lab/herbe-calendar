@@ -67,6 +67,7 @@ export async function GET(
   }
 
   return NextResponse.json({
+    linkName: link.linkName,
     favoriteName: link.favoriteName,
     view: link.view,
     personCodes: link.personCodes,
@@ -115,6 +116,7 @@ export async function POST(
   )
 
   return NextResponse.json({
+    linkName: link.linkName,
     favoriteName: link.favoriteName,
     view: link.view,
     personCodes: link.personCodes,

@@ -1158,8 +1158,8 @@ export default function ActivityForm({
 
           <ErrorBanner errors={errors} />
 
-          {/* Person(s) */}
-          {(() => {
+          {/* Person(s) — hidden for Outlook/Google task mode; those APIs don't support assignees */}
+          {!(mode === 'task' && isExternalCalSource) && (() => {
             const unselected = people
               .filter(p => !selectedPersonCodes.includes(p.code))
               .sort((a, b) => {
@@ -1280,8 +1280,8 @@ export default function ActivityForm({
             )
           })()}
 
-          {/* External attendees (Outlook only) */}
-          {isExternalCalSource && externalAttendees.length > 0 && (
+          {/* External attendees (Outlook only — event mode) */}
+          {mode === 'event' && isExternalCalSource && externalAttendees.length > 0 && (
             <div>
               <div className="aed-label">External Attendees</div>
               <div className="aed-ext-chips">
