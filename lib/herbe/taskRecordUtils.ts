@@ -87,8 +87,10 @@ export async function fetchErpTasks(
 async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: string[]): Promise<Task[]> {
   const personSet = new Set(personCodes)
   const today = new Date()
-  const from = new Date(today); from.setFullYear(from.getFullYear() - 2)
-  const to = new Date(today); to.setFullYear(to.getFullYear() + 2)
+  // Narrow window: recent done tasks + open/future tasks. Wider ranges blow
+  // past MAX_PAGES on busy ERPs and truncate the most recent records.
+  const from = new Date(today); from.setMonth(from.getMonth() - 3)
+  const to = new Date(today); to.setMonth(to.getMonth() + 6)
   const fmt = (d: Date) => d.toISOString().slice(0, 10)
   const raw = await herbeFetchAll(REGISTERS.activities, {
     sort: 'TransDate',
