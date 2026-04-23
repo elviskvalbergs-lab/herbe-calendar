@@ -2,18 +2,41 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { pool } from '@/lib/db'
 import { encrypt, decrypt } from '@/lib/crypto'
-import { herbeFetchAll } from '@/lib/herbe/client'
+import { herbeFetchAll, herbeWebExcellentAction } from '@/lib/herbe/client'
 import type { ErpConnection } from '@/lib/accountConfig'
 import { getAccountIdFromCookie } from '@/lib/adminAccountId'
 
-/** Test an ERP connection by fetching from UserVc */
-async function testErpConnection(conn: ErpConnection): Promise<{ ok: boolean; userCount?: number; error?: string }> {
+interface TestResult {
+  ok: boolean
+  userCount?: number
+  error?: string
+  webExcellentApi?: { ok: boolean; status?: number; error?: string }
+}
+
+/** Test an ERP connection: legacy /api via OAuth, and WebExcellentAPI via Basic if creds set. */
+async function testErpConnection(conn: ErpConnection): Promise<TestResult> {
+  const result: TestResult = { ok: false }
   try {
     const users = await herbeFetchAll('UserVc', {}, 5, conn)
-    return { ok: true, userCount: users.length }
+    result.ok = true
+    result.userCount = users.length
   } catch (e) {
-    return { ok: false, error: String(e) }
+    result.ok = false
+    result.error = String(e)
   }
+  if (conn.username && conn.password) {
+    try {
+      const res = await herbeWebExcellentAction({ action: 'getactivitytypes' }, conn)
+      result.webExcellentApi = { ok: res.ok, status: res.status }
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        result.webExcellentApi.error = body.slice(0, 200)
+      }
+    } catch (e) {
+      result.webExcellentApi = { ok: false, error: String(e) }
+    }
+  }
+  return result
 }
 
 export async function POST(req: NextRequest) {

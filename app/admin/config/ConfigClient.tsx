@@ -332,7 +332,14 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
                         body: JSON.stringify({ action: 'test', id: conn.id }),
                       })
                       const data = await res.json()
-                      setTestResult(prev => ({ ...prev, [conn.id]: data.ok ? `OK (${data.userCount} users)` : `Failed: ${data.error}` }))
+                      const parts: string[] = []
+                      parts.push(data.ok ? `OAuth OK (${data.userCount} users)` : `OAuth failed: ${data.error}`)
+                      if (data.webExcellentApi) {
+                        parts.push(data.webExcellentApi.ok
+                          ? 'WebExcellentAPI OK'
+                          : `WebExcellentAPI ${data.webExcellentApi.status ?? ''} ${data.webExcellentApi.error ?? ''}`.trim())
+                      }
+                      setTestResult(prev => ({ ...prev, [conn.id]: parts.join(' · ') }))
                     }}
                     className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border text-text-muted hover:bg-border/30"
                   >

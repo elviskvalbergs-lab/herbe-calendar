@@ -216,44 +216,62 @@ export async function herbeFetchById(
   return res
 }
 
-/** Function to delete records using the specialized WebExcellentAPI.hal action endpoint */
+/**
+ * Basic-auth header for WebExcellentAPI.hal calls. The server does NOT
+ * accept OAuth Bearer on that endpoint — only HTTP Basic with per-connection
+ * username/password stored on account_erp_connections.
+ */
+function herbeBasicAuthHeader(conn?: ErpConnection): string {
+  if (!conn?.username || !conn?.password) {
+    throw new Error('HERBE_BASIC_MISSING: this call needs Basic auth; set Username/Password on the ERP connection in /admin/config')
+  }
+  return `Basic ${Buffer.from(`${conn.username}:${conn.password}`).toString('base64')}`
+}
+
+function herbeWebExcellentOrigin(conn?: ErpConnection): string {
+  const base = (conn?.apiBaseUrl || '').trim()
+  try { return new URL(base).origin } catch { return base }
+}
+
+/**
+ * Generic WebExcellentAPI.hal action call. Always uses Basic auth — the
+ * endpoint rejects OAuth Bearer even when the same connection's /api/*
+ * calls work with Bearer.
+ */
+export async function herbeWebExcellentAction(
+  params: Record<string, string>,
+  conn?: ErpConnection,
+  init?: RequestInit,
+): Promise<Response> {
+  const auth = herbeBasicAuthHeader(conn)
+  const company = (conn?.companyCode || '').trim()
+  const mergedParams = { compno: company, ...params }
+  const query = new URLSearchParams(mergedParams)
+  const url = `${herbeWebExcellentOrigin(conn)}/WebExcellentAPI.hal?${query.toString()}`
+  return herbeFetchRaw(url, {
+    method: 'GET',
+    ...init,
+    headers: {
+      Authorization: auth,
+      Accept: '*/*',
+      ...(init?.headers ?? {}),
+    },
+  })
+}
+
+/** Delete records via WebExcellentAPI.hal action endpoint. */
 export async function herbeWebExcellentDelete(
   register: string,
   id: string,
   userCode: string,
-  conn?: ErpConnection
+  conn?: ErpConnection,
 ): Promise<Response> {
-  const auth = await herbeAuthHeader(conn)
-  const base = (conn?.apiBaseUrl || '').trim()
-  const company = (conn?.companyCode || '').trim()
-
-  let baseUrlFn = base
-  try {
-    const parsed = new URL(base)
-    // Build /WebExcellentAPI.hal at the origin root since endpoints usually live there
-    baseUrlFn = parsed.origin
-  } catch {
-    // fallback if unparseable
-  }
-
-  const query = new URLSearchParams({
-    compno: company,
+  return herbeWebExcellentAction({
     usercode: userCode,
     action: 'delete',
-    register: register,
-    id: id
-  })
-
-  // Per user snippet: WebExcellentAPI.hal?compno=3&usercode=EKS&action=delete&register=ActVc&id=12345
-  const url = `${baseUrlFn}/WebExcellentAPI.hal?${query.toString()}`
-
-  return herbeFetchRaw(url, {
-    method: 'GET',
-    headers: {
-      Authorization: auth,
-      Accept: '*/*',
-    },
-  })
+    register,
+    id,
+  }, conn)
 }
 
 /**
