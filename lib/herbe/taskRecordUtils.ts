@@ -36,7 +36,7 @@ export function mapHerbeTask(
     description: undefined,
     dueDate: transDate || undefined,
     done: String(r['OKFlag'] ?? '0') === '1',
-    listName: prName || cuName || undefined,
+    listName: connectionName || undefined,
     ccPersons: cc.length > 0 ? cc : undefined,
     erp: {
       activityTypeCode: String(r['ActType'] ?? '') || undefined,
@@ -47,9 +47,10 @@ export function mapHerbeTask(
       textInMatrix: textValue || undefined,
     },
   }
-  // Silence unused-var for personCode/connectionName (kept in signature for symmetry with mapHerbeRecord).
+  // personCode kept for signature symmetry with mapHerbeRecord.
   void personCode
-  void connectionName
+  // Surface project/customer in ERP metadata on the Task (used for copy-to-event pre-fill).
+  void prName; void cuName
   return task
 }
 

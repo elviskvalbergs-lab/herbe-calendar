@@ -1030,8 +1030,8 @@ export default function ActivityForm({
             </a>
           )}
 
-          {/* RSVP buttons — only for your own event (not colleagues') */}
-          {isExternalCalSource && !initial?.isExternal && rsvpStatus !== 'organizer' && initial?.personCode === defaultPersonCode && (
+          {/* RSVP buttons — only for your own event (not colleagues'), and not in task mode */}
+          {mode === 'event' && isExternalCalSource && !initial?.isExternal && rsvpStatus !== 'organizer' && initial?.personCode === defaultPersonCode && (
             <div>
               <label className="aed-label">RSVP</label>
               <div className="flex gap-2">

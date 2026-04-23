@@ -4,9 +4,9 @@ import { TaskRow } from './TaskRow'
 import { useState } from 'react'
 
 const SOURCE_LABEL: Record<TaskSource, string> = {
-  herbe: 'Standard ERP',
-  outlook: 'Microsoft To Do',
-  google: 'Google Tasks',
+  herbe: 'ERP',
+  outlook: 'Outlook',
+  google: 'Google',
 }
 
 interface CommonHandlers {
@@ -28,18 +28,23 @@ function SourceSection(props: {
   const completed = tasks.filter(t => t.done)
 
   return (
-    <section>
+    <section className="task-section">
       {showHeader && (
-        <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px 4px' }}>
-          <strong>{SOURCE_LABEL[source]}</strong>
-          <span style={{ opacity: 0.5, fontSize: 11 }}>{open.length}</span>
-          <span style={{ flex: 1 }} />
-          <button onClick={() => handlers.onCreate(source)}>+ New task</button>
+        <header className="task-section-hdr">
+          <span className="task-section-title">{SOURCE_LABEL[source]}</span>
+          <span className="task-section-count">{open.length}</span>
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost task-new-btn"
+            onClick={() => handlers.onCreate(source)}
+          >
+            <span aria-hidden="true">+</span> New task
+          </button>
         </header>
       )}
       <div>
         {open.length === 0 && (
-          <p style={{ opacity: 0.5, padding: '6px 14px', fontSize: 12 }}>No open tasks.</p>
+          <p className="task-empty">No open tasks.</p>
         )}
         {open.map(t => (
           <TaskRow
@@ -54,8 +59,9 @@ function SourceSection(props: {
       {completed.length > 0 && (
         <>
           <button
+            type="button"
+            className="task-done-toggle"
             onClick={() => setShowCompleted(s => !s)}
-            style={{ padding: '4px 14px', fontSize: 11, opacity: 0.6, width: '100%', textAlign: 'left' }}
           >
             {showCompleted ? '▾' : '▸'} {completed.length} completed
           </button>

@@ -1,5 +1,6 @@
 'use client'
 import type { Task } from '@/types/task'
+import { format, parseISO } from 'date-fns'
 
 const SOURCE_COLOR: Record<Task['source'], string> = {
   herbe: '#00AEE7',
@@ -11,6 +12,36 @@ function isOverdue(dueDate: string | undefined, done: boolean): boolean {
   if (!dueDate || done) return false
   const today = new Date().toISOString().slice(0, 10)
   return dueDate < today
+}
+
+function formatDueDate(iso: string): string {
+  try {
+    const d = parseISO(iso)
+    const now = new Date()
+    return d.getFullYear() === now.getFullYear()
+      ? format(d, 'd MMM')
+      : format(d, 'd MMM yyyy')
+  } catch {
+    return iso
+  }
+}
+
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="14" height="17" rx="2" />
+      <path d="M8 2h9a2 2 0 0 1 2 2v13" />
+    </svg>
+  )
+}
+
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  )
 }
 
 export function TaskRow(props: {
@@ -26,47 +57,46 @@ export function TaskRow(props: {
     <div
       data-testid="task-row"
       className={`task-row ${task.done ? 'done' : ''}`}
-      style={{
-        borderLeft: `3px solid ${SOURCE_COLOR[task.source]}`,
-        display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 8px',
-      }}
+      style={{ borderLeftColor: SOURCE_COLOR[task.source] }}
     >
       <input
         type="checkbox"
+        className="task-check"
         checked={task.done}
         onChange={e => onToggleDone(task, e.currentTarget.checked)}
         aria-label="Mark done"
       />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          onClick={() => onEdit(task)}
-          style={{ cursor: 'pointer', textDecoration: task.done ? 'line-through' : 'none' }}
-        >
-          {task.title}
-        </div>
+      <div className="task-body" onClick={() => onEdit(task)}>
+        <div className="task-title">{task.title}</div>
         {(task.dueDate || task.listName) && (
-          <div style={{ display: 'flex', gap: 6, marginTop: 3, fontSize: 11, opacity: 0.7 }}>
+          <div className="task-meta">
             {task.dueDate && (
               <span
                 data-testid="due-badge"
-                className={overdue ? 'overdue' : ''}
+                className={`task-due ${overdue ? 'overdue' : ''}`}
               >
-                {task.dueDate}
+                {formatDueDate(task.dueDate)}
               </span>
             )}
-            {task.listName && <span>{task.listName}</span>}
+            {task.listName && <span className="task-list">{task.listName}</span>}
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', gap: 2 }}>
+      <div className="task-actions">
         <button
+          type="button"
+          className="icon-btn"
           aria-label="Copy to calendar event"
-          onClick={() => onCopyToEvent(task)}
-        >→📅</button>
+          title="Copy to calendar"
+          onClick={e => { e.stopPropagation(); onCopyToEvent(task) }}
+        ><CopyIcon /></button>
         <button
+          type="button"
+          className="icon-btn"
           aria-label="Edit"
-          onClick={() => onEdit(task)}
-        >✎</button>
+          title="Edit task"
+          onClick={e => { e.stopPropagation(); onEdit(task) }}
+        ><EditIcon /></button>
       </div>
     </div>
   )
