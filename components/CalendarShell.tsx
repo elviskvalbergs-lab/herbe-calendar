@@ -77,6 +77,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     initial?: Partial<Activity>
     editId?: string
     canEdit?: boolean
+    mode?: 'event' | 'task'
   }>({ open: false })
 
   // Tasks state
@@ -804,27 +805,24 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }, [])
 
   // Fetch tasks on mount
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      try {
-        const res = await fetch('/api/tasks')
-        if (!res.ok || !alive) return
-        const body = await res.json() as {
-          tasks: Task[]
-          configured: { herbe: boolean; outlook: boolean; google: boolean }
-          errors: { source: TaskSource; msg: string; stale?: boolean }[]
-        }
-        if (!alive) return
-        setTasks(body.tasks)
-        setTaskSources(body.configured)
-        setTaskErrors(body.errors)
-      } catch (e) {
-        console.warn('[CalendarShell] /api/tasks failed:', e)
+  const loadTasks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tasks')
+      if (!res.ok) return
+      const body = await res.json() as {
+        tasks: Task[]
+        configured: { herbe: boolean; outlook: boolean; google: boolean }
+        errors: { source: TaskSource; msg: string; stale?: boolean }[]
       }
-    })()
-    return () => { alive = false }
+      setTasks(body.tasks)
+      setTaskSources(body.configured)
+      setTaskErrors(body.errors)
+    } catch (e) {
+      console.warn('[CalendarShell] /api/tasks failed:', e)
+    }
   }, [])
+
+  useEffect(() => { loadTasks() }, [loadTasks])
 
   // Task handlers
   async function handleToggleTaskDone(task: Task, done: boolean) {
@@ -846,16 +844,49 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     }
   }
 
-  function handleEditTask(_task: Task) {
-    // TODO Task 17 follow-up: open ActivityForm in task mode pre-filled from task.
+  function activityShapeFromTask(task: Task, asEvent = false): Partial<Activity> {
+    const shape: Partial<Activity> = {
+      source: task.source === 'herbe' ? 'herbe' : task.source,
+      description: task.title,
+      textInMatrix: task.description ?? task.erp?.textInMatrix,
+      date: task.dueDate ?? format(new Date(), 'yyyy-MM-dd'),
+      activityTypeCode: task.erp?.activityTypeCode,
+      projectCode: task.erp?.projectCode,
+      projectName: task.erp?.projectName,
+      customerCode: task.erp?.customerCode,
+      customerName: task.erp?.customerName,
+      erpConnectionId: task.sourceConnectionId,
+    }
+    // asEvent: drop identity so a new event is created (not a PATCH on the task)
+    if (asEvent) return shape
+    return shape
   }
 
-  function handleCopyTaskToEvent(_task: Task) {
-    // TODO Task 17 follow-up: open ActivityForm in event mode pre-filled from task.
+  function handleEditTask(task: Task) {
+    setFormState({
+      open: true,
+      initial: activityShapeFromTask(task),
+      editId: task.id,
+      canEdit: true,
+      mode: 'task',
+    })
   }
 
-  function handleCreateTask(_source: TaskSource) {
-    // TODO Task 17 follow-up: open ActivityForm in task mode with the source pre-selected.
+  function handleCopyTaskToEvent(task: Task) {
+    setFormState({
+      open: true,
+      initial: activityShapeFromTask(task, true),
+      canEdit: true,
+      mode: 'event',
+    })
+  }
+
+  function handleCreateTask(source: TaskSource) {
+    const initial: Partial<Activity> = { date: state.date }
+    if (source === 'outlook') initial.source = 'outlook'
+    else if (source === 'google') initial.source = 'google'
+    else initial.source = 'herbe'
+    setFormState({ open: true, initial, canEdit: true, mode: 'task' })
   }
 
   return (
@@ -1054,12 +1085,20 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         <ActivityForm
           initial={formState.initial}
           editId={formState.editId}
+          mode={formState.mode ?? 'event'}
           people={people}
           defaultPersonCode={userCode}
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
           allActivities={activities}
           onClose={() => setFormState({ open: false })}
-          onSaved={() => { fetchActivities(true); setTimeout(() => fetchActivities(true), 2000) }}
+          onSaved={() => {
+            if (formState.mode === 'task') {
+              loadTasks()
+            } else {
+              fetchActivities(true)
+              setTimeout(() => fetchActivities(true), 2000)
+            }
+          }}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
           onRsvp={(newStatus) => {
             // Update the activity in-state so re-opening the form shows the correct RSVP

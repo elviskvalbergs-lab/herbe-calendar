@@ -92,6 +92,7 @@ async function fetchErpAndCache(accountId: string, userEmail: string, personCode
     }
     await replaceCachedTasksForSource(accountId, userEmail, 'herbe',
       cacheRowsFrom(r.tasks, accountId, userEmail, 'herbe'))
+      .catch(e => console.warn('[tasks] herbe cache write skipped:', e))
     return { tasks: r.tasks, configured: true }
   } catch (e) {
     console.error('[tasks] erp fetch failed:', e)
@@ -111,6 +112,7 @@ async function fetchOutlookAndCache(accountId: string, userEmail: string, azureC
     }
     await replaceCachedTasksForSource(accountId, userEmail, 'outlook',
       cacheRowsFrom(r.tasks, accountId, userEmail, 'outlook'))
+      .catch(e => console.warn('[tasks] outlook cache write skipped:', e))
     return { tasks: r.tasks, configured: true }
   } catch (e) {
     console.error('[tasks] outlook fetch failed:', e)
@@ -130,6 +132,7 @@ async function fetchGoogleAndCache(accountId: string, userEmail: string, tokenId
     }
     await replaceCachedTasksForSource(accountId, userEmail, 'google',
       cacheRowsFrom(r.tasks, accountId, userEmail, 'google'))
+      .catch(e => console.warn('[tasks] google cache write skipped:', e))
     return { tasks: r.tasks, configured: true }
   } catch (e) {
     console.error('[tasks] google fetch failed:', e)

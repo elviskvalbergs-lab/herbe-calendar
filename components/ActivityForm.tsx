@@ -544,11 +544,14 @@ export default function ActivityForm({
   }
 
   async function handleSave() {
+    const isTaskMode = mode === 'task'
     const errs: string[] = []
-    if (!description.trim()) errs.push('Description is required')
-    if (!timeFrom) errs.push('Start time is required')
-    if (!timeTo) errs.push('End time is required')
-    if (timeFrom && timeTo && timeFrom >= timeTo) errs.push('End time must be after start time')
+    if (!description.trim()) errs.push(isTaskMode ? 'Title is required' : 'Description is required')
+    if (!isTaskMode) {
+      if (!timeFrom) errs.push('Start time is required')
+      if (!timeTo) errs.push('End time is required')
+      if (timeFrom && timeTo && timeFrom >= timeTo) errs.push('End time must be after start time')
+    }
     if (isErpSource && currentGroup?.forceProj && !projectCode) errs.push('Project is required for this activity type')
     if (isErpSource && currentGroup?.forceCust && !customerCode) errs.push('Customer is required for this activity type')
     if (isErpSource && currentGroup?.forceItem && !itemCode.trim()) errs.push('Item code is required for this activity type')
@@ -557,6 +560,46 @@ export default function ActivityForm({
 
     setSaving(true)
     setErrors([])
+
+    if (isTaskMode) {
+      try {
+        const taskSource = isOutlookSource ? 'outlook' : isGoogleSource ? 'google' : 'herbe'
+        const rawId = editId && editId.includes(':') ? editId.split(':', 2)[1] : editId
+        const url = isEdit
+          ? `/api/tasks/${taskSource}/${encodeURIComponent(rawId ?? '')}`
+          : `/api/tasks/${taskSource}`
+        const method = isEdit ? 'PATCH' : 'POST'
+        const body: Record<string, unknown> = {
+          title: description,
+          description: textInMatrix || undefined,
+          dueDate: date || undefined,
+        }
+        if (taskSource === 'herbe') {
+          body.connectionId = activeErpConnection?.id
+          if (activityTypeCode) body.activityTypeCode = activityTypeCode
+          if (projectCode) body.projectCode = projectCode
+          if (customerCode) body.customerCode = customerCode
+        }
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) {
+          setErrors([String(data?.error ?? `Server error (${res.status})`)])
+          setSaving(false)
+          return
+        }
+        onSaved()
+        setSaving(false)
+        onClose()
+      } catch (e) {
+        setErrors([String(e)])
+        setSaving(false)
+      }
+      return
+    }
 
     try {
       const connParam = isErpSource && activeErpConnection ? `?connectionId=${activeErpConnection.id}` : ''
