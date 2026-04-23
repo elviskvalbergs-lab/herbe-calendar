@@ -854,6 +854,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       date: task.dueDate ?? format(new Date(), 'yyyy-MM-dd'),
       personCode: userCode,
       mainPersons: [userCode],
+      ccPersons: task.ccPersons ?? [],
       activityTypeCode: task.erp?.activityTypeCode,
       projectCode: task.erp?.projectCode,
       projectName: task.erp?.projectName,

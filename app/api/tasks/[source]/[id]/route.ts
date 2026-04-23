@@ -15,6 +15,7 @@ interface PatchBody {
   description?: string
   dueDate?: string | null
   connectionId?: string
+  ccPersons?: string[]
 }
 
 export async function PATCH(
@@ -41,6 +42,7 @@ export async function PATCH(
           title: body.title,
           description: body.description,
           dueDate: body.dueDate ?? undefined,
+          ccPersons: body.ccPersons,
         }),
       }
       const formBody = toHerbeForm(merged)

@@ -579,6 +579,7 @@ export default function ActivityForm({
           if (activityTypeCode) body.activityTypeCode = activityTypeCode
           if (projectCode) body.projectCode = projectCode
           if (customerCode) body.customerCode = customerCode
+          body.ccPersons = selectedCCPersonCodes
         }
         const res = await fetch(url, {
           method,

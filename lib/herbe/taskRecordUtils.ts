@@ -26,6 +26,7 @@ export function mapHerbeTask(
   if (!textValue && rows && rows.length > 0) {
     textValue = rows.map(row => String(row['Text'] ?? '')).filter(Boolean).join('\n')
   }
+  const { cc } = parsePersons(r)
 
   const task: Task = {
     id: `herbe:${sernr}`,
@@ -36,6 +37,7 @@ export function mapHerbeTask(
     dueDate: transDate || undefined,
     done: String(r['OKFlag'] ?? '0') === '1',
     listName: prName || cuName || undefined,
+    ccPersons: cc.length > 0 ? cc : undefined,
     erp: {
       activityTypeCode: String(r['ActType'] ?? '') || undefined,
       projectCode: String(r['PRCode'] ?? '') || undefined,
@@ -126,6 +128,7 @@ export interface CreateTaskInput {
   activityTypeCode?: string
   projectCode?: string
   customerCode?: string
+  ccPersons?: string[]
 }
 
 export function buildCreateTaskBody(input: CreateTaskInput): Record<string, string> {
@@ -142,6 +145,7 @@ export function buildCreateTaskBody(input: CreateTaskInput): Record<string, stri
   if (input.activityTypeCode) body.ActType = input.activityTypeCode
   if (input.projectCode) body.PRCode = input.projectCode
   if (input.customerCode) body.CUCode = input.customerCode
+  if (input.ccPersons && input.ccPersons.length > 0) body.CCPersons = input.ccPersons.join(',')
   return body
 }
 
@@ -149,6 +153,7 @@ export interface EditTaskInput {
   title?: string
   description?: string
   dueDate?: string
+  ccPersons?: string[]
 }
 
 export function buildEditTaskBody(input: EditTaskInput): Record<string, string> {
@@ -156,5 +161,6 @@ export function buildEditTaskBody(input: EditTaskInput): Record<string, string> 
   if (input.title !== undefined) body.Comment = input.title
   if (input.description !== undefined) body.Text = input.description
   if (input.dueDate !== undefined) body.TransDate = input.dueDate
+  if (input.ccPersons !== undefined) body.CCPersons = input.ccPersons.join(',')
   return body
 }

@@ -18,6 +18,7 @@ interface CreateBody {
   activityTypeCode?: string
   projectCode?: string
   customerCode?: string
+  ccPersons?: string[]
 }
 
 export async function POST(
@@ -49,6 +50,7 @@ export async function POST(
         activityTypeCode: body.activityTypeCode,
         projectCode: body.projectCode,
         customerCode: body.customerCode,
+        ccPersons: body.ccPersons,
       }))
       const res = await herbeFetch(REGISTERS.activities, undefined, {
         method: 'POST',
