@@ -29,6 +29,9 @@ jest.mock('@/lib/accountConfig', () => ({
 jest.mock('@/lib/google/userOAuth', () => ({
   getUserGoogleAccounts: jest.fn().mockResolvedValue([]),
 }))
+jest.mock('@/lib/google/client', () => ({
+  getGoogleConfig: jest.fn().mockResolvedValue(null),
+}))
 
 import { requireSession } from '@/lib/herbe/auth-guard'
 import { fetchErpTasks } from '@/lib/herbe/taskRecordUtils'
@@ -63,11 +66,15 @@ it('returns 200 with merged tasks and configured flags', async () => {
     tasks: [{ id: 'outlook:1', source: 'outlook', sourceConnectionId: '', title: 'O', done: false }],
     configured: true,
   })
+  ;(fetchGoogleTasks as jest.Mock).mockResolvedValueOnce({
+    tasks: [{ id: 'google:1', source: 'google', sourceConnectionId: '', title: 'G', done: false }],
+    configured: true,
+  })
   const res = await GET(mockReq())
   expect(res.status).toBe(200)
   const body = await res.json()
-  expect(body.tasks).toHaveLength(2)
-  expect(body.configured).toEqual({ herbe: true, outlook: true, google: false })
+  expect(body.tasks).toHaveLength(3)
+  expect(body.configured).toEqual({ herbe: true, outlook: true, google: true })
 })
 
 it('returns 200 even when a source errors; error is reported per-source', async () => {

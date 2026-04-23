@@ -10,6 +10,7 @@ import {
 } from '@/lib/cache/tasks'
 import { getCodeByEmail } from '@/lib/personCodes'
 import { getAzureConfig } from '@/lib/accountConfig'
+import { getGoogleConfig } from '@/lib/google/client'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import type { Task, TaskSource } from '@/types/task'
 import type { AzureConfig } from '@/lib/accountConfig'
@@ -49,11 +50,14 @@ export async function GET(_req: Request) {
     const googleTokenId = await getFirstGoogleTokenId(email, accountId).catch(e => {
       console.warn('[tasks] getFirstGoogleTokenId failed:', e); return null
     })
+    const googleWorkspaceConfigured = await getGoogleConfig(accountId)
+      .then(cfg => !!cfg)
+      .catch(e => { console.warn('[tasks] getGoogleConfig failed:', e); return false })
 
     const [erpR, outlookR, googleR] = await Promise.all([
       fetchErpAndCache(accountId, email, personCode ? [personCode] : []),
       fetchOutlookAndCache(accountId, email, azureConfig),
-      fetchGoogleAndCache(accountId, email, googleTokenId),
+      fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured),
     ])
 
     const errors: SourceErrorInfo[] = []
@@ -150,8 +154,21 @@ async function fetchOutlookAndCache(accountId: string, userEmail: string, azureC
   }
 }
 
-async function fetchGoogleAndCache(accountId: string, userEmail: string, tokenId: string | null): Promise<SourceResult> {
-  if (!tokenId) return { tasks: [], configured: false }
+async function fetchGoogleAndCache(
+  accountId: string,
+  userEmail: string,
+  tokenId: string | null,
+  workspaceConfigured: boolean,
+): Promise<SourceResult> {
+  // Tab visibility: Google is "configured" when EITHER a workspace service
+  // account is set up (admin-level) OR the user has per-user OAuth. Google
+  // Tasks are personal, so only per-user OAuth can read/write them — but
+  // we still show the tab if workspace is configured so the user can see
+  // why it's empty and reconnect.
+  if (!tokenId && !workspaceConfigured) return { tasks: [], configured: false }
+  if (!tokenId) {
+    return { tasks: [], configured: true, error: 'Connect your personal Google account in Settings to load Tasks' }
+  }
   try {
     const r = await fetchGoogleTasks(tokenId, userEmail, accountId)
     if (!r.configured) {
