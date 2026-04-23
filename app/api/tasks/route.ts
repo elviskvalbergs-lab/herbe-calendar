@@ -74,6 +74,7 @@ export async function GET(_req: Request) {
       outlook: !!outlookR.configured,
       google: !!googleR.configured,
     }
+    console.log(`[tasks] returning ${tasks.length} total (erp=${erpR.tasks.length} outlook=${outlookR.tasks.length} google=${googleR.tasks.length}) configured=${JSON.stringify(configured)} errors=${errors.length}`)
     return NextResponse.json({ tasks, configured, errors }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error('[tasks] aggregator failed:', e)
