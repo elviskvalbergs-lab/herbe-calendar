@@ -42,7 +42,7 @@ export function mapOutlookTask(api: OutlookTaskApi, listName: string): Task {
 }
 
 /**
- * Fetch a user's tasks from their default Microsoft To Do list.
+ * Fetch a user's tasks across all their Microsoft To Do lists.
  * Returns `configured: false` when Graph returns 401/403 (missing Tasks.ReadWrite.All).
  */
 export async function fetchOutlookTasks(
@@ -59,23 +59,28 @@ export async function fetchOutlookTasks(
     return { tasks: [], configured: true, error: `lists ${listsRes.status}: ${text.slice(0, 120)}` }
   }
   const listsBody = await listsRes.json() as { value: OutlookListApi[] }
-  const defaultList =
-    listsBody.value.find(l => l.wellknownListName === 'defaultList')
-      ?? listsBody.value.find(l => l.isDefaultFolder === true)
-      ?? listsBody.value[0]
-  if (!defaultList) return { tasks: [], configured: true }
+  const lists = listsBody.value
+  if (lists.length === 0) return { tasks: [], configured: true }
 
-  const tasksRes = await graphFetch(
-    `/users/${enc}/todo/lists/${defaultList.id}/tasks`,
-    undefined,
-    azureConfig,
-  )
-  if (!tasksRes.ok) {
-    const text = await tasksRes.text().catch(() => '')
-    return { tasks: [], configured: true, error: `tasks ${tasksRes.status}: ${text.slice(0, 120)}` }
+  const perList = await Promise.all(lists.map(async list => {
+    try {
+      const tasksRes = await graphFetch(
+        `/users/${enc}/todo/lists/${list.id}/tasks`,
+        undefined,
+        azureConfig,
+      )
+      if (!tasksRes.ok) return { tasks: [] as Task[], err: `${list.displayName} ${tasksRes.status}` }
+      const body = await tasksRes.json() as { value: OutlookTaskApi[] }
+      return { tasks: body.value.map(t => mapOutlookTask(t, list.displayName)), err: null }
+    } catch (e) {
+      return { tasks: [] as Task[], err: `${list.displayName} ${String(e)}` }
+    }
+  }))
+  const tasks = perList.flatMap(r => r.tasks)
+  const errs = perList.map(r => r.err).filter(Boolean) as string[]
+  if (tasks.length === 0 && errs.length > 0) {
+    return { tasks: [], configured: true, error: errs[0] }
   }
-  const body = await tasksRes.json() as { value: OutlookTaskApi[] }
-  const tasks = body.value.map(t => mapOutlookTask(t, defaultList.displayName))
   return { tasks, configured: true }
 }
 

@@ -59,16 +59,25 @@ export async function fetchGoogleTasks(
     return { tasks: [], configured: true, error: `lists ${listsRes.status}: ${text.slice(0, 120)}` }
   }
   const listsBody = await listsRes.json() as { items?: GoogleListApi[] }
-  const list = listsBody.items?.[0]
-  if (!list) return { tasks: [], configured: true }
+  const lists = listsBody.items ?? []
+  if (lists.length === 0) return { tasks: [], configured: true }
 
-  const tasksRes = await tasksFetch(accessToken, `/lists/${list.id}/tasks?showCompleted=true&showHidden=false`)
-  if (!tasksRes.ok) {
-    const text = await tasksRes.text().catch(() => '')
-    return { tasks: [], configured: true, error: `tasks ${tasksRes.status}: ${text.slice(0, 120)}` }
+  const perList = await Promise.all(lists.map(async list => {
+    try {
+      const r = await tasksFetch(accessToken, `/lists/${list.id}/tasks?showCompleted=true&showHidden=false`)
+      if (!r.ok) return { tasks: [] as Task[], err: `${list.title} ${r.status}` }
+      const body = await r.json() as { items?: GoogleTaskApi[] }
+      return { tasks: (body.items ?? []).map(t => mapGoogleTask(t, list.title)), err: null }
+    } catch (e) {
+      return { tasks: [] as Task[], err: `${list.title} ${String(e)}` }
+    }
+  }))
+  const tasks = perList.flatMap(r => r.tasks)
+  const errs = perList.map(r => r.err).filter(Boolean) as string[]
+  if (tasks.length === 0 && errs.length > 0) {
+    return { tasks: [], configured: true, error: errs[0] }
   }
-  const body = await tasksRes.json() as { items?: GoogleTaskApi[] }
-  return { tasks: (body.items ?? []).map(t => mapGoogleTask(t, list.title)), configured: true }
+  return { tasks, configured: true }
 }
 
 async function resolveDefaultGoogleListId(accessToken: string): Promise<{ id: string; title: string }> {

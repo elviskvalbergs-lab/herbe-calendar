@@ -47,7 +47,7 @@ describe('fetchOutlookTasks', () => {
     expect(r.tasks).toEqual([])
   })
 
-  it('returns tasks from the default list', async () => {
+  it('returns tasks from every list', async () => {
     mockGraph
       .mockResolvedValueOnce({
         ok: true,
@@ -59,18 +59,22 @@ describe('fetchOutlookTasks', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ value: [
-          { id: '1', title: 'One', status: 'notStarted' },
-          { id: '2', title: 'Two', status: 'completed' },
+          { id: 'a1', title: 'FromOther', status: 'notStarted' },
+        ] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ value: [
+          { id: 'b1', title: 'One', status: 'notStarted' },
+          { id: 'b2', title: 'Two', status: 'completed' },
         ] }),
       })
     const r = await fetchOutlookTasks('u@x.com', {} as any)
     expect(r.configured).toBe(true)
-    expect(r.tasks).toHaveLength(2)
-    expect(r.tasks[0].listName).toBe('Tasks')
-    expect(r.tasks[1].done).toBe(true)
-    expect(mockGraph).toHaveBeenCalledTimes(2)
-    expect((mockGraph.mock.calls[0][0] as string)).toContain('/users/u%40x.com/todo/lists')
-    expect((mockGraph.mock.calls[1][0] as string)).toContain('/todo/lists/list-b/tasks')
+    expect(r.tasks).toHaveLength(3)
+    const listNames = r.tasks.map(t => t.listName).sort()
+    expect(listNames).toEqual(['Other', 'Tasks', 'Tasks'])
+    expect(mockGraph).toHaveBeenCalledTimes(3)
   })
 })
 
