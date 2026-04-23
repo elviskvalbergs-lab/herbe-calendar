@@ -12,6 +12,7 @@ const TAB_LABEL: Record<TaskSource, string> = {
 
 export function TasksSidebar(props: {
   tasks: Task[]
+  loading?: boolean
   configured: { herbe: boolean; outlook: boolean; google: boolean }
   errors: SourceError[]
   activeTab: 'all' | TaskSource
@@ -23,7 +24,7 @@ export function TasksSidebar(props: {
     onCreate: (source: TaskSource) => void
   }
 }) {
-  const { tasks, configured, errors, activeTab, onTabChange, handlers } = props
+  const { tasks, loading, configured, errors, activeTab, onTabChange, handlers } = props
   const visibleSources: TaskSource[] = (['herbe', 'outlook', 'google'] as TaskSource[])
     .filter(s => configured[s])
   const countBy = (s: TaskSource) => tasks.filter(t => t.source === s && !t.done).length
@@ -51,10 +52,12 @@ export function TasksSidebar(props: {
         </div>
       ))}
 
-      <div style={{ padding: '4px 12px', fontSize: 10, opacity: 0.55 }}>
-        debug: {tasks.length} tasks · tab={activeTab} · configured=
-        {Object.entries(configured).filter(([, v]) => v).map(([k]) => k).join(',') || 'none'}
-      </div>
+      {loading && (
+        <div className="tasks-loading" role="status" aria-live="polite">
+          <span className="tasks-spinner" aria-hidden="true" />
+          Loading tasks…
+        </div>
+      )}
 
       <div className="tasks-scroll">
         <TasksList

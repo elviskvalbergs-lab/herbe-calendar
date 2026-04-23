@@ -88,11 +88,17 @@ describe('updateGoogleTask', () => {
   it('PATCHes status to completed when done=true', async () => {
     mockToken.mockResolvedValueOnce('abc-token')
     global.fetch = jest.fn()
+      // findGoogleTaskList: lists
       .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [{ id: 'L1', title: 'My Tasks' }] }) })
+      // findGoogleTaskList: probe task in L1
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 't' }) })
+      // PATCH
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 't', title: 'x', status: 'completed' }) }) as any
     const t = await updateGoogleTask('tok-1', 'u@x.com', 'acc-1', 't', { done: true })
     expect(t.done).toBe(true)
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body)
+    const calls = (global.fetch as jest.Mock).mock.calls
+    const patchCall = calls[calls.length - 1]
+    const body = JSON.parse(patchCall[1].body)
     expect(body.status).toBe('completed')
   })
 })

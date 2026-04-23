@@ -87,6 +87,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   })
   const [taskErrors, setTaskErrors] = useState<{ source: TaskSource; msg: string; stale?: boolean }[]>([])
   const [tasksTab, setTasksTab] = useState<'all' | TaskSource>('all')
+  const [tasksLoading, setTasksLoading] = useState(false)
 
   // Month view selected day — tracks state.date for all views
   const [monthSelectedDay, setMonthSelectedDay] = useState<string>(state.date)
@@ -806,6 +807,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   // Fetch tasks on mount
   const loadTasks = useCallback(async () => {
+    setTasksLoading(true)
     try {
       const res = await fetch('/api/tasks')
       if (!res.ok) {
@@ -823,6 +825,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       setTaskErrors(body.errors)
     } catch (e) {
       console.warn('[CalendarShell] /api/tasks failed:', e)
+    } finally {
+      setTasksLoading(false)
     }
   }, [])
 
@@ -967,6 +971,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
             })
           }
           tasks={tasks}
+          tasksLoading={tasksLoading}
           taskSources={taskSources}
           taskErrors={taskErrors}
           tasksTab={tasksTab}

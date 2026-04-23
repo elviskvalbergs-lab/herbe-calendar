@@ -96,6 +96,24 @@ async function resolveDefaultListId(userEmail: string, azureConfig: AzureConfig)
   return def.id
 }
 
+/** Find which list a task lives in. We fetch across all lists so updates
+ * need to find the right list to PATCH under. */
+async function findOutlookTaskList(
+  userEmail: string,
+  taskId: string,
+  azureConfig: AzureConfig,
+): Promise<string | null> {
+  const enc = encodeURIComponent(userEmail)
+  const listsRes = await graphFetch(`/users/${enc}/todo/lists`, undefined, azureConfig)
+  if (!listsRes.ok) return null
+  const body = await listsRes.json() as { value: OutlookListApi[] }
+  for (const list of body.value) {
+    const r = await graphFetch(`/users/${enc}/todo/lists/${list.id}/tasks/${taskId}`, undefined, azureConfig)
+    if (r.ok) return list.id
+  }
+  return null
+}
+
 export interface CreateOutlookTaskInput {
   title: string
   description?: string
@@ -142,7 +160,9 @@ export async function updateOutlookTask(
   input: UpdateOutlookTaskInput,
   azureConfig: AzureConfig,
 ): Promise<Task> {
-  const listId = await resolveDefaultListId(userEmail, azureConfig)
+  // Task may live in any of the user's lists — find the one containing it.
+  const listId = await findOutlookTaskList(userEmail, taskId, azureConfig)
+    ?? await resolveDefaultListId(userEmail, azureConfig)
   const enc = encodeURIComponent(userEmail)
   const payload: Record<string, unknown> = {}
   if (input.done !== undefined) payload.status = input.done ? 'completed' : 'notStarted'

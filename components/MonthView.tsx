@@ -33,6 +33,7 @@ interface Props {
   dayViewPanel?: React.ReactNode
   // Tasks panel props (wired in Task 17, rendered in Task 18)
   tasks?: Task[]
+  tasksLoading?: boolean
   taskSources?: { herbe: boolean; outlook: boolean; google: boolean }
   taskErrors?: { source: TaskSource; msg: string; stale?: boolean }[]
   tasksTab?: 'all' | TaskSource
@@ -46,7 +47,7 @@ interface Props {
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
   onSelectDate, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
-  tasks, taskSources, taskErrors, tasksTab, onTasksTabChange, onToggleTaskDone, onEditTask, onCopyTaskToEvent, onCreateTask,
+  tasks, tasksLoading, taskSources, taskErrors, tasksTab, onTasksTabChange, onToggleTaskDone, onEditTask, onCopyTaskToEvent, onCreateTask,
 }: Props) {
   const selectedDay = date
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
@@ -467,6 +468,7 @@ export default function MonthView({
             {rightSide === 'tasks' ? (
               <TasksSidebar
                 tasks={tasks ?? []}
+                loading={tasksLoading ?? false}
                 configured={taskSources ?? { herbe: true, outlook: false, google: false }}
                 errors={taskErrors ?? []}
                 activeTab={tasksTab ?? 'all'}

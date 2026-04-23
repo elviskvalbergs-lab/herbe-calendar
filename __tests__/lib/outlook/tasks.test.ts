@@ -100,9 +100,12 @@ describe('createOutlookTask', () => {
 describe('updateOutlookTask', () => {
   it('PATCHes status to completed when done=true', async () => {
     mockGraph
-      .mockResolvedValueOnce({ // lists
+      .mockResolvedValueOnce({ // findOutlookTaskList: lists
         ok: true,
         json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ // findOutlookTaskList: probe task in L
+        ok: true, json: async () => ({ id: 'T' }),
       })
       .mockResolvedValueOnce({ // PATCH
         ok: true,
@@ -110,21 +113,22 @@ describe('updateOutlookTask', () => {
       })
     const t = await updateOutlookTask('u@x.com', 'T', { done: true }, {} as any)
     expect(t.done).toBe(true)
-    const [, opts] = mockGraph.mock.calls[1] as [string, any]
-    expect(opts.method).toBe('PATCH')
-    expect(JSON.parse(opts.body)).toMatchObject({ status: 'completed' })
+    const patchCall = mockGraph.mock.calls[mockGraph.mock.calls.length - 1] as [string, any]
+    expect(patchCall[1].method).toBe('PATCH')
+    expect(JSON.parse(patchCall[1].body)).toMatchObject({ status: 'completed' })
   })
 
   it('PATCHes title + dueDateTime when edit fields provided', async () => {
     mockGraph
-      .mockResolvedValueOnce({ // lists
+      .mockResolvedValueOnce({ // findOutlookTaskList: lists
         ok: true,
         json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
       })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T' }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T', title: 'New', status: 'notStarted' }) })
     await updateOutlookTask('u@x.com', 'T', { title: 'New', dueDate: '2026-05-01' }, {} as any)
-    const [, opts] = mockGraph.mock.calls[1] as [string, any]
-    const payload = JSON.parse(opts.body)
+    const patchCall = mockGraph.mock.calls[mockGraph.mock.calls.length - 1] as [string, any]
+    const payload = JSON.parse(patchCall[1].body)
     expect(payload.title).toBe('New')
     expect(payload.dueDateTime?.dateTime).toBe('2026-05-01T00:00:00')
   })

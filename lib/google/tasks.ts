@@ -89,6 +89,18 @@ async function resolveDefaultGoogleListId(accessToken: string): Promise<{ id: st
   return { id: list.id, title: list.title }
 }
 
+/** Find which list holds the given task id by probing each list. */
+async function findGoogleTaskList(accessToken: string, taskId: string): Promise<{ id: string; title: string } | null> {
+  const res = await tasksFetch(accessToken, '/users/@me/lists')
+  if (!res.ok) return null
+  const body = await res.json() as { items?: GoogleListApi[] }
+  for (const list of body.items ?? []) {
+    const r = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`)
+    if (r.ok) return { id: list.id, title: list.title }
+  }
+  return null
+}
+
 export interface CreateGoogleTaskInput {
   title: string
   description?: string
@@ -132,7 +144,8 @@ export async function updateGoogleTask(
 ): Promise<Task> {
   const accessToken = await getValidAccessTokenForUser(tokenId, userEmail, accountId)
   if (!accessToken) throw new Error('Google access token unavailable')
-  const list = await resolveDefaultGoogleListId(accessToken)
+  const list = await findGoogleTaskList(accessToken, taskId)
+    ?? await resolveDefaultGoogleListId(accessToken)
   const payload: Record<string, unknown> = { id: taskId }
   if (input.done !== undefined) payload.status = input.done ? 'completed' : 'needsAction'
   if (input.title !== undefined) payload.title = input.title
