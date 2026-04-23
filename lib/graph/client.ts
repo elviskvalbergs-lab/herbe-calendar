@@ -21,6 +21,11 @@ function resolveConfig(config?: AzureConfig): AzureConfig {
   throw new Error('Azure config not provided — configure via admin panel')
 }
 
+/** Clear the in-memory Graph token cache. Forces next graphFetch to mint a fresh token. */
+export function clearGraphTokenCache(): void {
+  tokenCacheMap.clear()
+}
+
 async function getGraphToken(config: AzureConfig): Promise<string> {
   const key = cacheKey(config)
   const cached = tokenCacheMap.get(key)

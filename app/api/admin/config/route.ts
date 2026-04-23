@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { saveAzureConfig, getAzureConfig } from '@/lib/accountConfig'
-import { graphFetch } from '@/lib/graph/client'
+import { graphFetch, clearGraphTokenCache } from '@/lib/graph/client'
 import { pool } from '@/lib/db'
 import { encrypt } from '@/lib/crypto'
 import { getSmtpConfig, sendMailSmtp } from '@/lib/smtp'
@@ -127,6 +127,11 @@ export async function POST(req: NextRequest) {
       const countRes = await graphFetch('/users/$count', { headers: { ConsistencyLevel: 'eventual' } }, config)
       const userCount = countRes.ok ? parseInt(await countRes.text()) : (data.value?.length ?? 0)
       return NextResponse.json({ ok: true, userCount })
+    }
+
+    if (body.action === 'clear-azure-cache') {
+      clearGraphTokenCache()
+      return NextResponse.json({ ok: true })
     }
 
     if (body.action === 'test-smtp') {

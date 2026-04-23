@@ -156,6 +156,32 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
     }
   }
 
+  async function clearAzureCache() {
+    const ok = window.confirm(
+      'Clear the Microsoft Graph token cache?\n\n'
+      + 'Use this after granting new Azure app permissions (e.g. Tasks.ReadWrite.All) '
+      + 'so the next request mints a fresh token with the new scopes. '
+      + 'In-flight Microsoft requests will mint a new token on their next call. '
+      + 'Only use when expected.'
+    )
+    if (!ok) return
+    setSaving(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear-azure-cache' }),
+      })
+      const data = await res.json()
+      setMessage(data.ok ? 'Microsoft token cache cleared' : `Failed: ${data.error || res.status}`)
+    } catch (e) {
+      setMessage(`Failed: ${String(e)}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-3">
       {message && (
@@ -567,6 +593,10 @@ export default function ConfigClient({ azure, erpConnections: initialErp, smtp: 
           <button onClick={testAzure} disabled={saving}
             className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">
             Test Connection
+          </button>
+          <button onClick={clearAzureCache} disabled={saving}
+            className="px-4 py-2 border border-border text-text-muted rounded-lg text-xs font-bold hover:bg-border/30 disabled:opacity-50">
+            Clear Token Cache
           </button>
         </div>
         </div>}
