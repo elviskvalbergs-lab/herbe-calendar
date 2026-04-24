@@ -935,7 +935,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         onStateChange={setState}
         people={people}
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
-        onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
+        onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks() }}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
         calendarSources={calendarSources}
@@ -1014,7 +1014,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               getTypeName={getTypeName}
               scale={zoom}
               isLightMode={isLightMode}
-              onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
+              onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks() }}
               onNavigate={() => {}}
               onSlotClick={(personCode, time, date) =>
                 setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
@@ -1045,7 +1045,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           getTypeName={getTypeName}
           scale={zoom}
           isLightMode={isLightMode}
-          onRefresh={() => { fetchActivities(true); reloadColorData(true) }}
+          onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks() }}
           onNavigate={(dir) => {
             const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
             setState(s => ({
