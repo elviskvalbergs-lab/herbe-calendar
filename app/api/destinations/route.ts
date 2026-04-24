@@ -37,7 +37,7 @@ export async function GET(req: Request): Promise<Response> {
       d.key = makeKey(d)
       results.push(d)
     }
-  } catch (e) { console.warn('[destinations] ERP failed:', e) }
+  } catch (e) { console.warn('[destinations] ERP failed:', (e as Error).message) }
 
   // Outlook
   try {
@@ -77,7 +77,7 @@ export async function GET(req: Request): Promise<Response> {
         }
       }
     }
-  } catch (e) { console.warn('[destinations] Outlook failed:', e) }
+  } catch (e) { console.warn('[destinations] Outlook failed:', (e as Error).message) }
 
   // Google (per-user OAuth)
   try {
@@ -130,7 +130,7 @@ export async function GET(req: Request): Promise<Response> {
         }
       }
     }
-  } catch (e) { console.warn('[destinations] Google failed:', e) }
+  } catch (e) { console.warn('[destinations] Google failed:', (e as Error).message) }
 
   return NextResponse.json(results, {
     headers: { 'Cache-Control': 'no-store' },
