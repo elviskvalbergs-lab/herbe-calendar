@@ -93,6 +93,26 @@ describe('buildCreateTaskBody', () => {
     expect(body.MainPersons).toBe('EKS')
     expect(body.TransDate).toBe('2026-05-01')
   })
+
+  it('honors mainPersons when provided (multiple assignees)', () => {
+    const body = buildCreateTaskBody({
+      title: 'Team task',
+      personCode: 'EKS',
+      mainPersons: ['EKS', 'ANK'],
+      dueDate: '2026-05-01',
+    })
+    expect(body.MainPersons).toBe('EKS,ANK')
+  })
+
+  it('falls back to personCode when mainPersons is empty', () => {
+    const body = buildCreateTaskBody({
+      title: 'Solo',
+      personCode: 'EKS',
+      mainPersons: [],
+      dueDate: '2026-05-01',
+    })
+    expect(body.MainPersons).toBe('EKS')
+  })
 })
 
 describe('buildEditTaskBody', () => {

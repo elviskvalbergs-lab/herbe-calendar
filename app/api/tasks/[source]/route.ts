@@ -19,6 +19,7 @@ interface CreateBody {
   projectCode?: string
   customerCode?: string
   ccPersons?: string[]
+  mainPersons?: string[]
   /** Outlook task list id (unified destination picker). */
   listId?: string
   /** Outlook task list display name — optional pass-through so the created Task carries the right listName. */
@@ -56,6 +57,7 @@ export async function POST(
         title: body.title,
         description: body.description,
         personCode,
+        mainPersons: body.mainPersons,
         dueDate: body.dueDate,
         activityTypeCode: body.activityTypeCode,
         projectCode: body.projectCode,

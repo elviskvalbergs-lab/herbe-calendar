@@ -137,7 +137,10 @@ export function buildCompleteTaskBody(done: boolean): Record<string, string> {
 export interface CreateTaskInput {
   title: string
   description?: string
+  /** Fallback main person when `mainPersons` is empty — typically the session user's code. */
   personCode: string
+  /** Full main-person list picked in the form. Takes precedence over `personCode`. */
+  mainPersons?: string[]
   dueDate?: string
   activityTypeCode?: string
   projectCode?: string
@@ -149,10 +152,13 @@ export function buildCreateTaskBody(input: CreateTaskInput): Record<string, stri
   // Always stamp TransDate. Without it, the record is excluded from the
   // task fetcher's date-range query and disappears from the sidebar.
   const today = new Date().toISOString().slice(0, 10)
+  const mainPersons = input.mainPersons && input.mainPersons.length > 0
+    ? input.mainPersons.join(',')
+    : input.personCode
   const body: Record<string, string> = {
     TodoFlag: '1',
     Comment: input.title,
-    MainPersons: input.personCode,
+    MainPersons: mainPersons,
     TransDate: input.dueDate ?? today,
   }
   if (input.description) body.Text = input.description
