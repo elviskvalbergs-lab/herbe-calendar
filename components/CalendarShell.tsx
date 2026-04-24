@@ -1172,8 +1172,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           allProjects={allProjects}
           allItems={allItems}
           erpConnections={erpConnections}
-          availableSources={sources}
-          userGoogleAccounts={userGoogleAccounts}
           zoomConfigured={sources.zoom ?? false}
         />
       )}
