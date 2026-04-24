@@ -133,3 +133,31 @@ describe('updateOutlookTask', () => {
     expect(payload.dueDateTime?.dateTime).toBe('2026-05-01T00:00:00')
   })
 })
+
+describe('createOutlookTask with explicit listId', () => {
+  it('POSTs to the provided listId without resolving the default', async () => {
+    mockGraph.mockImplementation(async (path: string) => {
+      if (path.endsWith('/todo/lists')) {
+        // Should not be called when listId is supplied.
+        return { ok: true, json: async () => ({ value: [{ id: 'DEFAULT', displayName: 'Default', wellknownListName: 'defaultList' }] }) } as unknown as Response
+      }
+      if (path.includes('/todo/lists/EXPLICIT/tasks')) {
+        return {
+          ok: true,
+          json: async () => ({ id: 'new-task', title: 'T', status: 'notStarted' }),
+        } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    const task = await createOutlookTask(
+      'x@y.z',
+      { title: 'T', listId: 'EXPLICIT' },
+      { tenantId: 't', clientId: 'c', clientSecret: 's' } as any,
+    )
+    expect(task.id).toBe('outlook:new-task')
+    // Verify the call targeted EXPLICIT, not DEFAULT.
+    const paths = mockGraph.mock.calls.map((c: any[]) => c[0] as string)
+    expect(paths.some(p => p.includes('/todo/lists/EXPLICIT/tasks') && !p.endsWith('/todo/lists'))).toBe(true)
+  })
+})

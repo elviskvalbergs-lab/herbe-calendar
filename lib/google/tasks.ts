@@ -105,6 +105,8 @@ export interface CreateGoogleTaskInput {
   title: string
   description?: string
   dueDate?: string
+  /** Google Tasks list id. If omitted, writes to the first list returned. */
+  listId?: string
 }
 
 export async function createGoogleTask(
@@ -115,17 +117,27 @@ export async function createGoogleTask(
 ): Promise<Task> {
   const accessToken = await getValidAccessTokenForUser(tokenId, userEmail, accountId)
   if (!accessToken) throw new Error('Google access token unavailable')
-  const list = await resolveDefaultGoogleListId(accessToken)
+  let listId: string
+  let listTitle: string
+  if (input.listId) {
+    listId = input.listId
+    // Title is cosmetic for the returned Task; fetch it if we need it, else fall back.
+    listTitle = ''
+  } else {
+    const list = await resolveDefaultGoogleListId(accessToken)
+    listId = list.id
+    listTitle = list.title
+  }
   const payload: Record<string, unknown> = { title: input.title }
   if (input.description) payload.notes = input.description
   if (input.dueDate) payload.due = `${input.dueDate}T00:00:00.000Z`
-  const res = await tasksFetch(accessToken, `/lists/${list.id}/tasks`, {
+  const res = await tasksFetch(accessToken, `/lists/${listId}/tasks`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`create ${res.status}`)
   const created = await res.json() as GoogleTaskApi
-  return mapGoogleTask(created, list.title)
+  return mapGoogleTask(created, listTitle)
 }
 
 export interface UpdateGoogleTaskInput {

@@ -19,6 +19,12 @@ interface CreateBody {
   projectCode?: string
   customerCode?: string
   ccPersons?: string[]
+  /** Outlook task list id (unified destination picker). */
+  listId?: string
+  /** Google per-user OAuth token row id (unified destination picker). */
+  googleTokenId?: string
+  /** Google Tasks list id (unified destination picker). */
+  googleListId?: string
 }
 
 export async function POST(
@@ -67,6 +73,7 @@ export async function POST(
       if (!azure) return NextResponse.json({ error: 'Outlook not configured' }, { status: 400 })
       const task = await createOutlookTask(session.email, {
         title: body.title, description: body.description, dueDate: body.dueDate,
+        listId: body.listId,
       }, azure)
       await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })
@@ -74,10 +81,11 @@ export async function POST(
 
     if (source === 'google') {
       const accounts = await getUserGoogleAccounts(session.email, session.accountId)
-      const tokenId = accounts[0]?.id ?? null
+      const tokenId = body.googleTokenId ?? accounts[0]?.id ?? null
       if (!tokenId) return NextResponse.json({ error: 'Google not connected' }, { status: 400 })
       const task = await createGoogleTask(tokenId, session.email, session.accountId, {
         title: body.title, description: body.description, dueDate: body.dueDate,
+        listId: body.googleListId,
       })
       await writeThroughTask(session.accountId, session.email, 'google', task)
       return NextResponse.json({ ok: true, task })

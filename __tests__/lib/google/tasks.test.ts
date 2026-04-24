@@ -102,3 +102,35 @@ describe('updateGoogleTask', () => {
     expect(body.status).toBe('completed')
   })
 })
+
+describe('createGoogleTask with explicit listId', () => {
+  it('POSTs to the provided listId without resolving the default', async () => {
+    const originalFetch = global.fetch
+    const calls: string[] = []
+    global.fetch = jest.fn(async (url: unknown) => {
+      const u = String(url)
+      calls.push(u)
+      if (u.includes('/lists/EXPLICIT/tasks')) {
+        return { ok: true, status: 200, text: async () => '',
+                 json: async () => ({ id: 'new-task', title: 'T', status: 'needsAction' }) } as unknown as Response
+      }
+      if (u.endsWith('/users/@me/lists')) {
+        return { ok: true, status: 200, text: async () => '',
+                 json: async () => ({ items: [{ id: 'DEFAULT', title: 'Default' }] }) } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    }) as typeof fetch
+    // Minimal stub for getValidAccessTokenForUser
+    jest.spyOn(require('@/lib/google/userOAuth'), 'getValidAccessTokenForUser').mockResolvedValue('ya29.abc')
+
+    try {
+      const task = await createGoogleTask('TOK', 'x@y.z', 'acc', {
+        title: 'T', listId: 'EXPLICIT',
+      })
+      expect(task.id).toBe('google:new-task')
+      expect(calls.some(c => c.includes('/lists/EXPLICIT/tasks'))).toBe(true)
+    } finally {
+      global.fetch = originalFetch
+    }
+  })
+})

@@ -118,6 +118,8 @@ export interface CreateOutlookTaskInput {
   title: string
   description?: string
   dueDate?: string
+  /** Microsoft Graph To Do list id. If omitted, writes to the user's default list. */
+  listId?: string
 }
 
 export async function createOutlookTask(
@@ -125,7 +127,7 @@ export async function createOutlookTask(
   input: CreateOutlookTaskInput,
   azureConfig: AzureConfig,
 ): Promise<Task> {
-  const listId = await resolveDefaultListId(userEmail, azureConfig)
+  const listId = input.listId ?? await resolveDefaultListId(userEmail, azureConfig)
   const enc = encodeURIComponent(userEmail)
   const payload: Record<string, unknown> = {
     title: input.title,
