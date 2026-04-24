@@ -61,7 +61,7 @@ interface Props {
   defaultPersonCodes?: string[]
   allActivities: Activity[]
   onClose: () => void
-  onSaved: () => void
+  onSaved: (taskPatch?: { taskId: string; fields: { title?: string; description?: string; dueDate?: string } }) => void
   onDuplicate: (initial: Partial<Activity>) => void
   onRsvp?: (status: Activity['rsvpStatus']) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
@@ -592,7 +592,19 @@ export default function ActivityForm({
           setSaving(false)
           return
         }
-        onSaved()
+        // Pass an optimistic patch for edits so the sidebar reflects the change
+        // immediately — the background refetch aggregates all three sources
+        // and is dominated by ERP (seconds-long), which otherwise makes the
+        // user wait for unrelated data to reload.
+        const patch = isEdit && editId ? {
+          taskId: editId,
+          fields: {
+            title: description,
+            description: textInMatrix || undefined,
+            dueDate: date || undefined,
+          },
+        } : undefined
+        onSaved(patch)
         setSaving(false)
         onClose()
       } catch (e) {

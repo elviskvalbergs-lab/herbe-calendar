@@ -805,9 +805,13 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     fetch('/api/google/calendars').then(r => r.ok ? r.json() : []).then(setUserGoogleAccounts).catch(() => {})
   }, [])
 
-  // Fetch tasks on mount
-  const loadTasks = useCallback(async () => {
-    setTasksLoading(true)
+  // Fetch tasks on mount or after a change. `silent` suppresses the loading
+  // spinner for post-save background refreshes — the aggregated fetch across
+  // ERP/Outlook/Google is gated on the slowest source (ERP, tens of seconds),
+  // and after a save we already have a local optimistic update, so the
+  // spinner just makes the UI feel frozen.
+  const loadTasks = useCallback(async (silent = false) => {
+    if (!silent) setTasksLoading(true)
     try {
       const res = await fetch('/api/tasks')
       if (!res.ok) {
@@ -826,7 +830,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     } catch (e) {
       console.warn('[CalendarShell] /api/tasks failed:', e)
     } finally {
-      setTasksLoading(false)
+      if (!silent) setTasksLoading(false)
     }
   }, [])
 
@@ -1108,9 +1112,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
           allActivities={activities}
           onClose={() => setFormState({ open: false })}
-          onSaved={() => {
+          onSaved={(taskPatch) => {
             if (formState.mode === 'task') {
-              loadTasks()
+              if (taskPatch) {
+                // Optimistic update — merge the edited fields into the local
+                // task so the sidebar reflects the change immediately; the
+                // background refetch below reconciles with server truth.
+                setTasks(prev => prev.map(t => t.id === taskPatch.taskId ? { ...t, ...taskPatch.fields } : t))
+              }
+              loadTasks(true)
             } else {
               fetchActivities(true)
             }
