@@ -240,11 +240,14 @@ export function ActivityForm({
     setExternalAttendees(external)
   }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Seed from `initial?.*` so a duplicate or initial-with-ERP-default survives
+  // the first auto-fire restore. On first fire with an ERP destination the
+  // restore becomes a no-op (sets state to values state already holds).
   const parkedErpFields = useRef({
-    activityTypeCode: '',
-    projectCode: '',
-    customerCode: '',
-    ccPersons: [] as string[],
+    activityTypeCode: initial?.activityTypeCode ?? '',
+    projectCode: initial?.projectCode ?? '',
+    customerCode: initial?.customerCode ?? '',
+    ccPersons: (initial?.ccPersons ?? []) as string[],
   })
 
   useEffect(() => {

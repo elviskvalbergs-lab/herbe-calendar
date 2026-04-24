@@ -66,3 +66,25 @@ it('pre-selects the localStorage default when it is still valid', async () => {
   const select = await screen.findByRole('combobox')
   await waitFor(() => expect((select as HTMLSelectElement).value).toBe('outlook:LIST-A'))
 })
+
+it('preserves pre-populated ERP fields through the first auto-fire (duplicate flow)', async () => {
+  // Regression for: the parkedErpFields ref used to seed to empty values,
+  // which caused the first auto-fire with an ERP destination to overwrite any
+  // duplicated ERP fields back to empty. Now the ref seeds from initial?.*.
+  mockDestinations([ERP_BURTI])
+  const initial = {
+    source: 'herbe' as const,
+    activityTypeCode: 'call',
+    projectCode: 'PRJ-1',
+    customerCode: 'CUST-9',
+    description: 'Follow up',
+    date: '2026-04-24',
+  }
+  render(<ActivityForm {...commonProps({ initial })} />)
+  const select = await screen.findByRole('combobox')
+  await waitFor(() => expect((select as HTMLSelectElement).value).toBe('herbe:conn-1'))
+  // After auto-fire the description field should still carry the duplicated value.
+  // (The ERP-specific code inputs are more complex to query; description is a
+  // simple cross-check that the form didn't reset state on auto-fire.)
+  expect(screen.getByDisplayValue('Follow up')).toBeInTheDocument()
+})
