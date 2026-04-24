@@ -15,6 +15,7 @@ interface PatchBody {
   description?: string
   dueDate?: string | null
   connectionId?: string
+  mainPersons?: string[]
   ccPersons?: string[]
   activityTypeCode?: string
   projectCode?: string
@@ -45,13 +46,17 @@ export async function PATCH(
           title: body.title,
           description: body.description,
           dueDate: body.dueDate ?? undefined,
+          mainPersons: body.mainPersons,
           ccPersons: body.ccPersons,
           activityTypeCode: body.activityTypeCode,
           projectCode: body.projectCode,
           customerCode: body.customerCode,
         }),
       }
-      const result = await saveActVcRecord(merged, { id, conn })
+      // Allow MainPersons/CCPersons to be cleared — empty string is how ERP
+      // drops the assignment or CC list. Without this the form silently
+      // keeps the old values whenever the user removed them all.
+      const result = await saveActVcRecord(merged, { id, conn, allowEmptyFields: new Set(['MainPersons', 'CCPersons']) })
       if (!result.ok) {
         const payload: Record<string, unknown> = { error: result.error }
         if (result.fieldErrors) payload.fieldErrors = result.fieldErrors

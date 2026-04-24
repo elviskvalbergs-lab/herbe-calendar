@@ -653,6 +653,7 @@ export default function ActivityForm({
           if (activityTypeCode) body.activityTypeCode = activityTypeCode
           if (projectCode) body.projectCode = projectCode
           if (customerCode) body.customerCode = customerCode
+          body.mainPersons = selectedPersonCodes
           body.ccPersons = selectedCCPersonCodes
         }
         // Include done status for task edits — lets the user toggle completion
