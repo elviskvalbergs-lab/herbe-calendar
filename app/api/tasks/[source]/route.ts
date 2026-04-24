@@ -25,6 +25,8 @@ interface CreateBody {
   googleTokenId?: string
   /** Google Tasks list id (unified destination picker). */
   googleListId?: string
+  /** Google Tasks list title — optional pass-through so the created Task carries the right listName without an extra API call. */
+  googleListTitle?: string
 }
 
 export async function POST(
@@ -86,6 +88,7 @@ export async function POST(
       const task = await createGoogleTask(tokenId, session.email, session.accountId, {
         title: body.title, description: body.description, dueDate: body.dueDate,
         listId: body.googleListId,
+        listTitle: body.googleListTitle,
       })
       await writeThroughTask(session.accountId, session.email, 'google', task)
       return NextResponse.json({ ok: true, task })

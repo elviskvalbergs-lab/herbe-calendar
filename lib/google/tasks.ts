@@ -107,6 +107,8 @@ export interface CreateGoogleTaskInput {
   dueDate?: string
   /** Google Tasks list id. If omitted, writes to the first list returned. */
   listId?: string
+  /** Human list title for the returned Task's listName. Pass through when you already have it (avoids an extra API call). */
+  listTitle?: string
 }
 
 export async function createGoogleTask(
@@ -121,8 +123,7 @@ export async function createGoogleTask(
   let listTitle: string
   if (input.listId) {
     listId = input.listId
-    // Title is cosmetic for the returned Task; fetch it if we need it, else fall back.
-    listTitle = ''
+    listTitle = input.listTitle ?? ''
   } else {
     const list = await resolveDefaultGoogleListId(accessToken)
     listId = list.id

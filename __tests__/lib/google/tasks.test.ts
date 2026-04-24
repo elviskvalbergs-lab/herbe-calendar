@@ -125,10 +125,13 @@ describe('createGoogleTask with explicit listId', () => {
 
     try {
       const task = await createGoogleTask('TOK', 'x@y.z', 'acc', {
-        title: 'T', listId: 'EXPLICIT',
+        title: 'T', listId: 'EXPLICIT', listTitle: 'My Tasks',
       })
       expect(task.id).toBe('google:new-task')
+      expect(task.listName).toBe('My Tasks')
       expect(calls.some(c => c.includes('/lists/EXPLICIT/tasks'))).toBe(true)
+      // Default-resolution path must not be hit when an explicit listId is provided.
+      expect(calls.some(c => c.endsWith('/users/@me/lists'))).toBe(false)
     } finally {
       global.fetch = originalFetch
     }

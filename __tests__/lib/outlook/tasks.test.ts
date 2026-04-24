@@ -156,8 +156,9 @@ describe('createOutlookTask with explicit listId', () => {
       { tenantId: 't', clientId: 'c', clientSecret: 's' } as any,
     )
     expect(task.id).toBe('outlook:new-task')
-    // Verify the call targeted EXPLICIT, not DEFAULT.
+    // Verify the call targeted EXPLICIT and that the default-resolution path was not hit.
     const paths = mockGraph.mock.calls.map((c: any[]) => c[0] as string)
     expect(paths.some(p => p.includes('/todo/lists/EXPLICIT/tasks') && !p.endsWith('/todo/lists'))).toBe(true)
+    expect(paths.some(p => p.endsWith('/todo/lists'))).toBe(false)
   })
 })
