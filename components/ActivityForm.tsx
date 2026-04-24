@@ -164,6 +164,11 @@ export function ActivityForm({
   // has been changed yet — the user has presumably started the copy for a
   // reason, and closing silently loses that work.
   const [copyDirty, setCopyDirty] = useState(false)
+  // Outlook edit: when user picks a different list, we stash the target here
+  // and send it in the PATCH body so the backend runs delete+recreate.
+  const [moveToListKey, setMoveToListKey] = useState<string | null>(null)
+  const [moveToListId, setMoveToListId] = useState<string | null>(null)
+  const [moveToListTitle, setMoveToListTitle] = useState<string | null>(null)
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
@@ -707,6 +712,11 @@ export function ActivityForm({
         if (destination?.meta.kind === 'outlook-task') {
           body.listId = destination.meta.listId
           body.listTitle = destination.meta.listName
+        }
+        // Edit-mode move between Outlook lists: backend runs delete+recreate.
+        if (isEdit && destination?.meta.kind === 'outlook-task' && moveToListId) {
+          body.targetListId = moveToListId
+          body.targetListTitle = moveToListTitle ?? undefined
         }
         // Include done status for task edits — lets the user toggle completion
         // from the form instead of only the sidebar checkbox, which is useful
@@ -1287,6 +1297,26 @@ export function ActivityForm({
                   readOnly
                 />
               </div>
+              {destination.meta.kind === 'outlook-task' && (
+                <div style={{ marginTop: 6 }}>
+                  <DestinationPicker
+                    mode="task"
+                    value={moveToListKey}
+                    label="Move to another list"
+                    placeholder="— pick a list to move —"
+                    filter={d => d.meta.kind === 'outlook-task' && d.meta.listName !== destination.label}
+                    onChange={(next) => {
+                      if (next.meta.kind !== 'outlook-task') return
+                      setMoveToListKey(next.key)
+                      setMoveToListId(next.meta.listId)
+                      setMoveToListTitle(next.meta.listName)
+                    }}
+                  />
+                  <p className="aed-hint" style={{ marginTop: 4 }}>
+                    Graph has no list-move endpoint — moving recreates the task in the target list and deletes the original.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

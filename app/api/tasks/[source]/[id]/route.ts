@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { updateOutlookTask } from '@/lib/outlook/tasks'
+import { updateOutlookTask, moveOutlookTask } from '@/lib/outlook/tasks'
 import { updateGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
@@ -20,6 +20,10 @@ interface PatchBody {
   activityTypeCode?: string
   projectCode?: string
   customerCode?: string
+  /** Move the task to this Outlook list (delete+recreate). Ignored if unchanged. */
+  targetListId?: string
+  /** Display name for the target list (pass-through to the created Task's listName). */
+  targetListTitle?: string
 }
 
 export async function PATCH(
@@ -72,9 +76,18 @@ export async function PATCH(
     if (source === 'outlook') {
       const azure = await getAzureConfig(session.accountId)
       if (!azure) return NextResponse.json({ error: 'Outlook not configured' }, { status: 400 })
-      const task = await updateOutlookTask(session.email, id, {
-        done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
-      }, azure)
+      const task = body.targetListId
+        ? await moveOutlookTask(session.email, id, {
+            targetListId: body.targetListId,
+            targetListTitle: body.targetListTitle,
+            patch: {
+              done: body.done, title: body.title,
+              description: body.description, dueDate: body.dueDate,
+            },
+          }, azure)
+        : await updateOutlookTask(session.email, id, {
+            done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
+          }, azure)
       await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })
     }

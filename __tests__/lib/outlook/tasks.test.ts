@@ -1,4 +1,4 @@
-import { mapOutlookTask, fetchOutlookTasks, createOutlookTask, updateOutlookTask, type OutlookTaskApi } from '@/lib/outlook/tasks'
+import { mapOutlookTask, fetchOutlookTasks, createOutlookTask, updateOutlookTask, moveOutlookTask, type OutlookTaskApi } from '@/lib/outlook/tasks'
 
 jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn(),
@@ -160,5 +160,77 @@ describe('createOutlookTask with explicit listId', () => {
     const paths = mockGraph.mock.calls.map((c: any[]) => c[0] as string)
     expect(paths.some(p => p.includes('/todo/lists/EXPLICIT/tasks') && !p.endsWith('/todo/lists'))).toBe(true)
     expect(paths.some(p => p.endsWith('/todo/lists'))).toBe(false)
+  })
+})
+
+describe('moveOutlookTask', () => {
+  it('POSTs to the target list and DELETEs the original when lists differ', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      // findOutlookTaskList enumerates lists and probes each for the task.
+      if (path.endsWith('/todo/lists')) {
+        return { ok: true, json: async () => ({ value: [
+          { id: 'OLD', displayName: 'Tasks' },
+          { id: 'NEW', displayName: 'Elvis' },
+        ] }) } as unknown as Response
+      }
+      // The probe GET on OLD finds the task.
+      if (path === '/users/x%40y.z/todo/lists/OLD/tasks/OLDID' && !init?.method) {
+        return { ok: true, json: async () => ({
+          id: 'OLDID', title: 'Original', status: 'notStarted',
+        }) } as unknown as Response
+      }
+      // Probe on NEW yields 404 so the probe loop stops at OLD.
+      if (path === '/users/x%40y.z/todo/lists/NEW/tasks/OLDID' && !init?.method) {
+        return { ok: false, status: 404, text: async () => '' } as unknown as Response
+      }
+      // POST to NEW list creates the replacement.
+      if (path === '/users/x%40y.z/todo/lists/NEW/tasks' && init?.method === 'POST') {
+        return { ok: true, json: async () => ({
+          id: 'NEWID', title: 'Original', status: 'notStarted',
+        }) } as unknown as Response
+      }
+      // DELETE on OLD.
+      if (path === '/users/x%40y.z/todo/lists/OLD/tasks/OLDID' && init?.method === 'DELETE') {
+        return { ok: true, status: 204 } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    const task = await moveOutlookTask(
+      'x@y.z',
+      'OLDID',
+      { targetListId: 'NEW', targetListTitle: 'Elvis' },
+      { tenantId: 't', clientId: 'c', clientSecret: 's' } as any,
+    )
+    expect(task.id).toBe('outlook:NEWID')
+    expect(task.listName).toBe('Elvis')
+    const calls = mockGraph.mock.calls.map((c: any[]) => ({ path: c[0], method: c[1]?.method ?? 'GET' }))
+    expect(calls.some(c => c.path.endsWith('/lists/NEW/tasks') && c.method === 'POST')).toBe(true)
+    expect(calls.some(c => c.path.endsWith('/lists/OLD/tasks/OLDID') && c.method === 'DELETE')).toBe(true)
+  })
+
+  it('short-circuits to a normal update when target list equals the current one', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists')) {
+        return { ok: true, json: async () => ({ value: [{ id: 'SAME', displayName: 'Tasks' }] }) } as unknown as Response
+      }
+      if (path === '/users/x%40y.z/todo/lists/SAME/tasks/SID' && !init?.method) {
+        return { ok: true, json: async () => ({ id: 'SID', title: 'T', status: 'notStarted' }) } as unknown as Response
+      }
+      if (path === '/users/x%40y.z/todo/lists/SAME/tasks/SID' && init?.method === 'PATCH') {
+        return { ok: true, json: async () => ({ id: 'SID', title: 'T', status: 'notStarted' }) } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    await moveOutlookTask(
+      'x@y.z',
+      'SID',
+      { targetListId: 'SAME' },
+      { tenantId: 't', clientId: 'c', clientSecret: 's' } as any,
+    )
+    const calls = mockGraph.mock.calls.map((c: any[]) => ({ path: c[0], method: c[1]?.method ?? 'GET' }))
+    // No DELETE should happen when the task is already in the target list.
+    expect(calls.some(c => c.method === 'DELETE')).toBe(false)
   })
 })

@@ -185,3 +185,92 @@ export async function updateOutlookTask(
   const updated = await res.json() as OutlookTaskApi
   return mapOutlookTask(updated, 'Tasks')
 }
+
+export interface MoveOutlookTaskInput {
+  /** Destination list id. */
+  targetListId: string
+  /** Destination list display name (for the returned Task's listName). */
+  targetListTitle?: string
+  /** Optional field patches to apply during the move. */
+  patch?: UpdateOutlookTaskInput
+}
+
+/**
+ * Move a task to another Microsoft To Do list. Microsoft Graph has no move
+ * endpoint; the only supported approach is to fetch the existing task, delete
+ * it from its current list, and re-create it in the target list. The returned
+ * Task has a new id (the old one is gone); callers must refresh any cached
+ * references.
+ *
+ * If the task is already in the target list, no delete happens — we just
+ * apply the patch as a normal update.
+ */
+export async function moveOutlookTask(
+  userEmail: string,
+  taskId: string,
+  input: MoveOutlookTaskInput,
+  azureConfig: AzureConfig,
+): Promise<Task> {
+  const enc = encodeURIComponent(userEmail)
+  const currentListId = await findOutlookTaskList(userEmail, taskId, azureConfig)
+  if (!currentListId) throw new Error(`task ${taskId} not found in any list`)
+
+  if (currentListId === input.targetListId) {
+    // No-op move — just a regular update, preserving existing behavior.
+    return updateOutlookTask(userEmail, taskId, input.patch ?? {}, azureConfig)
+  }
+
+  // Fetch the existing task so we can carry fields forward into the new list.
+  const existingRes = await graphFetch(
+    `/users/${enc}/todo/lists/${currentListId}/tasks/${taskId}`,
+    undefined,
+    azureConfig,
+  )
+  if (!existingRes.ok) throw new Error(`fetch existing failed: ${existingRes.status}`)
+  const existing = await existingRes.json() as OutlookTaskApi
+
+  // Merge current fields with any patch overrides.
+  const patch = input.patch ?? {}
+  const title = patch.title ?? existing.title
+  const description = patch.description ?? existing.body?.content
+  const dueDate = patch.dueDate === null
+    ? undefined
+    : patch.dueDate ?? existing.dueDateTime?.dateTime?.slice(0, 10)
+  const done = patch.done ?? (existing.status === 'completed')
+
+  // Create in the target list.
+  const created = await createOutlookTask(userEmail, {
+    title,
+    description,
+    dueDate,
+    listId: input.targetListId,
+    listTitle: input.targetListTitle,
+  }, azureConfig)
+
+  // If the task was done, reflect that in the new list — createOutlookTask
+  // always writes status=notStarted otherwise.
+  if (done) {
+    const newRawId = created.id.startsWith('outlook:') ? created.id.slice('outlook:'.length) : created.id
+    await updateOutlookTask(userEmail, newRawId, { done: true }, azureConfig)
+  }
+
+  // Delete the original.
+  const delRes = await graphFetch(
+    `/users/${enc}/todo/lists/${currentListId}/tasks/${taskId}`,
+    { method: 'DELETE' },
+    azureConfig,
+  )
+  if (!delRes.ok && delRes.status !== 204) {
+    // Best-effort: log but don't fail; the new task exists, the old one is stale.
+    console.warn(`[moveOutlookTask] delete old ${taskId} failed: ${delRes.status}`)
+  }
+
+  // Return the (possibly-done-updated) new task. mapOutlookTask needs the
+  // raw API shape; simplest is to re-map from the createOutlookTask result,
+  // overriding done if needed.
+  return {
+    ...created,
+    done,
+    listName: input.targetListTitle ?? created.listName,
+  }
+}
