@@ -56,6 +56,7 @@ export interface Activity {
   accessGroup?: string    // comma-separated person codes (Herbe)
   planned?: boolean       // Herbe: planned (true) vs actual (false/undefined)
   okFlag?: boolean         // Herbe: OKFlag=1 means approved/locked, read-only
+  done?: boolean           // Task-mode only: mirrors Task.done so the form can toggle OKFlag
   location?: string        // Outlook: meeting location
   isOrganizer?: boolean   // Outlook only
   isOnlineMeeting?: boolean // Outlook: whether it's a Teams meeting

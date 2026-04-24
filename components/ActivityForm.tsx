@@ -140,6 +140,7 @@ export default function ActivityForm({
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([])
   const [currentGroup, setCurrentGroup] = useState<ActivityClassGroup | undefined>()
   const [planned, setPlanned] = useState(initial?.planned ?? false)
+  const [done, setDone] = useState(initial?.done ?? false)
   const isDarkTheme = typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') !== 'light' : true
   const [itemCode, setItemCode] = useState(initial?.itemCode ?? '')
   const [itemName, setItemName] = useState('')
@@ -211,6 +212,7 @@ export default function ActivityForm({
     projectCode: initial?.projectCode ?? '',
     customerCode: initial?.customerCode ?? '',
     planned: initial?.planned ?? false,
+    done: initial?.done ?? false,
     itemCode: initial?.itemCode ?? '',
     textInMatrix: initial?.textInMatrix ?? '',
     selectedPersonCodes: selectedPersonCodes as string[],
@@ -615,6 +617,10 @@ export default function ActivityForm({
           if (customerCode) body.customerCode = customerCode
           body.ccPersons = selectedCCPersonCodes
         }
+        // Include done status for task edits — lets the user toggle completion
+        // from the form instead of only the sidebar checkbox, which is useful
+        // when the sidebar toggle silently failed and there's no visible error.
+        if (isEdit) body.done = done
         const res = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
@@ -776,6 +782,7 @@ export default function ActivityForm({
     if (projectCode !== iv.projectCode) return true
     if (customerCode !== iv.customerCode) return true
     if (planned !== iv.planned) return true
+    if (done !== iv.done) return true
     if (itemCode !== iv.itemCode) return true
     if (textInMatrix !== iv.textInMatrix) return true
     if (JSON.stringify([...selectedPersonCodes].sort()) !== JSON.stringify([...iv.selectedPersonCodes].sort())) return true
@@ -858,6 +865,7 @@ export default function ActivityForm({
       projectCode: copy?.projectCode ?? '',
       customerCode: copy?.customerCode ?? '',
       planned: copy?.planned ?? false,
+      done: copy?.done ?? false,
       itemCode: copy?.itemCode ?? '',
       textInMatrix: copy?.textInMatrix ?? '',
       selectedPersonCodes: [...selectedPersonCodes],
@@ -1452,6 +1460,20 @@ export default function ActivityForm({
               )}
             </div>
           </div>
+
+          {/* Task done toggle (task edit only) */}
+          {mode === 'task' && isEdit && (
+            <label className="aed-checkbox">
+              <input
+                type="checkbox"
+                checked={done}
+                onChange={e => setDone(e.target.checked)}
+                disabled={canEdit === false}
+              />
+              <span className="aed-check-box">{done && '✓'}</span>
+              <span className="aed-check-label">Done</span>
+            </label>
+          )}
 
           {/* Date + Time From + Time To */}
           <div className="aed-dt-grid">

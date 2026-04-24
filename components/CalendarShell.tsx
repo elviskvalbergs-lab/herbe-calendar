@@ -860,10 +860,17 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       })
-      if (!res.ok) throw new Error(`status ${res.status}`)
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null)
+        const msg = errBody?.error ?? `status ${res.status}`
+        throw new Error(String(msg))
+      }
     } catch (e) {
-      console.warn('task toggle failed:', e)
+      const msg = e instanceof Error ? e.message : String(e)
+      console.warn('task toggle failed:', msg)
       setTasks(prev)
+      // Surface the error so the user sees WHY the check didn't stick.
+      setStatus({ msg: `Could not mark task as ${done ? 'done' : 'not done'}: ${msg}`, ok: false })
     }
   }
 
@@ -884,6 +891,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       customerCode: task.erp?.customerCode,
       customerName: task.erp?.customerName,
       erpConnectionId: task.sourceConnectionId,
+      done: task.done,
     }
     if (asEvent) return shape
     return shape
