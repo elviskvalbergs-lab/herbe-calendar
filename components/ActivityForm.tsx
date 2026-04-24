@@ -568,12 +568,18 @@ export default function ActivityForm({
     return payload
   }
 
-  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set())
+  // Map of field -> friendly label, populated from server fieldErrors. Both
+  // the input-level invalid styling and the summary chips in the error
+  // banner read from this so they can't drift out of sync.
+  const [invalidFieldMap, setInvalidFieldMap] = useState<Map<string, string>>(new Map())
+  const invalidFields = invalidFieldMap // alias kept for readability at call sites
+  const invalidFieldLabels = Array.from(invalidFieldMap.values())
 
   function applyFieldErrors(fieldErrors: Array<{ field: string; label: string; code: string }> | undefined) {
     console.log('[ActivityForm] fieldErrors from server:', fieldErrors)
-    const next = new Set<string>((fieldErrors ?? []).map(f => f.field))
-    setInvalidFields(next)
+    const next = new Map<string, string>()
+    for (const f of fieldErrors ?? []) next.set(f.field, f.label)
+    setInvalidFieldMap(next)
     const first = fieldErrors?.[0]
     if (!first) return
     const refByField: Record<string, { current: HTMLInputElement | null } | undefined> = {
@@ -590,9 +596,9 @@ export default function ActivityForm({
   }
 
   function clearFieldError(field: string) {
-    setInvalidFields(prev => {
+    setInvalidFieldMap(prev => {
       if (!prev.has(field)) return prev
-      const next = new Set(prev)
+      const next = new Map(prev)
       next.delete(field)
       return next
     })
@@ -1234,7 +1240,7 @@ export default function ActivityForm({
             </div>
           )}
 
-          <ErrorBanner errors={errors} />
+          <ErrorBanner errors={errors} fieldLabels={invalidFieldLabels} />
 
           {/* Person(s) — hidden for Outlook/Google task mode; those APIs don't support assignees */}
           {!(mode === 'task' && isExternalCalSource) && (() => {
