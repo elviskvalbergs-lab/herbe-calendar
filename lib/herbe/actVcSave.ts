@@ -100,10 +100,11 @@ export async function saveActVcRecord(
     try { return JSON.parse(sanitized) as Record<string, unknown> } catch { return null }
   })()
 
-  console.log(`${opts.id ? 'PATCH' : 'POST'} ActVc${opts.id ? '/' + opts.id : ''} → ${res.status}`)
+  const label = `${opts.id ? 'PATCH' : 'POST'} ActVc${opts.id ? '/' + opts.id : ''}`
+  console.log(`${label} → ${res.status}`)
 
   if (!res.ok) {
-    return { ok: false, error: data ? extractHerbeError(data) : `Herbe error ${res.status}`, status: res.status }
+    return { ok: false, error: data ? extractHerbeError(data) : `Herbe error ${res.status}: ${rawText.slice(0, 200)}`, status: res.status }
   }
 
   const errs = data?.errors
@@ -115,11 +116,24 @@ export async function saveActVcRecord(
   const inner = (data?.data as Record<string, unknown> | undefined)?.[REGISTERS.activities]
   const record = Array.isArray(inner) ? (inner[0] as Record<string, unknown> | undefined) : undefined
   if (!record?.['SerNr']) {
+    // Log the full response so we can see what ERP is actually returning — a
+    // successful-looking 200 with no record or unparseable body is the exact
+    // failure mode this check exists to surface.
+    console.warn(`${label}: ERP returned 200 without a record. Body (${rawText.length} chars):`, rawText.slice(0, 1000))
     const rawErr = data?.error ?? data?.message ?? data?.errors
-    const hint = rawErr
-      ? extractHerbeError(rawErr)
-      : `Activity was not saved — a record-check rule likely rejected the ${opts.id ? 'update' : 'create'}. ERP response: ${JSON.stringify(data).slice(0, 300)}`
-    return { ok: false, error: hint, status: 422 }
+    if (rawErr) {
+      return { ok: false, error: extractHerbeError(rawErr), status: 422 }
+    }
+    // No parseable error — surface whatever ERP did return so the user (and
+    // logs) can see it. `null` here means JSON.parse failed, so include the
+    // raw text instead.
+    const body = data !== null ? JSON.stringify(data) : rawText
+    const preview = body.trim().slice(0, 300) || '(empty)'
+    return {
+      ok: false,
+      error: `Activity was not saved — a record-check rule likely rejected the ${opts.id ? 'update' : 'create'}. ERP response: ${preview}`,
+      status: 422,
+    }
   }
 
   return { ok: true, record }

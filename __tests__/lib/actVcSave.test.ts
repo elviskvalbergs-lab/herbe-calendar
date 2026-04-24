@@ -42,6 +42,18 @@ describe('saveActVcRecord — create', () => {
     }
   })
 
+  it('includes raw response text in the error when ERP returns unparseable JSON', async () => {
+    ;(herbeFetch as jest.Mock).mockResolvedValue(new Response('<html>Oops</html>', { status: 200 }))
+    const r = await saveActVcRecord({ Comment: 'Hi' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.status).toBe(422)
+      // Must not show "null" — that's what the user saw before the fix
+      expect(r.error).not.toMatch(/response: null/)
+      expect(r.error).toContain('<html>Oops</html>')
+    }
+  })
+
   it('returns 422 with messages when ERP responds with errors array', async () => {
     ;(herbeFetch as jest.Mock).mockResolvedValue(new Response(
       JSON.stringify({ errors: [{ '@description': 'Mandatory field missing', '@field': 'Comment' }] }),
