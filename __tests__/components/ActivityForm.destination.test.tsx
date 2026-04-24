@@ -67,6 +67,24 @@ it('pre-selects the localStorage default when it is still valid', async () => {
   await waitFor(() => expect((select as HTMLSelectElement).value).toBe('outlook:LIST-A'))
 })
 
+it('edit mode: seeds destination from initial so the picker is hidden but source routing works', async () => {
+  // Regression for: in edit mode DestinationPicker isn't rendered, so the
+  // destination state must be seeded synchronously from initial. Without this,
+  // isOutlookSource / isGoogleSource stay false in edit mode and save routes
+  // to the wrong endpoint.
+  mockDestinations([])  // picker fetch won't happen on edit; mock harmless
+  const initial = {
+    source: 'outlook' as const,
+    listName: 'Shopping',
+    description: 'Buy milk',
+    date: '2026-04-24',
+  }
+  render(<ActivityForm {...commonProps({ initial, editId: 'outlook:EXISTING' })} />)
+  // The static destination label (not a combobox) should render with Outlook · Shopping.
+  await waitFor(() => expect(screen.getByText(/Outlook · Shopping/)).toBeInTheDocument())
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+})
+
 it('preserves pre-populated ERP fields through the first auto-fire (duplicate flow)', async () => {
   // Regression for: the parkedErpFields ref used to seed to empty values,
   // which caused the first auto-fire with an ERP destination to overwrite any

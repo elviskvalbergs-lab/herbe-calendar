@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
 import type { Destination } from '@/lib/destinations/types'
+import { destinationFromInitial } from '@/lib/destinations/fromInitial'
 import { DestinationPicker } from './DestinationPicker'
 import ErrorBanner from './ErrorBanner'
 import ConfirmDialog from './ConfirmDialog'
@@ -97,7 +98,13 @@ export function ActivityForm({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  const [destination, setDestination] = useState<Destination | null>(null)
+  // Edit mode: seed synchronously from `initial` so downstream source-derived
+  // booleans and ERP connection lookups are correct on first render. Create
+  // mode: start null; DestinationPicker auto-fires onChange with the localStorage
+  // default (or first destination) after its fetch resolves.
+  const [destination, setDestination] = useState<Destination | null>(
+    () => isEdit ? destinationFromInitial(initial, mode, erpConnections) : null,
+  )
 
   const isOutlookSource    = destination?.source === 'outlook'
   const isGoogleSource     = destination?.source === 'google'
@@ -1252,13 +1259,14 @@ export function ActivityForm({
               onChange={(next) => setDestination(next)}
             />
           )}
-          {isEdit && initial && (
+          {isEdit && destination && (
             <div className="destination-picker">
               <label className="aed-label">Destination</label>
               <div className="destination-picker-row">
-                <span className="destination-sourcelabel-readonly">
-                  {initial.source === 'herbe' ? 'ERP' : initial.source === 'outlook' ? 'Outlook' : initial.source === 'google' ? 'Google' : '—'}
-                  {initial.erpConnectionName ? ` · ${initial.erpConnectionName}` : ''}
+                <span className="destination-color-dot" style={{ background: destination.color }} aria-hidden="true" />
+                <span className="aed-input" style={{ opacity: 0.7 }}>
+                  {destination.sourceLabel}
+                  {destination.label && destination.label !== destination.sourceLabel ? ` · ${destination.label}` : ''}
                 </span>
               </div>
             </div>
