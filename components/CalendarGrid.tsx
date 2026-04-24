@@ -414,6 +414,33 @@ export default function CalendarGrid({
                 onTaskClick={onTaskClick}
               />
 
+              {/* Morning outside-hours bar (before effectiveStartHour) */}
+              {!expandedUp && (() => {
+                const dayBefore = activities.filter(a =>
+                  !a.isAllDay && a.date === date &&
+                  timeToMinutes(a.timeFrom) < effectiveStartHour * 60
+                )
+                if (dayBefore.length === 0) return null
+                const earliest = dayBefore.reduce((min, a) => {
+                  const m = timeToMinutes(a.timeFrom)
+                  return m < min ? m : min
+                }, effectiveStartHour * 60)
+                const hh = String(Math.floor(earliest / 60)).padStart(2, '0')
+                const mm = String(earliest % 60).padStart(2, '0')
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedUp(true)}
+                    className="ohbar-btn ohbar-morning"
+                    title="Expand morning hours"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    <span className="ohbar-count">{dayBefore.length} event{dayBefore.length !== 1 ? 's' : ''}</span>
+                    <span className="ohbar-time">· from {hh}:{mm}</span>
+                  </button>
+                )
+              })()}
+
               <div className="flex flex-1 relative">
                 {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} startHour={effectiveStartHour} />}
                 {state.selectedPersons.map((person, personIdx) => {
@@ -455,22 +482,32 @@ export default function CalendarGrid({
                 })}
               </div>
 
-              {/* Bottom indicator bar — per-person off-grid-after marker */}
-              <div className="flex sticky bottom-0 z-20" style={{ background: 'var(--app-bg-alt)' }}>
-                {state.selectedPersons.map((person) => {
-                  const pa = activities.filter(a => a.personCode === person.code && a.date === date)
-                  const hasAfter = pa.some(a => !a.isAllDay && timeToMinutes(a.timeTo) > effectiveEndHour * 60)
-                  return (
-                    <div
-                      key={person.code}
-                      className="flex-1 relative"
-                      style={{ borderRight: '1px solid var(--app-line)', ...(colMinVw > 0 ? { minWidth: `${colMinVw}vw` } : {}) }}
-                    >
-                      {hasAfter && <div style={{ height: 1, background: '#ef4444' }} />}
-                    </div>
-                  )
-                })}
-              </div>
+              {/* Evening outside-hours bar (after effectiveEndHour) */}
+              {!expandedDown && (() => {
+                const dayAfter = activities.filter(a =>
+                  !a.isAllDay && a.date === date &&
+                  timeToMinutes(a.timeTo) > effectiveEndHour * 60
+                )
+                if (dayAfter.length === 0) return null
+                const latest = dayAfter.reduce((max, a) => {
+                  const m = timeToMinutes(a.timeTo)
+                  return m > max ? m : max
+                }, effectiveEndHour * 60)
+                const hh = String(Math.floor(latest / 60)).padStart(2, '0')
+                const mm = String(latest % 60).padStart(2, '0')
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedDown(true)}
+                    className="ohbar-btn ohbar-evening"
+                    title="Expand evening hours"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    <span className="ohbar-count">{dayAfter.length} event{dayAfter.length !== 1 ? 's' : ''}</span>
+                    <span className="ohbar-time">· until {hh}:{mm}</span>
+                  </button>
+                )
+              })()}
             </div>
           )
         })}

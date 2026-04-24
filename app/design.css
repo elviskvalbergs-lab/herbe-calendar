@@ -3448,3 +3448,30 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 @media (max-width: 1023px) {
   .admin-content { padding: 16px; }
 }
+
+/* ============================================================
+ * Outside-Hours Bars (design handoff)
+ * ============================================================ */
+.ohbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 10px;
+  font-size: 10.5px;
+  color: var(--app-accent);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--app-line);
+  border-bottom: 1px solid var(--app-line);
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  transition: background 120ms;
+  text-align: left;
+}
+.ohbar-btn:hover { background: rgba(205,76,56,0.06); }
+.ohbar-btn .ohbar-count { font-weight: 600; }
+.ohbar-btn .ohbar-time { font-weight: 400; color: var(--app-fg-subtle); }
+.ohbar-btn.ohbar-morning { border-top: none; }
+.ohbar-btn.ohbar-evening { border-bottom: none; }
