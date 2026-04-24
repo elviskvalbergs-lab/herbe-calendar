@@ -31,7 +31,7 @@ async function getFirstGoogleTokenId(userEmail: string, accountId: string): Prom
   return accounts[0]?.id ?? null
 }
 
-export async function GET(_req: Request) {
+export async function GET(req: Request) {
   let session
   try {
     session = await requireSession()
@@ -41,23 +41,29 @@ export async function GET(_req: Request) {
 
   try {
     const { accountId, email } = session
-    const personCode = await getCodeByEmail(email, accountId).catch(e => {
-      console.warn('[tasks] getCodeByEmail failed:', e); return null
-    })
-    const azureConfig = await getAzureConfig(accountId).catch(e => {
-      console.warn('[tasks] getAzureConfig failed:', e); return null
-    })
-    const googleTokenId = await getFirstGoogleTokenId(email, accountId).catch(e => {
-      console.warn('[tasks] getFirstGoogleTokenId failed:', e); return null
-    })
-    const googleWorkspaceConfigured = await getGoogleConfig(accountId)
-      .then(cfg => !!cfg)
-      .catch(e => { console.warn('[tasks] getGoogleConfig failed:', e); return false })
+    const requestedSource = new URL(req.url).searchParams.get('source') as TaskSource | null
+    const want = (s: TaskSource) => !requestedSource || requestedSource === s
 
+    const [personCode, azureConfig, googleTokenId, googleWorkspaceConfigured] = await Promise.all([
+      want('herbe')
+        ? getCodeByEmail(email, accountId).catch(e => { console.warn('[tasks] getCodeByEmail failed:', e); return null })
+        : Promise.resolve(null),
+      want('outlook')
+        ? getAzureConfig(accountId).catch(e => { console.warn('[tasks] getAzureConfig failed:', e); return null })
+        : Promise.resolve(null),
+      want('google')
+        ? getFirstGoogleTokenId(email, accountId).catch(e => { console.warn('[tasks] getFirstGoogleTokenId failed:', e); return null })
+        : Promise.resolve(null),
+      want('google')
+        ? getGoogleConfig(accountId).then(cfg => !!cfg).catch(e => { console.warn('[tasks] getGoogleConfig failed:', e); return false })
+        : Promise.resolve(false),
+    ])
+
+    const empty = { tasks: [] as Task[], configured: false } as SourceResult
     const [erpR, outlookR, googleR] = await Promise.all([
-      fetchErpAndCache(accountId, email, personCode ? [personCode] : []),
-      fetchOutlookAndCache(accountId, email, azureConfig),
-      fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured),
+      want('herbe') ? fetchErpAndCache(accountId, email, personCode ? [personCode] : []) : Promise.resolve(empty),
+      want('outlook') ? fetchOutlookAndCache(accountId, email, azureConfig) : Promise.resolve(empty),
+      want('google') ? fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured) : Promise.resolve(empty),
     ])
 
     const errors: SourceErrorInfo[] = []
@@ -65,17 +71,18 @@ export async function GET(_req: Request) {
     if (outlookR.error) errors.push({ source: 'outlook', msg: outlookR.error, stale: outlookR.stale })
     if (googleR.error) errors.push({ source: 'google', msg: googleR.error, stale: googleR.stale })
 
-    const tasks: Task[] = [
-      ...erpR.tasks, ...outlookR.tasks, ...googleR.tasks,
-    ]
+    const tasks: Task[] = [...erpR.tasks, ...outlookR.tasks, ...googleR.tasks]
 
-    const configured = {
-      herbe: true,
-      outlook: !!outlookR.configured,
-      google: !!googleR.configured,
-    }
-    console.log(`[tasks] returning ${tasks.length} total (erp=${erpR.tasks.length} outlook=${outlookR.tasks.length} google=${googleR.tasks.length}) configured=${JSON.stringify(configured)} errors=${errors.length}`)
-    return NextResponse.json({ tasks, configured, errors }, { headers: { 'Cache-Control': 'no-store' } })
+    // Only report `configured` flags for sources actually queried — the caller
+    // uses `source=google` to refresh one side-channel and should merge the
+    // result rather than clobber the other sources' state.
+    const configured: Partial<Record<TaskSource, boolean>> = {}
+    if (want('herbe')) configured.herbe = true
+    if (want('outlook')) configured.outlook = !!outlookR.configured
+    if (want('google')) configured.google = !!googleR.configured
+
+    console.log(`[tasks] returning ${tasks.length} total (erp=${erpR.tasks.length} outlook=${outlookR.tasks.length} google=${googleR.tasks.length}) configured=${JSON.stringify(configured)} errors=${errors.length} source=${requestedSource ?? 'all'}`)
+    return NextResponse.json({ tasks, configured, errors, source: requestedSource ?? null }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error('[tasks] aggregator failed:', e)
     return NextResponse.json(

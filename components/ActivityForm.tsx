@@ -61,7 +61,10 @@ interface Props {
   defaultPersonCodes?: string[]
   allActivities: Activity[]
   onClose: () => void
-  onSaved: (taskPatch?: { taskId: string; fields: { title?: string; description?: string; dueDate?: string } }) => void
+  onSaved: (taskInfo?: {
+    source: 'herbe' | 'outlook' | 'google'
+    patch?: { taskId: string; fields: { title?: string; description?: string; dueDate?: string } }
+  }) => void
   onDuplicate: (initial: Partial<Activity>) => void
   onRsvp?: (status: Activity['rsvpStatus']) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
@@ -194,6 +197,7 @@ export default function ActivityForm({
   const descInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
   const customerInputRef = useRef<HTMLInputElement>(null)
+  const activityTypeInputRef = useRef<HTMLInputElement>(null)
   const modalRef = useFocusTrap<HTMLDivElement>(true)
   const dragStartY = useRef<number | null>(null)
   const isDragging = useRef(false)
@@ -543,6 +547,22 @@ export default function ActivityForm({
     return payload
   }
 
+  function focusFieldError(fieldErrors: Array<{ field: string; label: string; code: string }> | undefined) {
+    const first = fieldErrors?.[0]
+    if (!first) return
+    const refByField: Record<string, { current: HTMLInputElement | null } | undefined> = {
+      ActType: activityTypeInputRef,
+      Comment: descInputRef,
+      PRCode: projectInputRef,
+      CUCode: customerInputRef,
+    }
+    const target = refByField[first.field]?.current
+    if (target) {
+      target.focus()
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
+
   async function handleSave() {
     const isTaskMode = mode === 'task'
     const errs: string[] = []
@@ -589,13 +609,14 @@ export default function ActivityForm({
         const data = await res.json().catch(() => null)
         if (!res.ok) {
           setErrors([String(data?.error ?? `Server error (${res.status})`)])
+          focusFieldError(data?.fieldErrors)
           setSaving(false)
           return
         }
-        // Pass an optimistic patch for edits so the sidebar reflects the change
-        // immediately — the background refetch aggregates all three sources
-        // and is dominated by ERP (seconds-long), which otherwise makes the
-        // user wait for unrelated data to reload.
+        // Pass the source so CalendarShell can refetch only the edited channel
+        // — ERP task fetches take tens of seconds, and there's no reason to
+        // wait on them when a Google or Outlook task changed. The optimistic
+        // patch lets the sidebar show the new title before the refetch lands.
         const patch = isEdit && editId ? {
           taskId: editId,
           fields: {
@@ -604,7 +625,7 @@ export default function ActivityForm({
             dueDate: date || undefined,
           },
         } : undefined
-        onSaved(patch)
+        onSaved({ source: taskSource, patch })
         setSaving(false)
         onClose()
       } catch (e) {
@@ -646,6 +667,7 @@ export default function ActivityForm({
           ? data.errors.map((e: { message?: string }) => e.message ?? String(e))
           : [String(data?.error ?? `Server error (${res.status})`)]
         setErrors(apiErrors)
+        focusFieldError(data?.fieldErrors)
         setSaving(false)
         return
       }
@@ -1640,6 +1662,7 @@ export default function ActivityForm({
               )}
               <div className="aed-input-wrap">
                 <input
+                  ref={activityTypeInputRef}
                   value={activityTypeName}
                   onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value) }}
                   onFocus={() => { if (!activityTypeResults.length) filterActivityTypes(activityTypeName) }}

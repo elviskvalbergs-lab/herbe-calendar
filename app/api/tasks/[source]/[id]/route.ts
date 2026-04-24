@@ -44,7 +44,11 @@ export async function PATCH(
         }),
       }
       const result = await saveActVcRecord(merged, { id, conn })
-      if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+      if (!result.ok) {
+        const payload: Record<string, unknown> = { error: result.error }
+        if (result.fieldErrors) payload.fieldErrors = result.fieldErrors
+        return NextResponse.json(payload, { status: result.status })
+      }
       return NextResponse.json({ ok: true, task: result.record })
     }
 

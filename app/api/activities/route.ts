@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       const payload: Record<string, unknown> = { error: result.error }
       if (result.errors) payload.errors = result.errors.map(m => ({ message: m }))
+      if (result.fieldErrors) payload.fieldErrors = result.fieldErrors
       return NextResponse.json(payload, { status: result.status })
     }
 

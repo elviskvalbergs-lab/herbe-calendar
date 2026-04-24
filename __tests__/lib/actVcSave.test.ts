@@ -63,7 +63,21 @@ describe('saveActVcRecord — create', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.status).toBe(422)
-      expect(r.errors).toEqual(['Comment: Mandatory field missing'])
+      // Friendly label ("Title" > "Comment") + mapped code message
+      expect(r.errors).toEqual(['Title: Mandatory field missing'])
+    }
+  })
+
+  it('formats 1058 errors as "<Field> is required" and returns fieldErrors', async () => {
+    ;(herbeFetch as jest.Mock).mockResolvedValue(new Response(
+      JSON.stringify({ errors: [{ '@code': '1058', '@field': 'ActType' }] }),
+      { status: 200 },
+    ))
+    const r = await saveActVcRecord({ Comment: 'Hi' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error).toBe('Activity type is required')
+      expect(r.fieldErrors).toEqual([{ field: 'ActType', label: 'Activity type', code: '1058' }])
     }
   })
 

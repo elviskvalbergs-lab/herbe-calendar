@@ -1,6 +1,6 @@
 import { herbeFetch, herbeFetchById } from './client'
 import { REGISTERS } from './constants'
-import { extractHerbeError } from './errors'
+import { extractHerbeError, extractHerbeFieldErrors, type HerbeFieldError } from './errors'
 import type { ErpConnection } from '@/lib/accountConfig'
 
 /**
@@ -70,7 +70,7 @@ export function toHerbeForm(
 
 export type SaveActVcResult =
   | { ok: true; record: Record<string, unknown> }
-  | { ok: false; error: string; errors?: string[]; status: number }
+  | { ok: false; error: string; errors?: string[]; fieldErrors?: HerbeFieldError[]; status: number }
 
 /**
  * Create (POST) or update (PATCH) an ActVc record — the single ERP register
@@ -110,7 +110,8 @@ export async function saveActVcRecord(
   const errs = data?.errors
   if (Array.isArray(errs) && errs.length > 0) {
     const msgs = (errs as unknown[]).map(e => extractHerbeError(e))
-    return { ok: false, error: msgs[0], errors: msgs, status: 422 }
+    const fieldErrors = extractHerbeFieldErrors(errs)
+    return { ok: false, error: msgs[0], errors: msgs, fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined, status: 422 }
   }
 
   const inner = (data?.data as Record<string, unknown> | undefined)?.[REGISTERS.activities]

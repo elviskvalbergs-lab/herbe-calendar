@@ -806,27 +806,38 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }, [])
 
   // Fetch tasks on mount or after a change. `silent` suppresses the loading
-  // spinner for post-save background refreshes — the aggregated fetch across
-  // ERP/Outlook/Google is gated on the slowest source (ERP, tens of seconds),
-  // and after a save we already have a local optimistic update, so the
-  // spinner just makes the UI feel frozen.
-  const loadTasks = useCallback(async (silent = false) => {
+  // spinner for post-save background refreshes. `source` scopes the fetch to
+  // a single channel — editing a Google task should not wait on the ERP
+  // fetch, which takes tens of seconds.
+  const loadTasks = useCallback(async (silent = false, source?: TaskSource) => {
     if (!silent) setTasksLoading(true)
     try {
-      const res = await fetch('/api/tasks')
+      const url = source ? `/api/tasks?source=${source}` : '/api/tasks'
+      const res = await fetch(url)
       if (!res.ok) {
         console.warn('[CalendarShell] /api/tasks non-ok:', res.status)
         return
       }
       const body = await res.json() as {
         tasks: Task[]
-        configured: { herbe: boolean; outlook: boolean; google: boolean }
+        configured: Partial<Record<TaskSource, boolean>>
         errors: { source: TaskSource; msg: string; stale?: boolean }[]
       }
-      console.log('[CalendarShell] tasks loaded:', body.tasks.length, 'configured:', body.configured, 'errors:', body.errors)
-      setTasks(body.tasks)
-      setTaskSources(body.configured)
-      setTaskErrors(body.errors)
+      console.log('[CalendarShell] tasks loaded:', body.tasks.length, 'configured:', body.configured, 'errors:', body.errors, 'source:', source ?? 'all')
+      if (source) {
+        // Merge — preserve tasks/configured/errors from other sources.
+        setTasks(prev => [...prev.filter(t => t.source !== source), ...body.tasks])
+        setTaskSources(prev => ({ ...prev, ...body.configured }))
+        setTaskErrors(prev => [...prev.filter(e => e.source !== source), ...body.errors])
+      } else {
+        setTasks(body.tasks)
+        setTaskSources({
+          herbe: body.configured.herbe ?? false,
+          outlook: body.configured.outlook ?? false,
+          google: body.configured.google ?? false,
+        })
+        setTaskErrors(body.errors)
+      }
     } catch (e) {
       console.warn('[CalendarShell] /api/tasks failed:', e)
     } finally {
@@ -1112,15 +1123,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
           allActivities={activities}
           onClose={() => setFormState({ open: false })}
-          onSaved={(taskPatch) => {
+          onSaved={(taskInfo) => {
             if (formState.mode === 'task') {
-              if (taskPatch) {
+              if (taskInfo?.patch) {
                 // Optimistic update — merge the edited fields into the local
                 // task so the sidebar reflects the change immediately; the
                 // background refetch below reconciles with server truth.
-                setTasks(prev => prev.map(t => t.id === taskPatch.taskId ? { ...t, ...taskPatch.fields } : t))
+                setTasks(prev => prev.map(t => t.id === taskInfo.patch!.taskId ? { ...t, ...taskInfo.patch!.fields } : t))
               }
-              loadTasks(true)
+              loadTasks(true, taskInfo?.source)
             } else {
               fetchActivities(true)
             }
