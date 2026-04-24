@@ -311,9 +311,28 @@ export default function ActivityForm({
 
     // Load per-connection projects and customers
     fetch(`/api/projects?all=1${connParam ? '&' + connParam.slice(1) : ''}`)
-      .then(r => r.ok ? r.json() : []).then(setConnProjects).catch(() => {})
+      .then(r => r.ok ? r.json() : [])
+      .then((list: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]) => {
+        setConnProjects(list)
+        if (initial?.projectCode && !initial?.projectName) {
+          const found = list.find(p => p.Code === initial.projectCode)
+          if (found?.Name) setProjectName(found.Name)
+        }
+      })
+      .catch(() => {})
     fetch(`/api/customers?all=1${connParam ? '&' + connParam.slice(1) : ''}`)
-      .then(r => r.ok ? r.json() : []).then(setConnCustomers).catch(() => {})
+      .then(r => r.ok ? r.json() : [])
+      .then((list: { Code: string; Name: string }[]) => {
+        setConnCustomers(list)
+        // ERP's ActVc response sometimes omits CUName even when CUCode is set,
+        // so the form opens with the code visible but the name input empty.
+        // Once the customer list has loaded, back-fill the name from the code.
+        if (initial?.customerCode && !initial?.customerName) {
+          const found = list.find(c => c.Code === initial.customerCode)
+          if (found?.Name) setCustomerName(found.Name)
+        }
+      })
+      .catch(() => {})
 
     // Load recent types for this connection
     const connKey = activeErpConnection?.id ?? 'default'
