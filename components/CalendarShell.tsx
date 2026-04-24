@@ -822,8 +822,13 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         tasks: Task[]
         configured: Partial<Record<TaskSource, boolean>>
         errors: { source: TaskSource; msg: string; stale?: boolean }[]
+        timings?: Partial<Record<TaskSource, number>>
       }
-      console.log('[CalendarShell] tasks loaded:', body.tasks.length, 'configured:', body.configured, 'errors:', body.errors, 'source:', source ?? 'all')
+      console.log('[CalendarShell] tasks loaded:', body.tasks.length, 'configured:', body.configured, 'errors:', body.errors, 'timings:', body.timings, 'source:', source ?? 'all')
+      if (body.timings) {
+        const parts = Object.entries(body.timings).map(([s, ms]) => `${s} ${ms}ms`).join(' · ')
+        if (parts) setStatus({ msg: `Tasks: ${parts}`, ok: (body.errors?.length ?? 0) === 0 })
+      }
       if (source) {
         // Merge — preserve tasks/configured/errors from other sources.
         setTasks(prev => [...prev.filter(t => t.source !== source), ...body.tasks])

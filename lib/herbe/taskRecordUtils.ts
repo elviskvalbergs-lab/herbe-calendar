@@ -95,9 +95,17 @@ async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: stri
   const from = new Date(today); from.setFullYear(from.getFullYear() - 1)
   const to = new Date(today); to.setMonth(to.getMonth() + 6)
   const fmt = (d: Date) => d.toISOString().slice(0, 10)
+  // Two server-side optimisations vs the naive "fetch every ActVc in the
+  // range" query: filter.TodoFlag=1 tells ERP to send only task records
+  // (calendar events are the overwhelming majority in busy accounts), and
+  // fields= trims each row to the handful the task mapper actually reads.
+  // Together these often cut the fetch from tens of seconds to a second or
+  // two on large connections.
   const raw = await herbeFetchAll(REGISTERS.activities, {
     sort: 'TransDate',
     range: `${fmt(from)}:${fmt(to)}`,
+    'filter.TodoFlag': '1',
+    fields: 'SerNr,Comment,TransDate,OKFlag,TodoFlag,MainPersons,CCPersons,ActType,PRCode,PRName,CUCode,CUName,Text',
   }, 500, conn)
 
   const tasks: Task[] = []

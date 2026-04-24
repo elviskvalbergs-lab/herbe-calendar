@@ -60,11 +60,32 @@ export async function GET(req: Request) {
     ])
 
     const empty = { tasks: [] as Task[], configured: false } as SourceResult
-    const [erpR, outlookR, googleR] = await Promise.all([
-      want('herbe') ? fetchErpAndCache(accountId, email, personCode ? [personCode] : []) : Promise.resolve(empty),
-      want('outlook') ? fetchOutlookAndCache(accountId, email, azureConfig) : Promise.resolve(empty),
-      want('google') ? fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured) : Promise.resolve(empty),
+    // Time each source independently so we can show the user where the
+    // aggregate latency is going. Kept parallel — this is only diagnostic.
+    const timed = <T,>(label: TaskSource, run: () => Promise<T>): Promise<{ result: T; ms: number }> => {
+      const t0 = Date.now()
+      return run().then(result => {
+        const ms = Date.now() - t0
+        console.log(`[tasks] ${label} fetched in ${ms}ms`)
+        return { result, ms }
+      })
+    }
+    const [erpT, outlookT, googleT] = await Promise.all([
+      want('herbe')
+        ? timed('herbe', () => fetchErpAndCache(accountId, email, personCode ? [personCode] : []))
+        : Promise.resolve({ result: empty, ms: 0 }),
+      want('outlook')
+        ? timed('outlook', () => fetchOutlookAndCache(accountId, email, azureConfig))
+        : Promise.resolve({ result: empty, ms: 0 }),
+      want('google')
+        ? timed('google', () => fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured))
+        : Promise.resolve({ result: empty, ms: 0 }),
     ])
+    const erpR = erpT.result, outlookR = outlookT.result, googleR = googleT.result
+    const timings: Partial<Record<TaskSource, number>> = {}
+    if (want('herbe')) timings.herbe = erpT.ms
+    if (want('outlook')) timings.outlook = outlookT.ms
+    if (want('google')) timings.google = googleT.ms
 
     const errors: SourceErrorInfo[] = []
     if (erpR.error) errors.push({ source: 'herbe', msg: erpR.error, stale: erpR.stale })
@@ -81,8 +102,8 @@ export async function GET(req: Request) {
     if (want('outlook')) configured.outlook = !!outlookR.configured
     if (want('google')) configured.google = !!googleR.configured
 
-    console.log(`[tasks] returning ${tasks.length} total (erp=${erpR.tasks.length} outlook=${outlookR.tasks.length} google=${googleR.tasks.length}) configured=${JSON.stringify(configured)} errors=${errors.length} source=${requestedSource ?? 'all'}`)
-    return NextResponse.json({ tasks, configured, errors, source: requestedSource ?? null }, { headers: { 'Cache-Control': 'no-store' } })
+    console.log(`[tasks] returning ${tasks.length} total (erp=${erpR.tasks.length}/${timings.herbe ?? '-'}ms outlook=${outlookR.tasks.length}/${timings.outlook ?? '-'}ms google=${googleR.tasks.length}/${timings.google ?? '-'}ms) errors=${errors.length} source=${requestedSource ?? 'all'}`)
+    return NextResponse.json({ tasks, configured, errors, timings, source: requestedSource ?? null }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     console.error('[tasks] aggregator failed:', e)
     return NextResponse.json(
