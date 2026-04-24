@@ -40,6 +40,7 @@ interface Props {
   onTasksTabChange?: (tab: 'all' | TaskSource) => void
   onToggleTaskDone?: (task: Task, done: boolean) => void
   onEditTask?: (task: Task) => void
+  onCopyTaskAsTask?: (task: Task) => void
   onCopyTaskToEvent?: (task: Task) => void
   onCreateTask?: (source: TaskSource) => void
 }
@@ -47,7 +48,7 @@ interface Props {
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
   onSelectDate, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
-  tasks, tasksLoading, taskSources, taskErrors, tasksTab, onTasksTabChange, onToggleTaskDone, onEditTask, onCopyTaskToEvent, onCreateTask,
+  tasks, tasksLoading, taskSources, taskErrors, tasksTab, onTasksTabChange, onToggleTaskDone, onEditTask, onCopyTaskAsTask, onCopyTaskToEvent, onCreateTask,
 }: Props) {
   const selectedDay = date
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
@@ -476,6 +477,7 @@ export default function MonthView({
                 handlers={{
                   onToggleDone: onToggleTaskDone ?? (() => {}),
                   onEdit: onEditTask ?? (() => {}),
+                  onCopyAsTask: onCopyTaskAsTask ?? (() => {}),
                   onCopyToEvent: onCopyTaskToEvent ?? (() => {}),
                   onCreate: onCreateTask ?? (() => {}),
                 }}

@@ -11,7 +11,7 @@ const tasks: Task[] = [
   { id: 'outlook:1', source: 'outlook', sourceConnectionId: '', title: 'O', done: false },
 ]
 
-const noopHandlers = { onToggleDone: jest.fn(), onEdit: jest.fn(), onCopyToEvent: jest.fn(), onCreate: jest.fn() }
+const noopHandlers = { onToggleDone: jest.fn(), onEdit: jest.fn(), onCopyAsTask: jest.fn(), onCopyToEvent: jest.fn(), onCreate: jest.fn() }
 
 it('only renders tabs for configured sources', () => {
   render(

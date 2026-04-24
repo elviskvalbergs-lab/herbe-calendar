@@ -14,6 +14,7 @@ const SOURCE_LABEL: Record<TaskSource, string> = {
 interface CommonHandlers {
   onToggleDone: (task: Task, next: boolean) => void
   onEdit: (task: Task) => void
+  onCopyAsTask: (task: Task) => void
   onCopyToEvent: (task: Task) => void
   onCreate: (source: TaskSource) => void
 }
@@ -64,6 +65,7 @@ function SourceSection(props: {
               urgency={classifyUrgency(task.dueDate, task.done, now)}
               onToggleDone={handlers.onToggleDone}
               onEdit={handlers.onEdit}
+              onCopyAsTask={handlers.onCopyAsTask}
               onCopyToEvent={handlers.onCopyToEvent}
             />
           ))}
@@ -85,6 +87,7 @@ function SourceSection(props: {
               urgency="none"
               onToggleDone={handlers.onToggleDone}
               onEdit={handlers.onEdit}
+              onCopyAsTask={handlers.onCopyAsTask}
               onCopyToEvent={handlers.onCopyToEvent}
             />
           ))}

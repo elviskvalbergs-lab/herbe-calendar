@@ -17,39 +17,46 @@ const taskFixture: Task = {
 }
 
 it('renders the title', () => {
-  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyToEvent={() => {}} />)
+  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
   expect(screen.getByText('Review prototype')).toBeInTheDocument()
 })
 
 it('fires onToggleDone when the checkbox is clicked', () => {
   const onToggleDone = jest.fn()
-  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={onToggleDone} onEdit={() => {}} onCopyToEvent={() => {}} />)
+  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={onToggleDone} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
   fireEvent.click(screen.getByRole('checkbox'))
   expect(onToggleDone).toHaveBeenCalledWith(taskFixture, true)
 })
 
 it('fires onEdit when the title is clicked', () => {
   const onEdit = jest.fn()
-  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={onEdit} onCopyToEvent={() => {}} />)
+  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={onEdit} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
   fireEvent.click(screen.getByText('Review prototype'))
   expect(onEdit).toHaveBeenCalledWith(taskFixture)
 })
 
-it('fires onCopyToEvent when the copy-to-event icon is clicked', () => {
+it('fires onCopyAsTask when the duplicate icon is clicked', () => {
+  const onCopyAsTask = jest.fn()
+  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={onCopyAsTask} onCopyToEvent={() => {}} />)
+  fireEvent.click(screen.getByLabelText('Duplicate as task'))
+  expect(onCopyAsTask).toHaveBeenCalledWith(taskFixture)
+})
+
+it('fires onCopyToEvent when the create-event icon is clicked', () => {
   const onCopyToEvent = jest.fn()
-  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyToEvent={onCopyToEvent} />)
-  fireEvent.click(screen.getByLabelText('Copy to calendar event'))
+  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={onCopyToEvent} />)
+  fireEvent.click(screen.getByLabelText('Create calendar event from this task'))
   expect(onCopyToEvent).toHaveBeenCalledWith(taskFixture)
 })
 
 it('applies urgency-overdue class on the row for a past due date', () => {
   const past: Task = { ...taskFixture, dueDate: '2020-01-01' }
-  render(<TaskRow task={past} urgency="overdue" onToggleDone={() => {}} onEdit={() => {}} onCopyToEvent={() => {}} />)
+  render(<TaskRow task={past} urgency="overdue" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
   expect(screen.getByTestId('task-row')).toHaveClass('urgency-overdue')
 })
 
 it('strikes through title when done', () => {
   const done: Task = { ...taskFixture, done: true }
-  render(<TaskRow task={done} urgency="none" onToggleDone={() => {}} onEdit={() => {}} onCopyToEvent={() => {}} />)
+  render(<TaskRow task={done} urgency="none" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
   expect(screen.getByTestId('task-row')).toHaveClass('done')
 })

@@ -925,6 +925,17 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     })
   }
 
+  function handleCopyTaskAsTask(task: Task) {
+    // Duplicate: same shape as the source task, no editId (treated as create),
+    // and force done=false so the new task starts open.
+    setFormState({
+      open: true,
+      initial: { ...activityShapeFromTask(task), done: false },
+      canEdit: true,
+      mode: 'task',
+    })
+  }
+
   function handleCreateTask(source: TaskSource) {
     const initial: Partial<Activity> = {
       personCode: userCode,
@@ -1009,6 +1020,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           onTasksTabChange={setTasksTab}
           onToggleTaskDone={handleToggleTaskDone}
           onEditTask={handleEditTask}
+          onCopyTaskAsTask={handleCopyTaskAsTask}
           onCopyTaskToEvent={handleCopyTaskToEvent}
           onCreateTask={handleCreateTask}
           dayViewPanel={(

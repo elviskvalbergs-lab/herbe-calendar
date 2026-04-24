@@ -20,6 +20,7 @@ export function TasksSidebar(props: {
   handlers: {
     onToggleDone: (task: Task, next: boolean) => void
     onEdit: (task: Task) => void
+    onCopyAsTask: (task: Task) => void
     onCopyToEvent: (task: Task) => void
     onCreate: (source: TaskSource) => void
   }
