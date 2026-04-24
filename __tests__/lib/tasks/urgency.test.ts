@@ -35,3 +35,67 @@ describe('classifyUrgency', () => {
     expect(classifyUrgency('2026-04-24', false, localMidnight)).toBe('today')
   })
 })
+
+import { urgencyRank, compareForSidebar } from '@/lib/tasks/urgency'
+import type { Task } from '@/types/task'
+
+function t(overrides: Partial<Task>): Task {
+  return {
+    id: overrides.id ?? 'herbe:x',
+    source: overrides.source ?? 'herbe',
+    title: overrides.title ?? 'Task',
+    done: overrides.done ?? false,
+    dueDate: overrides.dueDate,
+    listName: overrides.listName,
+  }
+}
+
+describe('urgencyRank', () => {
+  it('orders overdue < today < none < future', () => {
+    expect(urgencyRank('overdue')).toBe(0)
+    expect(urgencyRank('today')).toBe(1)
+    expect(urgencyRank('none')).toBe(2)
+    expect(urgencyRank('future')).toBe(3)
+  })
+})
+
+describe('compareForSidebar', () => {
+  const NOW = new Date(2026, 3, 24, 12, 0, 0)
+
+  it('sorts by urgency bucket first', () => {
+    const overdue = t({ id: '1', dueDate: '2026-04-20' })
+    const today = t({ id: '2', dueDate: '2026-04-24' })
+    const none = t({ id: '3', dueDate: undefined })
+    const future = t({ id: '4', dueDate: '2026-05-01' })
+    const sorted = [future, none, today, overdue].sort((a, b) => compareForSidebar(a, b, NOW))
+    expect(sorted.map(x => x.id)).toEqual(['1', '2', '3', '4'])
+  })
+
+  it('within overdue: oldest dueDate first', () => {
+    const a = t({ id: 'a', dueDate: '2026-04-10' })
+    const b = t({ id: 'b', dueDate: '2026-04-22' })
+    const sorted = [b, a].sort((x, y) => compareForSidebar(x, y, NOW))
+    expect(sorted.map(x => x.id)).toEqual(['a', 'b'])
+  })
+
+  it('within future: soonest dueDate first', () => {
+    const soon = t({ id: 'soon', dueDate: '2026-04-26' })
+    const later = t({ id: 'later', dueDate: '2026-06-01' })
+    const sorted = [later, soon].sort((a, b) => compareForSidebar(a, b, NOW))
+    expect(sorted.map(x => x.id)).toEqual(['soon', 'later'])
+  })
+
+  it('within none: title ascending, case-insensitive', () => {
+    const a = t({ id: 'a', title: 'banana' })
+    const b = t({ id: 'b', title: 'Apple' })
+    const sorted = [a, b].sort((x, y) => compareForSidebar(x, y, NOW))
+    expect(sorted.map(x => x.id)).toEqual(['b', 'a'])
+  })
+
+  it('is stable for equal keys', () => {
+    const a = t({ id: 'a', dueDate: '2026-04-24' })
+    const b = t({ id: 'b', dueDate: '2026-04-24' })
+    const sorted = [a, b].sort((x, y) => compareForSidebar(x, y, NOW))
+    expect(sorted.map(x => x.id)).toEqual(['a', 'b'])
+  })
+})
