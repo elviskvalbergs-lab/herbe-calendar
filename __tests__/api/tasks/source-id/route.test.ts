@@ -74,6 +74,21 @@ it('ERP PATCH returns 422 when ERP silently rejects (no record in response)', as
   expect(body.error).toMatch(/record-check|not be saved|not saved/i)
 })
 
+it('ERP PATCH forwards activityTypeCode/projectCode/customerCode as ActType/PRCode/CUCode', async () => {
+  ;(herbeFetchById as jest.Mock).mockReset().mockResolvedValue(
+    new Response(JSON.stringify({ data: { ActVc: [{ SerNr: '12345' }] } }), { status: 200 }),
+  )
+  await PATCH(
+    req({ activityTypeCode: 'A', projectCode: '16092', customerCode: '10885', connectionId: 'c1' }),
+    { params: Promise.resolve({ source: 'herbe', id: '12345' }) },
+  )
+  const [, , init] = (herbeFetchById as jest.Mock).mock.calls[0]
+  const body = String(init.body)
+  expect(body).toContain('ActType=A')
+  expect(body).toContain('PRCode=16092')
+  expect(body).toContain('CUCode=10885')
+})
+
 it('returns 400 for unknown source', async () => {
   const res = await PATCH(req({ done: true }), { params: Promise.resolve({ source: 'zzz', id: 'T' }) })
   expect(res.status).toBe(400)

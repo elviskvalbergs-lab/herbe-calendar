@@ -14,6 +14,9 @@ interface PatchBody {
   dueDate?: string | null
   connectionId?: string
   ccPersons?: string[]
+  activityTypeCode?: string
+  projectCode?: string
+  customerCode?: string
 }
 
 export async function PATCH(
@@ -41,6 +44,9 @@ export async function PATCH(
           description: body.description,
           dueDate: body.dueDate ?? undefined,
           ccPersons: body.ccPersons,
+          activityTypeCode: body.activityTypeCode,
+          projectCode: body.projectCode,
+          customerCode: body.customerCode,
         }),
       }
       const result = await saveActVcRecord(merged, { id, conn })

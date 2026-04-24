@@ -160,6 +160,9 @@ export interface EditTaskInput {
   description?: string
   dueDate?: string
   ccPersons?: string[]
+  activityTypeCode?: string
+  projectCode?: string
+  customerCode?: string
 }
 
 export function buildEditTaskBody(input: EditTaskInput): Record<string, string> {
@@ -168,5 +171,8 @@ export function buildEditTaskBody(input: EditTaskInput): Record<string, string> 
   if (input.description !== undefined) body.Text = input.description
   if (input.dueDate !== undefined) body.TransDate = input.dueDate
   if (input.ccPersons !== undefined) body.CCPersons = input.ccPersons.join(',')
+  if (input.activityTypeCode !== undefined) body.ActType = input.activityTypeCode
+  if (input.projectCode !== undefined) body.PRCode = input.projectCode
+  if (input.customerCode !== undefined) body.CUCode = input.customerCode
   return body
 }
