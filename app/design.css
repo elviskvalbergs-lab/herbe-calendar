@@ -3109,10 +3109,8 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   padding: 8px 10px 8px 12px;
   cursor: pointer;
   border-left: 3px solid transparent;
-  border-bottom: 1px solid var(--app-line);
   transition: background var(--dur-quick);
 }
-.tasks-sidebar .task-row:last-child { border-bottom: 0; }
 .tasks-sidebar .task-row:hover { background: var(--app-bg-soft); }
 .tasks-sidebar .task-row.done .task-title { text-decoration: line-through; }
 .tasks-sidebar .task-row.done { opacity: 0.55; }

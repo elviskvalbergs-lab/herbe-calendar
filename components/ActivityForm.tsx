@@ -223,6 +223,19 @@ export default function ActivityForm({
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
   const saveShortcut = isMac ? '⌃⌘S' : 'Ctrl+S'
 
+  // Focus the description input on new task creation and scroll it above the
+  // mobile keyboard. Delayed a frame so the keyboard animation doesn't hide it.
+  useEffect(() => {
+    if (isEdit || mode !== 'task' || initial?.timeFrom) return
+    const timer = setTimeout(() => {
+      const el = descInputRef.current
+      if (!el) return
+      el.focus()
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }, 120)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Recalculate Outlook attendee matching when people emails become available
   // (initial render may have stubs with empty emails from localStorage)
   const peopleEmailsKey = people.filter(p => p.email).map(p => p.email.toLowerCase()).sort().join(',')
