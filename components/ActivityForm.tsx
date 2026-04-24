@@ -159,6 +159,11 @@ export function ActivityForm({
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [savedActivity, setSavedActivity] = useState<Partial<Activity> | null>(null)
+  // True after resetToCreate(copy) has seeded the form from a previously-saved
+  // activity. Discarding an in-flight copy should confirm even when nothing
+  // has been changed yet — the user has presumably started the copy for a
+  // reason, and closing silently loses that work.
+  const [copyDirty, setCopyDirty] = useState(false)
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
@@ -806,6 +811,7 @@ export function ActivityForm({
         source: isOutlookSource ? 'outlook' : isGoogleSource ? 'google' : 'herbe', personCode: selectedPersonCodes[0], description, date, timeFrom, timeTo,
         activityTypeCode, projectCode, projectName, customerCode, customerName,
       })
+      setCopyDirty(false)
       setSaving(false)
 
       if (zoomMeeting) {
@@ -890,7 +896,7 @@ export function ActivityForm({
   }
 
   function handleClose() {
-    if (computeIsDirty()) {
+    if (computeIsDirty() || copyDirty) {
       showConfirm('Discard unsaved changes?', () => onCloseRef.current(), { confirmLabel: 'Discard', destructive: true })
       return
     }
@@ -970,6 +976,7 @@ export function ActivityForm({
     }
     setSelectedCCPersonCodes(copy?.ccPersons ?? [])
     setCCPersonsExpanded(false)
+    setCopyDirty(!!copy)
   }
 
   const initialDestinationKey = useMemo(() => {
