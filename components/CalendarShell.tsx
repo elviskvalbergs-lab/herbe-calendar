@@ -1058,6 +1058,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         <CalendarGrid
           state={state}
           activities={visibleActivities}
+          tasks={tasks}
           loading={loading}
           holidays={holidays}
           sessionUserCode={userCode}
@@ -1065,6 +1066,8 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           getTypeName={getTypeName}
           scale={zoom}
           isLightMode={isLightMode}
+          onTaskToggle={handleToggleTaskDone}
+          onTaskClick={handleEditTask}
           onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks(false, undefined, true) }}
           onNavigate={(dir) => {
             const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1

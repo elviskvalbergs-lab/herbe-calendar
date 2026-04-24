@@ -1,9 +1,11 @@
 'use client'
 import { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react'
 import { Activity, CalendarState, ShareVisibility } from '@/types'
+import type { Task } from '@/types/task'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
+import MultiDayStrip from './MultiDayStrip'
 import { addDays, format, parseISO, isToday } from 'date-fns'
 import { minutesToPx, timeToMinutes, GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
@@ -11,6 +13,7 @@ import { personColor } from '@/lib/colors'
 interface Props {
   state: CalendarState
   activities: Activity[]
+  tasks?: Task[]
   loading: boolean
   sessionUserCode?: string
   getActivityColor: (activity: Activity) => string
@@ -26,20 +29,33 @@ interface Props {
   onDrillDate?: (date: string) => void
   onDrillPerson?: (personCode: string) => void
   onSwitchToMonth?: () => void
+  onTaskToggle?: (task: Task, next: boolean) => void
+  onTaskClick?: (task: Task) => void
   visibility?: ShareVisibility
   holidays?: { dates: Record<string, { name: string; country: string }[]>; personCountries: Record<string, string> }
 }
 
 export default function CalendarGrid({
-  state, activities, loading, sessionUserCode = '', getActivityColor, getTypeName,
+  state, activities, tasks = [], loading, sessionUserCode = '', getActivityColor, getTypeName,
   scale = 1, isLightMode = false, onRefresh, onNavigate, onSlotClick, onActivityClick, onActivityUpdate, onNewForDate,
-  onDrillDate, onDrillPerson, onSwitchToMonth, visibility, holidays
+  onDrillDate, onDrillPerson, onSwitchToMonth, onTaskToggle, onTaskClick, visibility, holidays
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
   const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
   const [expandedUp, setExpandedUp] = useState(false)
   const [expandedDown, setExpandedDown] = useState(false)
+  const [stripCollapsed, setStripCollapsed] = useState<boolean>(false)
+  useEffect(() => {
+    try { setStripCollapsed(localStorage.getItem('herbe-strip-collapsed') === '1') } catch {}
+  }, [])
+  const toggleStrip = useCallback(() => {
+    setStripCollapsed(v => {
+      const next = !v
+      try { localStorage.setItem('herbe-strip-collapsed', next ? '1' : '0') } catch {}
+      return next
+    })
+  }, [])
 
   // Reset expansion on date/view navigation
   const viewKey = `${state.view}-${state.date}`
@@ -385,6 +401,18 @@ export default function CalendarGrid({
                   })}
                 </div>
               </div>
+
+              {/* Multi-day / all-day / tasks strip — per-column, between header and body */}
+              <MultiDayStrip
+                date={date}
+                allDayActivities={activities.filter(a => a.isAllDay && a.date === date)}
+                tasks={tasks.filter(t => t.dueDate === date && !t.done)}
+                collapsed={stripCollapsed}
+                getActivityColor={getActivityColor}
+                onActivityClick={onActivityClick}
+                onTaskToggle={onTaskToggle}
+                onTaskClick={onTaskClick}
+              />
 
               <div className="flex flex-1 relative">
                 {isToday(parseISO(date)) && <CurrentTimeIndicator scale={scale} startHour={effectiveStartHour} />}
