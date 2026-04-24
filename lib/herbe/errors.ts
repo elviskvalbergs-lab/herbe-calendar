@@ -55,8 +55,11 @@ export function extractHerbeError(e: unknown): string {
 
 /**
  * Extract a structured list of {field, code, label} triples from a Herbe
- * errors array. Lets the UI highlight or focus specific fields rather than
- * just showing a text banner.
+ * response. Walks the entire response tree — HAL places validation errors in
+ * several shapes (top-level `errors` array, nested `data.errors`, a single
+ * `error` object, sometimes nested inside the record payload itself), so a
+ * tolerant walk catches all of them and lets the UI highlight the offending
+ * field regardless of where HAL chose to report it.
  */
 export interface HerbeFieldError {
   field: string        // raw HAL field name, e.g. "ActType"
@@ -64,20 +67,33 @@ export interface HerbeFieldError {
   code: string
 }
 
-export function extractHerbeFieldErrors(errs: unknown): HerbeFieldError[] {
-  if (!Array.isArray(errs)) return []
+export function extractHerbeFieldErrors(obj: unknown): HerbeFieldError[] {
+  const seen = new Set<string>()
   const out: HerbeFieldError[] = []
-  for (const e of errs) {
-    if (!e || typeof e !== 'object') continue
-    const o = e as Record<string, unknown>
+
+  function walk(node: unknown): void {
+    if (!node) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item)
+      return
+    }
+    if (typeof node !== 'object') return
+    const o = node as Record<string, unknown>
     const field = o['@field'] ?? o.field
-    if (!field) continue
-    const raw = String(field)
-    out.push({
-      field: raw,
-      label: HERBE_FIELD_LABELS[raw] ?? raw,
-      code: String(o['@code'] ?? o.code ?? ''),
-    })
+    if (field) {
+      const raw = String(field)
+      if (!seen.has(raw)) {
+        seen.add(raw)
+        out.push({
+          field: raw,
+          label: HERBE_FIELD_LABELS[raw] ?? raw,
+          code: String(o['@code'] ?? o.code ?? ''),
+        })
+      }
+    }
+    for (const v of Object.values(o)) walk(v)
   }
+
+  walk(obj)
   return out
 }

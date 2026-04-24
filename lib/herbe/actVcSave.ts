@@ -121,9 +121,19 @@ export async function saveActVcRecord(
     // successful-looking 200 with no record or unparseable body is the exact
     // failure mode this check exists to surface.
     console.warn(`${label}: ERP returned 200 without a record. Body (${rawText.length} chars):`, rawText.slice(0, 1000))
+
+    // Walk the response tree for @field/@code markers — HAL may nest the
+    // offending field in several places, so try them all before giving up.
+    const fieldErrors = extractHerbeFieldErrors(data)
+
     const rawErr = data?.error ?? data?.message ?? data?.errors
     if (rawErr) {
-      return { ok: false, error: extractHerbeError(rawErr), status: 422 }
+      return {
+        ok: false,
+        error: extractHerbeError(rawErr),
+        fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined,
+        status: 422,
+      }
     }
     // No parseable error — surface whatever ERP did return so the user (and
     // logs) can see it. `null` here means JSON.parse failed, so include the
@@ -133,6 +143,7 @@ export async function saveActVcRecord(
     return {
       ok: false,
       error: `Activity was not saved — a record-check rule likely rejected the ${opts.id ? 'update' : 'create'}. ERP response: ${preview}`,
+      fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined,
       status: 422,
     }
   }

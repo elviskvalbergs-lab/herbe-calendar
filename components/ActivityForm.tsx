@@ -550,6 +550,7 @@ export default function ActivityForm({
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set())
 
   function applyFieldErrors(fieldErrors: Array<{ field: string; label: string; code: string }> | undefined) {
+    console.log('[ActivityForm] fieldErrors from server:', fieldErrors)
     const next = new Set<string>((fieldErrors ?? []).map(f => f.field))
     setInvalidFields(next)
     const first = fieldErrors?.[0]
@@ -910,14 +911,17 @@ export default function ActivityForm({
             {isEdit && editId && (() => {
               const connUuid = activeErpConnection?.serpUuid
               const connCompany = activeErpConnection?.companyCode || companyCode
-              const herbeLink = isErpSource && connUuid ? `hansa://${connUuid}/v1/${connCompany}/ActVc/${editId}` : null
-              // Outlook: open in Outlook web calendar in a new tab
-              // For per-user Google: append authuser param so the browser opens the right account
+              // Task ids come prefixed (herbe:42, outlook:abc, google:xyz); events use raw ids.
+              // Strip the prefix before building source-system URLs.
+              const rawEditId = editId.includes(':') ? editId.split(':', 2)[1] : editId
+              const herbeLink = isErpSource && connUuid ? `hansa://${connUuid}/v1/${connCompany}/ActVc/${rawEditId}` : null
+              // For events, open in the calendar web UI. Task-specific deep links
+              // don't exist cleanly for Outlook/Google Tasks, so we skip them.
               const googleWebLink = initial?.webLink && initial?.googleAccountEmail
                 ? `${initial.webLink}${initial.webLink.includes('?') ? '&' : '?'}authuser=${encodeURIComponent(initial.googleAccountEmail)}`
                 : initial?.webLink
-              const externalCalLink = isExternalCalSource
-                ? (googleWebLink || (isOutlookSource ? `https://outlook.office.com/calendar/item/${encodeURIComponent(editId)}` : null))
+              const externalCalLink = mode === 'event' && isExternalCalSource
+                ? (googleWebLink || (isOutlookSource ? `https://outlook.office.com/calendar/item/${encodeURIComponent(rawEditId)}` : null))
                 : null
               const openLink = herbeLink ?? externalCalLink
               const copyText = isExternalCalSource
@@ -940,7 +944,7 @@ export default function ActivityForm({
                         <span>{isGoogleSource ? 'Google' : 'Outlook'}</span>
                       </>
                     ) : (
-                      <>#{editId} <SerpIcon /></>
+                      <>#{rawEditId} <SerpIcon /></>
                     )}
                   </a>
                   {copyText && (
@@ -981,7 +985,7 @@ export default function ActivityForm({
                   )}
                 </span>
               ) : isErpSource ? (
-                <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{editId}</span>
+                <span className="font-mono text-[11px] font-normal px-2 py-0.5 rounded-lg border border-primary/50 bg-primary/10 text-primary">#{rawEditId}</span>
               ) : null
             })()}
             {/* View-only badge in header */}
