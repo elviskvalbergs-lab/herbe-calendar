@@ -98,6 +98,10 @@ describe('saveActVcRecord — create', () => {
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.fieldErrors).toEqual([{ field: 'ActType', label: 'Activity type', code: '1058' }])
+      // Message should be a short sentence, not a raw JSON dump — the pills
+      // carry the per-field info, so the banner text just needs to read
+      // naturally.
+      expect(r.error).toBe('Activity type is required')
     }
   })
 

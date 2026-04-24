@@ -600,9 +600,22 @@ export default function ActivityForm({
       if (!prev.has(field)) return prev
       const next = new Map(prev)
       next.delete(field)
+      // If this was the last outstanding field error, also dismiss the
+      // banner — the user has addressed everything the server flagged.
+      if (next.size === 0) setErrors([])
       return next
     })
   }
+
+  // Clear the matching field highlight as soon as the underlying value
+  // becomes truthy, regardless of whether the user typed it, picked from
+  // the dropdown, or tab-completed. Typing-specific onChange handlers
+  // already call clearFieldError, but selection paths (click/Enter on a
+  // dropdown item, recent-types pill) don't — so we catch those here.
+  useEffect(() => { if (activityTypeCode) clearFieldError('ActType') }, [activityTypeCode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (projectCode) clearFieldError('PRCode') }, [projectCode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (customerCode) clearFieldError('CUCode') }, [customerCode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (description.trim()) clearFieldError('Comment') }, [description]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     const isTaskMode = mode === 'task'

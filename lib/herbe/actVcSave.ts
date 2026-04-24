@@ -140,14 +140,20 @@ export async function saveActVcRecord(
     // offending field in several places, so try them all before giving up.
     const fieldErrors = extractHerbeFieldErrors(data)
 
+    // Prefer structured info when we have it — the field pills already
+    // communicate which inputs are wrong, so the banner should be a short
+    // sentence, not a raw JSON dump.
+    if (fieldErrors.length > 0) {
+      const requiredFields = fieldErrors.filter(f => f.code === '1058').map(f => f.label)
+      const message = requiredFields.length > 0
+        ? `${requiredFields.join(', ')} ${requiredFields.length === 1 ? 'is' : 'are'} required`
+        : `Activity was not saved: ${fieldErrors.map(f => f.label).join(', ')}`
+      return { ok: false, error: message, fieldErrors, status: 422 }
+    }
+
     const rawErr = data?.error ?? data?.message ?? data?.errors
     if (rawErr) {
-      return {
-        ok: false,
-        error: extractHerbeError(rawErr),
-        fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined,
-        status: 422,
-      }
+      return { ok: false, error: extractHerbeError(rawErr), status: 422 }
     }
     // No parseable error — surface whatever ERP did return so the user (and
     // logs) can see it. `null` here means JSON.parse failed, so include the
@@ -157,7 +163,6 @@ export async function saveActVcRecord(
     return {
       ok: false,
       error: `Activity was not saved — a record-check rule likely rejected the ${opts.id ? 'update' : 'create'}. ERP response: ${preview}`,
-      fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined,
       status: 422,
     }
   }
