@@ -3144,23 +3144,24 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 }
 .urgency-overdue .task-due {
   color: var(--app-danger);
-  background: rgba(216,94,73,0.14);
+  background: color-mix(in oklab, var(--app-danger) 14%, transparent);
 }
 .urgency-today .task-due {
   color: var(--app-success);
-  background: rgba(111,173,111,0.14);
+  background: color-mix(in oklab, var(--app-success) 14%, transparent);
 }
+/* List sub-header */
 .task-list-hdr {
   display: flex; align-items: center; gap: 6px;
   margin: 6px 0 2px;
   padding: 4px 14px 2px;
-  font-size: 10.5px; font-weight: 600;
+  font-size: 10px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--app-fg-subtle);
 }
-.task-list-hdr > span:first-child { flex: 1; }
 .task-list-count {
-  font-size: 10.5px; color: var(--app-fg-faint); font-weight: 500;
+  margin-left: auto;
+  font-size: 10px; color: var(--app-fg-faint); font-weight: 500;
 }
 .task-list {
   font-size: 11px; color: var(--app-fg-subtle);
