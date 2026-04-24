@@ -336,81 +336,94 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
 
-        {/* Header with Tabs */}
-        <div className="px-4 pt-3 border-b border-border">
+        {/* Header row — mobile only (desktop uses left-rail) */}
+        <div className="px-4 pt-3 border-b border-border sm:hidden">
           <div className="flex items-center justify-between mb-3">
             <h2 id="settings-modal-title" className="font-bold">Settings</h2>
             <button onClick={() => guardedClose(onClose)} aria-label="Close" className="text-text-muted text-xl leading-none hover:text-text">✕</button>
           </div>
-          <div role="tablist" className="flex gap-4 text-sm">
-            <button
-              role="tab"
-              id="tab-style"
-              aria-selected={activeTab === 'style'}
-              aria-controls="panel-style"
-              onClick={() => setActiveTab('style')}
-              className={`pb-2 px-1 ${activeTab === 'style' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-            >
-              Look & Feel
-            </button>
-            <button
-              role="tab"
-              id="tab-colors"
-              aria-selected={activeTab === 'colors'}
-              aria-controls="panel-colors"
-              onClick={() => setActiveTab('colors')}
-              className={`pb-2 px-1 ${activeTab === 'colors' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-            >
-              Colors
-            </button>
-            <button
-              role="tab"
-              id="tab-integrations"
-              aria-selected={activeTab === 'integrations'}
-              aria-controls="panel-integrations"
-              onClick={() => setActiveTab('integrations')}
-              className={`pb-2 px-1 ${activeTab === 'integrations' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-            >
-              Integrations
-            </button>
-            <button
-              role="tab"
-              id="tab-templates"
-              aria-selected={activeTab === 'templates'}
-              aria-controls="panel-templates"
-              onClick={() => setActiveTab('templates')}
-              className={`pb-2 px-1 ${activeTab === 'templates' ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-            >
-              Templates
-            </button>
-            {activeTab === 'integrations' && (
-              <a
-                href="/docs/integrations"
-                target="_blank"
-                rel="noopener"
-                className="ml-auto mb-2 inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold shrink-0"
-                title="Help: Integrations"
-              >?</a>
-            )}
-            {activeTab === 'templates' && (
-              <a
-                href="/docs/booking"
-                target="_blank"
-                rel="noopener"
-                className="ml-auto mb-2 inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold shrink-0"
-                title="Help: Booking templates"
-              >?</a>
-            )}
+          <div role="tablist" className="flex gap-4 text-sm overflow-x-auto -mx-1 px-1">
+            {(['style','colors','integrations','templates'] as const).map(id => (
+              <button
+                key={id}
+                role="tab"
+                id={`tab-${id}-m`}
+                aria-selected={activeTab === id}
+                aria-controls={`panel-${id}`}
+                onClick={() => setActiveTab(id)}
+                className={`pb-2 px-1 whitespace-nowrap ${activeTab === id ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
+              >
+                {id === 'style' ? 'Look & Feel' : id === 'colors' ? 'Colors' : id === 'integrations' ? 'Integrations' : 'Templates'}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div
-          role="tabpanel"
-          id={`panel-${activeTab}`}
-          aria-labelledby={`tab-${activeTab}`}
-          className="overflow-y-auto flex-1 min-h-0 p-4 space-y-6"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
+        {/* Desktop: left-rail + content split */}
+        <div className="flex flex-1 min-h-0">
+          {/* Left rail — desktop only */}
+          <nav className="hidden sm:flex flex-col w-44 border-r border-border bg-bg/40 shrink-0">
+            <div className="px-4 pt-4 pb-3 flex items-center gap-2 border-b border-border">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span className="font-bold text-sm">Settings</span>
+            </div>
+            <div role="tablist" aria-orientation="vertical" className="flex flex-col py-2">
+              {([
+                { id: 'style' as const, label: 'Look & Feel' },
+                { id: 'colors' as const, label: 'Colors' },
+                { id: 'integrations' as const, label: 'Integrations' },
+                { id: 'templates' as const, label: 'Templates' },
+              ]).map(t => {
+                const active = activeTab === t.id
+                return (
+                  <button
+                    key={t.id}
+                    role="tab"
+                    id={`tab-${t.id}`}
+                    aria-selected={active}
+                    aria-controls={`panel-${t.id}`}
+                    onClick={() => setActiveTab(t.id)}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm transition-colors text-left ${
+                      active
+                        ? 'bg-primary/10 text-primary font-bold border-l-2 border-primary'
+                        : 'text-text-muted hover:text-text hover:bg-border/20 border-l-2 border-transparent'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
+
+          {/* Right: title + close + tabpanel */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="hidden sm:flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">
+                  {activeTab === 'style' ? 'Look & Feel' : activeTab === 'colors' ? 'Colors' : activeTab === 'integrations' ? 'Integrations' : 'Templates'}
+                </span>
+                {activeTab === 'integrations' && (
+                  <a href="/docs/integrations" target="_blank" rel="noopener"
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold"
+                    title="Help: Integrations">?</a>
+                )}
+                {activeTab === 'templates' && (
+                  <a href="/docs/booking" target="_blank" rel="noopener"
+                    className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-text-muted/30 text-text-muted hover:text-primary hover:border-primary text-[9px] font-bold"
+                    title="Help: Booking templates">?</a>
+                )}
+              </div>
+              <button onClick={() => guardedClose(onClose)} aria-label="Close" className="text-text-muted text-xl leading-none hover:text-text">✕</button>
+            </div>
+
+            <div
+              role="tabpanel"
+              id={`panel-${activeTab}`}
+              aria-labelledby={`tab-${activeTab}`}
+              className="overflow-y-auto flex-1 min-h-0 p-4 space-y-6"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
           {activeTab === 'style' && (
             <>
               {/* Theme */}
@@ -1159,7 +1172,9 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             </div>
           )}
 
-        </div>
+            </div> {/* /tabpanel */}
+          </div> {/* /flex-1 flex-col */}
+        </div> {/* /flex flex-1 (left-rail + content) */}
 
       </div>
       {confirmState && (
