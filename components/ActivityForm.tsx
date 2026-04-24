@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Activity, ActivityType, ActivityClassGroup, SearchResult, Person } from '@/types'
-import type { UserGoogleAccount } from '@/types'
+import type { Destination } from '@/lib/destinations/types'
+import { DestinationPicker } from './DestinationPicker'
 import ErrorBanner from './ErrorBanner'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
@@ -75,8 +76,6 @@ interface Props {
   allProjects?: { Code: string; Name: string; CUCode: string | null; CUName: string | null }[]
   allItems?: { Code: string; Name: string }[]
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
-  availableSources?: { herbe: boolean; azure: boolean; google?: boolean }
-  userGoogleAccounts?: UserGoogleAccount[]
   zoomConfigured?: boolean
   mode?: 'event' | 'task'
 }
@@ -91,32 +90,22 @@ function SerpIcon() {
   )
 }
 
-export default function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], availableSources, userGoogleAccounts, zoomConfigured, mode = 'event'
+export function ActivityForm({
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], zoomConfigured, mode = 'event'
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  // Source: 'outlook', 'google', or an ERP connection ID
-  const [source, setSource] = useState<string>(() => {
-    if (initial?.source === 'outlook') return 'outlook'
-    if (initial?.source === 'google') return 'google'
-    // For edit mode: use the activity's own connection ID if available
-    if (isEdit && initial?.erpConnectionId) return initial.erpConnectionId
-    // For ERP activities, prefer last-used connection from localStorage
-    if (erpConnections.length > 0) {
-      const savedErp = (() => { try { return localStorage.getItem('lastErpConnection') } catch { return null } })()
-      if (savedErp && erpConnections.some(c => c.id === savedErp)) return savedErp
-      return erpConnections[0].id
-    }
-    return 'herbe'
-  })
-  const isOutlookSource = source === 'outlook'
-  const isGoogleSource = source === 'google'
+  const [destination, setDestination] = useState<Destination | null>(null)
+
+  const isOutlookSource    = destination?.source === 'outlook'
+  const isGoogleSource     = destination?.source === 'google'
   const isExternalCalSource = isOutlookSource || isGoogleSource
-  const isErpSource = !isExternalCalSource
-  const activeErpConnection = erpConnections.find(c => c.id === source)
+  const isErpSource        = destination?.source === 'herbe'
+  const activeErpConnection = (destination?.meta.kind === 'herbe' && destination.meta.connectionId)
+    ? erpConnections.find(c => c.id === (destination.meta as Extract<Destination['meta'], { kind: 'herbe' }>).connectionId)
+    : undefined
   const [selectedPersonCodes, setSelectedPersonCodes] = useState<string[]>(() => {
     if (isEdit && initial?.mainPersons?.length) return initial.mainPersons
     if (isEdit && (initial?.source === 'outlook' || initial?.source === 'google') && initial?.attendees?.length) {
@@ -172,9 +161,6 @@ export default function ActivityForm({
   const [recentCCPersonCodes, setRecentCCPersonCodes] = useState<string[]>([])
   const [rsvpStatus, setRsvpStatus] = useState<Activity['rsvpStatus']>(initial?.rsvpStatus)
   const [rsvpLoading, setRsvpLoading] = useState(false)
-  const [selectedGoogleCalendar, setSelectedGoogleCalendar] = useState<string>(() => {
-    try { return localStorage.getItem('lastGoogleCalendar') ?? '' } catch { return '' }
-  })
   // Outlook-specific: external attendees, location, Teams toggle
   const [externalAttendees, setExternalAttendees] = useState<string[]>(() => {
     if (!initial?.attendees) return []
@@ -253,6 +239,30 @@ export default function ActivityForm({
     }
     setExternalAttendees(external)
   }, [peopleEmailsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const parkedErpFields = useRef({
+    activityTypeCode: '',
+    projectCode: '',
+    customerCode: '',
+    ccPersons: [] as string[],
+  })
+
+  useEffect(() => {
+    if (!destination) return
+    if (destination.source === 'herbe') {
+      setActivityTypeCode(parkedErpFields.current.activityTypeCode)
+      setProjectCode(parkedErpFields.current.projectCode)
+      setCustomerCode(parkedErpFields.current.customerCode)
+      setSelectedCCPersonCodes(parkedErpFields.current.ccPersons)
+    } else {
+      parkedErpFields.current = {
+        activityTypeCode,
+        projectCode,
+        customerCode,
+        ccPersons: selectedCCPersonCodes,
+      }
+    }
+  }, [destination?.key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist last-used ERP connection to localStorage
   useEffect(() => {
@@ -350,7 +360,7 @@ export default function ActivityForm({
     // Load recent types for this connection
     const connKey = activeErpConnection?.id ?? 'default'
     setRecentTypes(getRecentTypes(connKey))
-  }, [source]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destination?.key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function filterActivityTypes(q: string) {
     const lower = q.toLowerCase()
@@ -669,6 +679,14 @@ export default function ActivityForm({
           body.mainPersons = selectedPersonCodes
           body.ccPersons = selectedCCPersonCodes
         }
+        if (destination?.meta.kind === 'google-task') {
+          body.googleTokenId = destination.meta.tokenId
+          body.googleListId = destination.meta.listId
+          body.googleListTitle = destination.meta.listName
+        }
+        if (destination?.meta.kind === 'outlook-task') {
+          body.listId = destination.meta.listId
+        }
         // Include done status for task edits — lets the user toggle completion
         // from the form instead of only the sidebar checkbox, which is useful
         // when the sidebar toggle silently failed and there's no visible error.
@@ -697,6 +715,11 @@ export default function ActivityForm({
             dueDate: date || undefined,
           },
         } : undefined
+        try {
+          if (destination && !isEdit) {
+            localStorage.setItem(`defaultDestination:${mode}`, destination.key)
+          }
+        } catch {}
         onSaved({ source: taskSource, patch })
         setSaving(false)
         onClose()
@@ -721,8 +744,9 @@ export default function ActivityForm({
       const body: Record<string, unknown> = isErpSource ? buildHerbePayload() : buildOutlookPayload()
 
       // For new per-user Google events, include token + calendar IDs
-      if (isGoogleSource && !isEdit && selectedGoogleCalendar) {
-        const [tokenId, calendarId] = selectedGoogleCalendar.split(':')
+      if (isGoogleSource && !isEdit && destination?.meta.kind === 'google-event') {
+        const tokenId = destination.meta.tokenId
+        const calendarId = destination.meta.calendarId
         body.googleTokenId = tokenId
         body.googleCalendarId = calendarId
       }
@@ -749,6 +773,11 @@ export default function ActivityForm({
         ? String(data?.SerNr ?? data?.id ?? '')
         : ''
 
+      try {
+        if (destination && !isEdit) {
+          localStorage.setItem(`defaultDestination:${mode}`, destination.key)
+        }
+      } catch {}
       onSaved()
       if (activityTypeCode) saveRecentType(activityTypeCode, activeErpConnection?.id)
       saveRecentPersons(selectedPersonCodes)
@@ -926,6 +955,10 @@ export default function ActivityForm({
     setSelectedCCPersonCodes(copy?.ccPersons ?? [])
     setCCPersonsExpanded(false)
   }
+
+  const initialDestinationKey = useMemo(() => {
+    try { return localStorage.getItem(`defaultDestination:${mode}`) } catch { return null }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="backdrop" onClick={handleClose}>
@@ -1208,62 +1241,23 @@ export default function ActivityForm({
             </div>
           )}
 
-          {/* Source toggle (create only) */}
           {!isEdit && (
-            <div className="aed-tabs">
-              {erpConnections.map(conn => (
-                <button
-                  key={conn.id}
-                  onClick={() => setSource(conn.id)}
-                  className={`aed-tab ${source === conn.id ? 'active' : ''}`}
-                >
-                  {conn.name === 'Default (env)' ? 'ERP' : conn.name}
-                </button>
-              ))}
-              {availableSources?.azure && (
-                <button
-                  key="outlook"
-                  onClick={() => setSource('outlook')}
-                  className={`aed-tab ${source === 'outlook' ? 'active' : ''}`}
-                >
-                  Outlook
-                </button>
-              )}
-              {(availableSources?.google || (mode === 'task' && (userGoogleAccounts?.length ?? 0) > 0)) && (
-                <button
-                  key="google"
-                  onClick={() => setSource('google')}
-                  className={`aed-tab ${source === 'google' ? 'active' : ''}`}
-                >
-                  Google
-                </button>
-              )}
-            </div>
+            <DestinationPicker
+              mode={mode}
+              value={destination?.key ?? null}
+              initialKey={initialDestinationKey}
+              onChange={(next) => setDestination(next)}
+            />
           )}
-
-          {/* Google calendar sub-picker (event mode only — task mode has no concept of calendars) */}
-          {!isEdit && isGoogleSource && mode !== 'task' && userGoogleAccounts && userGoogleAccounts.length > 0 && (
-            <div className="mt-2">
-              <label className="aed-label">Calendar</label>
-              <select
-                value={selectedGoogleCalendar}
-                onChange={e => {
-                  setSelectedGoogleCalendar(e.target.value)
-                  try { localStorage.setItem('lastGoogleCalendar', e.target.value) } catch {}
-                }}
-                className="select-field aed-input"
-              >
-                <option value="">Primary (domain)</option>
-                {userGoogleAccounts.map(account => (
-                  <optgroup key={account.id} label={account.googleEmail}>
-                    {account.calendars.filter(c => c.enabled).map(cal => (
-                      <option key={cal.id} value={`${account.id}:${cal.calendarId}`}>
-                        {cal.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+          {isEdit && initial && (
+            <div className="destination-picker">
+              <label className="aed-label">Destination</label>
+              <div className="destination-picker-row">
+                <span className="destination-sourcelabel-readonly">
+                  {initial.source === 'herbe' ? 'ERP' : initial.source === 'outlook' ? 'Outlook' : initial.source === 'google' ? 'Google' : '—'}
+                  {initial.erpConnectionName ? ` · ${initial.erpConnectionName}` : ''}
+                </span>
+              </div>
             </div>
           )}
 
@@ -2214,3 +2208,5 @@ function TemplateQuickPick({ onApply, activityTypes }: {
     </span>
   )
 }
+
+export default ActivityForm
