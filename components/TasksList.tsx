@@ -1,6 +1,8 @@
 'use client'
 import type { Task, TaskSource } from '@/types/task'
 import { TaskRow } from './TaskRow'
+import { groupBySourceAndList } from '@/lib/tasks/grouping'
+import { classifyUrgency } from '@/lib/tasks/urgency'
 import { useState } from 'react'
 
 const SOURCE_LABEL: Record<TaskSource, string> = {
@@ -19,12 +21,14 @@ interface CommonHandlers {
 function SourceSection(props: {
   source: TaskSource
   tasks: Task[]
+  now: Date
   handlers: CommonHandlers
   showHeader: boolean
 }) {
-  const { source, tasks, handlers, showHeader } = props
+  const { source, tasks, now, handlers, showHeader } = props
   const [showCompleted, setShowCompleted] = useState(false)
-  const open = tasks.filter(t => !t.done)
+  const [sourceGroup] = groupBySourceAndList(tasks, [source], now)
+  const openCount = sourceGroup.lists.reduce((n, l) => n + l.tasks.length, 0)
   const completed = tasks.filter(t => t.done)
 
   return (
@@ -32,7 +36,7 @@ function SourceSection(props: {
       {showHeader && (
         <header className="task-section-hdr">
           <span className="task-section-title">{SOURCE_LABEL[source]}</span>
-          <span className="task-section-count">{open.length}</span>
+          <span className="task-section-count">{openCount}</span>
           <button
             type="button"
             className="btn btn-sm btn-ghost task-new-btn"
@@ -42,20 +46,29 @@ function SourceSection(props: {
           </button>
         </header>
       )}
-      <div>
-        {open.length === 0 && (
-          <p className="task-empty">No open tasks.</p>
-        )}
-        {open.map(t => (
-          <TaskRow
-            key={t.id}
-            task={t}
-            onToggleDone={handlers.onToggleDone}
-            onEdit={handlers.onEdit}
-            onCopyToEvent={handlers.onCopyToEvent}
-          />
-        ))}
-      </div>
+      {sourceGroup.lists.length === 0 && (
+        <p className="task-empty">No open tasks.</p>
+      )}
+      {sourceGroup.lists.map((list, idx) => (
+        <div key={list.listName ?? `__single__${idx}`}>
+          {list.listName !== null && (
+            <h4 className="task-list-hdr">
+              <span>{list.listName}</span>
+              <span className="task-list-count">{list.tasks.length}</span>
+            </h4>
+          )}
+          {list.tasks.map(task => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              urgency={classifyUrgency(task.dueDate, task.done, now)}
+              onToggleDone={handlers.onToggleDone}
+              onEdit={handlers.onEdit}
+              onCopyToEvent={handlers.onCopyToEvent}
+            />
+          ))}
+        </div>
+      ))}
       {completed.length > 0 && (
         <>
           <button
@@ -65,10 +78,11 @@ function SourceSection(props: {
           >
             {showCompleted ? '▾' : '▸'} {completed.length} completed
           </button>
-          {showCompleted && completed.map(t => (
+          {showCompleted && completed.map(task => (
             <TaskRow
-              key={t.id}
-              task={t}
+              key={task.id}
+              task={task}
+              urgency="none"
               onToggleDone={handlers.onToggleDone}
               onEdit={handlers.onEdit}
               onCopyToEvent={handlers.onCopyToEvent}
@@ -83,10 +97,11 @@ function SourceSection(props: {
 export function TasksList(props: {
   tab: 'all' | TaskSource
   tasks: Task[]
+  now: Date
   configured: { herbe: boolean; outlook: boolean; google: boolean }
   handlers: CommonHandlers
 }) {
-  const { tab, tasks, configured, handlers } = props
+  const { tab, tasks, now, configured, handlers } = props
   if (tab === 'all') {
     const sources: TaskSource[] = (['herbe', 'outlook', 'google'] as TaskSource[])
       .filter(s => configured[s])
@@ -97,6 +112,7 @@ export function TasksList(props: {
             key={s}
             source={s}
             tasks={tasks.filter(t => t.source === s)}
+            now={now}
             handlers={handlers}
             showHeader={true}
           />
@@ -108,6 +124,7 @@ export function TasksList(props: {
     <SourceSection
       source={tab}
       tasks={tasks.filter(t => t.source === tab)}
+      now={now}
       handlers={handlers}
       showHeader={true}
     />

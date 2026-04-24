@@ -1,17 +1,12 @@
 'use client'
 import type { Task } from '@/types/task'
+import type { Urgency } from '@/lib/tasks/urgency'
 import { format, parseISO } from 'date-fns'
 
 const SOURCE_COLOR: Record<Task['source'], string> = {
   herbe: '#00AEE7',
   outlook: '#6264a7',
   google: '#4285f4',
-}
-
-function isOverdue(dueDate: string | undefined, done: boolean): boolean {
-  if (!dueDate || done) return false
-  const today = new Date().toISOString().slice(0, 10)
-  return dueDate < today
 }
 
 function formatDueDate(iso: string): string {
@@ -46,17 +41,20 @@ function EditIcon() {
 
 export function TaskRow(props: {
   task: Task
+  urgency: Urgency
   onToggleDone: (task: Task, next: boolean) => void
   onEdit: (task: Task) => void
   onCopyToEvent: (task: Task) => void
 }) {
-  const { task, onToggleDone, onEdit, onCopyToEvent } = props
-  const overdue = isOverdue(task.dueDate, task.done)
+  const { task, urgency, onToggleDone, onEdit, onCopyToEvent } = props
+  const rowClass = ['task-row']
+  if (task.done) rowClass.push('done')
+  rowClass.push(`urgency-${urgency}`)
 
   return (
     <div
       data-testid="task-row"
-      className={`task-row ${task.done ? 'done' : ''}`}
+      className={rowClass.join(' ')}
       style={{ borderLeftColor: SOURCE_COLOR[task.source] }}
     >
       <input
@@ -71,10 +69,7 @@ export function TaskRow(props: {
         {(task.dueDate || task.listName) && (
           <div className="task-meta">
             {task.dueDate && (
-              <span
-                data-testid="due-badge"
-                className={`task-due ${overdue ? 'overdue' : ''}`}
-              >
+              <span data-testid="due-badge" className="task-due">
                 {formatDueDate(task.dueDate)}
               </span>
             )}

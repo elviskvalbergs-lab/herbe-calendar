@@ -29,6 +29,7 @@ export function TasksSidebar(props: {
     .filter(s => configured[s])
   const countBy = (s: TaskSource) => tasks.filter(t => t.source === s && !t.done).length
   const total = tasks.filter(t => !t.done).length
+  const now = new Date()
 
   return (
     <div className="tasks-sidebar">
@@ -63,6 +64,7 @@ export function TasksSidebar(props: {
         <TasksList
           tab={activeTab}
           tasks={tasks}
+          now={now}
           configured={configured}
           handlers={handlers}
         />
