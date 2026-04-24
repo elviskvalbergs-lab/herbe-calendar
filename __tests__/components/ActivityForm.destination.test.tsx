@@ -80,8 +80,8 @@ it('edit mode: seeds destination from initial so the picker is hidden but source
     date: '2026-04-24',
   }
   render(<ActivityForm {...commonProps({ initial, editId: 'outlook:EXISTING' })} />)
-  // The static destination label (not a combobox) should render with Outlook · Shopping.
-  await waitFor(() => expect(screen.getByText(/Outlook · Shopping/)).toBeInTheDocument())
+  // The static destination label is a disabled <input> with the full label.
+  await waitFor(() => expect(screen.getByDisplayValue('Outlook · Shopping')).toBeInTheDocument())
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
 })
 

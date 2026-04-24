@@ -2649,7 +2649,10 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   }
   .aed-header { padding: 12px 14px 10px; }
   .aed-body { padding: 10px 14px 14px; }
-  .aed-footer { padding: 8px 12px; gap: 6px; }
+  .aed-footer {
+    padding: 10px 14px max(18px, calc(env(safe-area-inset-bottom) + 14px)) 14px;
+    gap: 6px;
+  }
   /* Tabs stay horizontal — one row for all three source tabs */
   .aed-tabs { grid-template-columns: repeat(3, 1fr); margin-bottom: 12px; }
   .aed-tab { padding: 6px 6px; font-size: 11px; }

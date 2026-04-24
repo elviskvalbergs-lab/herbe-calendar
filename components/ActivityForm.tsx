@@ -123,7 +123,12 @@ export function ActivityForm({
     return defaultPersonCodes?.length ? defaultPersonCodes : [defaultPersonCode]
   })
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [date, setDate] = useState(initial?.date ?? format(new Date(), 'yyyy-MM-dd'))
+  // Task mode leaves the date blank unless one was supplied — Outlook/Google
+  // tasks support no-date, and the ERP backend stamps TransDate=today on create
+  // when the client doesn't send dueDate.
+  const [date, setDate] = useState(
+    initial?.date ?? (mode === 'task' ? '' : format(new Date(), 'yyyy-MM-dd'))
+  )
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom ?? smartDefaultStart())
   const [timeTo, setTimeTo] = useState(initial?.timeTo ?? '')
   const [activityTypeCode, setActivityTypeCode] = useState(initial?.activityTypeCode ?? '')
@@ -696,6 +701,7 @@ export function ActivityForm({
         }
         if (destination?.meta.kind === 'outlook-task') {
           body.listId = destination.meta.listId
+          body.listTitle = destination.meta.listName
         }
         // Include done status for task edits — lets the user toggle completion
         // from the form instead of only the sidebar checkbox, which is useful
@@ -914,7 +920,7 @@ export function ActivityForm({
     setErrors([])
     if (copy) {
       setDescription(copy.description ?? '')
-      setDate(copy.date ?? format(new Date(), 'yyyy-MM-dd'))
+      setDate(copy.date ?? (mode === 'task' ? '' : format(new Date(), 'yyyy-MM-dd')))
       setActivityTypeCode(copy.activityTypeCode ?? '')
       setCurrentGroup(copy.activityTypeCode ? getTypeGroup?.(copy.activityTypeCode) : undefined)
       setProjectCode(copy.projectCode ?? '')
@@ -1264,10 +1270,15 @@ export function ActivityForm({
               <label className="aed-label">Destination</label>
               <div className="destination-picker-row">
                 <span className="destination-color-dot" style={{ background: destination.color }} aria-hidden="true" />
-                <span className="aed-input" style={{ opacity: 0.7 }}>
-                  {destination.sourceLabel}
-                  {destination.label && destination.label !== destination.sourceLabel ? ` · ${destination.label}` : ''}
-                </span>
+                <input
+                  type="text"
+                  className="input aed-input"
+                  value={destination.label && destination.label !== destination.sourceLabel
+                    ? `${destination.sourceLabel} · ${destination.label}`
+                    : destination.sourceLabel}
+                  disabled
+                  readOnly
+                />
               </div>
             </div>
           )}

@@ -21,6 +21,8 @@ interface CreateBody {
   ccPersons?: string[]
   /** Outlook task list id (unified destination picker). */
   listId?: string
+  /** Outlook task list display name — optional pass-through so the created Task carries the right listName. */
+  listTitle?: string
   /** Google per-user OAuth token row id (unified destination picker). */
   googleTokenId?: string
   /** Google Tasks list id (unified destination picker). */
@@ -76,6 +78,7 @@ export async function POST(
       const task = await createOutlookTask(session.email, {
         title: body.title, description: body.description, dueDate: body.dueDate,
         listId: body.listId,
+        listTitle: body.listTitle,
       }, azure)
       await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })

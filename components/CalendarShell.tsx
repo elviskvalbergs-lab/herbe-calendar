@@ -927,7 +927,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
   function handleCreateTask(source: TaskSource) {
     const initial: Partial<Activity> = {
-      date: state.date,
       personCode: userCode,
       mainPersons: [userCode],
     }

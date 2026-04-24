@@ -120,6 +120,8 @@ export interface CreateOutlookTaskInput {
   dueDate?: string
   /** Microsoft Graph To Do list id. If omitted, writes to the user's default list. */
   listId?: string
+  /** Human list name for the returned Task's listName. Pass through when you already have it. */
+  listTitle?: string
 }
 
 export async function createOutlookTask(
@@ -146,7 +148,7 @@ export async function createOutlookTask(
   )
   if (!res.ok) throw new Error(`create failed: ${res.status}`)
   const created = await res.json() as OutlookTaskApi
-  return mapOutlookTask(created, 'Tasks')
+  return mapOutlookTask(created, input.listTitle ?? 'Tasks')
 }
 
 export interface UpdateOutlookTaskInput {

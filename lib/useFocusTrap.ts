@@ -15,10 +15,16 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
       'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
     )
 
-    // Focus the first focusable element. preventScroll avoids iOS Safari
-    // scrolling the fixed bottom-sheet modal's top behind the URL bar.
-    const focusable = getFocusable()
-    focusable[0]?.focus({ preventScroll: true })
+    // Focus the first focusable element unless something inside the container
+    // is already focused — typically an input with `autoFocus` that React
+    // committed before this effect ran. Don't steal focus from it.
+    // preventScroll avoids iOS Safari scrolling the fixed bottom-sheet modal's
+    // top behind the URL bar.
+    const alreadyFocusedInside = container.contains(document.activeElement)
+    if (!alreadyFocusedInside) {
+      const focusable = getFocusable()
+      focusable[0]?.focus({ preventScroll: true })
+    }
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Tab') return
