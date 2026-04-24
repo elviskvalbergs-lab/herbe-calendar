@@ -99,3 +99,42 @@ export async function replaceCachedTasksForSource(
     client.release()
   }
 }
+
+/**
+ * Delete one cached task row (write-through on task deletion or when a task
+ * leaves the filtered window, e.g. completion pushed beyond the horizon).
+ */
+export async function deleteCachedTask(
+  accountId: string,
+  userEmail: string,
+  source: TaskSource,
+  taskId: string,
+): Promise<void> {
+  await pool.query(
+    `DELETE FROM cached_tasks WHERE account_id = $1 AND user_email = $2 AND source = $3 AND task_id = $4`,
+    [accountId, userEmail, source, taskId],
+  )
+}
+
+/**
+ * Freshness check: true iff we have at least one row for this user+source
+ * fetched within `maxAgeSeconds` (default 5 minutes). Used as a cache-first
+ * gate — equivalent to the `hasCompletedInitialSync` pattern events use,
+ * but scoped per-user since cached_tasks is keyed by user_email and
+ * sync_state is not.
+ */
+export async function tasksCacheIsFresh(
+  accountId: string,
+  userEmail: string,
+  source: TaskSource,
+  maxAgeSeconds = 300,
+): Promise<boolean> {
+  const { rows } = await pool.query<{ age_seconds: number | null }>(
+    `SELECT EXTRACT(EPOCH FROM (now() - MAX(fetched_at)))::float AS age_seconds
+     FROM cached_tasks
+     WHERE account_id = $1 AND user_email = $2 AND source = $3`,
+    [accountId, userEmail, source],
+  )
+  const age = rows[0]?.age_seconds
+  return age !== null && age !== undefined && age < maxAgeSeconds
+}

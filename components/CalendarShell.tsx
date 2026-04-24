@@ -808,11 +808,15 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   // Fetch tasks on mount or after a change. `silent` suppresses the loading
   // spinner for post-save background refreshes. `source` scopes the fetch to
   // a single channel — editing a Google task should not wait on the ERP
-  // fetch, which takes tens of seconds.
-  const loadTasks = useCallback(async (silent = false, source?: TaskSource) => {
+  // fetch, which takes tens of seconds. `live` bypasses the server's cache
+  // and forces a fresh upstream fetch, used by the manual refresh button.
+  const loadTasks = useCallback(async (silent = false, source?: TaskSource, live = false) => {
     if (!silent) setTasksLoading(true)
     try {
-      const url = source ? `/api/tasks?source=${source}` : '/api/tasks'
+      const params = new URLSearchParams()
+      if (source) params.set('source', source)
+      if (live) params.set('live', '1')
+      const url = params.toString() ? `/api/tasks?${params.toString()}` : '/api/tasks'
       const res = await fetch(url)
       if (!res.ok) {
         console.warn('[CalendarShell] /api/tasks non-ok:', res.status)
@@ -940,7 +944,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         onStateChange={setState}
         people={people}
         onNewActivity={() => setFormState({ open: true, initial: { date: state.date } })}
-        onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks() }}
+        onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks(false, undefined, true) }}
         onColorSettings={() => setColorSettingsOpen(true)}
         onShortcuts={() => setShortcutsOpen(true)}
         calendarSources={calendarSources}
@@ -1019,7 +1023,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               getTypeName={getTypeName}
               scale={zoom}
               isLightMode={isLightMode}
-              onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks() }}
+              onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks(false, undefined, true) }}
               onNavigate={() => {}}
               onSlotClick={(personCode, time, date) =>
                 setFormState({ open: true, initial: { personCode, timeFrom: time, date } })
@@ -1050,7 +1054,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           getTypeName={getTypeName}
           scale={zoom}
           isLightMode={isLightMode}
-          onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks() }}
+          onRefresh={() => { fetchActivities(true); reloadColorData(true); loadTasks(false, undefined, true) }}
           onNavigate={(dir) => {
             const step = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
             setState(s => ({

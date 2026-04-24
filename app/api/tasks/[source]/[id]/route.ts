@@ -4,8 +4,10 @@ import { updateOutlookTask } from '@/lib/outlook/tasks'
 import { updateGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
-import { buildCompleteTaskBody, buildEditTaskBody } from '@/lib/herbe/taskRecordUtils'
+import { buildCompleteTaskBody, buildEditTaskBody, mapHerbeTask } from '@/lib/herbe/taskRecordUtils'
 import { saveActVcRecord } from '@/lib/herbe/actVcSave'
+import { upsertCachedTasks } from '@/lib/cache/tasks'
+import type { Task } from '@/types/task'
 
 interface PatchBody {
   done?: boolean
@@ -55,7 +57,11 @@ export async function PATCH(
         if (result.fieldErrors) payload.fieldErrors = result.fieldErrors
         return NextResponse.json(payload, { status: result.status })
       }
-      return NextResponse.json({ ok: true, task: result.record })
+      // Write-through: keep the cache in sync with the mutation so the next
+      // read doesn't have to re-fetch the whole task list.
+      const task = mapHerbeTask(result.record, '', conn.id, conn.name)
+      await writeThroughTask(session.accountId, session.email, 'herbe', task)
+      return NextResponse.json({ ok: true, task })
     }
 
     if (source === 'outlook') {
@@ -64,6 +70,7 @@ export async function PATCH(
       const task = await updateOutlookTask(session.email, id, {
         done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
       }, azure)
+      await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })
     }
 
@@ -74,6 +81,7 @@ export async function PATCH(
       const task = await updateGoogleTask(tokenId, session.email, session.accountId, id, {
         done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
       })
+      await writeThroughTask(session.accountId, session.email, 'google', task)
       return NextResponse.json({ ok: true, task })
     }
 
@@ -81,5 +89,25 @@ export async function PATCH(
   } catch (e) {
     console.error(`[tasks PATCH ${source}/${id}]`, e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+async function writeThroughTask(
+  accountId: string,
+  userEmail: string,
+  source: Task['source'],
+  task: Task,
+): Promise<void> {
+  try {
+    await upsertCachedTasks([{
+      accountId,
+      userEmail,
+      source,
+      connectionId: task.sourceConnectionId ?? '',
+      taskId: task.id,
+      payload: task as unknown as Record<string, unknown>,
+    }])
+  } catch (e) {
+    console.warn(`[tasks PATCH write-through ${source}]`, e)
   }
 }

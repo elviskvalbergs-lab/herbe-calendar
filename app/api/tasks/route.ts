@@ -6,6 +6,7 @@ import { fetchGoogleTasks } from '@/lib/google/tasks'
 import {
   getCachedTasks,
   replaceCachedTasksForSource,
+  tasksCacheIsFresh,
   type CachedTaskRow,
 } from '@/lib/cache/tasks'
 import { getCodeByEmail } from '@/lib/personCodes'
@@ -41,7 +42,12 @@ export async function GET(req: Request) {
 
   try {
     const { accountId, email } = session
-    const requestedSource = new URL(req.url).searchParams.get('source') as TaskSource | null
+    const url = new URL(req.url)
+    const requestedSource = url.searchParams.get('source') as TaskSource | null
+    // ?live=1 forces a live fetch + cache refresh. Default path serves from
+    // the DB cache when it's recent (same pattern as events) so initial
+    // load and post-mutation refreshes don't pay the full ERP roundtrip.
+    const live = url.searchParams.get('live') === '1'
     const want = (s: TaskSource) => !requestedSource || requestedSource === s
 
     const [personCode, azureConfig, googleTokenId, googleWorkspaceConfigured] = await Promise.all([
@@ -72,13 +78,13 @@ export async function GET(req: Request) {
     }
     const [erpT, outlookT, googleT] = await Promise.all([
       want('herbe')
-        ? timed('herbe', () => fetchErpAndCache(accountId, email, personCode ? [personCode] : []))
+        ? timed('herbe', () => fetchErpAndCache(accountId, email, personCode ? [personCode] : [], live))
         : Promise.resolve({ result: empty, ms: 0 }),
       want('outlook')
-        ? timed('outlook', () => fetchOutlookAndCache(accountId, email, azureConfig))
+        ? timed('outlook', () => fetchOutlookAndCache(accountId, email, azureConfig, live))
         : Promise.resolve({ result: empty, ms: 0 }),
       want('google')
-        ? timed('google', () => fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured))
+        ? timed('google', () => fetchGoogleAndCache(accountId, email, googleTokenId, googleWorkspaceConfigured, live))
         : Promise.resolve({ result: empty, ms: 0 }),
     ])
     const erpR = erpT.result, outlookR = outlookT.result, googleR = googleT.result
@@ -138,8 +144,14 @@ function cacheRowsFrom(
   }))
 }
 
-async function fetchErpAndCache(accountId: string, userEmail: string, personCodes: string[]): Promise<SourceResult> {
+async function fetchErpAndCache(accountId: string, userEmail: string, personCodes: string[], live: boolean): Promise<SourceResult> {
   if (personCodes.length === 0) return { tasks: [], configured: true }
+
+  if (!live && await tasksCacheIsFresh(accountId, userEmail, 'herbe')) {
+    const cached = await safeGetCachedTasks(accountId, userEmail, 'herbe')
+    return { tasks: cached, configured: true }
+  }
+
   try {
     const r = await fetchErpTasks(accountId, personCodes)
     if (r.errors.length > 0 && r.tasks.length === 0) {
@@ -157,11 +169,17 @@ async function fetchErpAndCache(accountId: string, userEmail: string, personCode
   }
 }
 
-async function fetchOutlookAndCache(accountId: string, userEmail: string, azureConfig: AzureConfig | null): Promise<SourceResult> {
+async function fetchOutlookAndCache(accountId: string, userEmail: string, azureConfig: AzureConfig | null, live: boolean): Promise<SourceResult> {
   // "configured" means the admin has set up the connection. Tab visibility
   // follows admin/user setup, not live-fetch success. Auth/scope failures
   // surface as errors in-tab.
   if (!azureConfig) return { tasks: [], configured: false }
+
+  if (!live && await tasksCacheIsFresh(accountId, userEmail, 'outlook')) {
+    const cached = await safeGetCachedTasks(accountId, userEmail, 'outlook')
+    return { tasks: cached, configured: true }
+  }
+
   try {
     const r = await fetchOutlookTasks(userEmail, azureConfig)
     if (!r.configured) {
@@ -188,6 +206,7 @@ async function fetchGoogleAndCache(
   userEmail: string,
   tokenId: string | null,
   workspaceConfigured: boolean,
+  live: boolean,
 ): Promise<SourceResult> {
   // Tab visibility: Google is "configured" when EITHER a workspace service
   // account is set up (admin-level) OR the user has per-user OAuth. Google
@@ -198,6 +217,12 @@ async function fetchGoogleAndCache(
   if (!tokenId) {
     return { tasks: [], configured: true, error: 'Connect your personal Google account in Settings to load Tasks' }
   }
+
+  if (!live && await tasksCacheIsFresh(accountId, userEmail, 'google')) {
+    const cached = await safeGetCachedTasks(accountId, userEmail, 'google')
+    return { tasks: cached, configured: true }
+  }
+
   try {
     const r = await fetchGoogleTasks(tokenId, userEmail, accountId)
     if (!r.configured) {

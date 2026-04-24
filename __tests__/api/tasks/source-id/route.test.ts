@@ -24,6 +24,7 @@ jest.mock('@/lib/accountConfig', () => ({
 jest.mock('@/lib/google/userOAuth', () => ({
   getUserGoogleAccounts: jest.fn().mockResolvedValue([{ id: 'tok-1', googleEmail: 'g@x.com', calendars: [] }]),
 }))
+jest.mock('@/lib/cache/tasks', () => ({ upsertCachedTasks: jest.fn().mockResolvedValue(undefined) }))
 
 import { updateOutlookTask } from '@/lib/outlook/tasks'
 import { updateGoogleTask } from '@/lib/google/tasks'

@@ -19,6 +19,8 @@ jest.mock('@/lib/google/tasks', () => ({
 jest.mock('@/lib/cache/tasks', () => ({
   getCachedTasks: jest.fn().mockResolvedValue([]),
   replaceCachedTasksForSource: jest.fn().mockResolvedValue(undefined),
+  upsertCachedTasks: jest.fn().mockResolvedValue(undefined),
+  tasksCacheIsFresh: jest.fn().mockResolvedValue(false),
 }))
 jest.mock('@/lib/personCodes', () => ({
   getCodeByEmail: jest.fn().mockResolvedValue('EKS'),

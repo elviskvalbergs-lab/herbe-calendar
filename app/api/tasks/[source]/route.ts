@@ -5,8 +5,10 @@ import { createGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import { getCodeByEmail } from '@/lib/personCodes'
-import { buildCreateTaskBody } from '@/lib/herbe/taskRecordUtils'
+import { buildCreateTaskBody, mapHerbeTask } from '@/lib/herbe/taskRecordUtils'
 import { saveActVcRecord } from '@/lib/herbe/actVcSave'
+import { upsertCachedTasks } from '@/lib/cache/tasks'
+import type { Task } from '@/types/task'
 
 interface CreateBody {
   title: string
@@ -55,7 +57,9 @@ export async function POST(
         if (result.fieldErrors) payload.fieldErrors = result.fieldErrors
         return NextResponse.json(payload, { status: result.status })
       }
-      return NextResponse.json({ ok: true, task: result.record })
+      const task = mapHerbeTask(result.record, personCode, conn.id, conn.name)
+      await writeThroughTask(session.accountId, session.email, 'herbe', task)
+      return NextResponse.json({ ok: true, task })
     }
 
     if (source === 'outlook') {
@@ -64,6 +68,7 @@ export async function POST(
       const task = await createOutlookTask(session.email, {
         title: body.title, description: body.description, dueDate: body.dueDate,
       }, azure)
+      await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })
     }
 
@@ -74,6 +79,7 @@ export async function POST(
       const task = await createGoogleTask(tokenId, session.email, session.accountId, {
         title: body.title, description: body.description, dueDate: body.dueDate,
       })
+      await writeThroughTask(session.accountId, session.email, 'google', task)
       return NextResponse.json({ ok: true, task })
     }
 
@@ -81,5 +87,25 @@ export async function POST(
   } catch (e) {
     console.error(`[tasks POST ${source}]`, e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+async function writeThroughTask(
+  accountId: string,
+  userEmail: string,
+  source: Task['source'],
+  task: Task,
+): Promise<void> {
+  try {
+    await upsertCachedTasks([{
+      accountId,
+      userEmail,
+      source,
+      connectionId: task.sourceConnectionId ?? '',
+      taskId: task.id,
+      payload: task as unknown as Record<string, unknown>,
+    }])
+  } catch (e) {
+    console.warn(`[tasks POST write-through ${source}]`, e)
   }
 }
