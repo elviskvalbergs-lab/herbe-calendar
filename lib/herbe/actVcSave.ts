@@ -68,6 +68,32 @@ export function toHerbeForm(
   return parts.join('&')
 }
 
+/**
+ * Walk the parsed response for an object carrying a SerNr field. The canonical
+ * success shape is `data.data.ActVc[0]`, but Herbe occasionally returns the
+ * record at a different depth (e.g. alongside metadata at data.*, or after
+ * our brace-repair surfaced it under `record`). A tree walk tolerates all
+ * of those layouts and still rejects the genuinely-empty responses that
+ * signal a silent RecordCheck rejection.
+ */
+function findRecordWithSerNr(node: unknown): Record<string, unknown> | null {
+  if (!node || typeof node !== 'object') return null
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const hit = findRecordWithSerNr(item)
+      if (hit) return hit
+    }
+    return null
+  }
+  const o = node as Record<string, unknown>
+  if (o.SerNr !== undefined && o.SerNr !== null && o.SerNr !== '') return o
+  for (const v of Object.values(o)) {
+    const hit = findRecordWithSerNr(v)
+    if (hit) return hit
+  }
+  return null
+}
+
 export type SaveActVcResult =
   | { ok: true; record: Record<string, unknown> }
   | { ok: false; error: string; errors?: string[]; fieldErrors?: HerbeFieldError[]; status: number }
@@ -99,17 +125,25 @@ export async function saveActVcRecord(
   const data = ((): Record<string, unknown> | null => {
     // First try normal parse.
     try { return JSON.parse(sanitized) as Record<string, unknown> } catch { /* fall through */ }
-    // Herbe sometimes returns JSON with unbalanced braces (observed on 422-
-    // style rejections — the body stops before the root object closes). Try
-    // closing up to a handful of missing braces/brackets before giving up.
+
+    // Repair 1 — unbalanced braces (observed on 422-style rejections where
+    // the body stops before the root object closes). Append up to 5 closers.
     const opens = (sanitized.match(/[{[]/g) ?? []).length
     const closes = (sanitized.match(/[}\]]/g) ?? []).length
     const missing = opens - closes
+    let candidate = sanitized
     if (missing > 0 && missing <= 5) {
-      // Append closers in "}" first, "]" second order — right for the
-      // common case of a trailing object inside an object.
-      const repaired = sanitized + '}'.repeat(missing)
-      try { return JSON.parse(repaired) as Record<string, unknown> } catch { /* still bad */ }
+      candidate = sanitized + '}'.repeat(missing)
+      try { return JSON.parse(candidate) as Record<string, unknown> } catch { /* still bad */ }
+    }
+
+    // Repair 2 — Herbe sometimes emits an inner record as a bare object in
+    // a comma-separated position, e.g. `"@url":"...",{"@register":"ActVc",…}`
+    // instead of giving it a key. Rewrite `,{"@register":` to `,"record":{"@register":`
+    // so the object nests as a normal keyed child.
+    const repaired2 = candidate.replace(/,\s*\{\s*"@register"/g, ',"record":{"@register"')
+    if (repaired2 !== candidate) {
+      try { return JSON.parse(repaired2) as Record<string, unknown> } catch { /* give up */ }
     }
     return null
   })()
@@ -128,9 +162,8 @@ export async function saveActVcRecord(
     return { ok: false, error: msgs[0], errors: msgs, fieldErrors: fieldErrors.length > 0 ? fieldErrors : undefined, status: 422 }
   }
 
-  const inner = (data?.data as Record<string, unknown> | undefined)?.[REGISTERS.activities]
-  const record = Array.isArray(inner) ? (inner[0] as Record<string, unknown> | undefined) : undefined
-  if (!record?.['SerNr']) {
+  const record = findRecordWithSerNr(data)
+  if (!record) {
     // Log the full response so we can see what ERP is actually returning — a
     // successful-looking 200 with no record or unparseable body is the exact
     // failure mode this check exists to surface.

@@ -120,6 +120,25 @@ describe('saveActVcRecord — create', () => {
     }
   })
 
+  // Second production shape: the PATCH *succeeded* but the body is
+  // structurally invalid — an unnamed `{"@register":"ActVc",...record...}`
+  // sits as a bare object inside `data`, tacked on after the metadata
+  // fields. The helper rewrites `,{"@register"` → `,"record":{"@register"`
+  // so JSON.parse accepts it, then the SerNr tree-walk finds the record
+  // regardless of the key it ended up under.
+  it('extracts the record when Herbe emits an unnamed sibling object in data', async () => {
+    const malformed =
+      '{"data":{"@register":"ActVc","@sequence":"31088897","@url":"/api/3/ActVc/879333",' +
+      '{"@register":"ActVc","SerNr":"879333","Comment":"Kas?","ActType":"A","TodoFlag":"1"}}}'
+    ;(herbeFetchById as jest.Mock).mockResolvedValue(new Response(malformed, { status: 200 }))
+    const r = await saveActVcRecord({ Comment: 'Kas?', ActType: 'A' }, { id: '879333' })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.record.SerNr).toBe('879333')
+      expect(r.record.Comment).toBe('Kas?')
+    }
+  })
+
   it('passes through HTTP error status when ERP returns non-2xx', async () => {
     ;(herbeFetch as jest.Mock).mockResolvedValue(new Response('nope', { status: 503 }))
     const r = await saveActVcRecord({ Comment: 'Hi' })
