@@ -3222,3 +3222,229 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ============================================================
+ * Admin Shell (design handoff: dark forest collapsible sidebar)
+ * ============================================================ */
+.admin-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--app-bg);
+  color: var(--app-fg);
+}
+@media (max-width: 1023px) {
+  .admin-shell { grid-template-columns: 1fr; }
+}
+.admin-sidebar {
+  background: #134A40;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.admin-sb-head {
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.admin-sb-logo {
+  width: 36px; height: 36px;
+  background: var(--app-accent);
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 18px; color: #fff;
+  border: none; border-radius: 4px;
+  flex-shrink: 0; cursor: pointer;
+  font-family: inherit;
+}
+.admin-sb-org-name {
+  font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: #fff;
+}
+.admin-sb-org-sub {
+  font-size: 10px;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.admin-sb-account-select {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #fff;
+  font-size: 13px; font-weight: 600;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  max-width: 170px;
+}
+.admin-sb-nav {
+  flex: 1;
+  padding: 12px 0;
+  display: flex; flex-direction: column; gap: 2px;
+  overflow-y: auto;
+}
+.admin-sb-item {
+  display: flex; align-items: center;
+  font-size: 13px; font-weight: 400;
+  color: rgba(255,255,255,0.65);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 120ms;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.admin-sb-item:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.05);
+}
+.admin-sb-item.active {
+  color: #fff;
+  font-weight: 600;
+  background: rgba(255,255,255,0.10);
+  border-left-color: var(--app-accent);
+}
+.admin-sb-sep {
+  height: 1px;
+  margin: 8px 14px;
+  background: rgba(255,255,255,0.10);
+}
+.admin-sb-foot {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  font-size: 10px;
+  color: rgba(255,255,255,0.42);
+  letter-spacing: 0.04em;
+}
+.admin-sb-foot-collapsed {
+  padding: 14px 0;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  display: flex; justify-content: center;
+}
+.admin-sb-foot-collapsed button {
+  background: none; border: none; padding: 4px;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+}
+.admin-sb-super {
+  display: inline-block;
+  font-size: 9px; font-weight: 700;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.admin-sb-back {
+  display: block;
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  margin-top: 8px;
+  text-decoration: none;
+}
+.admin-sb-back:hover { color: var(--app-accent); }
+
+.admin-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--app-bg);
+  min-width: 0;
+}
+.admin-topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 28px;
+  height: 56px;
+  border-bottom: 1px solid var(--app-line);
+  background: var(--app-bg-alt);
+  flex-shrink: 0;
+}
+.admin-topbar-menu {
+  background: none; border: none;
+  cursor: pointer;
+  color: var(--app-fg-muted);
+  padding: 6px;
+  margin-right: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+}
+.admin-topbar-menu:hover { background: var(--app-bg-soft); color: var(--app-fg); }
+.admin-topbar-title {
+  font-size: 18px; font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--app-fg);
+}
+.admin-topbar-bell {
+  background: none; border: none;
+  color: var(--app-fg-muted);
+  cursor: pointer;
+  position: relative;
+  padding: 6px;
+}
+.admin-topbar-bell-dot {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 7px; height: 7px;
+  background: var(--app-accent);
+  border-radius: 50%;
+}
+.admin-topbar-user {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 12px;
+}
+.admin-topbar-avatar {
+  width: 30px; height: 30px;
+  background: var(--app-accent);
+  color: #fff;
+  display: grid; place-items: center;
+  font-weight: 800; font-size: 10px;
+  letter-spacing: 0.02em;
+  border-radius: 4px;
+}
+.admin-topbar-email {
+  font-size: 12px; font-weight: 500;
+  color: var(--app-fg-muted);
+  max-width: 180px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.admin-mobile-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--app-bg-alt);
+  border-bottom: 1px solid var(--app-line);
+}
+.admin-mobile-toolbar {
+  display: flex;
+  align-items: center; justify-content: space-around;
+  padding: 6px 4px;
+  background: var(--app-bg-alt);
+  border-bottom: 1px solid var(--app-line);
+}
+.admin-mobile-toolbar-item {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 2px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--app-fg-muted);
+  text-decoration: none;
+  font-size: 9px; font-weight: 700;
+  transition: color 120ms;
+}
+.admin-mobile-toolbar-item span { font-size: 8px; font-weight: 700; }
+.admin-mobile-toolbar-item.active { color: var(--app-accent); }
+.admin-mobile-toolbar-item:hover { color: var(--app-fg); }
+
+.admin-content {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 24px 40px;
+}
+@media (max-width: 1023px) {
+  .admin-content { padding: 16px; }
+}
