@@ -1113,7 +1113,6 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               loadTasks()
             } else {
               fetchActivities(true)
-              setTimeout(() => fetchActivities(true), 2000)
             }
           }}
           onDuplicate={(dup) => setFormState({ open: true, initial: dup })}

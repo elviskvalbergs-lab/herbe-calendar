@@ -1,6 +1,7 @@
-import { GET, POST, toHerbeForm } from '@/app/api/activities/route'
+import { GET, POST } from '@/app/api/activities/route'
 import { canEdit as canEditActivity } from '@/app/api/activities/[id]/route'
 import { getCachedEvents } from '@/lib/cache/events'
+import { toHerbeForm } from '@/lib/herbe/actVcSave'
 
 // Mock Herbe client
 jest.mock('@/lib/herbe/client', () => ({

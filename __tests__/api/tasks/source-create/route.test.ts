@@ -7,7 +7,7 @@ jest.mock('@/lib/herbe/auth-guard', () => ({
   requireSession: jest.fn().mockResolvedValue({ accountId: 'a1', email: 'u@x.com' }),
   unauthorized: () => new Response(null, { status: 401 }),
 }))
-jest.mock('@/lib/herbe/client', () => ({ herbeFetch: jest.fn() }))
+jest.mock('@/lib/herbe/client', () => ({ herbeFetch: jest.fn(), herbeFetchById: jest.fn() }))
 jest.mock('@/lib/outlook/tasks', () => ({ createOutlookTask: jest.fn() }))
 jest.mock('@/lib/google/tasks', () => ({ createGoogleTask: jest.fn() }))
 jest.mock('@/lib/accountConfig', () => ({
@@ -18,9 +18,6 @@ jest.mock('@/lib/google/userOAuth', () => ({
   getUserGoogleAccounts: jest.fn().mockResolvedValue([{ id: 'tok-1', googleEmail: 'g@x.com', calendars: [] }]),
 }))
 jest.mock('@/lib/personCodes', () => ({ getCodeByEmail: jest.fn().mockResolvedValue('EKS') }))
-jest.mock('@/app/api/activities/route', () => ({
-  toHerbeForm: (body: Record<string, unknown>) => new URLSearchParams(body as Record<string, string>).toString(),
-}))
 
 import { createOutlookTask } from '@/lib/outlook/tasks'
 import { createGoogleTask } from '@/lib/google/tasks'
@@ -45,15 +42,22 @@ it('POST google creates via Tasks API', async () => {
 })
 
 it('POST herbe posts TodoFlag=1 to ActVc with MainPersons=person_code', async () => {
-  ;(herbeFetch as jest.Mock).mockResolvedValue(new Response(JSON.stringify({ SerNr: '99' }), { status: 200 }))
+  ;(herbeFetch as jest.Mock).mockResolvedValue(
+    new Response(JSON.stringify({ data: { ActVc: [{ SerNr: '99' }] } }), { status: 200 }),
+  )
   const res = await POST(req({ title: 'Hi' }), { params: Promise.resolve({ source: 'herbe' }) })
   expect(res.status).toBe(200)
-  const [register, id, init] = (herbeFetch as jest.Mock).mock.calls[0]
+  const [register, , init] = (herbeFetch as jest.Mock).mock.calls[0]
   expect(register).toBe('ActVc')
-  expect(id).toBeUndefined()
   expect(init.method).toBe('POST')
   expect(String(init.body)).toContain('TodoFlag=1')
   expect(String(init.body)).toContain('MainPersons=EKS')
+})
+
+it('POST herbe returns 422 when ERP silently rejects (no record in response)', async () => {
+  ;(herbeFetch as jest.Mock).mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }))
+  const res = await POST(req({ title: 'Hi' }), { params: Promise.resolve({ source: 'herbe' }) })
+  expect(res.status).toBe(422)
 })
 
 it('returns 400 for unknown source', async () => {

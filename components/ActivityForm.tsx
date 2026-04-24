@@ -1302,7 +1302,7 @@ export default function ActivityForm({
               </div>
             </div>
           )}
-          {isExternalCalSource && canEdit && (
+          {mode === 'event' && isExternalCalSource && canEdit && (
             <div>
               {externalAttendees.length === 0 && (
                 <div className="aed-label">External Attendees</div>

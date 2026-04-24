@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
           rows.push(...buildOutlookCacheRows(data, session.accountId, code, session.email))
         }
         if (rows.length > 0) {
-          upsertCachedEvents(rows).catch(e => console.warn('[outlook/POST] cache write-through failed:', e))
+          await upsertCachedEvents(rows)
         }
       } catch (e) {
         console.warn('[outlook/POST] cache write-through error:', e)

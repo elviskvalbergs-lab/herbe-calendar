@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { herbeFetchById } from '@/lib/herbe/client'
-import { REGISTERS } from '@/lib/herbe/constants'
 import { updateOutlookTask } from '@/lib/outlook/tasks'
 import { updateGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import { buildCompleteTaskBody, buildEditTaskBody } from '@/lib/herbe/taskRecordUtils'
-import { toHerbeForm } from '@/app/api/activities/route'
+import { saveActVcRecord } from '@/lib/herbe/actVcSave'
 
 interface PatchBody {
   done?: boolean
@@ -45,16 +43,9 @@ export async function PATCH(
           ccPersons: body.ccPersons,
         }),
       }
-      const formBody = toHerbeForm(merged)
-      const res = await herbeFetchById(REGISTERS.activities, id, {
-        method: 'PATCH',
-        body: formBody,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-      }, conn)
-      if (!res.ok) {
-        return NextResponse.json({ error: `ERP update ${res.status}` }, { status: 502 })
-      }
-      return NextResponse.json({ ok: true })
+      const result = await saveActVcRecord(merged, { id, conn })
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+      return NextResponse.json({ ok: true, task: result.record })
     }
 
     if (source === 'outlook') {

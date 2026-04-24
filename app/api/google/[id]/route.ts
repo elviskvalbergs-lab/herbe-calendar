@@ -140,7 +140,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         if (rows.length > 0) {
-          upsertCachedEvents(rows).catch(e => console.warn('[google/PUT] cache write-through failed:', e))
+          await upsertCachedEvents(rows)
         }
       }
     } catch (e) {

@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { herbeFetchById, herbeWebExcellentDelete } from '@/lib/herbe/client'
 import { REGISTERS, ACTIVITY_ACCESS_GROUP_FIELD } from '@/lib/herbe/constants'
 import { requireSession, unauthorized, forbidden } from '@/lib/herbe/auth-guard'
-import { extractHerbeError } from '@/lib/herbe/errors'
 import { getErpConnections, type ErpConnection } from '@/lib/accountConfig'
 import { trackEvent } from '@/lib/analytics'
 import { upsertCachedEvents, deleteCachedEvent } from '@/lib/cache/events'
 import { buildCacheRows } from '@/lib/sync/erp'
-import { toHerbeForm } from '../route'
+import { saveActVcRecord } from '@/lib/herbe/actVcSave'
 
 async function resolveConnection(url: string, accountId: string): Promise<ErpConnection | undefined> {
   const connectionId = new URL(url).searchParams.get('connectionId')
@@ -52,30 +51,21 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const body = await req.json()
-    const formBody = toHerbeForm(body, new Set(['CCPersons']))
-    const res = await herbeFetchById(REGISTERS.activities, id, {
-      method: 'PATCH',
-      body: formBody,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-    }, conn)
-    const rawText = await res.text()
-    const sanitizedText = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : ' ')
-    const data = (() => { try { return JSON.parse(sanitizedText) } catch { return null } })()
-    console.log(`PATCH ActVc/${id} → ${res.status}`)
-    if (!res.ok) {
-      const errMsg = data ? extractHerbeError(data) : `Herbe error ${res.status}`
-      return NextResponse.json({ error: errMsg }, { status: res.status })
+    const result = await saveActVcRecord(body, { id, allowEmptyFields: new Set(['CCPersons']), conn })
+    if (!result.ok) {
+      const payload: Record<string, unknown> = { error: result.error }
+      if (result.errors) payload.errors = result.errors.map(m => ({ message: m }))
+      return NextResponse.json(payload, { status: result.status })
     }
-    if (Array.isArray(data?.errors) && data.errors.length > 0) {
-      const msgs = (data.errors as unknown[]).map(e => extractHerbeError(e))
-      return NextResponse.json({ error: msgs[0], errors: msgs.map(m => ({ message: m })) }, { status: 422 })
-    }
+
     trackEvent(session.accountId, session.email, 'activity_edited').catch(() => {})
-    // Write-through: update cache with the edited activity
+
+    // Write-through: update cache with the edited activity. Both delete and
+    // upsert are awaited — if we fire-and-forget the upsert, the client's
+    // immediate refetch can race the delete and return an empty result,
+    // making the edit look like it vanished.
     try {
-      // Delete old cache entries (person assignments may have changed)
       await deleteCachedEvent(session.accountId, 'herbe', id)
-      // Re-fetch the updated record to get full field set
       const updated = await fetchActivity(id, conn)
       if (updated) {
         const cacheRows = buildCacheRows(
@@ -85,15 +75,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           conn?.name ?? '',
         )
         if (cacheRows.length > 0) {
-          upsertCachedEvents(cacheRows).catch(e =>
-            console.warn('[activities/PUT] cache write-through failed:', e)
-          )
+          await upsertCachedEvents(cacheRows)
         }
       }
     } catch (e) {
       console.warn('[activities/PUT] cache write-through error:', e)
     }
-    return NextResponse.json(data ?? {}, { status: 200 })
+    return NextResponse.json(result.record, { status: 200 })
   } catch (e) {
     console.error('[activities/[id]] operation failed:', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

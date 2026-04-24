@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { herbeFetch } from '@/lib/herbe/client'
-import { REGISTERS } from '@/lib/herbe/constants'
 import { createOutlookTask } from '@/lib/outlook/tasks'
 import { createGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import { getCodeByEmail } from '@/lib/personCodes'
 import { buildCreateTaskBody } from '@/lib/herbe/taskRecordUtils'
-import { toHerbeForm } from '@/app/api/activities/route'
+import { saveActVcRecord } from '@/lib/herbe/actVcSave'
 
 interface CreateBody {
   title: string
@@ -42,7 +40,7 @@ export async function POST(
       const conns = await getErpConnections(session.accountId)
       const conn = conns.find(c => c.id === body.connectionId) ?? conns[0]
       if (!conn) return NextResponse.json({ error: 'no ERP connection' }, { status: 400 })
-      const formBody = toHerbeForm(buildCreateTaskBody({
+      const result = await saveActVcRecord(buildCreateTaskBody({
         title: body.title,
         description: body.description,
         personCode,
@@ -51,14 +49,9 @@ export async function POST(
         projectCode: body.projectCode,
         customerCode: body.customerCode,
         ccPersons: body.ccPersons,
-      }))
-      const res = await herbeFetch(REGISTERS.activities, undefined, {
-        method: 'POST',
-        body: formBody,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-      }, conn)
-      if (!res.ok) return NextResponse.json({ error: `ERP create ${res.status}` }, { status: 502 })
-      return NextResponse.json({ ok: true })
+      }), { conn })
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+      return NextResponse.json({ ok: true, task: result.record })
     }
 
     if (source === 'outlook') {

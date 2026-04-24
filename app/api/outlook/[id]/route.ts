@@ -76,7 +76,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             rows.push(...buildOutlookCacheRows(updated, session.accountId, code, session.email))
           }
           if (rows.length > 0) {
-            upsertCachedEvents(rows).catch(e => console.warn('[outlook/PUT] cache write-through failed:', e))
+            await upsertCachedEvents(rows)
           }
         }
       } catch (e) {

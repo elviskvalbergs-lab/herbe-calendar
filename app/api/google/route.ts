@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
             calendarId: body.googleCalendarId,
           })
           if (rows.length > 0) {
-            upsertCachedEvents(rows).catch(e => console.warn('[google/POST] cache write-through failed:', e))
+            await upsertCachedEvents(rows)
           }
         }
       } catch (e) {
@@ -238,7 +238,7 @@ export async function POST(req: NextRequest) {
           }))
         }
         if (rows.length > 0) {
-          upsertCachedEvents(rows).catch(e => console.warn('[google/POST] cache write-through failed:', e))
+          await upsertCachedEvents(rows)
         }
       }
     } catch (e) {

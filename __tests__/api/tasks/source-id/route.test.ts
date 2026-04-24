@@ -8,6 +8,7 @@ jest.mock('@/lib/herbe/auth-guard', () => ({
   unauthorized: () => new Response(null, { status: 401 }),
 }))
 jest.mock('@/lib/herbe/client', () => ({
+  herbeFetch: jest.fn(),
   herbeFetchById: jest.fn(),
 }))
 jest.mock('@/lib/outlook/tasks', () => ({
@@ -22,9 +23,6 @@ jest.mock('@/lib/accountConfig', () => ({
 }))
 jest.mock('@/lib/google/userOAuth', () => ({
   getUserGoogleAccounts: jest.fn().mockResolvedValue([{ id: 'tok-1', googleEmail: 'g@x.com', calendars: [] }]),
-}))
-jest.mock('@/app/api/activities/route', () => ({
-  toHerbeForm: (body: Record<string, unknown>) => new URLSearchParams(body as Record<string, string>).toString(),
 }))
 
 import { updateOutlookTask } from '@/lib/outlook/tasks'
@@ -50,7 +48,9 @@ it('toggling Google done calls updateGoogleTask', async () => {
 })
 
 it('toggling ERP done PATCHes ActVc via herbeFetchById with OKFlag=1', async () => {
-  ;(herbeFetchById as jest.Mock).mockResolvedValue(new Response('{}', { status: 200 }))
+  ;(herbeFetchById as jest.Mock).mockResolvedValue(
+    new Response(JSON.stringify({ data: { ActVc: [{ SerNr: '12345', OKFlag: '1' }] } }), { status: 200 }),
+  )
   const res = await PATCH(
     req({ done: true, connectionId: 'c1' }),
     { params: Promise.resolve({ source: 'herbe', id: '12345' }) },
@@ -61,6 +61,17 @@ it('toggling ERP done PATCHes ActVc via herbeFetchById with OKFlag=1', async () 
   expect(id).toBe('12345')
   expect(init.method).toBe('PATCH')
   expect(String(init.body)).toContain('OKFlag=1')
+})
+
+it('ERP PATCH returns 422 when ERP silently rejects (no record in response)', async () => {
+  ;(herbeFetchById as jest.Mock).mockResolvedValue(new Response('{}', { status: 200 }))
+  const res = await PATCH(
+    req({ title: 'New title', connectionId: 'c1' }),
+    { params: Promise.resolve({ source: 'herbe', id: '12345' }) },
+  )
+  expect(res.status).toBe(422)
+  const body = await res.json() as { error: string }
+  expect(body.error).toMatch(/record-check|not be saved|not saved/i)
 })
 
 it('returns 400 for unknown source', async () => {
