@@ -1229,7 +1229,7 @@ export default function ActivityForm({
                   Outlook
                 </button>
               )}
-              {availableSources?.google && (
+              {(availableSources?.google || (mode === 'task' && (userGoogleAccounts?.length ?? 0) > 0)) && (
                 <button
                   key="google"
                   onClick={() => setSource('google')}
@@ -1241,8 +1241,8 @@ export default function ActivityForm({
             </div>
           )}
 
-          {/* Google calendar sub-picker (create only, when per-user accounts are available) */}
-          {!isEdit && isGoogleSource && userGoogleAccounts && userGoogleAccounts.length > 0 && (
+          {/* Google calendar sub-picker (event mode only — task mode has no concept of calendars) */}
+          {!isEdit && isGoogleSource && mode !== 'task' && userGoogleAccounts && userGoogleAccounts.length > 0 && (
             <div className="mt-2">
               <label className="aed-label">Calendar</label>
               <select
