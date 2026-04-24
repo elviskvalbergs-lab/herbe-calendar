@@ -2280,6 +2280,8 @@ input, select, textarea { font-family: inherit; }
 }
 .aed-input:focus { outline: none; border-color: var(--app-accent); }
 .aed-input[readonly] { opacity: 0.75; cursor: default; }
+.aed-input.aed-invalid { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
+.aed-input.aed-invalid:focus { border-color: #dc2626; box-shadow: 0 0 0 2px #dc2626; }
 .aed-input-wrap { position: relative; }
 .aed-clear {
   position: absolute; right: 10px; top: 50%;

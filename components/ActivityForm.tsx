@@ -547,7 +547,11 @@ export default function ActivityForm({
     return payload
   }
 
-  function focusFieldError(fieldErrors: Array<{ field: string; label: string; code: string }> | undefined) {
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set())
+
+  function applyFieldErrors(fieldErrors: Array<{ field: string; label: string; code: string }> | undefined) {
+    const next = new Set<string>((fieldErrors ?? []).map(f => f.field))
+    setInvalidFields(next)
     const first = fieldErrors?.[0]
     if (!first) return
     const refByField: Record<string, { current: HTMLInputElement | null } | undefined> = {
@@ -561,6 +565,15 @@ export default function ActivityForm({
       target.focus()
       target.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
+  }
+
+  function clearFieldError(field: string) {
+    setInvalidFields(prev => {
+      if (!prev.has(field)) return prev
+      const next = new Set(prev)
+      next.delete(field)
+      return next
+    })
   }
 
   async function handleSave() {
@@ -609,7 +622,7 @@ export default function ActivityForm({
         const data = await res.json().catch(() => null)
         if (!res.ok) {
           setErrors([String(data?.error ?? `Server error (${res.status})`)])
-          focusFieldError(data?.fieldErrors)
+          applyFieldErrors(data?.fieldErrors)
           setSaving(false)
           return
         }
@@ -667,7 +680,7 @@ export default function ActivityForm({
           ? data.errors.map((e: { message?: string }) => e.message ?? String(e))
           : [String(data?.error ?? `Server error (${res.status})`)]
         setErrors(apiErrors)
-        focusFieldError(data?.fieldErrors)
+        applyFieldErrors(data?.fieldErrors)
         setSaving(false)
         return
       }
@@ -1419,9 +1432,9 @@ export default function ActivityForm({
               <input
                 ref={descInputRef}
                 value={description}
-                onChange={e => setDescription(e.target.value)}
+                onChange={e => { setDescription(e.target.value); clearFieldError('Comment') }}
                 autoFocus={!isEdit && !initial?.timeFrom}
-                className="input aed-input"
+                className={`input aed-input${invalidFields.has('Comment') ? ' aed-invalid' : ''}`}
                 placeholder="What are you working on?"
               />
               {description && (
@@ -1619,7 +1632,7 @@ export default function ActivityForm({
             <div>
               <div className="aed-label-row">
                 <span className="aed-label-inline">
-                  Activity Type
+                  Activity Type{invalidFields.has('ActType') && <span className="req"> *</span>}
                   {activityTypeCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{activityTypeCode}</span>}
                 </span>
               </div>
@@ -1664,7 +1677,7 @@ export default function ActivityForm({
                 <input
                   ref={activityTypeInputRef}
                   value={activityTypeName}
-                  onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value) }}
+                  onChange={e => { setActivityTypeName(e.target.value); setActivityTypeCode(''); setFocusedTypeIdx(-1); filterActivityTypes(e.target.value); clearFieldError('ActType') }}
                   onFocus={() => { if (!activityTypeResults.length) filterActivityTypes(activityTypeName) }}
                   onKeyDown={e => {
                     const n = activityTypeResults.length
@@ -1679,7 +1692,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="input aed-input"
+                  className={`input aed-input${invalidFields.has('ActType') ? ' aed-invalid' : ''}`}
                   placeholder="Type code or name…"
                 />
                 {activityTypeName && (
@@ -1733,7 +1746,7 @@ export default function ActivityForm({
             <div>
               <div className="aed-label-row">
                 <span className="aed-label-inline">
-                  Project{currentGroup?.forceProj && <span className="req"> *</span>}
+                  Project{(currentGroup?.forceProj || invalidFields.has('PRCode')) && <span className="req"> *</span>}
                   {projectCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{projectCode}</span>}
                   {projectCode && (() => {
                     const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/PRVc/${projectCode}` : serpLink('PRVc', projectCode, companyCode)
@@ -1752,6 +1765,7 @@ export default function ActivityForm({
                   value={projectName}
                   onChange={e => {
                     setProjectName(e.target.value); setProjectCode(''); setFocusedProjectIdx(-1)
+                    clearFieldError('PRCode')
                     if (projectSearchTimer.current) clearTimeout(projectSearchTimer.current)
                     projectSearchTimer.current = setTimeout(() => searchProjects(e.target.value), 300)
                   }}
@@ -1769,7 +1783,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="input aed-input"
+                  className={`input aed-input${invalidFields.has('PRCode') ? ' aed-invalid' : ''}`}
                   placeholder="Type to search… (min 2 chars)"
                 />
                 {searchingProjects
@@ -1807,7 +1821,7 @@ export default function ActivityForm({
             <div>
               <div className="aed-label-row">
                 <span className="aed-label-inline">
-                  Customer{currentGroup?.forceCust && <span className="req"> *</span>}
+                  Customer{(currentGroup?.forceCust || invalidFields.has('CUCode')) && <span className="req"> *</span>}
                   {customerCode && <span className="font-mono text-primary normal-case text-[11px] ml-1">{customerCode}</span>}
                   {customerCode && (() => {
                     const link = activeErpConnection?.serpUuid ? `hansa://${activeErpConnection.serpUuid}/v1/${activeErpConnection.companyCode || companyCode}/CUVc/${customerCode}` : serpLink('CUVc', customerCode, companyCode)
@@ -1826,6 +1840,7 @@ export default function ActivityForm({
                   value={customerName}
                   onChange={e => {
                     setCustomerName(e.target.value); setCustomerCode(''); setFocusedCustomerIdx(-1)
+                    clearFieldError('CUCode')
                     if (customerSearchTimer.current) clearTimeout(customerSearchTimer.current)
                     customerSearchTimer.current = setTimeout(() => searchCustomers(e.target.value), 300)
                   }}
@@ -1841,7 +1856,7 @@ export default function ActivityForm({
                     else if (e.key === 'Enter') (e.target as HTMLElement).blur()
                   }}
                   enterKeyHint="search"
-                  className="input aed-input"
+                  className={`input aed-input${invalidFields.has('CUCode') ? ' aed-invalid' : ''}`}
                   placeholder="Type to search… (min 2 chars)"
                 />
                 {searchingCustomers
