@@ -101,6 +101,21 @@ describe('saveActVcRecord — create', () => {
     }
   })
 
+  // Observed in production logs: the ERP body arrives unbalanced — missing
+  // the root closing brace. JSON.parse rejects it, which used to drop
+  // fieldErrors entirely. The helper must repair mild brace mismatches so
+  // the structured field info still reaches the client.
+  it('repairs unbalanced braces before parsing so fieldErrors survive', async () => {
+    const truncated =
+      '{"data":{"messages":["Obligāti jāaizpilda Aktivitātes tips"],"error":{"@code":"1058","@description":" Aktivitātes tips","@field":"ActType"}}'
+    ;(herbeFetch as jest.Mock).mockResolvedValue(new Response(truncated, { status: 200 }))
+    const r = await saveActVcRecord({ Comment: 'Hi' })
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.fieldErrors).toEqual([{ field: 'ActType', label: 'Activity type', code: '1058' }])
+    }
+  })
+
   it('passes through HTTP error status when ERP returns non-2xx', async () => {
     ;(herbeFetch as jest.Mock).mockResolvedValue(new Response('nope', { status: 503 }))
     const r = await saveActVcRecord({ Comment: 'Hi' })

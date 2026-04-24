@@ -97,7 +97,21 @@ export async function saveActVcRecord(
   const rawText = await res.text()
   const sanitized = rawText.replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : ' ')
   const data = ((): Record<string, unknown> | null => {
-    try { return JSON.parse(sanitized) as Record<string, unknown> } catch { return null }
+    // First try normal parse.
+    try { return JSON.parse(sanitized) as Record<string, unknown> } catch { /* fall through */ }
+    // Herbe sometimes returns JSON with unbalanced braces (observed on 422-
+    // style rejections — the body stops before the root object closes). Try
+    // closing up to a handful of missing braces/brackets before giving up.
+    const opens = (sanitized.match(/[{[]/g) ?? []).length
+    const closes = (sanitized.match(/[}\]]/g) ?? []).length
+    const missing = opens - closes
+    if (missing > 0 && missing <= 5) {
+      // Append closers in "}" first, "]" second order — right for the
+      // common case of a trailing object inside an object.
+      const repaired = sanitized + '}'.repeat(missing)
+      try { return JSON.parse(repaired) as Record<string, unknown> } catch { /* still bad */ }
+    }
+    return null
   })()
 
   const label = `${opts.id ? 'PATCH' : 'POST'} ActVc${opts.id ? '/' + opts.id : ''}`
