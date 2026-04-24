@@ -15,7 +15,12 @@ export function DestinationPicker({ mode, value, initialKey, onChange }: Props) 
   const [destinations, setDestinations] = useState<Destination[] | null>(null)
   const fired = useRef(false)
 
+  // Auto-fire is a one-shot initializer: the parent reads value/initialKey/onChange
+  // only at mount (or on an explicit mode swap), not on every render. Deps are
+  // intentionally narrow — if the mode prop changes we reset the fired flag so a
+  // new destination can be auto-selected for the new mode's list.
   useEffect(() => {
+    fired.current = false
     let cancelled = false
     fetch(`/api/destinations?mode=${mode}`)
       .then(r => r.ok ? r.json() : [])
