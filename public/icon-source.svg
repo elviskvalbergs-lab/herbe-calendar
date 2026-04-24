@@ -1,43 +1,26 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <clipPath id="iconClip">
-      <rect width="512" height="512" rx="128"/>
-    </clipPath>
-    <linearGradient id="glossArc" x1="0" y1="0" x2="0" y2="280" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="white" stop-opacity="0.30"/>
-      <stop offset="85%" stop-color="white" stop-opacity="0.08"/>
-      <stop offset="100%" stop-color="white" stop-opacity="0"/>
-    </linearGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Body: Burti forest-green (dark variant) -->
+  <rect x="64" y="64" width="384" height="384" rx="48" fill="#134A40"/>
 
-  <!-- Background -->
-  <rect width="512" height="512" rx="128" fill="black"/>
+  <!-- Interior panel (subtle wash) -->
+  <rect x="80" y="170" width="352" height="262" rx="24" fill="rgba(255,255,255,0.07)"/>
 
-  <!-- Gloss overlay -->
-  <g clip-path="url(#iconClip)">
-    <ellipse cx="256" cy="-20" rx="340" ry="280" fill="url(#glossArc)"/>
-  </g>
+  <!-- Calendar ring holes (forest-green fills with rowanberry stroke) -->
+  <rect x="168" y="42" width="22" height="56" rx="11" fill="#0A4A42" stroke="#CD4C38" stroke-width="3"/>
+  <rect x="322" y="42" width="22" height="56" rx="11" fill="#0A4A42" stroke="#CD4C38" stroke-width="3"/>
 
-  <!-- "h" left-aligned with grid (x=122) -->
-  <text x="109" y="262" fill="white" font-family="sans-serif" font-size="210" font-weight="700" text-anchor="start">h</text>
-  <!-- Dot block (salmon rounded rect) -->
-  <rect x="248" y="237" width="26" height="26" rx="5" fill="#f3816d"/>
-  <!-- "c" right-aligned with grid end (x=391) -->
-  <text x="280" y="262" fill="white" font-family="sans-serif" font-size="210" font-weight="700" text-anchor="start">c</text>
+  <!-- Subtle grid cross -->
+  <line x1="256" y1="170" x2="256" y2="432" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+  <line x1="80" y1="300" x2="432" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
 
-  <!-- Squares Grid: 45px blocks, 11px gaps -->
-  <g transform="translate(122, 284)">
-    <!-- Row 1 (5 blocks) -->
-    <rect x="0" y="0" width="45" height="45" rx="4" fill="#88c1b5"/>
-    <rect x="56" y="0" width="45" height="45" rx="4" fill="#a189b8"/>
-    <rect x="112" y="0" width="45" height="45" rx="4" fill="#88c1b5"/>
-    <rect x="168" y="0" width="45" height="45" rx="4" fill="#a189b8"/>
-    <rect x="224" y="0" width="45" height="45" rx="4" fill="#f3816d"/>
+  <!-- Day number -->
+  <text x="256" y="355" text-anchor="middle" font-family="'Poppins', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="200" fill="#FFFFFF" letter-spacing="-6">31</text>
 
-    <!-- Row 2 (4 blocks) -->
-    <rect x="0" y="56" width="45" height="45" rx="4" fill="#88c1b5"/>
-    <rect x="56" y="56" width="45" height="45" rx="4" fill="#a189b8"/>
-    <rect x="112" y="56" width="45" height="45" rx="4" fill="#f3816d"/>
-    <rect x="168" y="56" width="45" height="45" rx="4" fill="#a189b8"/>
-  </g>
+  <!-- Three fading rowanberry squares under the number -->
+  <rect x="218" y="388" width="12" height="12" fill="#CD4C38"/>
+  <rect x="250" y="388" width="12" height="12" fill="#CD4C38" opacity="0.6"/>
+  <rect x="282" y="388" width="12" height="12" fill="#CD4C38" opacity="0.3"/>
+
+  <!-- Subtle cyan accent dot -->
+  <circle cx="112" cy="108" r="6" fill="#00AEE7"/>
 </svg>

@@ -7,10 +7,16 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Multi-person calendar with Herbe ERP and Outlook integration',
     start_url: '/cal',
     display: 'standalone',
-    background_color: '#1a1a1a',
-    theme_color: '#cd4c38',
+    background_color: '#134A40',
+    theme_color: '#134A40',
     orientation: 'any',
     icons: [
+      {
+        src: '/icon-source.svg',
+        sizes: 'any',
+        type: 'image/svg+xml',
+        purpose: 'any',
+      },
       {
         src: '/icon-192.png',
         sizes: '192x192',
