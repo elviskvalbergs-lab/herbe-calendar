@@ -3208,3 +3208,14 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   animation: tasks-spin 0.8s linear infinite;
 }
 @keyframes tasks-spin { to { transform: rotate(360deg); } }
+
+.destination-picker { margin-top: 6px; }
+.destination-picker-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.destination-color-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
