@@ -23,6 +23,7 @@ export default function GettingStartedPage() {
           <li><a href="#views" className="text-sm text-primary hover:underline">Navigating the Calendar</a></li>
           <li><a href="#selecting-people" className="text-sm text-primary hover:underline">Selecting People to View</a></li>
           <li><a href="#creating-activities" className="text-sm text-primary hover:underline">Creating Activities</a></li>
+          <li><a href="#tasks-view" className="text-sm text-primary hover:underline">Tasks Panel & View</a></li>
         </ul>
       </nav>
 
@@ -99,6 +100,7 @@ export default function GettingStartedPage() {
             <li>5-day view — a work-week view</li>
             <li>7-day view — full week including weekends</li>
             <li>Month view — full month grid with event pills and multi-day spanning. On desktop, a split view shows the selected day&apos;s agenda alongside the month. On mobile portrait, tap a day to drill into day view</li>
+            <li>Tasks view — full-screen unified tasks panel across ERP, Microsoft To Do, and Google Tasks. Available from the rightmost button in the view selector</li>
           </ul>
 
           <h3 id="month-navigator" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Month Navigator</h3>
@@ -147,6 +149,33 @@ export default function GettingStartedPage() {
           <p className="text-text-muted text-sm mt-3">
             Click an existing event to view details, edit, or delete it. Drag events to reschedule them.
           </p>
+          <p className="text-text-muted text-sm mt-3">
+            The destination dropdown at the top of the form lists every connected source (ERP, Outlook, Google) with a colored dot
+            next to each option, so you can see at a glance which calendar or list each entry will land in.
+          </p>
+        </section>
+
+        <section>
+          <h2 id="tasks-view" className="text-xl font-semibold mb-3 pb-2 border-b border-border">Tasks Panel &amp; View</h2>
+          <p className="text-text-muted mb-3">
+            herbe.calendar pulls tasks from ERP, Microsoft To Do (Outlook), and Google Tasks into a single panel
+            grouped by source and list. You can use it inline alongside the month grid or open it as a dedicated full-screen view.
+          </p>
+
+          <h3 id="tasks-inline" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Inline panel</h3>
+          <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
+            <li>In month view, the right-side panel has a Day / Agenda / Tasks segmented control — pick Tasks to swap the agenda for the tasks panel</li>
+            <li>Tabs across the top filter by source (All, ERP, Outlook, Google)</li>
+            <li>Tick the checkbox to mark a task done; click to edit; use the action menu to copy a task to an event or to another list</li>
+            <li>Click <span className="text-text">+ New task</span> in any source header to create a new task in that source&apos;s default list</li>
+          </ul>
+
+          <h3 id="tasks-fullscreen" className="font-semibold mb-2 text-sm uppercase tracking-wide text-text-muted">Full-screen Tasks view</h3>
+          <ul className="space-y-1 text-text-muted text-sm list-disc list-inside mb-4">
+            <li>Click the <span className="text-text">Tasks</span> button on the far right of the top-bar view selector to open the dedicated Tasks view — calendar grid hidden, tasks panel covers the whole window</li>
+            <li>The maximize toggle in the panel header expands the tasks panel from any view, and switches to <span className="text-text">Exit fullscreen</span> while expanded</li>
+            <li>Switching to any other view (Day / Month / etc.) automatically returns to the normal split layout</li>
+          </ul>
         </section>
 
       </div>

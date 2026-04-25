@@ -95,6 +95,14 @@ const FEATURES = [
     status: 'FEEDS ONLINE',
     docsLink: '/docs/integrations#ics',
   },
+  {
+    tag: 'MOD_011',
+    title: 'Unified Tasks',
+    desc: 'Pull tasks from ERP, Microsoft To Do, and Google Tasks into a single panel grouped by source and list. Open them inline next to the month, or switch into the dedicated full-screen Tasks view from the top bar. Tick items done, copy tasks to events, and create new tasks straight into the list of your choice.',
+    color: TEAL,
+    status: 'TASKS UNIFIED',
+    docsLink: '/docs/getting-started#tasks-view',
+  },
 ]
 
 const SOURCES = [
@@ -418,6 +426,7 @@ export default function LandingPage() {
                   'Progressive loading — each source loads independently, no waiting',
                   'Configurable booking templates with buffer time and day limits',
                   'Create activities in Standard ERP directly from the calendar',
+                  'Unified tasks view across ERP, Microsoft To Do, and Google Tasks',
                   'Let clients self-book meetings based on real-time availability across all sources',
                   'Works on any device with native-like PWA experience',
                   'Self-hosted on your Vercel account with full data control',
