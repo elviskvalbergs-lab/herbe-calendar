@@ -1069,16 +1069,16 @@ export function ActivityForm({
   }
 
   const initialDestinationKey = useMemo(() => {
-    // For copy/move flows, prefer the source's own destination over the
-    // user's last-saved default. Without this the picker would briefly
-    // auto-select the localStorage default (often a different source),
-    // flashing event-only UI like RSVP buttons before settling.
     if (seededFromCopy && initial?.source === 'herbe' && initial?.erpConnectionId) {
       return `herbe:${initial.erpConnectionId}`
     }
-    if (seededFromCopy && initial?.source === 'outlook' && mode === 'event') {
-      // outlook-event has a single canonical key — there's no list to pick.
-      return 'outlook'
+    if (seededFromCopy) {
+      // Outlook/Google task → calendar event: skip the localStorage default
+      // so the picker falls back to filtered[0] (the first ERP destination
+      // by SOURCE_ORDER). Honoring a stale Outlook/Google default here was
+      // making the picker briefly select an external destination, which
+      // flashed RSVP/external-attendee fields before the user re-picked ERP.
+      return null
     }
     try { return localStorage.getItem(`defaultDestination:${mode}`) } catch { return null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
