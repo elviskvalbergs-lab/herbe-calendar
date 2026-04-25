@@ -42,10 +42,24 @@ export default function CalendarGrid({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevScaleRef = useRef(scale)
+  // Measure the first day-col-header so TimeColumn's spacer matches its
+  // exact rendered height — header math depends on inherited line-height
+  // which varies by viewport/font, so we can't safely hardcode it.
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerHeight, setHeaderHeight] = useState<number>(48)
   const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
   const [expandedUp, setExpandedUp] = useState(false)
   const [expandedDown, setExpandedDown] = useState(false)
   const [stripCollapsed, setStripCollapsed] = useState<boolean>(false)
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const update = () => setHeaderHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   useEffect(() => {
     try { setStripCollapsed(localStorage.getItem('herbe-strip-collapsed') === '1') } catch {}
   }, [])
@@ -282,6 +296,7 @@ export default function CalendarGrid({
           onExpandDown={() => setExpandedDown(true)}
           onContractUp={() => setExpandedUp(false)}
           onContractDown={() => setExpandedDown(false)}
+          headerHeight={headerHeight}
           bandHeight={bandHeightPx}
           bandCollapsed={stripCollapsed}
           bandTotalAllDay={totalAllDayInBand}
@@ -307,6 +322,7 @@ export default function CalendarGrid({
               }}
             >
               <div
+                ref={dateIdx === 0 ? headerRef : undefined}
                 className={`day-col-header sticky top-0 z-20${isCurrentDay ? ' today' : ''}`}
                 style={{
                   background: 'var(--app-bg-alt)',

@@ -13,6 +13,8 @@ interface Props {
   onExpandDown?: () => void
   onContractUp?: () => void
   onContractDown?: () => void
+  /** Height in px of the day-col-header so the gutter spacer matches it exactly. */
+  headerHeight?: number
   /** Height in px of the all-day band area, so the gutter stays vertically aligned with per-column strips. */
   bandHeight?: number
   bandCollapsed?: boolean
@@ -25,6 +27,7 @@ export default function TimeColumn({
   is3Day = false, scale = 1, startHour, endHour,
   canExpandUp, canExpandDown, canContractUp, canContractDown,
   onExpandUp, onExpandDown, onContractUp, onContractDown,
+  headerHeight = 48,
   bandHeight = 0, bandCollapsed = false, bandTotalAllDay = 0, bandTotalTasks = 0, onToggleBand,
 }: Props) {
   const start = startHour ?? GRID_START_HOUR
@@ -40,10 +43,10 @@ export default function TimeColumn({
       className="time-col shrink-0 sticky left-0 z-10"
       style={{ width: 'var(--time-col-w, 56px)' }}
     >
-      {/* Header spacer — mirrors day-col-header height (always 48px, since
-          day-col-header in both 1-day and multi-day modes lays out title row
-          (~20px) + sub-persons rail (~24px) + paddings to that total). */}
-      <div style={{ height: 48, borderBottom: '1px solid var(--app-line)', background: 'var(--app-bg-alt)' }} />
+      {/* Header spacer — height is measured from the first day-col-header
+          (passed in as headerHeight) so the gutter and date columns line up
+          exactly regardless of font/line-height. */}
+      <div style={{ height: headerHeight, borderBottom: '1px solid var(--app-line)', background: 'var(--app-bg-alt)' }} />
 
       {/* All-day band gutter — mirrors band area height across columns */}
       {showBand && (

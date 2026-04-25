@@ -3485,10 +3485,14 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   align-items: center;
   gap: 6px;
   width: 100%;
-  /* Reserved height matches TimeColumn's hour-range pill slot
-   * (18px pill + 8px py-1 + 1px border) so empty placeholder columns
-   * align horizontally with columns that show a filled outside-hours bar. */
-  min-height: 27px;
+  /* Fixed height matches TimeColumn's hour-range pill slot
+   * (18px pill + 8px py-1 + 1px border) so every column reserves the same
+   * vertical space whether it has a filled outside-hours bar or the empty
+   * placeholder. Explicit height (not min-height) prevents font/line-height
+   * variations on mobile from making filled buttons grow taller than empty
+   * placeholders. line-height: 1 keeps the centred text predictable. */
+  height: 27px;
+  line-height: 1;
   padding: 4px 10px;
   font-size: 10.5px;
   color: var(--app-accent);
@@ -3501,6 +3505,7 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   font-family: inherit;
   transition: background 120ms;
   text-align: left;
+  overflow: hidden;
 }
 .ohbar-btn:hover { background: rgba(205,76,56,0.06); }
 .ohbar-btn .ohbar-count { font-weight: 600; }
