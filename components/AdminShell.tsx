@@ -7,8 +7,9 @@ interface Props {
   email: string
   accountName: string
   accountId: string
+  accountLogoUrl?: string
   isSuperAdmin: boolean
-  accounts?: { id: string; display_name: string }[]
+  accounts?: { id: string; display_name: string; logo_url?: string }[]
   children: React.ReactNode
 }
 
@@ -50,12 +51,29 @@ const ChevRightIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
 )
 
-export default function AdminShell({ email, accountName, accountId, isSuperAdmin, accounts, children }: Props) {
+export default function AdminShell({ email, accountName, accountId, accountLogoUrl, isSuperAdmin, accounts, children }: Props) {
   const pathname = usePathname()
   // Desktop sidebar collapse state.
   const [sideOpen, setSideOpen] = useState(true)
   // Mobile drawer open state — false means hidden off-screen.
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // Account logo: prefer the prop, fall back to client-side fetch from
+  // the existing /api/settings/accounts endpoint so admin pages that don't
+  // pass accountLogoUrl explicitly still get the icon.
+  const [resolvedLogoUrl, setResolvedLogoUrl] = useState<string | null>(accountLogoUrl ?? null)
+  useEffect(() => {
+    if (accountLogoUrl) return
+    let cancelled = false
+    fetch('/api/settings/accounts')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data?.accounts) return
+        const me = data.accounts.find((a: { id: string }) => a.id === accountId)
+        if (me?.logo_url) setResolvedLogoUrl(me.logo_url)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [accountId, accountLogoUrl])
 
   useEffect(() => {
     try { setSideOpen(localStorage.getItem('admin-sidebar-open') !== '0') } catch {}
@@ -92,9 +110,13 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
             className="admin-sb-logo"
             onClick={mobile ? () => setDrawerOpen(false) : toggleSide}
             title={mobile ? 'Close menu' : (open ? 'Collapse sidebar' : 'Expand sidebar')}
-          >B</button>
+          >
+            {resolvedLogoUrl
+              ? <img src={resolvedLogoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : (accountName || 'A').charAt(0).toUpperCase()}
+          </button>
           {open && (
-            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 36 }}>
+            <div className="admin-sb-account-block">
               <div className="admin-sb-org-sub">Account</div>
               {isSuperAdmin && accounts && accounts.length > 1 ? (
                 <select

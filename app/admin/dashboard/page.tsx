@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { requireAdminSession } from '@/lib/adminAuth'
-import { getAdminAccountId, getAllAccounts } from '@/lib/adminAccountId'
+import { getAdminAccountId, getAllAccounts, getAccountLogoUrl } from '@/lib/adminAccountId'
 import AdminShell from '@/components/AdminShell'
 import { pool } from '@/lib/db'
 
@@ -14,6 +14,7 @@ export default async function DashboardPage() {
     redirect('/cal')
   }
   const accounts = session.isSuperAdmin ? await getAllAccounts() : []
+  const accountLogoUrl = await getAccountLogoUrl(session.accountId)
 
   // Fetch dashboard stats
   const accountId = session.accountId
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
   const statsByType = Object.fromEntries(activityStats.map(r => [r.event_type, r.cnt]))
 
   return (
-    <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
+    <AdminShell email={session.email} accountName={session.accountName} accountId={session.accountId} accountLogoUrl={accountLogoUrl ?? undefined} isSuperAdmin={session.isSuperAdmin} accounts={accounts}>
       <h1 className="text-xl font-bold mb-6">Dashboard</h1>
 
       {/* Stats cards */}
