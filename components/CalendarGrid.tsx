@@ -45,21 +45,32 @@ export default function CalendarGrid({
   // Measure the first day-col-header so TimeColumn's spacer matches its
   // exact rendered height — header math depends on inherited line-height
   // which varies by viewport/font, so we can't safely hardcode it.
-  const headerRef = useRef<HTMLDivElement>(null)
+  // Callback ref + element-state so the ResizeObserver re-attaches whenever
+  // the header DOM node changes (e.g. on date navigation, when React unmounts
+  // and remounts the date columns under new keys).
+  const [headerEl, setHeaderEl] = useState<HTMLDivElement | null>(null)
   const [headerHeight, setHeaderHeight] = useState<number>(48)
+  const headerRef = useCallback((el: HTMLDivElement | null) => {
+    setHeaderEl(el)
+  }, [])
   const [mobileSelectedId, setMobileSelectedId] = useState<string | null>(null)
   const [expandedUp, setExpandedUp] = useState(false)
   const [expandedDown, setExpandedDown] = useState(false)
   const [stripCollapsed, setStripCollapsed] = useState<boolean>(false)
   useLayoutEffect(() => {
-    const el = headerRef.current
-    if (!el) return
-    const update = () => setHeaderHeight(el.offsetHeight)
+    if (!headerEl) return
+    const update = () => {
+      const h = headerEl.offsetHeight
+      if (h > 0) setHeaderHeight(h)
+    }
     update()
     const ro = new ResizeObserver(update)
-    ro.observe(el)
+    ro.observe(headerEl)
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready.then(update).catch(() => {})
+    }
     return () => ro.disconnect()
-  }, [])
+  }, [headerEl])
   useEffect(() => {
     try { setStripCollapsed(localStorage.getItem('herbe-strip-collapsed') === '1') } catch {}
   }, [])
