@@ -171,6 +171,9 @@ export function ActivityForm({
   const [customerSearchMsg, setCustomerSearchMsg] = useState<string | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  // Temporary: captures the request/response for the most recent ERP save so
+  // the multi-person save bug can be inspected in the UI and via /tmp file.
+  const [lastSaveDebug, setLastSaveDebug] = useState<string | null>(null)
   const [savedActivity, setSavedActivity] = useState<Partial<Activity> | null>(null)
   // True after resetToCreate(copy) has seeded the form from a previously-saved
   // activity, or when the form was opened with `seededFromCopy` (e.g. from
@@ -831,7 +834,38 @@ export function ActivityForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await res.json().catch(() => null)
+      // Capture raw text first so debug logging sees the byte-for-byte response
+      // even when the body is not valid JSON. Then attempt to parse for the
+      // existing success/error logic.
+      const rawResponseText = await res.text()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = ((): any => {
+        try { return JSON.parse(rawResponseText) } catch { return null }
+      })()
+
+      if (isErpSource) {
+        const debugBlob = JSON.stringify({
+          when: new Date().toISOString(),
+          mode,
+          editId,
+          isEdit,
+          url,
+          method,
+          requestBody: body,
+          selectedPersonCodes,
+          selectedCCPersonCodes,
+          responseStatus: res.status,
+          responseBody: rawResponseText,
+        }, null, 2)
+        setLastSaveDebug(debugBlob)
+        // Fire-and-forget local file log. Useful when running dev locally so
+        // the assistant can `cat /tmp/herbe-debug.log` after a repro.
+        fetch('/api/debug/herbe-save-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: debugBlob,
+        }).catch(() => {})
+      }
 
       if (!res.ok) {
         const apiErrors = Array.isArray(data?.errors)
@@ -1392,6 +1426,32 @@ export function ActivityForm({
           })()}
 
           <ErrorBanner errors={errors} fieldLabels={invalidFieldLabels} />
+
+          {/* Temporary: ERP save debug. Always visible after an ERP save attempt
+              so we can read the request/response without devtools. Remove once
+              the multi-person save failure is fixed. */}
+          {lastSaveDebug && (
+            <details className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+              <summary className="cursor-pointer font-bold text-amber-500">
+                Save debug (request + response)
+              </summary>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  className="px-2 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-500 text-[11px] font-bold"
+                  onClick={() => navigator.clipboard.writeText(lastSaveDebug).catch(() => {})}
+                >Copy</button>
+                <button
+                  type="button"
+                  className="px-2 py-0.5 rounded border border-border text-text-muted text-[11px]"
+                  onClick={() => setLastSaveDebug(null)}
+                >Hide</button>
+              </div>
+              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-text-muted">
+                {lastSaveDebug}
+              </pre>
+            </details>
+          )}
 
           {/* Person(s) — hidden for Outlook/Google task mode; those APIs don't support assignees */}
           {!(mode === 'task' && isExternalCalSource) && (() => {
