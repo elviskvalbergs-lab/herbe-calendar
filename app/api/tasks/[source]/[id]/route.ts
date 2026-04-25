@@ -6,7 +6,7 @@ import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import { buildCompleteTaskBody, buildEditTaskBody, mapHerbeTask } from '@/lib/herbe/taskRecordUtils'
 import { saveActVcRecord } from '@/lib/herbe/actVcSave'
-import { upsertCachedTasks } from '@/lib/cache/tasks'
+import { upsertCachedTasks, deleteCachedTask } from '@/lib/cache/tasks'
 import type { Task } from '@/types/task'
 
 interface PatchBody {
@@ -92,6 +92,13 @@ export async function PATCH(
         : await updateOutlookTask(session.email, id, {
             done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
           }, azure)
+      // List moves delete+recreate, producing a new id. Drop the stale cache
+      // row for the old id so the sidebar doesn't show a ghost task that
+      // can't be saved against (its source-side counterpart is gone).
+      const oldPrefixedId = `outlook:${id}`
+      if (task.id !== oldPrefixedId) {
+        await deleteCachedTask(session.accountId, session.email, 'outlook', oldPrefixedId)
+      }
       await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })
     }
@@ -105,6 +112,11 @@ export async function PATCH(
         targetListId: body.targetGoogleListId,
         targetListTitle: body.targetGoogleListTitle,
       })
+      // Same ghost-row protection as Outlook moves above.
+      const oldPrefixedId = `google:${id}`
+      if (task.id !== oldPrefixedId) {
+        await deleteCachedTask(session.accountId, session.email, 'google', oldPrefixedId)
+      }
       await writeThroughTask(session.accountId, session.email, 'google', task)
       return NextResponse.json({ ok: true, task })
     }

@@ -1061,6 +1061,13 @@ export function ActivityForm({
   }
 
   const initialDestinationKey = useMemo(() => {
+    // For copy-from-task-or-event flows, prefer the source's own destination
+    // over the user's last-saved default. Without this the picker would
+    // briefly auto-select the localStorage default (often Outlook/Google),
+    // flashing event-only UI like RSVP buttons before the user re-picks ERP.
+    if (seededFromCopy && initial?.source === 'herbe' && initial?.erpConnectionId) {
+      return `herbe:${initial.erpConnectionId}`
+    }
     try { return localStorage.getItem(`defaultDestination:${mode}`) } catch { return null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1393,8 +1400,11 @@ export function ActivityForm({
 
           <ErrorBanner errors={errors} fieldLabels={invalidFieldLabels} />
 
-          {/* Person(s) — hidden for Outlook/Google task mode; those APIs don't support assignees */}
-          {!(mode === 'task' && isExternalCalSource) && (() => {
+          {/* Person(s) — hidden for Outlook/Google task mode; those APIs don't
+              support assignees. Also hidden while the destination is still
+              loading on a brand-new task so we don't flash the person list
+              before the picker resolves to Outlook/Google. */}
+          {!(mode === 'task' && (isExternalCalSource || (!isEdit && destination === null))) && (() => {
             const unselected = people
               .filter(p => !selectedPersonCodes.includes(p.code))
               .sort((a, b) => {
@@ -1652,16 +1662,19 @@ export function ActivityForm({
               </div>
             </div>
             {mode === 'task' && isEdit && (
-              <label className="aed-checkbox aed-dt-done">
-                <input
-                  type="checkbox"
-                  checked={done}
-                  onChange={e => setDone(e.target.checked)}
-                  disabled={canEdit === false}
-                />
-                <span className="aed-check-box">{done && '✓'}</span>
-                <span className="aed-check-label">Done</span>
-              </label>
+              <div className="aed-dt-done-col">
+                <div className="aed-label" aria-hidden="true">&nbsp;</div>
+                <label className="aed-checkbox aed-dt-done">
+                  <input
+                    type="checkbox"
+                    checked={done}
+                    onChange={e => setDone(e.target.checked)}
+                    disabled={canEdit === false}
+                  />
+                  <span className="aed-check-box">{done && '✓'}</span>
+                  <span className="aed-check-label">Done</span>
+                </label>
+              </div>
             )}
             {mode === 'event' && <div>
               <div className="aed-label"><span>From</span>

@@ -2,6 +2,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Destination, DestinationMode } from '@/lib/destinations/types'
 
+// Module-level cache so reopening the form within the same session is instant.
+// /api/destinations fans out to Microsoft Graph + Google Tasks per request, so
+// a fresh fetch on every open is visibly slow. 60s is long enough to span the
+// usual "create / cancel / create again" flow but short enough that a list
+// added in another tab shows up on the next open.
+const CACHE_TTL_MS = 60_000
+const cache = new Map<DestinationMode, { ts: number; list: Destination[] }>()
+
+/** Test-only: drop the in-memory cache so fixtures don't bleed across cases. */
+export function __resetDestinationsCacheForTests(): void {
+  cache.clear()
+}
+
 interface Props {
   mode: DestinationMode
   value: string | null
@@ -30,17 +43,29 @@ export function DestinationPicker({ mode, value, initialKey, filter, label, plac
   useEffect(() => {
     fired.current = false
     let cancelled = false
+
+    const apply = (list: Destination[]) => {
+      if (cancelled) return
+      const filtered = filter ? list.filter(filter) : list
+      setDestinations(filtered)
+      if (!placeholder && !fired.current && filtered.length > 0 && value === null) {
+        fired.current = true
+        const preferred = initialKey ? filtered.find(d => d.key === initialKey) : undefined
+        onChange(preferred ?? filtered[0])
+      }
+    }
+
+    const cached = cache.get(mode)
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      apply(cached.list)
+      return () => { cancelled = true }
+    }
+
     fetch(`/api/destinations?mode=${mode}`)
       .then(r => r.ok ? r.json() : [])
       .then((list: Destination[]) => {
-        if (cancelled) return
-        const filtered = filter ? list.filter(filter) : list
-        setDestinations(filtered)
-        if (!placeholder && !fired.current && filtered.length > 0 && value === null) {
-          fired.current = true
-          const preferred = initialKey ? filtered.find(d => d.key === initialKey) : undefined
-          onChange(preferred ?? filtered[0])
-        }
+        cache.set(mode, { ts: Date.now(), list })
+        apply(list)
       })
       .catch(() => { if (!cancelled) setDestinations([]) })
     return () => { cancelled = true }

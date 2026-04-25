@@ -40,7 +40,7 @@ function SourceSection(props: {
           <span className="task-section-count">{openCount}</span>
           <button
             type="button"
-            className="btn btn-sm btn-ghost task-new-btn"
+            className="btn btn-sm btn-outline task-new-btn"
             onClick={() => handlers.onCreate(source)}
           >
             <span aria-hidden="true">+</span> New task

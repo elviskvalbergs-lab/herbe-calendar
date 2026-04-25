@@ -2383,9 +2383,19 @@ input, select, textarea { font-family: inherit; }
   gap: 10px;
   margin-top: 2px;
 }
-/* Task mode variant: date + done side-by-side */
-.aed-dt-grid-task { grid-template-columns: 1fr auto; align-items: end; }
-.aed-dt-grid-task .aed-dt-done { padding-bottom: 8px; margin: 0; white-space: nowrap; }
+/* Task mode variant: date + done side-by-side. The done column mirrors the
+   date column's structure (empty label spacer + content area) so the checkbox
+   is vertically centered against the date input regardless of input height
+   across breakpoints. */
+.aed-dt-grid-task { grid-template-columns: 1fr auto; align-items: stretch; }
+.aed-dt-grid-task .aed-dt-done-col { display: flex; flex-direction: column; }
+.aed-dt-grid-task .aed-dt-done {
+  margin: 0;
+  white-space: nowrap;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+}
 .aed-dt-grid .aed-label { margin-top: 0; }
 .aed-stopwatch {
   display: inline-block;

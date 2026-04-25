@@ -3,7 +3,7 @@
  */
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { DestinationPicker } from '@/components/DestinationPicker'
+import { DestinationPicker, __resetDestinationsCacheForTests } from '@/components/DestinationPicker'
 import type { Destination } from '@/lib/destinations/types'
 
 function mockFetchOnce(data: Destination[]) {
@@ -21,6 +21,7 @@ const OUTLOOK_TASKS: Destination = {
   meta: { kind: 'outlook-task', listId: 'LIST-A', listName: 'Tasks' },
 }
 
+beforeEach(() => { __resetDestinationsCacheForTests() })
 afterEach(() => { jest.restoreAllMocks() })
 
 it('renders optgroups per source with prefixed option labels', async () => {

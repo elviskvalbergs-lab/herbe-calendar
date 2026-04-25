@@ -1209,7 +1209,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               }
             }
           }}
-          onDuplicate={(dup) => setFormState({ open: true, initial: dup, seededFromCopy: true })}
+          onDuplicate={(dup) => setFormState(prev => ({ open: true, initial: dup, seededFromCopy: true, mode: prev.mode }))}
           onRsvp={(newStatus) => {
             // Update the activity in-state so re-opening the form shows the correct RSVP
             setActivities(prev => prev.map(a =>
