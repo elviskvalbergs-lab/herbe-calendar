@@ -61,10 +61,16 @@ export async function PATCH(
           customerCode: body.customerCode,
         }),
       }
+      // Temporary: log full mapping so the multi-person ERP save bug is
+      // visible in Vercel runtime logs. Remove with the rest of the debug
+      // instrumentation once root cause is found.
+      console.log('[debug-erp-task-save] incoming body:', JSON.stringify(body))
+      console.log('[debug-erp-task-save] merged ERP fields:', JSON.stringify(merged))
       // Allow MainPersons/CCPersons to be cleared — empty string is how ERP
       // drops the assignment or CC list. Without this the form silently
       // keeps the old values whenever the user removed them all.
       const result = await saveActVcRecord(merged, { id, conn, allowEmptyFields: new Set(['MainPersons', 'CCPersons']) })
+      console.log('[debug-erp-task-save] saveActVcRecord result.ok:', result.ok, 'status:', result.ok ? 200 : result.status, 'error:', result.ok ? null : result.error)
       if (!result.ok) {
         const payload: Record<string, unknown> = { error: result.error }
         if (result.fieldErrors) payload.fieldErrors = result.fieldErrors
