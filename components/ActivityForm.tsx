@@ -171,9 +171,6 @@ export function ActivityForm({
   const [customerSearchMsg, setCustomerSearchMsg] = useState<string | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
-  // Temporary: captures the request/response for the most recent ERP save so
-  // the multi-person save bug can be inspected in the UI and via /tmp file.
-  const [lastSaveDebug, setLastSaveDebug] = useState<string | null>(null)
   const [savedActivity, setSavedActivity] = useState<Partial<Activity> | null>(null)
   // True after resetToCreate(copy) has seeded the form from a previously-saved
   // activity, or when the form was opened with `seededFromCopy` (e.g. from
@@ -774,40 +771,7 @@ export function ActivityForm({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
-        const rawTaskResponseText = await res.text()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const data: any = ((): any => {
-          try { return JSON.parse(rawTaskResponseText) } catch { return null }
-        })()
-        // Capture for the in-UI debug panel + /tmp file (local) + Vercel logs
-        // via the same /api/debug/herbe-save-log endpoint.
-        {
-          const debugBlob = JSON.stringify({
-            when: new Date().toISOString(),
-            mode,
-            taskSource,
-            editId,
-            isEdit,
-            isErpSource,
-            isOutlookSource,
-            isGoogleSource,
-            destinationKey: destination?.key,
-            url,
-            method,
-            requestBody: body,
-            selectedPersonCodes,
-            selectedCCPersonCodes,
-            responseStatus: res.status,
-            responseBody: rawTaskResponseText,
-          }, null, 2)
-          setLastSaveDebug(debugBlob)
-          try { localStorage.setItem('herbeLastSaveDebug', debugBlob) } catch {}
-          fetch('/api/debug/herbe-save-log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: debugBlob,
-          }).catch(() => {})
-        }
+        const data = await res.json().catch(() => null)
         if (!res.ok) {
           setErrors([String(data?.error ?? `Server error (${res.status})`)])
           applyFieldErrors(data?.fieldErrors)
@@ -832,17 +796,8 @@ export function ActivityForm({
           }
         } catch {}
         onSaved({ source: taskSource, patch })
-        // Mirror the event-save behaviour: keep the modal open with a
-        // result screen so the in-UI Save debug panel stays visible long
-        // enough to inspect. Removed once the multi-person task save bug
-        // is identified.
-        const taskRawId = String(data?.task?.id ?? '').split(':').pop() ?? ''
-        setSavedActivity({
-          id: taskRawId,
-          source: taskSource,
-          description,
-        })
         setSaving(false)
+        onClose()
       } catch (e) {
         setErrors([String(e)])
         setSaving(false)
@@ -876,45 +831,7 @@ export function ActivityForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      // Capture raw text first so debug logging sees the byte-for-byte response
-      // even when the body is not valid JSON. Then attempt to parse for the
-      // existing success/error logic.
-      const rawResponseText = await res.text()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data: any = ((): any => {
-        try { return JSON.parse(rawResponseText) } catch { return null }
-      })()
-
-      // Always capture for events regardless of source — narrowing to ERP
-      // missed cases where source detection didn't fire as expected.
-      {
-        const debugBlob = JSON.stringify({
-          when: new Date().toISOString(),
-          mode,
-          editId,
-          isEdit,
-          isErpSource,
-          isOutlookSource,
-          isGoogleSource,
-          destinationKey: destination?.key,
-          url,
-          method,
-          requestBody: body,
-          selectedPersonCodes,
-          selectedCCPersonCodes,
-          responseStatus: res.status,
-          responseBody: rawResponseText,
-        }, null, 2)
-        setLastSaveDebug(debugBlob)
-        try { localStorage.setItem('herbeLastSaveDebug', debugBlob) } catch {}
-        // Fire-and-forget local file log. Useful when running dev locally so
-        // the assistant can `cat /tmp/herbe-debug.log` after a repro.
-        fetch('/api/debug/herbe-save-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: debugBlob,
-        }).catch(() => {})
-      }
+      const data = await res.json().catch(() => null)
 
       if (!res.ok) {
         const apiErrors = Array.isArray(data?.errors)
@@ -1279,33 +1196,6 @@ export function ActivityForm({
           </h2>
           <button onClick={handleClose} aria-label="Close" className="icon-btn shrink-0 aed-close">✕</button>
         </div>
-
-        {/* Temporary debug panel — always visible after a save attempt, even
-            on success/failure paths. Render before the body conditional so
-            the success view doesn't hide it. Remove once the ERP multi-person
-            save bug is identified. */}
-        {lastSaveDebug && (
-          <div className="mx-4 my-2 rounded-lg border-2 border-amber-500 bg-amber-500/10 p-3 text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-amber-500 text-sm">⚠ Save debug</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded border border-amber-500 bg-amber-500/20 text-amber-500 text-[11px] font-bold"
-                  onClick={() => navigator.clipboard.writeText(lastSaveDebug).catch(() => {})}
-                >Copy</button>
-                <button
-                  type="button"
-                  className="px-2 py-1 rounded border border-border text-text-muted text-[11px]"
-                  onClick={() => setLastSaveDebug(null)}
-                >Hide</button>
-              </div>
-            </div>
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-text bg-black/20 p-2 rounded">
-              {lastSaveDebug}
-            </pre>
-          </div>
-        )}
 
         {/* Calendar source label — only for cases the header pill doesn't already
             disambiguate. ICS has no header pill (read-only feed), so it stays.

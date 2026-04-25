@@ -61,16 +61,10 @@ export async function PATCH(
           customerCode: body.customerCode,
         }),
       }
-      // Temporary: log full mapping so the multi-person ERP save bug is
-      // visible in Vercel runtime logs. Remove with the rest of the debug
-      // instrumentation once root cause is found.
-      console.log('[debug-erp-task-save] incoming body:', JSON.stringify(body))
-      console.log('[debug-erp-task-save] merged ERP fields:', JSON.stringify(merged))
       // Allow MainPersons/CCPersons to be cleared — empty string is how ERP
       // drops the assignment or CC list. Without this the form silently
       // keeps the old values whenever the user removed them all.
       const result = await saveActVcRecord(merged, { id, conn, allowEmptyFields: new Set(['MainPersons', 'CCPersons']) })
-      console.log('[debug-erp-task-save] saveActVcRecord result.ok:', result.ok, 'status:', result.ok ? 200 : result.status, 'error:', result.ok ? null : result.error)
       if (!result.ok) {
         const payload: Record<string, unknown> = { error: result.error }
         if (result.fieldErrors) payload.fieldErrors = result.fieldErrors
@@ -80,12 +74,7 @@ export async function PATCH(
       // read doesn't have to re-fetch the whole task list.
       const task = mapHerbeTask(result.record, '', conn.id, conn.name)
       await writeThroughTask(session.accountId, session.email, 'herbe', task)
-      // Temporary: include the raw ERP record in the response so the in-UI
-      // Save debug panel exposes MainPersons (which the mapped Task shape
-      // intentionally drops). Lets us see what ERP actually persisted for
-      // a multi-person task save without needing runtime logs. Removed
-      // alongside the other debug instrumentation.
-      return NextResponse.json({ ok: true, task, _debugErpRecord: result.record })
+      return NextResponse.json({ ok: true, task })
     }
 
     if (source === 'outlook') {
