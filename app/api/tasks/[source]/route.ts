@@ -63,7 +63,7 @@ function validateCreateBody(body: unknown): { ok: true; value: CreateBody } | { 
   // URL-segment safety on every id-shaped field.
   if (rejectsAsUrlSegment(b.listId as string)) return { ok: false, error: 'listId contains forbidden character' }
   if (rejectsAsUrlSegment(b.googleListId as string)) return { ok: false, error: 'googleListId contains forbidden character' }
-  return { ok: true, value: b as CreateBody }
+  return { ok: true, value: b as unknown as CreateBody }
 }
 
 export async function POST(
