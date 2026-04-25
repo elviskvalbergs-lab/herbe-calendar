@@ -140,3 +140,33 @@ describe('buildEditTaskBody', () => {
     expect(buildEditTaskBody({ description: 'Notes' })).toEqual({ Text: 'Notes' })
   })
 })
+
+// Regression: bug #1 — deleteHerbeTask wraps the WebExcellentAPI delete and
+// signals 404 vs success vs error so the API route can return the right
+// status code.
+import { deleteHerbeTask } from '@/lib/herbe/taskRecordUtils'
+
+jest.mock('@/lib/herbe/client', () => ({
+  herbeFetch: jest.fn(),
+  herbeParseJSON: jest.fn(),
+  herbeWebExcellentDelete: jest.fn(),
+}))
+import { herbeWebExcellentDelete } from '@/lib/herbe/client'
+
+describe('deleteHerbeTask', () => {
+  it('returns true when ERP responds 200 OK', async () => {
+    ;(herbeWebExcellentDelete as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, text: async () => '' })
+    const ok = await deleteHerbeTask('12345', 'EKS', { name: 'C' } as any)
+    expect(ok).toBe(true)
+    expect(herbeWebExcellentDelete).toHaveBeenCalledWith('ActVc', '12345', 'EKS', expect.anything())
+  })
+  it('returns false when ERP responds 404', async () => {
+    ;(herbeWebExcellentDelete as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404, text: async () => '' })
+    const ok = await deleteHerbeTask('GONE', 'EKS', { name: 'C' } as any)
+    expect(ok).toBe(false)
+  })
+  it('throws on other errors', async () => {
+    ;(herbeWebExcellentDelete as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'oops' })
+    await expect(deleteHerbeTask('12345', 'EKS', { name: 'C' } as any)).rejects.toThrow(/500/)
+  })
+})

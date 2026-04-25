@@ -96,7 +96,17 @@ export default function FavoritesDropdown({ state, onApply, hiddenCalendars, inl
           </svg>
           <span className="truncate">{fav.name}</span>
           <span className="text-[10px] text-text-muted ml-auto whitespace-nowrap">
-            {fav.view === 'day' ? 'Day' : fav.view === '3day' ? '3D' : fav.view === '5day' ? '5D' : '7D'} · {fav.personCodes.length}p
+            {(() => {
+              switch (fav.view) {
+                case 'day': return 'Day'
+                case '3day': return '3D'
+                case '5day': return '5D'
+                case '7day': return '7D'
+                case 'month': return 'Month'
+                case 'tasks': return 'Tasks'
+                default: return fav.view
+              }
+            })()} · {fav.personCodes.length}p
           </span>
           <button
             onClick={(e) => { e.stopPropagation(); setDetailFavorite(fav); if (!inline) setOpen(false) }}

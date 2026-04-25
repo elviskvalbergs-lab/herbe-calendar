@@ -32,6 +32,40 @@ interface CreateBody {
   googleListTitle?: string
 }
 
+const ID_REJECT_RE = /[/?#]/
+function rejectsAsUrlSegment(v: string | undefined | null): boolean {
+  return typeof v === 'string' && ID_REJECT_RE.test(v)
+}
+function isOptionalString(v: unknown): v is string | undefined {
+  return v === undefined || typeof v === 'string'
+}
+function isOptionalStringArray(v: unknown): v is string[] | undefined {
+  return v === undefined || (Array.isArray(v) && v.every(s => typeof s === 'string'))
+}
+
+function validateCreateBody(body: unknown): { ok: true; value: CreateBody } | { ok: false; error: string } {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'invalid body' }
+  const b = body as Record<string, unknown>
+  if (typeof b.title !== 'string' || b.title.length === 0) return { ok: false, error: 'title required' }
+  if (!isOptionalString(b.description)) return { ok: false, error: 'description must be string' }
+  if (!isOptionalString(b.dueDate)) return { ok: false, error: 'dueDate must be string' }
+  if (!isOptionalString(b.connectionId)) return { ok: false, error: 'connectionId must be string' }
+  if (!isOptionalString(b.activityTypeCode)) return { ok: false, error: 'activityTypeCode must be string' }
+  if (!isOptionalString(b.projectCode)) return { ok: false, error: 'projectCode must be string' }
+  if (!isOptionalString(b.customerCode)) return { ok: false, error: 'customerCode must be string' }
+  if (!isOptionalStringArray(b.ccPersons)) return { ok: false, error: 'ccPersons must be string[]' }
+  if (!isOptionalStringArray(b.mainPersons)) return { ok: false, error: 'mainPersons must be string[]' }
+  if (!isOptionalString(b.listId)) return { ok: false, error: 'listId must be string' }
+  if (!isOptionalString(b.listTitle)) return { ok: false, error: 'listTitle must be string' }
+  if (!isOptionalString(b.googleTokenId)) return { ok: false, error: 'googleTokenId must be string' }
+  if (!isOptionalString(b.googleListId)) return { ok: false, error: 'googleListId must be string' }
+  if (!isOptionalString(b.googleListTitle)) return { ok: false, error: 'googleListTitle must be string' }
+  // URL-segment safety on every id-shaped field.
+  if (rejectsAsUrlSegment(b.listId as string)) return { ok: false, error: 'listId contains forbidden character' }
+  if (rejectsAsUrlSegment(b.googleListId as string)) return { ok: false, error: 'googleListId contains forbidden character' }
+  return { ok: true, value: b as CreateBody }
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ source: string }> },
@@ -43,15 +77,26 @@ export async function POST(
   if (!['herbe', 'outlook', 'google'].includes(source)) {
     return NextResponse.json({ error: 'unknown source' }, { status: 400 })
   }
-  const body = await req.json().catch(() => ({})) as CreateBody
-  if (!body.title) return NextResponse.json({ error: 'title required' }, { status: 400 })
+  const raw = await req.json().catch(() => ({}))
+  const valid = validateCreateBody(raw)
+  if (!valid.ok) return NextResponse.json({ error: valid.error }, { status: 400 })
+  const body = valid.value
 
   try {
     if (source === 'herbe') {
       const personCode = await getCodeByEmail(session.email, session.accountId)
       if (!personCode) return NextResponse.json({ error: 'no person code for user' }, { status: 400 })
       const conns = await getErpConnections(session.accountId)
-      const conn = conns.find(c => c.id === body.connectionId) ?? conns[0]
+      // If the caller supplied a connectionId, respect it strictly. Falling
+      // back to conns[0] silently writes to a different ERP tenant when the
+      // id is unknown — that's a cross-tenant write bug, not a UX nicety.
+      let conn
+      if (body.connectionId !== undefined) {
+        conn = conns.find(c => c.id === body.connectionId)
+        if (!conn) return NextResponse.json({ error: 'connectionId not found' }, { status: 400 })
+      } else {
+        conn = conns[0]
+      }
       if (!conn) return NextResponse.json({ error: 'no ERP connection' }, { status: 400 })
       const result = await saveActVcRecord(buildCreateTaskBody({
         title: body.title,

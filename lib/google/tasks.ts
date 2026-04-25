@@ -64,7 +64,10 @@ export async function fetchGoogleTasks(
 
   const perList = await Promise.all(lists.map(async list => {
     try {
-      const r = await tasksFetch(accessToken, `/lists/${list.id}/tasks?showCompleted=true&showHidden=false`)
+      const r = await tasksFetch(
+        accessToken,
+        `/lists/${encodeURIComponent(list.id)}/tasks?showCompleted=true&showHidden=false`,
+      )
       if (!r.ok) return { tasks: [] as Task[], err: `${list.title} ${r.status}` }
       const body = await r.json() as { items?: GoogleTaskApi[] }
       return { tasks: (body.items ?? []).map(t => mapGoogleTask(t, list.title)), err: null }
@@ -95,10 +98,23 @@ async function findGoogleTaskList(accessToken: string, taskId: string): Promise<
   if (!res.ok) return null
   const body = await res.json() as { items?: GoogleListApi[] }
   for (const list of body.items ?? []) {
-    const r = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`)
+    const r = await tasksFetch(
+      accessToken,
+      `/lists/${encodeURIComponent(list.id)}/tasks/${encodeURIComponent(taskId)}`,
+    )
     if (r.ok) return { id: list.id, title: list.title }
   }
   return null
+}
+
+/** Look up just the title for a known Google list id, used when the caller
+ *  passes `currentListId` and we still want the original list title for the
+ *  returned Task's `listName`. Best-effort: returns empty string on failure. */
+async function lookupGoogleListTitle(accessToken: string, listId: string): Promise<string> {
+  const res = await tasksFetch(accessToken, '/users/@me/lists')
+  if (!res.ok) return ''
+  const body = await res.json() as { items?: GoogleListApi[] }
+  return body.items?.find(l => l.id === listId)?.title ?? ''
 }
 
 export interface CreateGoogleTaskInput {
@@ -132,7 +148,7 @@ export async function createGoogleTask(
   const payload: Record<string, unknown> = { title: input.title }
   if (input.description) payload.notes = input.description
   if (input.dueDate) payload.due = `${input.dueDate}T00:00:00.000Z`
-  const res = await tasksFetch(accessToken, `/lists/${listId}/tasks`, {
+  const res = await tasksFetch(accessToken, `/lists/${encodeURIComponent(listId)}/tasks`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
@@ -152,6 +168,15 @@ export interface UpdateGoogleTaskInput {
   targetListId?: string
   /** Display title for the target list (carried into the returned Task). */
   targetListTitle?: string
+  /** Optional: id of the list the task currently lives in. Skips the N+1 probe. */
+  currentListId?: string
+}
+
+export interface UpdateGoogleTaskResult {
+  task: Task
+  /** Set when the create-in-target succeeded but delete-original failed —
+   *  the user will see the task in both lists until the next sync. */
+  warning?: 'ORIGINAL_NOT_DELETED'
 }
 
 export async function updateGoogleTask(
@@ -160,18 +185,27 @@ export async function updateGoogleTask(
   accountId: string,
   taskId: string,
   input: UpdateGoogleTaskInput,
-): Promise<Task> {
+): Promise<UpdateGoogleTaskResult> {
   const accessToken = await getValidAccessTokenForUser(tokenId, userEmail, accountId)
   if (!accessToken) throw new Error('Google access token unavailable')
-  const list = await findGoogleTaskList(accessToken, taskId)
-    ?? await resolveDefaultGoogleListId(accessToken)
+  // Resolve the source list. Trust caller-provided currentListId; otherwise
+  // probe; otherwise fall back to the default list.
+  let list: { id: string; title: string }
+  if (input.currentListId) {
+    list = { id: input.currentListId, title: await lookupGoogleListTitle(accessToken, input.currentListId) }
+  } else {
+    list = await findGoogleTaskList(accessToken, taskId)
+      ?? await resolveDefaultGoogleListId(accessToken)
+  }
 
   // Cross-list move: insert in the target list with merged fields, then
-  // delete the original. We don't try to be clever about partial-failure
-  // recovery — if the create succeeds and the delete fails, the user sees
-  // the task in both lists and the next sync reconciles.
+  // delete the original. Surface a warning on partial failure so the API
+  // route can tell the client the task may temporarily appear in both lists.
   if (input.targetListId && input.targetListId !== list.id) {
-    const existingRes = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`)
+    const existingRes = await tasksFetch(
+      accessToken,
+      `/lists/${encodeURIComponent(list.id)}/tasks/${encodeURIComponent(taskId)}`,
+    )
     if (!existingRes.ok) throw new Error(`fetch existing ${existingRes.status}`)
     const existing = await existingRes.json() as GoogleTaskApi
 
@@ -189,19 +223,26 @@ export async function updateGoogleTask(
     const done = input.done ?? (existing.status === 'completed')
     if (done) merged.status = 'completed'
 
-    const createRes = await tasksFetch(accessToken, `/lists/${input.targetListId}/tasks`, {
+    const createRes = await tasksFetch(accessToken, `/lists/${encodeURIComponent(input.targetListId)}/tasks`, {
       method: 'POST',
       body: JSON.stringify(merged),
     })
     if (!createRes.ok) throw new Error(`create-in-target ${createRes.status}`)
     const created = await createRes.json() as GoogleTaskApi
 
-    const delRes = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`, { method: 'DELETE' })
+    const delRes = await tasksFetch(
+      accessToken,
+      `/lists/${encodeURIComponent(list.id)}/tasks/${encodeURIComponent(taskId)}`,
+      { method: 'DELETE' },
+    )
+    let warning: UpdateGoogleTaskResult['warning']
     if (!delRes.ok && delRes.status !== 204) {
       console.warn(`[updateGoogleTask] delete old ${taskId} from ${list.id} failed: ${delRes.status}`)
+      warning = 'ORIGINAL_NOT_DELETED'
     }
 
-    return mapGoogleTask(created, input.targetListTitle ?? '')
+    const task = mapGoogleTask(created, input.targetListTitle ?? '')
+    return warning ? { task, warning } : { task }
   }
 
   const payload: Record<string, unknown> = { id: taskId }
@@ -210,11 +251,45 @@ export async function updateGoogleTask(
   if (input.description !== undefined) payload.notes = input.description
   if (input.dueDate === null) payload.due = null
   else if (input.dueDate !== undefined) payload.due = `${input.dueDate}T00:00:00.000Z`
-  const res = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  })
+  const res = await tasksFetch(
+    accessToken,
+    `/lists/${encodeURIComponent(list.id)}/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
   if (!res.ok) throw new Error(`update ${res.status}`)
   const updated = await res.json() as GoogleTaskApi
-  return mapGoogleTask(updated, list.title)
+  return { task: mapGoogleTask(updated, list.title) }
+}
+
+/**
+ * Delete a Google task. Returns true on success, false when the task could
+ * not be located in any of the user's lists (treat as 404 at the API layer).
+ * Throws on other Tasks API errors.
+ */
+export async function deleteGoogleTask(
+  tokenId: string,
+  userEmail: string,
+  accountId: string,
+  taskId: string,
+  currentListId?: string,
+): Promise<boolean> {
+  const accessToken = await getValidAccessTokenForUser(tokenId, userEmail, accountId)
+  if (!accessToken) throw new Error('Google access token unavailable')
+  let listId: string | null = currentListId ?? null
+  if (!listId) {
+    const found = await findGoogleTaskList(accessToken, taskId)
+    listId = found?.id ?? null
+  }
+  if (!listId) return false
+  const res = await tasksFetch(
+    accessToken,
+    `/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
+    { method: 'DELETE' },
+  )
+  if (res.ok || res.status === 204) return true
+  if (res.status === 404) return false
+  throw new Error(`delete ${res.status}`)
 }

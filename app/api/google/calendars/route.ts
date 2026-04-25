@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
-import { getUserGoogleAccounts, getValidAccessToken, syncCalendarList } from '@/lib/google/userOAuth'
+import { getUserGoogleAccounts, getValidAccessTokenForUser, syncCalendarList } from '@/lib/google/userOAuth'
 import { pool } from '@/lib/db'
 
 /** GET: List all connected Google accounts and their calendars */
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Token not found' }, { status: 404 })
   }
 
-  const accessToken = await getValidAccessToken(tokenId)
+  const accessToken = await getValidAccessTokenForUser(tokenId, session.email, session.accountId)
   if (!accessToken) {
     return NextResponse.json({ error: 'Could not refresh Google token — reconnect your account' }, { status: 401 })
   }

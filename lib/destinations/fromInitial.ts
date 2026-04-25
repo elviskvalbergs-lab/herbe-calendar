@@ -64,13 +64,17 @@ export function destinationFromInitial(
       d.key = makeKey(d)
       return d
     }
+    const listName = initial.listName ?? 'Tasks'
     return {
-      key: 'outlook:__edit__',
+      // Empty key — listId isn't known yet. The picker reconciles via
+      // editLabelHint once the real list is fetched and promotes the real key.
+      key: '',
       source: 'outlook',
-      label: initial.listName ?? 'Tasks',
+      label: listName,
       sourceLabel: 'Outlook',
       color: OUTLOOK_COLOR,
-      meta: { kind: 'outlook-task', listId: '', listName: initial.listName ?? '' },
+      meta: { kind: 'outlook-task', listId: '', listName },
+      editLabelHint: listName,
     }
   }
 
@@ -85,22 +89,25 @@ export function destinationFromInitial(
         label: calendarName,
         sourceLabel: 'Google',
         color: GOOGLE_COLOR,
-        meta: { kind: 'google-event', tokenId, calendarId, calendarName, email: '' },
+        meta: { kind: 'google-event', tokenId, calendarId, calendarName },
       }
     }
+    const listName = initial.listName ?? 'Google'
     return {
-      key: `google:${tokenId}:__edit__`,
+      // Empty key — listId isn't known yet. The picker reconciles via
+      // editLabelHint once the real list is fetched and promotes the real key.
+      key: '',
       source: 'google',
-      label: initial.listName ?? 'Google',
+      label: listName,
       sourceLabel: 'Google',
       color: GOOGLE_COLOR,
       meta: {
         kind: 'google-task',
         tokenId,
         listId: '',
-        listName: initial.listName ?? '',
-        email: '',
+        listName,
       },
+      editLabelHint: listName,
     }
   }
 

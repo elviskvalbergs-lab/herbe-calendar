@@ -1,5 +1,5 @@
 import { getGoogleConfig, getCalendarClient, getOAuthCalendarClient } from '@/lib/google/client'
-import { getUserGoogleAccounts, getValidAccessToken } from '@/lib/google/userOAuth'
+import { getUserGoogleAccounts, getValidAccessTokenForUser } from '@/lib/google/userOAuth'
 import type { calendar_v3 } from 'googleapis'
 import type { Activity } from '@/types'
 
@@ -163,7 +163,7 @@ export async function fetchPerUserGoogleEvents(
     const enabledCals = account.calendars.filter(c => c.enabled)
     if (enabledCals.length === 0) continue
 
-    const accessToken = await getValidAccessToken(account.id)
+    const accessToken = await getValidAccessTokenForUser(account.id, ownerEmail, accountId)
     if (!accessToken) {
       warnings.push(`Google (${account.googleEmail}): token expired`)
       continue

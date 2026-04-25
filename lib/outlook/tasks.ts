@@ -65,7 +65,7 @@ export async function fetchOutlookTasks(
   const perList = await Promise.all(lists.map(async list => {
     try {
       const tasksRes = await graphFetch(
-        `/users/${enc}/todo/lists/${list.id}/tasks`,
+        `/users/${enc}/todo/lists/${encodeURIComponent(list.id)}/tasks`,
         undefined,
         azureConfig,
       )
@@ -108,7 +108,11 @@ async function findOutlookTaskList(
   if (!listsRes.ok) return null
   const body = await listsRes.json() as { value: OutlookListApi[] }
   for (const list of body.value) {
-    const r = await graphFetch(`/users/${enc}/todo/lists/${list.id}/tasks/${taskId}`, undefined, azureConfig)
+    const r = await graphFetch(
+      `/users/${enc}/todo/lists/${encodeURIComponent(list.id)}/tasks/${encodeURIComponent(taskId)}`,
+      undefined,
+      azureConfig,
+    )
     if (r.ok) return list.id
   }
   return null
@@ -142,7 +146,7 @@ export async function createOutlookTask(
     payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: 'UTC' }
   }
   const res = await graphFetch(
-    `/users/${enc}/todo/lists/${listId}/tasks`,
+    `/users/${enc}/todo/lists/${encodeURIComponent(listId)}/tasks`,
     { method: 'POST', body: JSON.stringify(payload) },
     azureConfig,
   )
@@ -163,9 +167,15 @@ export async function updateOutlookTask(
   taskId: string,
   input: UpdateOutlookTaskInput,
   azureConfig: AzureConfig,
+  /** Optional: id of the list the task currently lives in. When provided we
+   *  skip the N+1 list-probe. Falsy values fall back to probe → default. */
+  currentListId?: string,
 ): Promise<Task> {
   // Task may live in any of the user's lists — find the one containing it.
-  const listId = await findOutlookTaskList(userEmail, taskId, azureConfig)
+  // If the caller already knows which list it's in, trust them and skip the
+  // O(lists) probe. Probe + default-fallback remain for backwards-compat.
+  const listId = currentListId
+    ?? await findOutlookTaskList(userEmail, taskId, azureConfig)
     ?? await resolveDefaultListId(userEmail, azureConfig)
   const enc = encodeURIComponent(userEmail)
   const payload: Record<string, unknown> = {}
@@ -177,7 +187,7 @@ export async function updateOutlookTask(
     payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: 'UTC' }
   }
   const res = await graphFetch(
-    `/users/${enc}/todo/lists/${listId}/tasks/${taskId}`,
+    `/users/${enc}/todo/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
     { method: 'PATCH', body: JSON.stringify(payload) },
     azureConfig,
   )
@@ -193,6 +203,15 @@ export interface MoveOutlookTaskInput {
   targetListTitle?: string
   /** Optional field patches to apply during the move. */
   patch?: UpdateOutlookTaskInput
+  /** Optional: id of the list the task currently lives in. Skips the N+1 probe. */
+  currentListId?: string
+}
+
+export interface MoveOutlookTaskResult {
+  task: Task
+  /** Set when the create succeeded but the original could not be deleted —
+   *  the user will see the task in both lists until the next sync. */
+  warning?: 'ORIGINAL_NOT_DELETED'
 }
 
 /**
@@ -204,25 +223,30 @@ export interface MoveOutlookTaskInput {
  *
  * If the task is already in the target list, no delete happens — we just
  * apply the patch as a normal update.
+ *
+ * Partial failures (create OK, delete failed) surface as
+ * `warning: 'ORIGINAL_NOT_DELETED'` so the API route can tell the client.
  */
 export async function moveOutlookTask(
   userEmail: string,
   taskId: string,
   input: MoveOutlookTaskInput,
   azureConfig: AzureConfig,
-): Promise<Task> {
+): Promise<MoveOutlookTaskResult> {
   const enc = encodeURIComponent(userEmail)
-  const currentListId = await findOutlookTaskList(userEmail, taskId, azureConfig)
+  const currentListId = input.currentListId
+    ?? await findOutlookTaskList(userEmail, taskId, azureConfig)
   if (!currentListId) throw new Error(`task ${taskId} not found in any list`)
 
   if (currentListId === input.targetListId) {
     // No-op move — just a regular update, preserving existing behavior.
-    return updateOutlookTask(userEmail, taskId, input.patch ?? {}, azureConfig)
+    const task = await updateOutlookTask(userEmail, taskId, input.patch ?? {}, azureConfig, currentListId)
+    return { task }
   }
 
   // Fetch the existing task so we can carry fields forward into the new list.
   const existingRes = await graphFetch(
-    `/users/${enc}/todo/lists/${currentListId}/tasks/${taskId}`,
+    `/users/${enc}/todo/lists/${encodeURIComponent(currentListId)}/tasks/${encodeURIComponent(taskId)}`,
     undefined,
     azureConfig,
   )
@@ -251,26 +275,52 @@ export async function moveOutlookTask(
   // always writes status=notStarted otherwise.
   if (done) {
     const newRawId = created.id.startsWith('outlook:') ? created.id.slice('outlook:'.length) : created.id
-    await updateOutlookTask(userEmail, newRawId, { done: true }, azureConfig)
+    await updateOutlookTask(userEmail, newRawId, { done: true }, azureConfig, input.targetListId)
   }
 
   // Delete the original.
   const delRes = await graphFetch(
-    `/users/${enc}/todo/lists/${currentListId}/tasks/${taskId}`,
+    `/users/${enc}/todo/lists/${encodeURIComponent(currentListId)}/tasks/${encodeURIComponent(taskId)}`,
     { method: 'DELETE' },
     azureConfig,
   )
+  let warning: MoveOutlookTaskResult['warning']
   if (!delRes.ok && delRes.status !== 204) {
-    // Best-effort: log but don't fail; the new task exists, the old one is stale.
     console.warn(`[moveOutlookTask] delete old ${taskId} failed: ${delRes.status}`)
+    warning = 'ORIGINAL_NOT_DELETED'
   }
 
-  // Return the (possibly-done-updated) new task. mapOutlookTask needs the
-  // raw API shape; simplest is to re-map from the createOutlookTask result,
-  // overriding done if needed.
-  return {
+  const task: Task = {
     ...created,
     done,
     listName: input.targetListTitle ?? created.listName,
   }
+  return warning ? { task, warning } : { task }
+}
+
+/**
+ * Delete an Outlook to-do task. Returns true on success, false when the task
+ * could not be located in any of the user's lists (treat as 404 at the API
+ * layer). Throws on other Graph errors.
+ *
+ * If the caller already knows which list the task lives in, pass
+ * `currentListId` to skip the N+1 list-probe.
+ */
+export async function deleteOutlookTask(
+  userEmail: string,
+  taskId: string,
+  azureConfig: AzureConfig,
+  currentListId?: string,
+): Promise<boolean> {
+  const listId = currentListId ?? await findOutlookTaskList(userEmail, taskId, azureConfig)
+  if (!listId) return false
+  const enc = encodeURIComponent(userEmail)
+  const res = await graphFetch(
+    `/users/${enc}/todo/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
+    { method: 'DELETE' },
+    azureConfig,
+  )
+  if (res.ok || res.status === 204) return true
+  if (res.status === 404) return false
+  throw new Error(`delete failed: ${res.status}`)
 }

@@ -46,6 +46,26 @@ describe('destinationFromInitial', () => {
     expect(d?.label).toBe('Shopping')
   })
 
+  it('Outlook task edit: returns an empty key + editLabelHint instead of a fake parseable key', () => {
+    // Regression for: previously emitted "outlook:__edit__" which parseDestinationKey
+    // would happily accept as a real key (listId="__edit__"). Now the synthetic
+    // destination uses an empty key plus an explicit editLabelHint that the picker
+    // reconciles against the fetched list by label.
+    const d = destinationFromInitial({ source: 'outlook', listName: 'Shopping' }, 'task', CONNS)
+    expect(d?.key).toBe('')
+    expect(d?.editLabelHint).toBe('Shopping')
+  })
+
+  it('Google task edit: returns an empty key + editLabelHint', () => {
+    const d = destinationFromInitial({
+      source: 'google',
+      googleTokenId: 'TOK-1',
+      listName: 'Work',
+    }, 'task', CONNS)
+    expect(d?.key).toBe('')
+    expect(d?.editLabelHint).toBe('Work')
+  })
+
   it('builds a Google event destination from googleTokenId + googleCalendarId', () => {
     const d = destinationFromInitial({
       source: 'google',

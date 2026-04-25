@@ -1,4 +1,4 @@
-import { mapOutlookTask, fetchOutlookTasks, createOutlookTask, updateOutlookTask, moveOutlookTask, type OutlookTaskApi } from '@/lib/outlook/tasks'
+import { mapOutlookTask, fetchOutlookTasks, createOutlookTask, updateOutlookTask, moveOutlookTask, deleteOutlookTask, type OutlookTaskApi } from '@/lib/outlook/tasks'
 
 jest.mock('@/lib/graph/client', () => ({
   graphFetch: jest.fn(),
@@ -196,17 +196,93 @@ describe('moveOutlookTask', () => {
       return { ok: false, status: 500, text: async () => '' } as unknown as Response
     })
 
-    const task = await moveOutlookTask(
+    const result = await moveOutlookTask(
       'x@y.z',
       'OLDID',
       { targetListId: 'NEW', targetListTitle: 'Elvis' },
       { tenantId: 't', clientId: 'c', clientSecret: 's' } as any,
     )
-    expect(task.id).toBe('outlook:NEWID')
-    expect(task.listName).toBe('Elvis')
+    expect(result.task.id).toBe('outlook:NEWID')
+    expect(result.task.listName).toBe('Elvis')
+    expect(result.warning).toBeUndefined()
     const calls = mockGraph.mock.calls.map((c: any[]) => ({ path: c[0], method: c[1]?.method ?? 'GET' }))
     expect(calls.some(c => c.path.endsWith('/lists/NEW/tasks') && c.method === 'POST')).toBe(true)
     expect(calls.some(c => c.path.endsWith('/lists/OLD/tasks/OLDID') && c.method === 'DELETE')).toBe(true)
+  })
+
+  // Regression: bug #3 — partial-success warning. If the create succeeds but
+  // the delete fails, surface ORIGINAL_NOT_DELETED so the API route can tell
+  // the client the task may appear in both lists.
+  it('returns warning=ORIGINAL_NOT_DELETED when create succeeds but delete fails', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists')) {
+        return { ok: true, json: async () => ({ value: [
+          { id: 'OLD', displayName: 'Tasks' },
+          { id: 'NEW', displayName: 'Elvis' },
+        ] }) } as unknown as Response
+      }
+      if (path.includes('/lists/OLD/tasks/OLDID') && !init?.method) {
+        return { ok: true, json: async () => ({
+          id: 'OLDID', title: 'O', status: 'notStarted',
+        }) } as unknown as Response
+      }
+      if (path.includes('/lists/NEW/tasks/OLDID') && !init?.method) {
+        return { ok: false, status: 404, text: async () => '' } as unknown as Response
+      }
+      if (path.endsWith('/lists/NEW/tasks') && init?.method === 'POST') {
+        return { ok: true, json: async () => ({
+          id: 'NEWID', title: 'O', status: 'notStarted',
+        }) } as unknown as Response
+      }
+      if (path.includes('/lists/OLD/tasks/OLDID') && init?.method === 'DELETE') {
+        // Simulate Graph rejecting the delete.
+        return { ok: false, status: 500, text: async () => 'oops' } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    const result = await moveOutlookTask(
+      'x@y.z', 'OLDID',
+      { targetListId: 'NEW' },
+      {} as any,
+    )
+    expect(result.task.id).toBe('outlook:NEWID')
+    expect(result.warning).toBe('ORIGINAL_NOT_DELETED')
+  })
+
+  // Regression: bug #7 — when caller supplies currentListId, skip the
+  // findOutlookTaskList probe (saves O(lists) Graph calls per mutation).
+  it('skips the list-probe when currentListId is supplied', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists') && !init?.method) {
+        // First call here is fine — it's createOutlookTask resolving the
+        // target list title (only when listTitle is omitted). With
+        // listTitle supplied or targetListId provided, we don't hit /lists.
+        return { ok: false, status: 500, text: async () => '' } as unknown as Response
+      }
+      if (path.includes('/lists/OLD/tasks/OLDID') && !init?.method) {
+        return { ok: true, json: async () => ({ id: 'OLDID', title: 'O', status: 'notStarted' }) } as unknown as Response
+      }
+      if (path.endsWith('/lists/NEW/tasks') && init?.method === 'POST') {
+        return { ok: true, json: async () => ({ id: 'NEWID', title: 'O', status: 'notStarted' }) } as unknown as Response
+      }
+      if (path.includes('/lists/OLD/tasks/OLDID') && init?.method === 'DELETE') {
+        return { ok: true, status: 204 } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    const result = await moveOutlookTask(
+      'x@y.z', 'OLDID',
+      { targetListId: 'NEW', targetListTitle: 'Elvis', currentListId: 'OLD' },
+      {} as any,
+    )
+    expect(result.task.id).toBe('outlook:NEWID')
+    // No /todo/lists probe should have been called when currentListId is supplied.
+    const probedLists = mockGraph.mock.calls.filter(c =>
+      String(c[0]).endsWith('/todo/lists') && !c[1]?.method,
+    )
+    expect(probedLists).toHaveLength(0)
   })
 
   it('short-circuits to a normal update when target list equals the current one', async () => {
@@ -232,5 +308,99 @@ describe('moveOutlookTask', () => {
     const calls = mockGraph.mock.calls.map((c: any[]) => ({ path: c[0], method: c[1]?.method ?? 'GET' }))
     // No DELETE should happen when the task is already in the target list.
     expect(calls.some(c => c.method === 'DELETE')).toBe(false)
+  })
+})
+
+// Regression: bug #2 — every list-id and task-id interpolated into a Graph
+// URL must be wrapped with encodeURIComponent. A taskId of `abc?$expand=...`
+// would otherwise smuggle a query parameter into the URL. We assert the
+// downstream URL contains the encoded form (`?` becomes `%3F`).
+describe('URL-injection guard', () => {
+  it('encodeURIComponents taskId before interpolating into the Graph URL', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists')) {
+        return { ok: true, json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }) } as unknown as Response
+      }
+      // Probe — return ok so updateOutlookTask uses this list.
+      if (path.includes('/lists/L/tasks/') && !init?.method) {
+        return { ok: true, json: async () => ({ id: 'x', title: 't', status: 'notStarted' }) } as unknown as Response
+      }
+      // PATCH — return ok so the call completes.
+      if (init?.method === 'PATCH') {
+        return { ok: true, json: async () => ({ id: 'x', title: 't', status: 'notStarted' }) } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    await updateOutlookTask('u@x.com', 'abc?$expand=*', { done: true }, {} as any)
+
+    // The taskId carries a `?` and `*` — both must be %-encoded so they
+    // can't smuggle a query parameter or wildcard into the URL.
+    const calls = mockGraph.mock.calls.map((c: any[]) => String(c[0]))
+    expect(calls.some(p => p.includes('abc%3F%24expand%3D'))).toBe(true)
+    // No call should contain a raw `?$expand=` past the path segment.
+    expect(calls.some(p => p.includes('/tasks/abc?$expand='))).toBe(false)
+  })
+
+  it('encodeURIComponents listId before interpolating into the Graph URL', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists') && !init?.method) {
+        // Should not be hit — listId is supplied explicitly.
+        return { ok: true, json: async () => ({ value: [] }) } as unknown as Response
+      }
+      if (init?.method === 'POST') {
+        return { ok: true, json: async () => ({ id: 'NEW', title: 't', status: 'notStarted' }) } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    await createOutlookTask('u@x.com', { title: 't', listId: 'l?$select=id' }, {} as any)
+    const postCall = mockGraph.mock.calls.find((c: any[]) => c[1]?.method === 'POST') as [string, any]
+    expect(postCall[0]).toContain('l%3F%24select%3Did')
+    expect(postCall[0]).not.toContain('?$select=')
+  })
+})
+
+describe('deleteOutlookTask', () => {
+  it('returns true on a successful DELETE', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists')) {
+        return { ok: true, json: async () => ({ value: [{ id: 'L', displayName: 'Tasks' }] }) } as unknown as Response
+      }
+      if (path.includes('/lists/L/tasks/T') && !init?.method) {
+        return { ok: true, json: async () => ({ id: 'T' }) } as unknown as Response
+      }
+      if (init?.method === 'DELETE') {
+        return { ok: true, status: 204 } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+    const ok = await deleteOutlookTask('u@x.com', 'T', {} as any)
+    expect(ok).toBe(true)
+  })
+
+  it('returns false when the task cannot be found in any list', async () => {
+    mockGraph.mockImplementation(async (path: string) => {
+      if (path.endsWith('/todo/lists')) {
+        return { ok: true, json: async () => ({ value: [{ id: 'L', displayName: 'Tasks' }] }) } as unknown as Response
+      }
+      // Probe never finds the task.
+      return { ok: false, status: 404, text: async () => '' } as unknown as Response
+    })
+    const ok = await deleteOutlookTask('u@x.com', 'GONE', {} as any)
+    expect(ok).toBe(false)
+  })
+
+  it('skips the probe when currentListId is supplied', async () => {
+    mockGraph.mockImplementation(async (_path: string, init?: { method?: string }) => {
+      if (init?.method === 'DELETE') return { ok: true, status: 204 } as unknown as Response
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+    const ok = await deleteOutlookTask('u@x.com', 'T', {} as any, 'L')
+    expect(ok).toBe(true)
+    const probed = mockGraph.mock.calls.filter((c: any[]) =>
+      String(c[0]).endsWith('/todo/lists') && !c[1]?.method,
+    )
+    expect(probed).toHaveLength(0)
   })
 })

@@ -1,9 +1,15 @@
-import { herbeFetchAll } from './client'
+import { herbeFetch, herbeParseJSON, herbeWebExcellentDelete } from './client'
 import { REGISTERS } from './constants'
 import { getErpConnections } from '@/lib/accountConfig'
 import { parsePersons } from './recordUtils'
 import type { ErpConnection } from '@/lib/accountConfig'
 import type { Task } from '@/types/task'
+
+// Mirror of MAX_PAGES in lib/herbe/client.ts. Kept private to client.ts there,
+// so this paged fetch hard-codes the same value. Used only by the task fetcher
+// so it can surface `truncated: true` to the caller — herbeFetchAll silently
+// truncates on cap, which makes the aggregator treat partial loads as success.
+const TASK_FETCH_MAX_PAGES = 100
 
 /** Returns true if a Herbe record is a task (TodoFlag='1'). */
 export function isTaskRecord(r: Record<string, unknown>): boolean {
@@ -55,14 +61,48 @@ export function mapHerbeTask(
   return task
 }
 
+/**
+ * Paged fetch that mirrors `herbeFetchAll` but reports whether the result
+ * was capped by MAX_PAGES. The base helper warns and returns truncated data
+ * silently, which makes the aggregator treat a partial load as success — we
+ * need the flag so the UI can show "showing partial data".
+ */
+async function fetchErpTasksPaged(
+  params: Record<string, string>,
+  limit: number,
+  conn: ErpConnection,
+): Promise<{ records: unknown[]; truncated: boolean }> {
+  const results: unknown[] = []
+  let offset = 0
+  let pageCount = 0
+  let truncated = false
+  while (true) {
+    if (++pageCount > TASK_FETCH_MAX_PAGES) {
+      truncated = true
+      console.warn(`[tasks/erp] hit MAX_PAGES (${TASK_FETCH_MAX_PAGES}) for ActVc on ${conn.name}`)
+      break
+    }
+    const query = new URLSearchParams({ ...params, limit: String(limit), offset: String(offset) }).toString()
+    const res = await herbeFetch(REGISTERS.activities, query, undefined, conn)
+    if (!res.ok) throw new Error(`Herbe ${REGISTERS.activities} fetch failed: ${res.status}`)
+    const json = await herbeParseJSON(res)
+    const page = ((json as Record<string, unknown>)?.data?.[REGISTERS.activities as keyof unknown] ?? []) as unknown[]
+    results.push(...page)
+    if (page.length < limit) break
+    offset += limit
+  }
+  return { records: results, truncated }
+}
+
 /** Fetch ERP tasks for the signed-in user across all ERP connections. */
 export async function fetchErpTasks(
   accountId: string,
   personCodes: string[],
-): Promise<{ tasks: Task[]; errors: { connection: string; msg: string }[] }> {
-  const result: { tasks: Task[]; errors: { connection: string; msg: string }[] } = {
+): Promise<{ tasks: Task[]; errors: { connection: string; msg: string }[]; truncated: boolean }> {
+  const result: { tasks: Task[]; errors: { connection: string; msg: string }[]; truncated: boolean } = {
     tasks: [],
     errors: [],
+    truncated: false,
   }
 
   let connections: ErpConnection[] = []
@@ -75,20 +115,24 @@ export async function fetchErpTasks(
 
   const perConn = await Promise.all(connections.map(async conn => {
     try {
-      const tasks = await fetchErpTasksForConnection(conn, personCodes)
-      return { tasks, error: null }
+      const r = await fetchErpTasksForConnection(conn, personCodes)
+      return { tasks: r.tasks, truncated: r.truncated, error: null as { connection: string; msg: string } | null }
     } catch (e) {
-      return { tasks: [] as Task[], error: { connection: conn.name, msg: String(e) } }
+      return { tasks: [] as Task[], truncated: false, error: { connection: conn.name, msg: String(e) } }
     }
   }))
   for (const r of perConn) {
     result.tasks.push(...r.tasks)
+    if (r.truncated) result.truncated = true
     if (r.error) result.errors.push(r.error)
   }
   return result
 }
 
-async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: string[]): Promise<Task[]> {
+async function fetchErpTasksForConnection(
+  conn: ErpConnection,
+  personCodes: string[],
+): Promise<{ tasks: Task[]; truncated: boolean }> {
   const personSet = new Set(personCodes)
   const today = new Date()
   // Window: 1 year back (done tasks) + 6 months forward. Wider ranges blow
@@ -102,7 +146,7 @@ async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: stri
   // fields= trims each row to the handful the task mapper actually reads.
   // Together these often cut the fetch from tens of seconds to a second or
   // two on large connections.
-  const raw = await herbeFetchAll(REGISTERS.activities, {
+  const { records: raw, truncated } = await fetchErpTasksPaged({
     sort: 'TransDate',
     range: `${fmt(from)}:${fmt(to)}`,
     'filter.TodoFlag': '1',
@@ -127,8 +171,8 @@ async function fetchErpTasksForConnection(conn: ErpConnection, personCodes: stri
       }
     }
   }
-  console.log(`[tasks/erp] ${conn.name}: fetched ${raw.length} records, ${taskCount} tasks, ${matchedForUser} matched user ${[...personSet].join(',')}`)
-  return tasks
+  console.log(`[tasks/erp] ${conn.name}: fetched ${raw.length} records, ${taskCount} tasks, ${matchedForUser} matched user ${[...personSet].join(',')}${truncated ? ' (TRUNCATED)' : ''}`)
+  return { tasks, truncated }
 }
 
 export function buildCompleteTaskBody(done: boolean): Record<string, string> {
@@ -179,6 +223,24 @@ export interface EditTaskInput {
   activityTypeCode?: string
   projectCode?: string
   customerCode?: string
+}
+
+/**
+ * Delete a herbe task (ActVc record). Mirrors the calendar-event delete in
+ * `app/api/activities/[id]` — uses the WebExcellentAPI.hal action endpoint
+ * (Basic auth, usercode-keyed). Returns true on success, false on 404,
+ * throws on other errors.
+ */
+export async function deleteHerbeTask(
+  id: string,
+  userCode: string,
+  conn: ErpConnection,
+): Promise<boolean> {
+  const res = await herbeWebExcellentDelete(REGISTERS.activities, id, userCode, conn)
+  if (res.ok) return true
+  if (res.status === 404) return false
+  const text = await res.text().catch(() => '')
+  throw new Error(`Herbe delete failed: ${res.status} ${text.slice(0, 200)}`)
 }
 
 export function buildEditTaskBody(input: EditTaskInput): Record<string, string> {

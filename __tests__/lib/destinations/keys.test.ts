@@ -32,7 +32,7 @@ describe('makeKey', () => {
   it('encodes a Google task destination as google:<tokenId>:<listId>', () => {
     const dest = d({
       source: 'google',
-      meta: { kind: 'google-task', tokenId: 'TOK-1', listId: 'LIST-9', listName: 'Work', email: 'x@y.z' },
+      meta: { kind: 'google-task', tokenId: 'TOK-1', listId: 'LIST-9', listName: 'Work' },
     })
     expect(makeKey(dest)).toBe('google:TOK-1:LIST-9')
   })
@@ -40,7 +40,7 @@ describe('makeKey', () => {
   it('encodes a Google event destination as google:<tokenId>:<calendarId>', () => {
     const dest = d({
       source: 'google',
-      meta: { kind: 'google-event', tokenId: 'TOK-1', calendarId: 'primary', calendarName: 'Primary', email: 'x@y.z' },
+      meta: { kind: 'google-event', tokenId: 'TOK-1', calendarId: 'primary', calendarName: 'Primary' },
     })
     expect(makeKey(dest)).toBe('google:TOK-1:primary')
   })

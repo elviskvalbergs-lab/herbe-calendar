@@ -8,6 +8,7 @@ import type { Activity } from '@/types'
 import type { Task, TaskSource } from '@/types/task'
 import { textOnAccent, readableAccentColor } from '@/lib/activityColors'
 import { useEvStyle } from '@/lib/useEvStyle'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import { EventPreviewCard } from './EventPreviewCard'
 import { TasksSidebar } from './TasksSidebar'
 
@@ -67,10 +68,40 @@ export default function MonthView({
   const [tasksMaximized, setTasksMaximized] = useState(false)
   const effectiveRightSide = forceTasksFullscreen ? 'tasks' : rightSide
   const effectiveMaximized = forceTasksFullscreen || (effectiveRightSide === 'tasks' && tasksMaximized)
+  const maxButtonRef = useRef<HTMLButtonElement>(null)
+  // Focus trap engages whenever the panel is acting as a fullscreen dialog —
+  // either via the local maximize toggle, or via the parent forcing tasks
+  // fullscreen (Tasks view). The trap container is the <aside> below.
+  const tasksDialogRef = useFocusTrap<HTMLElement>(effectiveMaximized)
   const handleToggleMaximize = () => {
     if (forceTasksFullscreen) onExitTasksFullscreen?.()
     else setTasksMaximized(m => !m)
   }
+  // Esc exits the maximized tasks dialog. Restoring focus to the maximize
+  // button after closing keeps keyboard users where they came from.
+  useEffect(() => {
+    if (!effectiveMaximized) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        handleToggleMaximize()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // handleToggleMaximize is stable across renders modulo forceTasksFullscreen,
+    // and we WANT the latest closure on each toggle anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveMaximized])
+  // Track previous maximized state so we can restore focus exactly on the
+  // close transition (true → false). Initial render skips the restore.
+  const prevMaximizedRef = useRef(effectiveMaximized)
+  useEffect(() => {
+    if (prevMaximizedRef.current && !effectiveMaximized) {
+      maxButtonRef.current?.focus()
+    }
+    prevMaximizedRef.current = effectiveMaximized
+  }, [effectiveMaximized])
   const gridRef = useRef<HTMLDivElement>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [maxChips, setMaxChips] = useState(4)
@@ -457,7 +488,13 @@ export default function MonthView({
             </div>
           </aside>
         ) : (
-          <aside className="month-side">
+          <aside
+            className="month-side"
+            ref={effectiveMaximized ? tasksDialogRef : undefined}
+            role={effectiveMaximized ? 'dialog' : undefined}
+            aria-modal={effectiveMaximized ? true : undefined}
+            aria-label={effectiveMaximized ? 'Tasks' : undefined}
+          >
             <header className="month-side-hdr">
               <div className="dow">{format(parseISO(selectedDay), 'EEEE')}</div>
               <div className="dnum">
@@ -482,6 +519,7 @@ export default function MonthView({
               )}
               {effectiveRightSide === 'tasks' && (
                 <button
+                  ref={maxButtonRef}
                   type="button"
                   className={`tasks-maximize-btn${forceTasksFullscreen ? ' tasks-maximize-btn--auto' : ''}`}
                   onClick={handleToggleMaximize}

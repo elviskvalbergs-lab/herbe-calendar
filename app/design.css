@@ -3281,6 +3281,11 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 .destination-picker-row {
   display: flex; align-items: center; gap: 6px;
 }
+.destination-picker-loading {
+  display: flex;
+  align-items: center;
+  color: var(--app-fg-subtle);
+}
 .destination-color-dot {
   display: inline-block;
   width: 10px; height: 10px;

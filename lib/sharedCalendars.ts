@@ -92,9 +92,14 @@ export async function fetchSharedCalendarEvents(
 
   for (const [tokenId, cals] of tokenGroups) {
     try {
-      const { getValidAccessToken } = await import('@/lib/google/userOAuth')
+      const { getValidAccessTokenForUser } = await import('@/lib/google/userOAuth')
       const { getOAuthCalendarClient } = await import('@/lib/google/client')
-      const accessToken = await getValidAccessToken(tokenId)
+      // Token belongs to a different user than the viewer (these are SHARED
+      // calendars). Use the owner's email — carried on every row — so the
+      // ownership check passes. account_id is the same across the join.
+      const ownerEmail = cals[0]?.user_email
+      if (!ownerEmail) continue
+      const accessToken = await getValidAccessTokenForUser(tokenId, ownerEmail, accountId)
       if (!accessToken) continue
 
       const oauthCal = getOAuthCalendarClient(accessToken)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession } from '@/lib/herbe/auth-guard'
-import { exchangeAndStoreTokens, syncCalendarList, getValidAccessToken } from '@/lib/google/userOAuth'
+import { exchangeAndStoreTokens, syncCalendarList, getValidAccessTokenForUser } from '@/lib/google/userOAuth'
 
 const OAUTH_NONCE_COOKIE = 'google_oauth_nonce'
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     )
 
     // Fetch and store calendar list
-    const accessToken = await getValidAccessToken(tokenId)
+    const accessToken = await getValidAccessTokenForUser(tokenId, session.email, session.accountId)
     if (accessToken) {
       await syncCalendarList(tokenId, accessToken)
     }

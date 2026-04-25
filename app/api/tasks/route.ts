@@ -16,7 +16,7 @@ import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import type { Task, TaskSource } from '@/types/task'
 import type { AzureConfig } from '@/lib/accountConfig'
 
-interface SourceErrorInfo { source: TaskSource; msg: string; stale?: boolean }
+interface SourceErrorInfo { source: TaskSource; msg: string; stale?: boolean; truncated?: boolean }
 
 async function safeGetCachedTasks(accountId: string, userEmail: string, source: TaskSource): Promise<Task[]> {
   try {
@@ -94,7 +94,8 @@ export async function GET(req: Request) {
     if (want('google')) timings.google = googleT.ms
 
     const errors: SourceErrorInfo[] = []
-    if (erpR.error) errors.push({ source: 'herbe', msg: erpR.error, stale: erpR.stale })
+    if (erpR.error) errors.push({ source: 'herbe', msg: erpR.error, stale: erpR.stale, truncated: erpR.truncated })
+    else if (erpR.truncated) errors.push({ source: 'herbe', msg: 'Showing partial data — too many tasks in window', truncated: true })
     if (outlookR.error) errors.push({ source: 'outlook', msg: outlookR.error, stale: outlookR.stale })
     if (googleR.error) errors.push({ source: 'google', msg: googleR.error, stale: googleR.stale })
 
@@ -125,6 +126,9 @@ interface SourceResult {
   tasks: Task[]
   configured: boolean
   stale?: boolean
+  /** ERP only: set when herbeFetchAll hit MAX_PAGES so the client can show
+   *  "showing partial data" alongside the existing stale banner. */
+  truncated?: boolean
   error?: string
 }
 
@@ -161,7 +165,7 @@ async function fetchErpAndCache(accountId: string, userEmail: string, personCode
     await replaceCachedTasksForSource(accountId, userEmail, 'herbe',
       cacheRowsFrom(r.tasks, accountId, userEmail, 'herbe'))
       .catch(e => console.warn('[tasks] herbe cache write skipped:', e))
-    return { tasks: r.tasks, configured: true }
+    return { tasks: r.tasks, configured: true, truncated: r.truncated || undefined }
   } catch (e) {
     console.error('[tasks] erp fetch failed:', e)
     const cached = await safeGetCachedTasks(accountId, userEmail, 'herbe')

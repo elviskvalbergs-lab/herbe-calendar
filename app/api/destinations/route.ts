@@ -96,7 +96,6 @@ export async function GET(req: Request): Promise<Response> {
               tokenId: acct.id,
               calendarId: cal.calendarId,
               calendarName: cal.name,
-              email: acct.googleEmail,
             },
           }
           d.key = makeKey(d)
@@ -122,7 +121,6 @@ export async function GET(req: Request): Promise<Response> {
               tokenId: acct.id,
               listId: l.id,
               listName: l.title,
-              email: acct.googleEmail,
             },
           }
           d.key = makeKey(d)

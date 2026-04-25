@@ -46,7 +46,7 @@ const mockReq = (): Request => new Request('http://localhost/api/tasks')
 
 beforeEach(() => {
   ;(requireSession as jest.Mock).mockResolvedValue({ accountId: 'a1', email: 'u@x.com' })
-  ;(fetchErpTasks as jest.Mock).mockResolvedValue({ tasks: [], errors: [] })
+  ;(fetchErpTasks as jest.Mock).mockResolvedValue({ tasks: [], errors: [], truncated: false })
   ;(fetchOutlookTasks as jest.Mock).mockResolvedValue({ tasks: [], configured: false })
   ;(fetchGoogleTasks as jest.Mock).mockResolvedValue({ tasks: [], configured: false })
 })
@@ -63,6 +63,7 @@ it('returns 200 with merged tasks and configured flags', async () => {
   ;(fetchErpTasks as jest.Mock).mockResolvedValueOnce({
     tasks: [{ id: 'herbe:1', source: 'herbe', sourceConnectionId: 'c1', title: 'E', done: false }],
     errors: [],
+    truncated: false,
   })
   ;(fetchOutlookTasks as jest.Mock).mockResolvedValueOnce({
     tasks: [{ id: 'outlook:1', source: 'outlook', sourceConnectionId: '', title: 'O', done: false }],
@@ -88,4 +89,21 @@ it('returns 200 even when a source errors; error is reported per-source', async 
   expect(res.status).toBe(200)
   const body = await res.json()
   expect(body.errors.find((e: any) => e.source === 'outlook')?.msg).toContain('network timeout')
+})
+
+// Regression: bug #4 — herbeFetchAll silently truncates at MAX_PAGES; the
+// fetcher now surfaces truncated:true and the route puts a warning in the
+// errors[] array so the existing stale banner can show "showing partial".
+it('surfaces truncated:true from ERP fetch as an errors[] entry', async () => {
+  ;(fetchErpTasks as jest.Mock).mockResolvedValueOnce({
+    tasks: [{ id: 'herbe:1', source: 'herbe', sourceConnectionId: 'c1', title: 'E', done: false }],
+    errors: [],
+    truncated: true,
+  })
+  const res = await GET(mockReq())
+  expect(res.status).toBe(200)
+  const body = await res.json()
+  const truncated = body.errors.find((e: any) => e.source === 'herbe' && e.truncated)
+  expect(truncated).toBeDefined()
+  expect(truncated.msg).toMatch(/partial/i)
 })
