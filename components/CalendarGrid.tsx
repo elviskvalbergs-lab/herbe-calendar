@@ -296,7 +296,10 @@ export default function CalendarGrid({
               key={date}
               className={`flex-1 ${fitsOnScreen ? '' : 'shrink-0 sm:shrink'} flex flex-col`}
               style={{
-                ...(fitsOnScreen ? undefined : { minWidth: `${dateGroupMinW}vw` }),
+                // minWidth: 0 prevents long all-day chip text inside the strip
+                // from expanding the date column past its flex-1 share. The
+                // chips already truncate via overflow:hidden + text-ellipsis.
+                minWidth: fitsOnScreen ? 0 : `${dateGroupMinW}vw`,
                 ...(dateIdx > 0 ? { borderLeft: '1px solid var(--app-line-strong)' } : undefined),
               }}
             >

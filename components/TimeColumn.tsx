@@ -59,7 +59,7 @@ export default function TimeColumn({
             paddingLeft: 6,
             gap: 4,
             background: 'var(--app-bg-alt)',
-            color: 'var(--app-fg-subtle)',
+            color: 'var(--app-fg-muted)',
             border: 'none',
             borderBottom: '1px solid var(--app-line)',
             cursor: 'pointer',
@@ -69,13 +69,26 @@ export default function TimeColumn({
             letterSpacing: '0.02em',
           }}
         >
-          <svg
-            width="10" height="10" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: bandCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 120ms', flexShrink: 0 }}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 18, height: 18,
+              borderRadius: 4,
+              background: 'color-mix(in oklab, var(--app-accent) 14%, transparent)',
+              color: 'var(--app-accent)',
+              flexShrink: 0,
+            }}
           >
-            <path d="m6 9 6 6 6-6"/>
-          </svg>
+            <svg
+              width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: bandCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 120ms' }}
+            >
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </span>
           {bandCollapsed && (
             <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
               {bandTotalAllDay > 0 && <span>{bandTotalAllDay}</span>}

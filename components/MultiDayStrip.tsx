@@ -70,6 +70,7 @@ export default function MultiDayStrip({
       style={{
         background: 'var(--app-bg-alt)',
         borderRight: '1px solid var(--app-line)',
+        borderBottom: '1px solid var(--app-line)',
         display: 'flex',
         minHeight: minBodyHeight ? `${minBodyHeight}px` : undefined,
       }}
