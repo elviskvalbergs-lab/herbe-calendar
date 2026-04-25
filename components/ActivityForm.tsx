@@ -115,9 +115,30 @@ export function ActivityForm({
   // booleans and ERP connection lookups are correct on first render. Create
   // mode: start null; DestinationPicker auto-fires onChange with the localStorage
   // default (or first destination) after its fetch resolves.
-  const [destination, setDestination] = useState<Destination | null>(
-    () => isEdit ? destinationFromInitial(initial, mode, erpConnections) : null,
-  )
+  const [destination, setDestination] = useState<Destination | null>(() => {
+    if (isEdit) return destinationFromInitial(initial, mode, erpConnections)
+    // For copy/move-from-task flows, seed destination synchronously to the
+    // matching ERP connection (or first ERP if the task wasn't an ERP task).
+    // This skips the picker's auto-fire (it only runs when value === null)
+    // and prevents external-source UI (RSVP / external attendees / Teams /
+    // location) from rendering for a frame while the picker is still
+    // resolving its preferred destination.
+    if (seededFromCopy && erpConnections.length > 0) {
+      const conn =
+        (initial?.source === 'herbe' && initial?.erpConnectionId
+          ? erpConnections.find(c => c.id === initial.erpConnectionId)
+          : null) ?? erpConnections[0]
+      return {
+        key: `herbe:${conn.id}`,
+        source: 'herbe',
+        label: conn.name,
+        sourceLabel: 'ERP',
+        color: '#00AEE7',
+        meta: { kind: 'herbe', connectionId: conn.id, connectionName: conn.name },
+      }
+    }
+    return null
+  })
 
   const isOutlookSource    = destination?.source === 'outlook'
   const isGoogleSource     = destination?.source === 'google'
