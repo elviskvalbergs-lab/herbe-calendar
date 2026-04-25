@@ -1671,7 +1671,35 @@ export function ActivityForm({
           </div>
 
           {/* Date + Time From + Time To (Done sits inline next to Date for tasks) */}
-          <div className={`aed-dt-grid${mode === 'task' ? ' aed-dt-grid-task' : ''}`}>
+          {mode === 'task' ? (
+            <div className="aed-dt-task-row">
+              <div className="aed-dt-task-date">
+                <div className="aed-label">Date</div>
+                <div className="aed-input-wrap">
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    tabIndex={-1}
+                    className="input aed-input"
+                  />
+                </div>
+              </div>
+              {isEdit && (
+                <label className="aed-checkbox aed-dt-task-done">
+                  <input
+                    type="checkbox"
+                    checked={done}
+                    onChange={e => setDone(e.target.checked)}
+                    disabled={canEdit === false}
+                  />
+                  <span className="aed-check-label">Done</span>
+                  <span className="aed-check-box">{done && '✓'}</span>
+                </label>
+              )}
+            </div>
+          ) : (
+          <div className="aed-dt-grid">
             <div>
               <div className="aed-label">Date</div>
               <div className="aed-input-wrap">
@@ -1684,21 +1712,6 @@ export function ActivityForm({
                 />
               </div>
             </div>
-            {mode === 'task' && isEdit && (
-              <div className="aed-dt-done-col">
-                <div className="aed-label" aria-hidden="true">&nbsp;</div>
-                <label className="aed-checkbox aed-dt-done">
-                  <input
-                    type="checkbox"
-                    checked={done}
-                    onChange={e => setDone(e.target.checked)}
-                    disabled={canEdit === false}
-                  />
-                  <span className="aed-check-label">Done</span>
-                  <span className="aed-check-box">{done && '✓'}</span>
-                </label>
-              </div>
-            )}
             {mode === 'event' && <div>
               <div className="aed-label"><span>From</span>
                 <button
@@ -1756,6 +1769,7 @@ export function ActivityForm({
               </div>
             </div>}
           </div>
+          )}
 
           {/* Duration quick-select */}
           {mode === 'event' && timeFrom && (() => {
