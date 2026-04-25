@@ -774,7 +774,40 @@ export function ActivityForm({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
-        const data = await res.json().catch(() => null)
+        const rawTaskResponseText = await res.text()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data: any = ((): any => {
+          try { return JSON.parse(rawTaskResponseText) } catch { return null }
+        })()
+        // Capture for the in-UI debug panel + /tmp file (local) + Vercel logs
+        // via the same /api/debug/herbe-save-log endpoint.
+        {
+          const debugBlob = JSON.stringify({
+            when: new Date().toISOString(),
+            mode,
+            taskSource,
+            editId,
+            isEdit,
+            isErpSource,
+            isOutlookSource,
+            isGoogleSource,
+            destinationKey: destination?.key,
+            url,
+            method,
+            requestBody: body,
+            selectedPersonCodes,
+            selectedCCPersonCodes,
+            responseStatus: res.status,
+            responseBody: rawTaskResponseText,
+          }, null, 2)
+          setLastSaveDebug(debugBlob)
+          try { localStorage.setItem('herbeLastSaveDebug', debugBlob) } catch {}
+          fetch('/api/debug/herbe-save-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: debugBlob,
+          }).catch(() => {})
+        }
         if (!res.ok) {
           setErrors([String(data?.error ?? `Server error (${res.status})`)])
           applyFieldErrors(data?.fieldErrors)

@@ -470,13 +470,18 @@ export default function CalendarGrid({
                 )
               })()}
 
-              {/* Morning outside-hours bar (before effectiveStartHour) */}
-              {!expandedUp && (() => {
+              {/* Morning outside-hours bar — reserve a uniform slot across
+                  all columns whenever any column has early events, so the
+                  hour grid below stays vertically aligned. Per-column shows
+                  the count + earliest time only where this date has events. */}
+              {!expandedUp && beforeCount > 0 && (() => {
                 const dayBefore = activities.filter(a =>
                   !a.isAllDay && a.date === date &&
                   timeToMinutes(a.timeFrom) < effectiveStartHour * 60
                 )
-                if (dayBefore.length === 0) return null
+                if (dayBefore.length === 0) {
+                  return <div className="ohbar-btn ohbar-morning ohbar-empty" aria-hidden="true" />
+                }
                 const earliest = dayBefore.reduce((min, a) => {
                   const m = timeToMinutes(a.timeFrom)
                   return m < min ? m : min
@@ -538,13 +543,16 @@ export default function CalendarGrid({
                 })}
               </div>
 
-              {/* Evening outside-hours bar (after effectiveEndHour) */}
-              {!expandedDown && (() => {
+              {/* Evening outside-hours bar — uniform-slot reservation
+                  identical to the morning bar. */}
+              {!expandedDown && afterCount > 0 && (() => {
                 const dayAfter = activities.filter(a =>
                   !a.isAllDay && a.date === date &&
                   timeToMinutes(a.timeTo) > effectiveEndHour * 60
                 )
-                if (dayAfter.length === 0) return null
+                if (dayAfter.length === 0) {
+                  return <div className="ohbar-btn ohbar-evening ohbar-empty" aria-hidden="true" />
+                }
                 const latest = dayAfter.reduce((max, a) => {
                   const m = timeToMinutes(a.timeTo)
                   return m > max ? m : max

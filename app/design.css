@@ -3588,3 +3588,14 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 }
 .hour-pill:hover { background: color-mix(in oklab, var(--app-accent) 22%, transparent); }
 .hour-pill:active { background: color-mix(in oklab, var(--app-accent) 30%, transparent); }
+
+/* Empty-slot placeholder for the outside-hours bar — same vertical
+ * footprint as .ohbar-btn so columns without early/late events still
+ * reserve the row, keeping every column's hour grid vertically aligned. */
+.ohbar-btn.ohbar-empty {
+  pointer-events: none;
+  cursor: default;
+  background: transparent;
+  border-color: var(--app-line);
+}
+.ohbar-btn.ohbar-empty:hover { background: transparent; }
