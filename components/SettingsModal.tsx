@@ -314,7 +314,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
         aria-modal="true"
         aria-labelledby="settings-modal-title"
         style={{ height: 'min(80dvh, 640px)', maxHeight: 'calc(100dvh - 32px)' }}
-        className="stg-modal relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-lg sm:max-w-3xl flex flex-col overflow-hidden"
+        className="stg-modal relative bg-surface border border-border shadow-2xl rounded-t-2xl sm:rounded-2xl w-full max-w-3xl flex flex-col overflow-hidden"
         onTouchStart={e => {
           // Only track swipe if started near the top (drag handle area, first 60px)
           const rect = e.currentTarget.getBoundingClientRect()
@@ -336,43 +336,29 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
 
-        {/* Header row — mobile only (desktop uses left-rail) */}
-        <div className="px-4 pt-3 border-b border-border sm:hidden">
-          <div className="flex items-center justify-between mb-3">
-            <h2 id="settings-modal-title" className="font-bold">Settings</h2>
-            <button onClick={() => guardedClose(onClose)} aria-label="Close" className="text-text-muted text-xl leading-none hover:text-text">✕</button>
-          </div>
-          <div role="tablist" className="flex gap-4 text-sm overflow-x-auto -mx-1 px-1">
-            {(['style','colors','integrations','templates'] as const).map(id => (
-              <button
-                key={id}
-                role="tab"
-                id={`tab-${id}-m`}
-                aria-selected={activeTab === id}
-                aria-controls={`panel-${id}`}
-                onClick={() => setActiveTab(id)}
-                className={`pb-2 px-1 whitespace-nowrap ${activeTab === id ? 'border-b-2 border-primary text-primary font-bold' : 'text-text-muted hover:text-text'}`}
-              >
-                {id === 'style' ? 'Look & Feel' : id === 'colors' ? 'Colors' : id === 'integrations' ? 'Integrations' : 'Templates'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Desktop: left-rail + content split */}
+        {/* Left-rail tabs + content split — same layout on mobile and desktop.
+            Mobile rail is a slim icon-only column; desktop rail shows labels.
+            All four tabs are kept as a vertical list everywhere. */}
         <div className="flex flex-1 min-h-0">
-          {/* Left rail — desktop only */}
-          <nav className="hidden sm:flex flex-col w-44 border-r border-border bg-bg/40 shrink-0">
-            <div className="px-4 pt-4 pb-3 flex items-center gap-2 border-b border-border">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              <span className="font-bold text-sm">Settings</span>
+          <nav className="flex flex-col w-12 sm:w-44 border-r border-border bg-bg/40 shrink-0">
+            <div className="px-2 sm:px-4 pt-3 sm:pt-4 pb-3 flex items-center gap-2 border-b border-border justify-center sm:justify-start">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span className="font-bold text-sm hidden sm:inline">Settings</span>
             </div>
             <div role="tablist" aria-orientation="vertical" className="flex flex-col py-2">
               {([
-                { id: 'style' as const, label: 'Look & Feel' },
-                { id: 'colors' as const, label: 'Colors' },
-                { id: 'integrations' as const, label: 'Integrations' },
-                { id: 'templates' as const, label: 'Templates' },
+                { id: 'style' as const, label: 'Look & Feel', short: 'Style', icon: (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a10 10 0 1 1 0-20 9 9 0 0 1 9 9 4 4 0 0 1-4 4h-2a2 2 0 0 0-1 3.75A1.3 1.3 0 0 1 13 21a1 1 0 0 1-1 1z"/></svg>
+                )},
+                { id: 'colors' as const, label: 'Colors', short: 'Colors', icon: (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                )},
+                { id: 'integrations' as const, label: 'Integrations', short: 'Plug', icon: (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22v-5M9 8V2M15 8V2M6 8h12a2 2 0 0 1 2 2v2a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6v-2a2 2 0 0 1 2-2z"/></svg>
+                )},
+                { id: 'templates' as const, label: 'Templates', short: 'Tmpl', icon: (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                )},
               ]).map(t => {
                 const active = activeTab === t.id
                 return (
@@ -383,13 +369,15 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                     aria-selected={active}
                     aria-controls={`panel-${t.id}`}
                     onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm transition-colors text-left ${
+                    className={`flex items-center gap-2 px-2 sm:px-4 py-2 text-sm transition-colors text-left justify-center sm:justify-start ${
                       active
                         ? 'bg-primary/10 text-primary font-bold border-l-2 border-primary'
                         : 'text-text-muted hover:text-text hover:bg-border/20 border-l-2 border-transparent'
                     }`}
+                    title={t.label}
                   >
-                    {t.label}
+                    <span className="sm:hidden">{t.icon}</span>
+                    <span className="hidden sm:inline">{t.label}</span>
                   </button>
                 )
               })}
@@ -398,7 +386,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
 
           {/* Right: title + close + tabpanel */}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="hidden sm:flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2">
                 <span className="font-bold">
                   {activeTab === 'style' ? 'Look & Feel' : activeTab === 'colors' ? 'Colors' : activeTab === 'integrations' ? 'Integrations' : 'Templates'}
