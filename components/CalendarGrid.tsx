@@ -5,7 +5,7 @@ import type { Task } from '@/types/task'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
-import MultiDayStrip from './MultiDayStrip'
+import MultiDayStrip, { MultiDayBandToggle } from './MultiDayStrip'
 import { addDays, format, parseISO, isToday } from 'date-fns'
 import { minutesToPx, timeToMinutes, GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
@@ -176,6 +176,31 @@ export default function CalendarGrid({
     colMinVw = Math.min(colMinVw, 80)
   }
 
+  // --- Compute the all-day band geometry across all visible dates so each
+  // column's strip lands at the same height. Includes the holiday line, all
+  // isAllDay activities for the date, and tasks whose dueDate matches.
+  const ROW_H = 20
+  const ROW_GAP = 2
+  const BAND_PAD = 8
+  const COLLAPSED_BAND_HEIGHT = 24
+  const bandPerDate = useMemo(() => {
+    return dates.map(date => {
+      const allDay = activities.filter(a => a.isAllDay && a.date === date)
+      const dayTasks = tasks.filter(t => t.dueDate === date && !t.done)
+      const cc = state.selectedPersons.length > 0 ? holidays?.personCountries?.[state.selectedPersons[0].code] : undefined
+      const hol = cc ? holidays?.dates?.[date]?.find(h => h.country === cc) : undefined
+      const rows = (hol ? 1 : 0) + allDay.length + dayTasks.length
+      return { date, allDay, dayTasks, holidayName: hol?.name, rows }
+    })
+  }, [dates, activities, tasks, holidays, state.selectedPersons])
+  const maxBandRows = bandPerDate.reduce((max, b) => Math.max(max, b.rows), 0)
+  const totalAllDayInBand = bandPerDate.reduce((s, b) => s + b.allDay.length + (b.holidayName ? 1 : 0), 0)
+  const totalTasksInBand = bandPerDate.reduce((s, b) => s + b.dayTasks.length, 0)
+  const expandedBandHeight = maxBandRows > 0
+    ? maxBandRows * ROW_H + (maxBandRows - 1) * ROW_GAP + BAND_PAD
+    : 0
+  const bandHeightPx = stripCollapsed ? COLLAPSED_BAND_HEIGHT : expandedBandHeight
+
   // --- Edge navigation buttons (visible on mobile when scrolled to edge) ---
   const [atLeft, setAtLeft] = useState(true)
   const [atRight, setAtRight] = useState(false)
@@ -259,6 +284,11 @@ export default function CalendarGrid({
           onExpandDown={() => setExpandedDown(true)}
           onContractUp={() => setExpandedUp(false)}
           onContractDown={() => setExpandedDown(false)}
+          bandHeight={bandHeightPx}
+          bandCollapsed={stripCollapsed}
+          bandTotalAllDay={totalAllDayInBand}
+          bandTotalTasks={totalTasksInBand}
+          onToggleBand={(totalAllDayInBand + totalTasksInBand) > 0 ? toggleStrip : undefined}
         />
 
         {dates.map((date, dateIdx) => {
@@ -402,17 +432,43 @@ export default function CalendarGrid({
                 </div>
               </div>
 
-              {/* Multi-day / all-day / tasks strip — per-column, between header and body */}
-              <MultiDayStrip
-                date={date}
-                allDayActivities={activities.filter(a => a.isAllDay && a.date === date)}
-                tasks={tasks.filter(t => t.dueDate === date && !t.done)}
-                collapsed={stripCollapsed}
-                getActivityColor={getActivityColor}
-                onActivityClick={onActivityClick}
-                onTaskToggle={onTaskToggle}
-                onTaskClick={onTaskClick}
-              />
+              {/* Multi-day / all-day / tasks strip — per-column, between header and body.
+                  Heights are equalized via bandHeightPx so the band reads as a
+                  single row. When collapsed it shrinks to a thin marker row matching
+                  TimeColumn's collapsed gutter. */}
+              {(() => {
+                const bd = bandPerDate.find(b => b.date === date)
+                if (!bd) return null
+                if (stripCollapsed) {
+                  return (
+                    <div
+                      onClick={toggleStrip}
+                      style={{
+                        height: COLLAPSED_BAND_HEIGHT,
+                        background: 'var(--app-bg-alt)',
+                        borderBottom: '1px solid var(--app-line)',
+                        borderRight: '1px solid var(--app-line)',
+                        cursor: 'pointer',
+                      }}
+                      title="Expand all-day band"
+                    />
+                  )
+                }
+                return (
+                  <MultiDayStrip
+                    date={date}
+                    allDayActivities={bd.allDay}
+                    tasks={bd.dayTasks}
+                    holidayName={bd.holidayName}
+                    collapsed={false}
+                    minBodyHeight={expandedBandHeight}
+                    getActivityColor={getActivityColor}
+                    onActivityClick={onActivityClick}
+                    onTaskToggle={onTaskToggle}
+                    onTaskClick={onTaskClick}
+                  />
+                )
+              })()}
 
               {/* Morning outside-hours bar (before effectiveStartHour) */}
               {!expandedUp && (() => {

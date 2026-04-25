@@ -304,43 +304,11 @@ export default function PersonColumn({
             </div>
           ))}
 
-          {/* Holiday banner */}
-          {isHoliday && holidayName && (
-            <div
-              className="absolute left-0 right-0 z-15 pointer-events-none"
-              style={{ top: 0, height: rowHeight / 2 }}
-            >
-              <div className="h-full mx-0.5 rounded bg-red-500/15 flex items-center justify-center px-1 overflow-hidden">
-                <span className="text-[9px] font-bold text-red-400 truncate">{holidayName}</span>
-              </div>
-            </div>
-          )}
-
-          {/* All-day events rendered as overlay blocks at the top of the grid */}
-          {allDayActivities.map((act, i) => {
-            const holidayOffset = isHoliday && holidayName ? 1 : 0
-            const actColor = getActivityColor(act)
-            const bannerHeight = Math.min(rowHeight / 2, 20)
-            return (
-              <div
-                key={act.id}
-                className="absolute left-0 right-0 z-15 pointer-events-auto"
-                style={{ top: (i + holidayOffset) * bannerHeight, height: bannerHeight }}
-              >
-                <AllDayBanner
-                  activity={act}
-                  color={actColor}
-                  onClick={onActivityClick}
-                  isMobileSelected={mobileSelectedId === mobileKey(act.id)}
-                  onMobileTap={(id) => { const k = mobileKey(id); setMobileSelectedId(mobileSelectedId === k ? null : k) }}
-                  onMobileClose={() => setMobileSelectedId(null)}
-                  getTypeName={getTypeName}
-                  visibility={visibility}
-                  isLightMode={isLightMode}
-                />
-              </div>
-            )
-          })}
+          {/* Holiday + all-day events are now rendered in the cross-column
+              MultiDayStrip above the time grid (see CalendarGrid). They used
+              to be absolute-positioned banners at the top of each column body,
+              which both pushed the time grid down inconsistently and duplicated
+              the strip's content. */}
 
           {lanedActivities.map(({ activity: act, laneIndex, laneCount }) => {
             const isDragging = drag?.activity.id === act.id

@@ -7,59 +7,91 @@ interface Props {
   date: string                              // yyyy-MM-dd for this column
   allDayActivities: Activity[]              // activities with isAllDay=true on this date
   tasks: Task[]                             // tasks whose dueDate matches this date
+  holidayName?: string                      // National/regional holiday name for this column
   collapsed: boolean
+  /** Forced min-height in px so all columns of the band align uniformly. */
+  minBodyHeight?: number
   getActivityColor: (a: Activity) => string
   onActivityClick?: (a: Activity) => void
   onTaskToggle?: (task: Task, next: boolean) => void
   onTaskClick?: (task: Task) => void
 }
 
+const ROW_H = 20    // px height per chip / task row
+const ROW_GAP = 2
+
 /**
- * Per-day-column strip rendered between the day header and the time-grid body.
- * Shows:
+ * Per-column cell of the all-day band. Renders, in order:
+ *  - Holiday chip (red-tinted) if holidayName is set
  *  - All-day / multi-day activities as colored chips
- *  - Tasks (with dueDate == date) as checkbox rows
+ *  - Tasks with dueDate == date as checkbox rows
  *
- * Multi-day events arrive duplicated per-day (see lib/icsParser.ts), so rendering
- * one chip per day naturally forms a continuous horizontal band across adjacent
- * day columns — matches the "Gantt-bar" intent in the design without requiring
- * a cross-column spanning layout.
+ * Multi-day events arrive duplicated per-day from ICS / Outlook, so chips
+ * naturally form a continuous horizontal band across adjacent columns.
+ *
+ * `minBodyHeight` is supplied by CalendarGrid based on the maximum cell
+ * content across all visible columns, so the band reads as one uniform-height
+ * row even when individual days have nothing in them.
  */
 export default function MultiDayStrip({
   date,
   allDayActivities,
   tasks,
+  holidayName,
   collapsed,
+  minBodyHeight = 0,
   getActivityColor,
   onActivityClick,
   onTaskToggle,
   onTaskClick,
 }: Props) {
-  // Use internal state mirror so checkbox click is snappy; parent toggles via API.
+  // Mirror task done-state locally so the checkbox toggle is snappy.
   const [localDone, setLocalDone] = useState<Record<string, boolean>>({})
   useEffect(() => {
-    // Resync whenever the incoming tasks change (e.g. server refetch).
     const m: Record<string, boolean> = {}
     for (const t of tasks) m[t.id] = t.done
     setLocalDone(m)
   }, [tasks])
 
-  if (allDayActivities.length === 0 && tasks.length === 0) return null
+  // When collapsed, the band still renders an empty cell of fixed height
+  // (the parent CalendarGrid renders a thin collapsed-band row separately).
   if (collapsed) return null
 
   return (
     <div
       className="mds-col"
       style={{
-        padding: '2px 4px 4px',
+        padding: '4px 4px',
         background: 'var(--app-bg-alt)',
-        borderBottom: '1px solid var(--app-line)',
+        borderRight: '1px solid var(--app-line)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
-        minHeight: 0,
+        gap: ROW_GAP,
+        minHeight: minBodyHeight ? `${minBodyHeight}px` : undefined,
       }}
     >
+      {holidayName && (
+        <div
+          className="mds-holiday"
+          style={{
+            height: ROW_H,
+            background: 'rgba(239,68,68,0.18)',
+            color: '#fecaca',
+            borderRadius: 2,
+            padding: '0 6px',
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: 10,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+          title={holidayName}
+        >
+          {holidayName}
+        </div>
+      )}
       {allDayActivities.map(a => {
         const color = getActivityColor(a)
         return (
@@ -68,7 +100,7 @@ export default function MultiDayStrip({
             onClick={() => onActivityClick?.(a)}
             className="mds-chip"
             style={{
-              height: 18,
+              height: ROW_H,
               background: color,
               color: '#fff',
               borderRadius: 2,
@@ -100,9 +132,9 @@ export default function MultiDayStrip({
               display: 'flex',
               alignItems: 'center',
               gap: 5,
-              padding: '1px 4px',
+              padding: '0 4px',
               borderRadius: 2,
-              minHeight: 18,
+              minHeight: ROW_H,
               cursor: 'pointer',
               textDecoration: done ? 'line-through' : 'none',
               opacity: done ? 0.6 : 1,
@@ -167,41 +199,56 @@ export default function MultiDayStrip({
 }
 
 /**
- * Compact collapsed-state badge shown in the time-gutter to indicate hidden
- * strip content. Exported so CalendarGrid can render it in the left rail.
+ * The toggle row rendered by CalendarGrid above the per-column strip cells.
+ * Spans the full width and shows total counts when collapsed.
  */
-export function MultiDayStripBadge({
+export function MultiDayBandToggle({
+  collapsed,
+  onToggle,
   totalAllDay,
   totalTasks,
-  onExpand,
 }: {
+  collapsed: boolean
+  onToggle: () => void
   totalAllDay: number
   totalTasks: number
-  onExpand: () => void
 }) {
   if (totalAllDay === 0 && totalTasks === 0) return null
   return (
     <button
       type="button"
-      onClick={onExpand}
-      className="mds-badge"
-      title="Show all-day events and tasks"
+      onClick={onToggle}
+      title={collapsed ? 'Expand all-day band' : 'Collapse all-day band'}
+      className="mds-band-toggle"
       style={{
+        position: 'sticky',
+        left: 0,
+        zIndex: 4,
         display: 'flex',
         alignItems: 'center',
-        gap: 4,
-        fontSize: 9,
-        fontWeight: 600,
+        gap: 6,
+        padding: '3px 10px 3px 6px',
+        background: 'var(--app-bg-alt)',
+        borderBottom: '1px solid var(--app-line)',
+        borderRight: '1px solid var(--app-line)',
+        width: 'var(--time-col-w, 56px)',
+        minWidth: 'var(--time-col-w, 56px)',
         color: 'var(--app-fg-subtle)',
-        background: 'transparent',
-        border: 'none',
-        padding: '2px 4px',
         cursor: 'pointer',
+        fontSize: 10,
+        fontWeight: 600,
+        fontFamily: 'inherit',
       }}
     >
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      {totalAllDay > 0 && <span>{totalAllDay}</span>}
-      {totalTasks > 0 && <span style={{ opacity: 0.7 }}>·{totalTasks}t</span>}
+      <svg
+        width="10" height="10" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 120ms' }}
+      >
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+      {collapsed && totalAllDay > 0 && <span>{totalAllDay}</span>}
+      {collapsed && totalTasks > 0 && <span style={{ opacity: 0.7 }}>·{totalTasks}t</span>}
     </button>
   )
 }

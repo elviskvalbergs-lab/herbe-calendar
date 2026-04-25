@@ -13,12 +13,19 @@ interface Props {
   onExpandDown?: () => void
   onContractUp?: () => void
   onContractDown?: () => void
+  /** Height in px of the all-day band area, so the gutter stays vertically aligned with per-column strips. */
+  bandHeight?: number
+  bandCollapsed?: boolean
+  bandTotalAllDay?: number
+  bandTotalTasks?: number
+  onToggleBand?: () => void
 }
 
 export default function TimeColumn({
   is3Day = false, scale = 1, startHour, endHour,
   canExpandUp, canExpandDown, canContractUp, canContractDown,
   onExpandUp, onExpandDown, onContractUp, onContractDown,
+  bandHeight = 0, bandCollapsed = false, bandTotalAllDay = 0, bandTotalTasks = 0, onToggleBand,
 }: Props) {
   const start = startHour ?? GRID_START_HOUR
   const end = endHour ?? GRID_END_HOUR
@@ -26,6 +33,7 @@ export default function TimeColumn({
   const rowHeight = PX_PER_HOUR * scale
   const showTop = canExpandUp || canContractUp
   const showBottom = canExpandDown || canContractDown
+  const showBand = bandHeight > 0 && (bandTotalAllDay > 0 || bandTotalTasks > 0 || onToggleBand)
 
   return (
     <div
@@ -34,6 +42,48 @@ export default function TimeColumn({
     >
       {/* Header spacer — mirrors day-col-header height */}
       <div className={is3Day ? 'h-12' : 'h-6'} style={{ borderBottom: '1px solid var(--app-line)', background: 'var(--app-bg-alt)' }} />
+
+      {/* All-day band gutter — mirrors band area height across columns */}
+      {showBand && (
+        <button
+          type="button"
+          onClick={onToggleBand}
+          title={bandCollapsed ? 'Expand all-day band' : 'Collapse all-day band'}
+          style={{
+            height: bandHeight,
+            width: '100%',
+            display: 'flex',
+            alignItems: bandCollapsed ? 'center' : 'flex-start',
+            justifyContent: 'flex-start',
+            paddingTop: bandCollapsed ? 0 : 6,
+            paddingLeft: 6,
+            gap: 4,
+            background: 'var(--app-bg-alt)',
+            color: 'var(--app-fg-subtle)',
+            border: 'none',
+            borderBottom: '1px solid var(--app-line)',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+          }}
+        >
+          <svg
+            width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: bandCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 120ms', flexShrink: 0 }}
+          >
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+          {bandCollapsed && (
+            <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+              {bandTotalAllDay > 0 && <span>{bandTotalAllDay}</span>}
+              {bandTotalTasks > 0 && <span style={{ opacity: 0.7 }}>·{bandTotalTasks}t</span>}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Expand / contract top */}
       {showTop && (
