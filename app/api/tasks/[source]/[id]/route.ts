@@ -80,7 +80,12 @@ export async function PATCH(
       // read doesn't have to re-fetch the whole task list.
       const task = mapHerbeTask(result.record, '', conn.id, conn.name)
       await writeThroughTask(session.accountId, session.email, 'herbe', task)
-      return NextResponse.json({ ok: true, task })
+      // Temporary: include the raw ERP record in the response so the in-UI
+      // Save debug panel exposes MainPersons (which the mapped Task shape
+      // intentionally drops). Lets us see what ERP actually persisted for
+      // a multi-person task save without needing runtime logs. Removed
+      // alongside the other debug instrumentation.
+      return NextResponse.json({ ok: true, task, _debugErpRecord: result.record })
     }
 
     if (source === 'outlook') {
