@@ -843,12 +843,18 @@ export function ActivityForm({
         try { return JSON.parse(rawResponseText) } catch { return null }
       })()
 
-      if (isErpSource) {
+      // Always capture for events regardless of source — narrowing to ERP
+      // missed cases where source detection didn't fire as expected.
+      {
         const debugBlob = JSON.stringify({
           when: new Date().toISOString(),
           mode,
           editId,
           isEdit,
+          isErpSource,
+          isOutlookSource,
+          isGoogleSource,
+          destinationKey: destination?.key,
           url,
           method,
           requestBody: body,
@@ -858,6 +864,7 @@ export function ActivityForm({
           responseBody: rawResponseText,
         }, null, 2)
         setLastSaveDebug(debugBlob)
+        try { localStorage.setItem('herbeLastSaveDebug', debugBlob) } catch {}
         // Fire-and-forget local file log. Useful when running dev locally so
         // the assistant can `cat /tmp/herbe-debug.log` after a repro.
         fetch('/api/debug/herbe-save-log', {
@@ -1231,6 +1238,33 @@ export function ActivityForm({
           <button onClick={handleClose} aria-label="Close" className="icon-btn shrink-0 aed-close">✕</button>
         </div>
 
+        {/* Temporary debug panel — always visible after a save attempt, even
+            on success/failure paths. Render before the body conditional so
+            the success view doesn't hide it. Remove once the ERP multi-person
+            save bug is identified. */}
+        {lastSaveDebug && (
+          <div className="mx-4 my-2 rounded-lg border-2 border-amber-500 bg-amber-500/10 p-3 text-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-amber-500 text-sm">⚠ Save debug</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border border-amber-500 bg-amber-500/20 text-amber-500 text-[11px] font-bold"
+                  onClick={() => navigator.clipboard.writeText(lastSaveDebug).catch(() => {})}
+                >Copy</button>
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border border-border text-text-muted text-[11px]"
+                  onClick={() => setLastSaveDebug(null)}
+                >Hide</button>
+              </div>
+            </div>
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-text bg-black/20 p-2 rounded">
+              {lastSaveDebug}
+            </pre>
+          </div>
+        )}
+
         {/* Calendar source label — only for cases the header pill doesn't already
             disambiguate. ICS has no header pill (read-only feed), so it stays.
             Google's calendar *name* (e.g. "Holidays") adds info beyond the
@@ -1426,32 +1460,6 @@ export function ActivityForm({
           })()}
 
           <ErrorBanner errors={errors} fieldLabels={invalidFieldLabels} />
-
-          {/* Temporary: ERP save debug. Always visible after an ERP save attempt
-              so we can read the request/response without devtools. Remove once
-              the multi-person save failure is fixed. */}
-          {lastSaveDebug && (
-            <details className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
-              <summary className="cursor-pointer font-bold text-amber-500">
-                Save debug (request + response)
-              </summary>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  className="px-2 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-500 text-[11px] font-bold"
-                  onClick={() => navigator.clipboard.writeText(lastSaveDebug).catch(() => {})}
-                >Copy</button>
-                <button
-                  type="button"
-                  className="px-2 py-0.5 rounded border border-border text-text-muted text-[11px]"
-                  onClick={() => setLastSaveDebug(null)}
-                >Hide</button>
-              </div>
-              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-text-muted">
-                {lastSaveDebug}
-              </pre>
-            </details>
-          )}
 
           {/* Person(s) — hidden for Outlook/Google task mode; those APIs don't support assignees */}
           {!(mode === 'task' && isExternalCalSource) && (() => {
