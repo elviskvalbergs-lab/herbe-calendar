@@ -40,8 +40,10 @@ export default function TimeColumn({
       className="time-col shrink-0 sticky left-0 z-10"
       style={{ width: 'var(--time-col-w, 56px)' }}
     >
-      {/* Header spacer — mirrors day-col-header height */}
-      <div className={is3Day ? 'h-12' : 'h-6'} style={{ borderBottom: '1px solid var(--app-line)', background: 'var(--app-bg-alt)' }} />
+      {/* Header spacer — mirrors day-col-header height (always 48px, since
+          day-col-header in both 1-day and multi-day modes lays out title row
+          (~20px) + sub-persons rail (~24px) + paddings to that total). */}
+      <div style={{ height: 48, borderBottom: '1px solid var(--app-line)', background: 'var(--app-bg-alt)' }} />
 
       {/* All-day band gutter — mirrors band area height across columns */}
       {showBand && (
@@ -100,22 +102,24 @@ export default function TimeColumn({
 
       {/* Expand / contract top */}
       {showTop && (
-        <div className="flex justify-center gap-0.5 py-1" style={{ borderBottom: '1px solid var(--app-line)' }}>
+        <div className="flex justify-center gap-1 py-1" style={{ borderBottom: '1px solid var(--app-line)' }}>
           {canExpandUp && (
             <button
               onClick={onExpandUp}
-              className="w-5 h-5 flex items-center justify-center text-[10px] font-bold active:brightness-110"
-              style={{ background: 'var(--app-accent)', color: '#fff', borderRadius: 'var(--radius-sm)' }}
               title="Show earlier hours"
-            >▲</button>
+              className="hour-pill"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'rotate(180deg)' }}><path d="m6 9 6 6 6-6"/></svg>
+            </button>
           )}
           {canContractUp && (
             <button
               onClick={onContractUp}
-              className="w-5 h-5 flex items-center justify-center text-[10px] font-bold active:brightness-110"
-              style={{ background: 'var(--app-accent)', color: '#fff', borderRadius: 'var(--radius-sm)' }}
               title="Hide earlier hours"
-            >▼</button>
+              className="hour-pill"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
           )}
         </div>
       )}
@@ -142,22 +146,24 @@ export default function TimeColumn({
 
       {/* Expand / contract bottom */}
       {showBottom && (
-        <div className="flex justify-center gap-0.5 py-1" style={{ borderTop: '1px solid var(--app-line)' }}>
+        <div className="flex justify-center gap-1 py-1" style={{ borderTop: '1px solid var(--app-line)' }}>
           {canContractDown && (
             <button
               onClick={onContractDown}
-              className="w-5 h-5 flex items-center justify-center text-[10px] font-bold active:brightness-110"
-              style={{ background: 'var(--app-accent)', color: '#fff', borderRadius: 'var(--radius-sm)' }}
               title="Hide later hours"
-            >▲</button>
+              className="hour-pill"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'rotate(180deg)' }}><path d="m6 9 6 6 6-6"/></svg>
+            </button>
           )}
           {canExpandDown && (
             <button
               onClick={onExpandDown}
-              className="w-5 h-5 flex items-center justify-center text-[10px] font-bold active:brightness-110"
-              style={{ background: 'var(--app-accent)', color: '#fff', borderRadius: 'var(--radius-sm)' }}
               title="Show later hours"
-            >▼</button>
+              className="hour-pill"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
           )}
         </div>
       )}

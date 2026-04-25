@@ -3566,3 +3566,25 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   min-width: 36px;
 }
 .tj-tab:hover, .tj-tab:active { opacity: 1; }
+
+/* ============================================================
+ * Hour-range expand / contract pill (gutter buttons)
+ * Mirrors the all-day band collapse-toggle pill so the full vertical
+ * stack of accent affordances reads as one design language.
+ * ============================================================ */
+.hour-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  background: color-mix(in oklab, var(--app-accent) 14%, transparent);
+  color: var(--app-accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms;
+  padding: 0;
+  font-family: inherit;
+}
+.hour-pill:hover { background: color-mix(in oklab, var(--app-accent) 22%, transparent); }
+.hour-pill:active { background: color-mix(in oklab, var(--app-accent) 30%, transparent); }
