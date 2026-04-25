@@ -70,7 +70,7 @@ interface Props {
      *  parent should mark this task done and refetch the task list. */
     completeSourceTask?: { id: string; source: 'herbe' | 'outlook' | 'google'; connectionId?: string }
   }) => void
-  onDuplicate: (initial: Partial<Activity>) => void
+  onDuplicate: (initial: Partial<Activity>, opts?: { mode?: 'event' | 'task' }) => void
   onRsvp?: (status: Activity['rsvpStatus']) => void
   canEdit?: boolean  // if true, show edit/delete controls; undefined treated as true for create mode
   getTypeColor?: (typeCode: string) => string
@@ -181,9 +181,14 @@ export function ActivityForm({
   // different list (Outlook or Google task), the save handler compares
   // `destination.meta` against this and sends a list-move directive to the
   // backend (Outlook: delete+recreate; Google: insert+delete).
-  const [originalDestinationKey] = useState<string | null>(
+  const [originalDestinationKey, setOriginalDestinationKey] = useState<string | null>(
     () => isEdit ? destinationFromInitial(initial, mode, erpConnections)?.key ?? null : null,
   )
+  // Set once when the picker reconciles a synthesized edit-mode key (e.g.
+  // "outlook:__edit__") to a real destination. Without promoting the new key
+  // to the baseline, the diff against `originalDestinationKey` would always
+  // be true and trigger a spurious list-move on save.
+  const editBaselineReconciledRef = useRef(false)
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
@@ -971,8 +976,9 @@ export function ActivityForm({
       customerCode,
       customerName,
       planned,
+      erpConnectionId: activeErpConnection?.id,
       // timeFrom and timeTo intentionally omitted — user sets them on the new form
-    })
+    }, { mode })
   }
 
   function handleMoveToCalendar() {
@@ -982,10 +988,12 @@ export function ActivityForm({
     onClose()
     onMoveToCalendar(
       {
-        // Always reopen as an ERP/Outlook event regardless of task source —
-        // CalendarShell decides the actual destination from selectedPersons /
-        // calendar config. Carry the task's text + ERP fields so the new event
-        // form is meaningfully prefilled.
+        // Carry the task's source + ERP connection through so the new event
+        // form's destination picker pre-selects the matching destination
+        // (instead of the localStorage default, which would briefly flash
+        // event-only UI like RSVP buttons before settling).
+        source: taskSource,
+        erpConnectionId: taskSource === 'herbe' ? activeErpConnection?.id : undefined,
         description,
         date,
         textInMatrix,
@@ -1061,12 +1069,16 @@ export function ActivityForm({
   }
 
   const initialDestinationKey = useMemo(() => {
-    // For copy-from-task-or-event flows, prefer the source's own destination
-    // over the user's last-saved default. Without this the picker would
-    // briefly auto-select the localStorage default (often Outlook/Google),
-    // flashing event-only UI like RSVP buttons before the user re-picks ERP.
+    // For copy/move flows, prefer the source's own destination over the
+    // user's last-saved default. Without this the picker would briefly
+    // auto-select the localStorage default (often a different source),
+    // flashing event-only UI like RSVP buttons before settling.
     if (seededFromCopy && initial?.source === 'herbe' && initial?.erpConnectionId) {
       return `herbe:${initial.erpConnectionId}`
+    }
+    if (seededFromCopy && initial?.source === 'outlook' && mode === 'event') {
+      // outlook-event has a single canonical key — there's no list to pick.
+      return 'outlook'
     }
     try { return localStorage.getItem(`defaultDestination:${mode}`) } catch { return null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1375,7 +1387,18 @@ export function ActivityForm({
                   mode="task"
                   value={destination.key}
                   filter={d => d.meta.kind === sourceKind}
-                  onChange={(next) => setDestination(next)}
+                  editLabelHint={destination.label}
+                  onChange={(next) => {
+                    setDestination(next)
+                    // First fire is the picker reconciling the synthesized
+                    // edit key against the real list — promote it so the
+                    // save-time diff doesn't misread it as a user-initiated
+                    // list change. Subsequent picks are real moves.
+                    if (!editBaselineReconciledRef.current) {
+                      editBaselineReconciledRef.current = true
+                      setOriginalDestinationKey(next.key)
+                    }
+                  }}
                 />
               )
             }
@@ -1671,8 +1694,8 @@ export function ActivityForm({
                     onChange={e => setDone(e.target.checked)}
                     disabled={canEdit === false}
                   />
-                  <span className="aed-check-box">{done && '✓'}</span>
                   <span className="aed-check-label">Done</span>
+                  <span className="aed-check-box">{done && '✓'}</span>
                 </label>
               </div>
             )}

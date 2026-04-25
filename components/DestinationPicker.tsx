@@ -25,12 +25,14 @@ interface Props {
   label?: string
   /** Placeholder option shown when `value` is null. If omitted, auto-fires onChange on load. */
   placeholder?: string
+  /** Edit-mode hint: when `value` is a synthesized key (e.g. "outlook:__edit__") that won't match any real destination, the picker matches by `label === editLabelHint` instead and fires onChange so the parent learns the real key. */
+  editLabelHint?: string
   onChange: (dest: Destination) => void
 }
 
 const SOURCE_ORDER: Record<string, number> = { ERP: 0, Outlook: 1, Google: 2 }
 
-export function DestinationPicker({ mode, value, initialKey, filter, label, placeholder, onChange }: Props) {
+export function DestinationPicker({ mode, value, initialKey, filter, label, placeholder, editLabelHint, onChange }: Props) {
   const [destinations, setDestinations] = useState<Destination[] | null>(null)
   const fired = useRef(false)
   const labelText = label ?? 'Destination'
@@ -48,10 +50,21 @@ export function DestinationPicker({ mode, value, initialKey, filter, label, plac
       if (cancelled) return
       const filtered = filter ? list.filter(filter) : list
       setDestinations(filtered)
-      if (!placeholder && !fired.current && filtered.length > 0 && value === null) {
-        fired.current = true
-        const preferred = initialKey ? filtered.find(d => d.key === initialKey) : undefined
-        onChange(preferred ?? filtered[0])
+      if (!placeholder && !fired.current && filtered.length > 0) {
+        if (value === null) {
+          fired.current = true
+          const preferred = initialKey ? filtered.find(d => d.key === initialKey) : undefined
+          onChange(preferred ?? filtered[0])
+        } else if (editLabelHint && !filtered.some(d => d.key === value)) {
+          // Edit-mode synthesized key didn't match any real destination —
+          // recover by matching the user-visible label (the original list's
+          // name) so the dropdown shows the task's actual list selected.
+          const matched = filtered.find(d => d.label === editLabelHint)
+          if (matched) {
+            fired.current = true
+            onChange(matched)
+          }
+        }
       }
     }
 
