@@ -890,18 +890,20 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }
 
   function activityShapeFromTask(task: Task, asEvent = false): Partial<Activity> {
-    // Tasks are personal — the signed-in user is always the MainPerson.
-    // Without this, the form falls through to the calendar's selectedPersons.
-    // listName carries through so the Outlook/Google task destination picker
-    // shows the current list (consumed by destinationFromInitial via a
-    // defensively-typed InitialLike — not on the Activity type proper).
+    // Preserve MainPersons from ERP so multi-person task assignments survive
+    // re-opening the form. Falls back to the signed-in user only when the
+    // task has no main persons (e.g. Outlook/Google tasks, which don't carry
+    // an assignee list). listName carries through so the Outlook/Google task
+    // destination picker shows the current list (consumed by
+    // destinationFromInitial via a defensively-typed InitialLike — not on
+    // the Activity type proper).
     const shape: Partial<Activity> & { listName?: string } = {
       source: task.source === 'herbe' ? 'herbe' : task.source,
       description: task.title,
       textInMatrix: task.description ?? task.erp?.textInMatrix,
       date: task.dueDate ?? format(new Date(), 'yyyy-MM-dd'),
       personCode: userCode,
-      mainPersons: [userCode],
+      mainPersons: task.mainPersons && task.mainPersons.length > 0 ? task.mainPersons : [userCode],
       ccPersons: task.ccPersons ?? [],
       activityTypeCode: task.erp?.activityTypeCode,
       projectCode: task.erp?.projectCode,

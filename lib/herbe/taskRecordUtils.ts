@@ -26,7 +26,7 @@ export function mapHerbeTask(
   if (!textValue && rows && rows.length > 0) {
     textValue = rows.map(row => String(row['Text'] ?? '')).filter(Boolean).join('\n')
   }
-  const { cc } = parsePersons(r)
+  const { main, cc } = parsePersons(r)
 
   const task: Task = {
     id: `herbe:${sernr}`,
@@ -37,6 +37,7 @@ export function mapHerbeTask(
     dueDate: transDate || undefined,
     done: String(r['OKFlag'] ?? '0') === '1',
     listName: connectionName || undefined,
+    mainPersons: main.length > 0 ? main : undefined,
     ccPersons: cc.length > 0 ? cc : undefined,
     erp: {
       activityTypeCode: String(r['ActType'] ?? '') || undefined,

@@ -59,6 +59,24 @@ describe('mapHerbeTask', () => {
     const task = mapHerbeTask({ ...baseRecord, TransDate: '' }, 'EKS', 'conn-1', 'x')
     expect(task.dueDate).toBeUndefined()
   })
+
+  // Regression: edit form was hardcoded to seed mainPersons with just the
+  // signed-in user, so multi-person task assignments looked unsaved on
+  // re-open even though ERP had stored them correctly. mapHerbeTask must
+  // surface MainPersons so the form can pre-fill all assignees.
+  it('surfaces MainPersons CSV as task.mainPersons (multi-assignee tasks)', () => {
+    const task = mapHerbeTask(
+      { ...baseRecord, MainPersons: 'EKS,ESE,ATS', CCPersons: 'APALA,ARA' },
+      'EKS', 'conn-1', 'x',
+    )
+    expect(task.mainPersons).toEqual(['EKS', 'ESE', 'ATS'])
+    expect(task.ccPersons).toEqual(['APALA', 'ARA'])
+  })
+
+  it('omits mainPersons when MainPersons is empty', () => {
+    const task = mapHerbeTask({ ...baseRecord, MainPersons: '' }, 'EKS', 'conn-1', 'x')
+    expect(task.mainPersons).toBeUndefined()
+  })
 })
 
 describe('regression: calendar/task filter independence', () => {

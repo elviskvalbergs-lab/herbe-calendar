@@ -11,6 +11,8 @@ export interface Task {
   /** YYYY-MM-DD, omitted when no due date set */
   dueDate?: string
   done: boolean
+  /** ERP only — person codes from MainPersons, so the edit form can pre-fill them. */
+  mainPersons?: string[]
   /** ERP only — person codes from CCPersons, so the edit form can pre-fill them. */
   ccPersons?: string[]
   /** Outlook: list display name; Google: list title; ERP: project or customer label */
