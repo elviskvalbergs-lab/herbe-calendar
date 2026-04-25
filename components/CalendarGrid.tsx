@@ -205,8 +205,11 @@ export default function CalendarGrid({
   const maxBandRows = bandPerDate.reduce((max, b) => Math.max(max, b.cellMax), 0)
   const totalAllDayInBand = bandPerDate.reduce((s, b) => s + b.allDay.length, 0)
   const totalTasksInBand = bandPerDate.reduce((s, b) => s + b.dayTasks.length, 0)
+  // +1 absorbs the 1px borderBottom under the band so the gutter button
+  // (height: bandHeight) and per-column mds-cell (minHeight: bandHeight,
+  // borderBottom: 1px, border-box) render at exactly the same total height.
   const expandedBandHeight = maxBandRows > 0
-    ? maxBandRows * ROW_H + (maxBandRows - 1) * ROW_GAP + BAND_PAD
+    ? maxBandRows * ROW_H + (maxBandRows - 1) * ROW_GAP + BAND_PAD + 1
     : 0
   const bandHeightPx = stripCollapsed ? COLLAPSED_BAND_HEIGHT : expandedBandHeight
 
