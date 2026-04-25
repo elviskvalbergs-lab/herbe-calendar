@@ -596,10 +596,11 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   const fetchActivities = useCallback(async (bustIcsCache = false) => {
     if (!selectedCodesKey) return
     const codes = selectedCodesKey
-    const dateFrom = state.view === 'month'
+    const isMonthLike = state.view === 'month' || state.view === 'tasks'
+    const dateFrom = isMonthLike
       ? format(startOfWeek(startOfMonth(parseISO(state.date)), { weekStartsOn: 1 }), 'yyyy-MM-dd')
       : state.date
-    const dateTo = state.view === 'month'
+    const dateTo = isMonthLike
       ? format(endOfWeek(endOfMonth(parseISO(state.date)), { weekStartsOn: 1 }), 'yyyy-MM-dd')
       : state.view === '7day'
       ? format(addDays(parseISO(state.date), 6), 'yyyy-MM-dd')
@@ -764,7 +765,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     setLoading(false)
 
     // Prefetch adjacent date ranges in the background for instant navigation (skip for month view — range already large)
-    if (state.view === 'month') { setLoading(false); return }
+    if (state.view === 'month' || state.view === 'tasks') { setLoading(false); return }
     const viewDays = state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
     const prefetchDates = [
       format(addDays(parseISO(dateFrom), -viewDays), 'yyyy-MM-dd'),
@@ -785,7 +786,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       }).catch(() => {})
     }
   // For month view, only refetch when the MONTH changes (not every day click within the same month)
-  }, [selectedCodesKey, state.view === 'month' ? state.date.slice(0, 7) : state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedCodesKey, (state.view === 'month' || state.view === 'tasks') ? state.date.slice(0, 7) : state.date, state.view, sources.herbe, sources.azure, sources.google]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchActivities()
@@ -999,8 +1000,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
         accountLogo={accountLogo}
         monthSelectedDay={monthSelectedDay}
       />
-      {state.view === 'month' ? (
+      {(state.view === 'month' || state.view === 'tasks') ? (
         <MonthView
+          forceTasksFullscreen={state.view === 'tasks'}
+          onExitTasksFullscreen={() => setState(s => ({ ...s, view: 'month' }))}
           activities={visibleActivities}
           date={state.date}
           holidays={holidays}

@@ -11,7 +11,7 @@ import {
 interface Props {
   open: boolean
   currentDate: string           // YYYY-MM-DD
-  currentView: 'day' | '3day' | '5day' | '7day' | 'month'
+  currentView: 'day' | '3day' | '5day' | '7day' | 'month' | 'tasks'
   persons: string[]
   onSelectDate: (date: string) => void
   onSelectWeek: (mondayDate: string) => void

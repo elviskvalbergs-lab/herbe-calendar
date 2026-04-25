@@ -54,7 +54,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
   const [monthNavOpen, setMonthNavOpen] = useState(false)
 
   const isMonth = state.view === 'month'
-  const viewStep = isMonth ? 0 : state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
+  const isTasks = state.view === 'tasks'
+  const isMonthLike = isMonth || isTasks
+  const viewStep = isMonthLike ? 0 : state.view === '7day' ? 7 : state.view === '5day' ? 5 : state.view === '3day' ? 3 : 1
 
   function navigate(days: number) {
     onStateChange({ ...state, date: format(addDays(parseISO(state.date), days), 'yyyy-MM-dd') })
@@ -94,7 +96,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
         {(viewStep > 1 || isMonth) && (
           <button onClick={() => isMonth ? navigateMonth(-1) : navigate(-viewStep)} className="icon-btn" title={isMonth ? 'Previous month' : `Back ${viewStep} days`} aria-label={isMonth ? 'Previous month' : `Back ${viewStep} days`}>«</button>
         )}
-        <button onClick={() => navigate(-1)} className="icon-btn" title="Previous day (←)" aria-label="Previous day">‹</button>
+        {!isTasks && (
+          <button onClick={() => navigate(-1)} className="icon-btn" title="Previous day (←)" aria-label="Previous day">‹</button>
+        )}
         <button
           onClick={() => setMonthNavOpen(true)}
           className="btn btn-ghost"
@@ -108,7 +112,9 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           className="btn btn-outline btn-sm hidden lg:inline-flex"
           title="Jump to today (T)"
         >Today</button>
-        <button onClick={() => navigate(1)} className="icon-btn" title="Next day (→)" aria-label="Next day">›</button>
+        {!isTasks && (
+          <button onClick={() => navigate(1)} className="icon-btn" title="Next day (→)" aria-label="Next day">›</button>
+        )}
         {(viewStep > 1 || isMonth) && (
           <button onClick={() => isMonth ? navigateMonth(1) : navigate(viewStep)} className="icon-btn" title={isMonth ? 'Next month' : `Forward ${viewStep} days`} aria-label={isMonth ? 'Next month' : `Forward ${viewStep} days`}>»</button>
         )}
@@ -122,6 +128,7 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
           { view: '5day' as const, short: '5D', long: '5D' },
           { view: '7day' as const, short: '7D', long: '7D' },
           { view: 'month' as const, short: '', long: 'Month' },
+          { view: 'tasks' as const, short: '', long: 'Tasks' },
         ]).map(({ view: v, short, long }) => {
           const active = state.view === v
           return (
@@ -129,12 +136,19 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
               key={v}
               onClick={() => onStateChange({ ...state, view: v })}
               aria-pressed={active}
-              title={v === 'month' ? 'Month view' : `${long} view`}
+              title={v === 'month' ? 'Month view' : v === 'tasks' ? 'Tasks view' : `${long} view`}
             >
               {v === 'month' ? (
                 <>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block lg:hidden">
                     <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="10" y1="4" x2="10" y2="10" />
+                  </svg>
+                  <span className="hidden lg:inline">{long}</span>
+                </>
+              ) : v === 'tasks' ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block lg:hidden">
+                    <polyline points="3 7 5 9 9 5" /><polyline points="3 17 5 19 9 15" /><line x1="13" y1="6" x2="21" y2="6" /><line x1="13" y1="12" x2="21" y2="12" /><line x1="13" y1="18" x2="21" y2="18" />
                   </svg>
                   <span className="hidden lg:inline">{long}</span>
                 </>

@@ -43,12 +43,18 @@ interface Props {
   onCopyTaskAsTask?: (task: Task) => void
   onCopyTaskToEvent?: (task: Task) => void
   onCreateTask?: (source: TaskSource) => void
+  // When true (driven by state.view === 'tasks'), MonthView starts up in
+  // tasks-fullscreen mode and the maximize button becomes "Exit fullscreen",
+  // which delegates to onExitTasksFullscreen instead of toggling local state.
+  forceTasksFullscreen?: boolean
+  onExitTasksFullscreen?: () => void
 }
 
 export default function MonthView({
   activities, date, holidays, personCode, getActivityColor,
   onSelectDate, onSelectedDayChange, onActivityClick, loading, isLightMode = false, personCount = 1, dayViewPanel, onNavigateMonth,
   tasks, tasksLoading, taskSources, taskErrors, tasksTab, onTasksTabChange, onToggleTaskDone, onEditTask, onCopyTaskAsTask, onCopyTaskToEvent, onCreateTask,
+  forceTasksFullscreen, onExitTasksFullscreen,
 }: Props) {
   const selectedDay = date
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
@@ -59,6 +65,12 @@ export default function MonthView({
   // 'day' shows a full day view of the selected day inline.
   const [rightSide, setRightSide] = useState<'agenda' | 'day' | 'tasks'>('agenda')
   const [tasksMaximized, setTasksMaximized] = useState(false)
+  const effectiveRightSide = forceTasksFullscreen ? 'tasks' : rightSide
+  const effectiveMaximized = forceTasksFullscreen || (effectiveRightSide === 'tasks' && tasksMaximized)
+  const handleToggleMaximize = () => {
+    if (forceTasksFullscreen) onExitTasksFullscreen?.()
+    else setTasksMaximized(m => !m)
+  }
   const gridRef = useRef<HTMLDivElement>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [maxChips, setMaxChips] = useState(4)
@@ -260,7 +272,7 @@ export default function MonthView({
 
   return (
     <div
-      className={`month-wrap flex-1 overflow-hidden relative${rightSide === 'tasks' && tasksMaximized ? ' tasks-max' : ''}`}
+      className={`month-wrap flex-1 overflow-hidden relative${effectiveRightSide === 'tasks' && effectiveMaximized ? ' tasks-max' : ''}`}
       style={wrapStyle}
     >
       {loading && (
@@ -426,7 +438,7 @@ export default function MonthView({
           OR agenda (default). Toggle swaps the right panel inline; the
           month grid on the left stays put. */}
       {showSide && (
-        rightSide === 'day' && dayViewPanel ? (
+        effectiveRightSide === 'day' && dayViewPanel ? (
           <aside className="month-side">
             <header className="month-side-hdr">
               <div className="dow">{format(parseISO(selectedDay), 'EEEE')}</div>
@@ -454,28 +466,30 @@ export default function MonthView({
                   {format(parseISO(selectedDay), 'MMMM yyyy')}
                 </span>
               </div>
-              <div className="segmented agenda-open" title="Switch view">
-                <button
-                  onClick={() => {
-                    if (dayViewPanel) setRightSide('day')
-                    else onSelectDate(selectedDay)
-                  }}
-                  aria-pressed={false}
-                  title={dayViewPanel ? 'Show day view in this panel' : 'Open day view'}
-                >Day</button>
-                <button onClick={() => setRightSide('agenda')} aria-pressed={rightSide === 'agenda'}>Agenda</button>
-                <button onClick={() => setRightSide('tasks')} aria-pressed={rightSide === 'tasks'}>Tasks</button>
-              </div>
-              {rightSide === 'tasks' && (
+              {!forceTasksFullscreen && (
+                <div className="segmented agenda-open" title="Switch view">
+                  <button
+                    onClick={() => {
+                      if (dayViewPanel) setRightSide('day')
+                      else onSelectDate(selectedDay)
+                    }}
+                    aria-pressed={false}
+                    title={dayViewPanel ? 'Show day view in this panel' : 'Open day view'}
+                  >Day</button>
+                  <button onClick={() => setRightSide('agenda')} aria-pressed={rightSide === 'agenda'}>Agenda</button>
+                  <button onClick={() => setRightSide('tasks')} aria-pressed={rightSide === 'tasks'}>Tasks</button>
+                </div>
+              )}
+              {effectiveRightSide === 'tasks' && (
                 <button
                   type="button"
-                  className="tasks-maximize-btn"
-                  onClick={() => setTasksMaximized(m => !m)}
-                  aria-pressed={tasksMaximized}
-                  aria-label={tasksMaximized ? 'Exit fullscreen' : 'Maximize tasks'}
-                  title={tasksMaximized ? 'Exit fullscreen' : 'Maximize tasks'}
+                  className={`tasks-maximize-btn${forceTasksFullscreen ? ' tasks-maximize-btn--auto' : ''}`}
+                  onClick={handleToggleMaximize}
+                  aria-pressed={effectiveMaximized}
+                  aria-label={effectiveMaximized ? 'Exit fullscreen' : 'Maximize tasks'}
+                  title={effectiveMaximized ? 'Exit fullscreen' : 'Maximize tasks'}
                 >
-                  {tasksMaximized ? (
+                  {effectiveMaximized ? (
                     <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                       <path d="M6 3v3H3M10 3v3h3M6 13v-3H3M10 13v-3h3" strokeLinecap="round" />
                     </svg>
@@ -487,7 +501,7 @@ export default function MonthView({
                 </button>
               )}
             </header>
-            {rightSide === 'tasks' ? (
+            {effectiveRightSide === 'tasks' ? (
               <TasksSidebar
                 tasks={tasks ?? []}
                 loading={tasksLoading ?? false}
