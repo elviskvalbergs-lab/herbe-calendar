@@ -3273,23 +3273,12 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 .destination-picker { margin-top: 6px; }
 .destination-picker-row {
   display: flex; align-items: center; gap: 6px;
-  position: relative;
 }
-.destination-picker-row.has-color::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 50%;
+.destination-color-dot {
+  display: inline-block;
   width: 10px; height: 10px;
   border-radius: 50%;
-  background: var(--dest-color, transparent);
-  transform: translateY(-50%);
-  pointer-events: none;
-  z-index: 1;
-}
-.destination-picker-row.has-color > .select-field,
-.destination-picker-row.has-color > .input {
-  padding-left: 30px;
+  flex-shrink: 0;
 }
 
 /* ============================================================

@@ -116,15 +116,10 @@ export function DestinationPicker({ mode, value, initialKey, filter, label, plac
     )
   }
 
-  const currentColor = destinations.find(d => d.key === value)?.color
-
   return (
     <div className="destination-picker">
       <label className="aed-label">{labelText}</label>
-      <div
-        className={`destination-picker-row${currentColor ? ' has-color' : ''}`}
-        style={currentColor ? ({ ['--dest-color' as string]: currentColor }) : undefined}
-      >
+      <div className="destination-picker-row">
         <select
           className="select-field aed-input"
           value={value ?? ''}
@@ -138,8 +133,8 @@ export function DestinationPicker({ mode, value, initialKey, filter, label, plac
           {grouped.map(([label, items]) => (
             <optgroup key={label} label={label}>
               {items.map(d => (
-                <option key={d.key} value={d.key}>
-                  {d.sourceLabel} · {d.label}
+                <option key={d.key} value={d.key} style={d.color ? { color: d.color } : undefined}>
+                  {d.color ? '● ' : ''}{d.sourceLabel} · {d.label}
                 </option>
               ))}
             </optgroup>
