@@ -46,23 +46,25 @@ const SUPER_ADMIN_ITEM: NavItem = { href: '/admin/accounts', label: 'Accounts', 
 const MenuIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
 )
-
 const ChevRightIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
 )
-
 const BellIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
 )
 
 export default function AdminShell({ email, accountName, accountId, isSuperAdmin, accounts, children }: Props) {
   const pathname = usePathname()
+  // Desktop sidebar collapse state.
   const [sideOpen, setSideOpen] = useState(true)
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  // Mobile drawer open state — false means hidden off-screen.
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     try { setSideOpen(localStorage.getItem('admin-sidebar-open') !== '0') } catch {}
   }, [])
+  // Auto-close mobile drawer when navigating between routes.
+  useEffect(() => { setDrawerOpen(false) }, [pathname])
 
   const toggleSide = () => {
     setSideOpen(v => {
@@ -71,26 +73,23 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
     })
   }
 
-  const sideW = sideOpen ? 240 : 56
-  const currentLabel = NAV_ITEMS.concat(isSuperAdmin ? [SUPER_ADMIN_ITEM] : [])
-    .find(n => pathname.startsWith(n.href))?.label ?? 'Admin'
-
+  const allNavItems = isSuperAdmin ? [...NAV_ITEMS, SUPER_ADMIN_ITEM] : NAV_ITEMS
+  const currentLabel = allNavItems.find(n => pathname.startsWith(n.href))?.label ?? 'Admin'
   const avatarCode = email.slice(0, 3).toUpperCase()
 
-  return (
-    <div className="admin-shell">
-      {/* Desktop sidebar */}
-      <aside
-        className="admin-sidebar hidden lg:flex"
-        style={{ width: sideW, transition: 'width 220ms cubic-bezier(0.2,0,0,1)' }}
-      >
-        <div className="admin-sb-head" style={{ padding: sideOpen ? '20px 20px 18px' : '20px 10px 18px', justifyContent: sideOpen ? 'flex-start' : 'center' }}>
+  // Sidebar markup is shared between desktop (in-flow, collapsible) and
+  // mobile (slide-in drawer overlay).
+  const renderSidebarBody = (mobile: boolean) => {
+    const open = mobile ? true : sideOpen
+    return (
+      <>
+        <div className="admin-sb-head" style={{ padding: open ? '20px 20px 18px' : '20px 10px 18px', justifyContent: open ? 'flex-start' : 'center' }}>
           <button
             className="admin-sb-logo"
-            onClick={toggleSide}
-            title={sideOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            onClick={mobile ? () => setDrawerOpen(false) : toggleSide}
+            title={mobile ? 'Close menu' : (open ? 'Collapse sidebar' : 'Expand sidebar')}
           >B</button>
-          {sideOpen && (
+          {open && (
             <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
               {isSuperAdmin && accounts && accounts.length > 1 ? (
                 <>
@@ -130,14 +129,14 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
                 href={item.href}
                 className={`admin-sb-item ${active ? 'active' : ''}`}
                 style={{
-                  padding: sideOpen ? '10px 20px' : '10px 0',
-                  justifyContent: sideOpen ? 'flex-start' : 'center',
-                  gap: sideOpen ? 12 : 0,
+                  padding: open ? '10px 20px' : '10px 0',
+                  justifyContent: open ? 'flex-start' : 'center',
+                  gap: open ? 12 : 0,
                 }}
-                title={!sideOpen ? item.label : undefined}
+                title={!open ? item.label : undefined}
               >
                 {item.icon}
-                {sideOpen && <span>{item.label}</span>}
+                {open && <span>{item.label}</span>}
               </Link>
             )
           })}
@@ -148,25 +147,23 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
                 href={SUPER_ADMIN_ITEM.href}
                 className={`admin-sb-item ${pathname.startsWith(SUPER_ADMIN_ITEM.href) ? 'active' : ''}`}
                 style={{
-                  padding: sideOpen ? '10px 20px' : '10px 0',
-                  justifyContent: sideOpen ? 'flex-start' : 'center',
-                  gap: sideOpen ? 12 : 0,
+                  padding: open ? '10px 20px' : '10px 0',
+                  justifyContent: open ? 'flex-start' : 'center',
+                  gap: open ? 12 : 0,
                 }}
-                title={!sideOpen ? SUPER_ADMIN_ITEM.label : undefined}
+                title={!open ? SUPER_ADMIN_ITEM.label : undefined}
               >
                 {SUPER_ADMIN_ITEM.icon}
-                {sideOpen && <span>{SUPER_ADMIN_ITEM.label}</span>}
+                {open && <span>{SUPER_ADMIN_ITEM.label}</span>}
               </Link>
             </>
           )}
         </nav>
 
-        {sideOpen ? (
+        {open ? (
           <div className="admin-sb-foot">
             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email}</div>
-            {isSuperAdmin && (
-              <span className="admin-sb-super">Super Admin</span>
-            )}
+            {isSuperAdmin && <span className="admin-sb-super">Super Admin</span>}
             <Link href="/cal" className="admin-sb-back">← Back to Calendar</Link>
           </div>
         ) : (
@@ -174,13 +171,53 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
             <button onClick={toggleSide} title="Expand sidebar"><ChevRightIcon /></button>
           </div>
         )}
+      </>
+    )
+  }
+
+  return (
+    <div className="admin-shell">
+      {/* Desktop sidebar — in-flow, collapsible width */}
+      <aside
+        className="admin-sidebar hidden lg:flex"
+        style={{ width: sideOpen ? 240 : 56, transition: 'width 220ms cubic-bezier(0.2,0,0,1)' }}
+      >
+        {renderSidebarBody(false)}
       </aside>
+
+      {/* Mobile drawer — slides in from the left */}
+      <aside
+        className="admin-sidebar admin-drawer lg:hidden"
+        style={{
+          width: 240,
+          transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+        }}
+        aria-hidden={!drawerOpen}
+      >
+        {renderSidebarBody(true)}
+      </aside>
+      {drawerOpen && (
+        <div
+          className="admin-drawer-backdrop lg:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
 
       {/* Main area */}
       <div className="admin-main">
-        {/* Desktop topbar */}
-        <header className="admin-topbar hidden lg:flex">
-          <button className="admin-topbar-menu" onClick={toggleSide} title={sideOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
+        {/* Topbar — same shape on desktop and mobile, hamburger toggles drawer on mobile / collapse on desktop */}
+        <header className="admin-topbar">
+          <button
+            className="admin-topbar-menu"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                setDrawerOpen(o => !o)
+              } else {
+                toggleSide()
+              }
+            }}
+            title="Toggle navigation"
+          >
             <MenuIcon />
           </button>
           <span className="admin-topbar-title">{currentLabel}</span>
@@ -194,100 +231,6 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
             <span className="admin-topbar-email">{email}</span>
           </div>
         </header>
-
-        {/* Mobile header — preserves original pattern */}
-        <header className="admin-mobile-header lg:hidden">
-          <Link href="/cal" className="font-bold text-sm">
-            herbe<span style={{ color: 'var(--app-accent)' }}>.</span>calendar
-          </Link>
-          {isSuperAdmin && accounts && accounts.length > 1 ? (
-            <select
-              value={accountId}
-              onChange={e => {
-                fetch('/api/admin/switch-account', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ accountId: e.target.value }),
-                }).then(() => window.location.reload())
-              }}
-              className="bg-bg border border-border rounded text-[10px] text-text-muted px-1 py-0.5 max-w-[120px]"
-            >
-              {accounts.map(a => (
-                <option key={a.id} value={a.id}>{a.display_name}</option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-xs text-text-muted">{accountName}</span>
-          )}
-          <button onClick={() => setMobileNavOpen(o => !o)} className="text-text-muted text-lg">☰</button>
-        </header>
-
-        <nav className="admin-mobile-toolbar lg:hidden">
-          {NAV_ITEMS.map(item => {
-            const active = pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`admin-mobile-toolbar-item ${active ? 'active' : ''}`}
-                title={item.label}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            )
-          })}
-          {isSuperAdmin && (
-            <Link
-              href={SUPER_ADMIN_ITEM.href}
-              className={`admin-mobile-toolbar-item ${pathname.startsWith(SUPER_ADMIN_ITEM.href) ? 'active' : ''}`}
-              title={SUPER_ADMIN_ITEM.label}
-            >
-              {SUPER_ADMIN_ITEM.icon}
-              <span>{SUPER_ADMIN_ITEM.label}</span>
-            </Link>
-          )}
-          <Link href="/cal" className="admin-mobile-toolbar-item" title="Calendar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span>Calendar</span>
-          </Link>
-        </nav>
-
-        {mobileNavOpen && (
-          <nav className="lg:hidden bg-surface border-b border-border px-4 py-2 space-y-1">
-            {NAV_ITEMS.map(item => {
-              const active = pathname.startsWith(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileNavOpen(false)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
-                    active ? 'bg-primary/10 text-primary' : 'text-text-muted hover:bg-border/30'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </Link>
-              )
-            })}
-            {isSuperAdmin && (
-              <Link
-                href={SUPER_ADMIN_ITEM.href}
-                onClick={() => setMobileNavOpen(false)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
-                  pathname.startsWith(SUPER_ADMIN_ITEM.href) ? 'bg-primary/10 text-primary' : 'text-text-muted hover:bg-border/30'
-                }`}
-              >
-                {SUPER_ADMIN_ITEM.icon}
-                {SUPER_ADMIN_ITEM.label}
-              </Link>
-            )}
-            <Link href="/cal" onClick={() => setMobileNavOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-primary">
-              ← Calendar
-            </Link>
-          </nav>
-        )}
 
         <main className="admin-content">
           {children}
