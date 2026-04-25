@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Destination, DestinationMode } from '@/lib/destinations/types'
 
 // Module-level cache so reopening the form within the same session is instant.
@@ -116,30 +116,90 @@ export function DestinationPicker({ mode, value, initialKey, filter, label, plac
     )
   }
 
+  return <DestinationDropdown
+    label={labelText}
+    placeholder={placeholder}
+    value={value}
+    grouped={grouped}
+    destinations={destinations}
+    onChange={onChange}
+  />
+}
+
+function DestinationDropdown({
+  label, placeholder, value, grouped, destinations, onChange,
+}: {
+  label: string
+  placeholder?: string
+  value: string | null
+  grouped: ReadonlyArray<readonly [string, Destination[]]>
+  destinations: Destination[]
+  onChange: (dest: Destination) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const current = value ? destinations.find(d => d.key === value) ?? null : null
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <div className="destination-picker">
-      <label className="aed-label">{labelText}</label>
-      <div className="destination-picker-row">
-        <select
-          className="select-field aed-input"
-          value={value ?? ''}
-          onChange={e => {
-            if (!e.target.value) return
-            const dest = (destinations ?? []).find(d => d.key === e.target.value)
-            if (dest) onChange(dest)
-          }}
+    <div className="destination-picker" ref={wrapRef}>
+      <label className="aed-label">{label}</label>
+      <div className="destination-picker-row destination-trigger-row">
+        <button
+          type="button"
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          data-value={value ?? ''}
+          className="select-field aed-input destination-trigger"
+          onClick={() => setOpen(o => !o)}
         >
-          {placeholder && <option value="">{placeholder}</option>}
-          {grouped.map(([label, items]) => (
-            <optgroup key={label} label={label}>
-              {items.map(d => (
-                <option key={d.key} value={d.key} style={d.color ? { color: d.color } : undefined}>
-                  {d.color ? '● ' : ''}{d.sourceLabel} · {d.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          {current ? (
+            <>
+              <span className="destination-color-dot" style={{ background: current.color }} aria-hidden="true" />
+              <span className="destination-trigger-label">{current.sourceLabel} · {current.label}</span>
+            </>
+          ) : (
+            <span className="destination-trigger-label destination-trigger-placeholder">{placeholder ?? 'Select…'}</span>
+          )}
+          <span className="destination-trigger-chev" aria-hidden="true">▾</span>
+        </button>
+        {open && (
+          <ul className="destination-menu" role="listbox">
+            {grouped.map(([groupLabel, items]) => (
+              <li key={groupLabel} className="destination-group">
+                <div className="destination-group-label">{groupLabel}</div>
+                <ul>
+                  {items.map(d => (
+                    <li
+                      key={d.key}
+                      role="option"
+                      aria-selected={d.key === value}
+                      className={`destination-option${d.key === value ? ' is-selected' : ''}`}
+                      onClick={() => { onChange(d); setOpen(false) }}
+                    >
+                      <span className="destination-color-dot" style={{ background: d.color }} aria-hidden="true" />
+                      <span>{d.sourceLabel} · {d.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

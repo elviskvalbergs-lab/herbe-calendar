@@ -19,6 +19,7 @@ import {
 import {
   HERBE_ID, OUTLOOK_ID, GOOGLE_ID, HERBE_COLOR, icsId, loadHidden, saveHidden,
 } from '@/lib/calendarVisibility'
+import { activityFormSessionKey } from '@/lib/forms/sessionKey'
 
 interface Props { userCode: string; companyCode: string; accountId?: string }
 
@@ -1162,6 +1163,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
 
       {formState.open && (
         <ActivityForm
+          key={activityFormSessionKey(formState)}
           initial={formState.initial}
           editId={formState.editId}
           mode={formState.mode ?? 'event'}

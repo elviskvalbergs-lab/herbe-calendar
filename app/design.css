@@ -1157,13 +1157,20 @@ input, select, textarea { font-family: inherit; }
 .month-wrap.no-side { grid-template-columns: 1fr; }
 .month-wrap.tasks-max {
   display: block !important;
+  position: relative !important;
   grid-template-columns: none !important;
   grid-template-rows: none !important;
+  height: 100% !important;
 }
 .month-wrap.tasks-max > .month-main,
 .month-wrap.tasks-max > .cursor-col-resize { display: none !important; }
 .month-wrap.tasks-max > .month-side {
-  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: auto !important;
   max-height: none !important;
   flex: 1 1 auto !important;
   border-top: none !important;
@@ -3280,6 +3287,52 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   border-radius: 50%;
   flex-shrink: 0;
 }
+.destination-trigger-row { position: relative; }
+.destination-trigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding-right: 28px;
+}
+.destination-trigger-label {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.destination-trigger-placeholder { color: var(--app-fg-subtle); }
+.destination-trigger-chev {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--app-fg-muted); font-size: 11px;
+}
+.destination-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  z-index: 50;
+  margin: 0; padding: 4px 0;
+  list-style: none;
+  background: var(--app-bg-alt);
+  border: 1px solid var(--app-line-strong);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-height: 280px; overflow-y: auto;
+}
+.destination-menu .destination-group { padding: 0; list-style: none; }
+.destination-menu .destination-group-label {
+  padding: 6px 12px 4px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--app-fg-subtle);
+}
+.destination-menu ul { list-style: none; padding: 0; margin: 0; }
+.destination-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.destination-option:hover { background: var(--app-bg); }
+.destination-option.is-selected { background: var(--selection-bg); }
 
 /* ============================================================
  * Admin Shell (design handoff: dark forest collapsible sidebar)

@@ -1128,22 +1128,6 @@ export function ActivityForm({
           <div />
         </div>
 
-        {/* TEMP DIAGNOSTIC — remove after verifying task→event source-state bug */}
-        <div style={{
-          position: 'sticky', top: 0, zIndex: 1000,
-          background: '#0b0b0b', color: '#7CFC00',
-          fontSize: 10, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-          padding: '6px 10px', borderBottom: '1px solid #333',
-          whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-        }}>
-          {`mode=${mode}  isEdit=${isEdit}  seededFromCopy=${seededFromCopy}\n`}
-          {`destination.source=${destination?.source ?? 'null'}  destination.key=${destination?.key ?? 'null'}\n`}
-          {`destination.meta.kind=${(destination?.meta as { kind?: string } | undefined)?.kind ?? 'null'}\n`}
-          {`isExternalCalSource=${isExternalCalSource}  isErpSource=${isErpSource}\n`}
-          {`initial.source=${(initial as { source?: string } | undefined)?.source ?? 'null'}  initial.erpConnectionId=${(initial as { erpConnectionId?: string } | undefined)?.erpConnectionId ?? 'null'}\n`}
-          {`externalAttendees.len=${externalAttendees.length}  rsvpStatus=${rsvpStatus ?? 'null'}  location="${location}"  isOnlineMeeting=${isOnlineMeeting}`}
-        </div>
-
         {/* Header — drag-to-dismiss lives on .aed-drag-handle above so header taps (close, copy, etc.) stay clean. */}
         <div className="aed-header">
           <h2 id="activity-form-title" className="aed-title flex items-center gap-2 flex-wrap">
