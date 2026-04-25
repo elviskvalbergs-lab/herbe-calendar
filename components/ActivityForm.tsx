@@ -1072,14 +1072,18 @@ export function ActivityForm({
     if (seededFromCopy && initial?.source === 'herbe' && initial?.erpConnectionId) {
       return `herbe:${initial.erpConnectionId}`
     }
-    if (seededFromCopy) {
-      // Outlook/Google task → calendar event: skip the localStorage default
-      // so the picker falls back to filtered[0] (the first ERP destination
-      // by SOURCE_ORDER). Honoring a stale Outlook/Google default here was
-      // making the picker briefly select an external destination, which
-      // flashed RSVP/external-attendee fields before the user re-picked ERP.
-      return null
+    if (seededFromCopy && erpConnections.length > 0) {
+      // Outlook/Google task → calendar event: explicitly pin the picker to
+      // the first ERP connection so the destination resolves to ERP on the
+      // first auto-fire. Falling through to "no initialKey → filtered[0]"
+      // wasn't reliable in practice — the destinations response wasn't
+      // always ERP-first for every account, so the picker sometimes
+      // selected an external destination and rendered RSVP / external
+      // attendee / Teams / Location fields for a few frames or until the
+      // user re-picked ERP manually.
+      return `herbe:${erpConnections[0].id}`
     }
+    if (seededFromCopy) return null
     try { return localStorage.getItem(`defaultDestination:${mode}`) } catch { return null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
