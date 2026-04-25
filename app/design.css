@@ -2387,7 +2387,7 @@ input, select, textarea { font-family: inherit; }
    date column's structure (empty label spacer + content area) so the checkbox
    is vertically centered against the date input regardless of input height
    across breakpoints. */
-.aed-dt-grid-task { grid-template-columns: 1fr auto; align-items: stretch; }
+.aed-dt-grid-task { grid-template-columns: minmax(0, 1fr) max-content; align-items: stretch; }
 .aed-dt-grid-task .aed-dt-done-col { display: flex; flex-direction: column; }
 .aed-dt-grid-task .aed-dt-done {
   margin: 0;
@@ -2671,6 +2671,11 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   .aed-tab { padding: 6px 6px; font-size: 11px; }
   /* Date narrower, time fields get more room */
   .aed-dt-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  /* Task variant kept at 2 columns on mobile too — without this override the
+     base .aed-dt-grid mobile rule above wins (same specificity, later in
+     source) and the done checkbox lands in a middle column with extra slack
+     to its right. */
+  .aed-dt-grid-task { grid-template-columns: minmax(0, 1fr) max-content; gap: 8px; }
   .aed-dt-grid > div { min-width: 0; }
   .aed-dt-grid .aed-input { padding: 0 6px; font-size: 12px; height: 34px; min-width: 0; width: 100%; text-align: center; }
   .aed-dt-grid input[type="date"] { font-size: 11px; letter-spacing: -0.02em; }
