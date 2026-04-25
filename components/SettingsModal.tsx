@@ -341,7 +341,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
             All four tabs are kept as a vertical list everywhere. */}
         <div className="flex flex-1 min-h-0">
           <nav className="flex flex-col w-12 sm:w-44 border-r border-border bg-bg/40 shrink-0">
-            <div className="px-2 sm:px-4 pt-3 sm:pt-4 pb-3 flex items-center gap-2 border-b border-border justify-center sm:justify-start">
+            <div className="px-2 sm:px-4 py-3 flex items-center gap-2 border-b border-border justify-center sm:justify-start" style={{ minHeight: 49 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               <span className="font-bold text-sm hidden sm:inline">Settings</span>
             </div>
@@ -386,7 +386,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
 
           {/* Right: title + close + tabpanel */}
           <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-border" style={{ minHeight: 49 }}>
               <div className="flex items-center gap-2">
                 <span className="font-bold">
                   {activeTab === 'style' ? 'Look & Feel' : activeTab === 'colors' ? 'Colors' : activeTab === 'integrations' ? 'Integrations' : 'Templates'}
@@ -409,7 +409,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
               role="tabpanel"
               id={`panel-${activeTab}`}
               aria-labelledby={`tab-${activeTab}`}
-              className="overflow-y-auto flex-1 min-h-0 p-4 space-y-6"
+              className="overflow-y-auto flex-1 min-h-0 p-2 sm:p-4 space-y-4 sm:space-y-6"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
           {activeTab === 'style' && (
@@ -513,7 +513,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                       ? <span className="text-[10px] text-green-400 font-bold">{googleAccounts.length} account{googleAccounts.length !== 1 ? 's' : ''}</span>
                       : <span className="text-[10px] text-text-muted font-bold">Not connected</span>
                     }
-                    <span className="text-text-muted text-xs">{openIntegrationSections['google'] ? '▼' : '▶'}</span>
+                    <span className="text-text-muted text-xs">{openIntegrationSections['google'] ? '▾' : '▸'}</span>
                   </div>
                 </button>
                 {openIntegrationSections['google'] && (
@@ -701,7 +701,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                       ? <span className="text-[10px] text-green-400 font-bold">Connected as {calendlyConnection.userName}</span>
                       : <span className="text-[10px] text-text-muted font-bold">Not connected</span>
                     }
-                    <span className="text-text-muted text-xs">{openIntegrationSections['calendly'] ? '▼' : '▶'}</span>
+                    <span className="text-text-muted text-xs">{openIntegrationSections['calendly'] ? '▾' : '▸'}</span>
                   </div>
                 </button>
                 {openIntegrationSections['calendly'] && (
@@ -810,7 +810,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                       ? <span className="text-[10px] text-green-400 font-bold">{customCals.length} feed{customCals.length !== 1 ? 's' : ''}</span>
                       : <span className="text-[10px] text-text-muted font-bold">No feeds</span>
                     }
-                    <span className="text-text-muted text-xs">{openIntegrationSections['ics'] ? '▼' : '▶'}</span>
+                    <span className="text-text-muted text-xs">{openIntegrationSections['ics'] ? '▾' : '▸'}</span>
                   </div>
                 </button>
                 {openIntegrationSections['ics'] && (
@@ -1033,7 +1033,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold">New Template</span>
                         </div>
-                        <span className="text-text-muted text-xs">▼</span>
+                        <span className="text-text-muted text-xs">▾</span>
                       </button>
                       <div className="border-t border-border">
                         <div className="p-4">
@@ -1082,7 +1082,7 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                                   {t.active !== false ? 'Active' : 'Inactive'}
                                 </span>
                               </div>
-                              <span className="text-text-muted text-xs">{isExpanded ? '▼' : '▶'}</span>
+                              <span className="text-text-muted text-xs">{isExpanded ? '▾' : '▸'}</span>
                             </button>
                             {isExpanded && (
                               <div className="border-t border-border">

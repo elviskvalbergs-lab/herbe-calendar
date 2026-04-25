@@ -5,7 +5,7 @@ import type { Task } from '@/types/task'
 import TimeColumn from './TimeColumn'
 import PersonColumn from './PersonColumn'
 import CurrentTimeIndicator from './CurrentTimeIndicator'
-import MultiDayStrip, { MultiDayBandToggle } from './MultiDayStrip'
+import MultiDayStrip from './MultiDayStrip'
 import { addDays, format, parseISO, isToday } from 'date-fns'
 import { minutesToPx, timeToMinutes, GRID_START_HOUR, GRID_END_HOUR, PX_PER_HOUR } from '@/lib/time'
 import { personColor } from '@/lib/colors'
@@ -176,9 +176,11 @@ export default function CalendarGrid({
     colMinVw = Math.min(colMinVw, 80)
   }
 
-  // --- Compute the all-day band geometry across all visible dates so each
-  // column's strip lands at the same height. Includes the holiday line, all
-  // isAllDay activities for the date, and tasks whose dueDate matches.
+  // --- Compute the all-day band geometry across every (date, person) pair so
+  // each sub-cell of the band lands at the same height. The band shows, per
+  // person column: the holiday for that person's country, that person's
+  // all-day activities, and (only in the session user's column) tasks whose
+  // dueDate matches.
   const ROW_H = 20
   const ROW_GAP = 2
   const BAND_PAD = 8
@@ -187,14 +189,21 @@ export default function CalendarGrid({
     return dates.map(date => {
       const allDay = activities.filter(a => a.isAllDay && a.date === date)
       const dayTasks = tasks.filter(t => t.dueDate === date && !t.done)
-      const cc = state.selectedPersons.length > 0 ? holidays?.personCountries?.[state.selectedPersons[0].code] : undefined
-      const hol = cc ? holidays?.dates?.[date]?.find(h => h.country === cc) : undefined
-      const rows = (hol ? 1 : 0) + allDay.length + dayTasks.length
-      return { date, allDay, dayTasks, holidayName: hol?.name, rows }
+      // Compute per-person rows so the max accounts for the person with the
+      // most stacked items in any (date, person) cell.
+      const perPersonRows = state.selectedPersons.map(p => {
+        const cc = holidays?.personCountries?.[p.code]
+        const hol = cc ? holidays?.dates?.[date]?.find(h => h.country === cc) : undefined
+        const personAllDayCount = allDay.filter(a => a.personCode === p.code).length
+        const personTaskCount = sessionUserCode === p.code ? dayTasks.length : 0
+        return (hol ? 1 : 0) + personAllDayCount + personTaskCount
+      })
+      const cellMax = perPersonRows.reduce((m, n) => Math.max(m, n), 0)
+      return { date, allDay, dayTasks, cellMax }
     })
-  }, [dates, activities, tasks, holidays, state.selectedPersons])
-  const maxBandRows = bandPerDate.reduce((max, b) => Math.max(max, b.rows), 0)
-  const totalAllDayInBand = bandPerDate.reduce((s, b) => s + b.allDay.length + (b.holidayName ? 1 : 0), 0)
+  }, [dates, activities, tasks, holidays, state.selectedPersons, sessionUserCode])
+  const maxBandRows = bandPerDate.reduce((max, b) => Math.max(max, b.cellMax), 0)
+  const totalAllDayInBand = bandPerDate.reduce((s, b) => s + b.allDay.length, 0)
   const totalTasksInBand = bandPerDate.reduce((s, b) => s + b.dayTasks.length, 0)
   const expandedBandHeight = maxBandRows > 0
     ? maxBandRows * ROW_H + (maxBandRows - 1) * ROW_GAP + BAND_PAD
@@ -236,39 +245,25 @@ export default function CalendarGrid({
         )}
       </div>
 
-      {/* Edge navigation: prev button (left edge) */}
-      {atLeft && needsHScroll && (
+      {/* Mobile time-jump side tabs — stacked at left edge, always visible. */}
+      <div className="time-jump-tabs lg:hidden">
         <button
+          type="button"
           onClick={() => onNavigate('prev')}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-40 lg:hidden
-            w-8 h-20 flex items-center justify-center
-            bg-primary/80 text-white rounded-r-xl shadow-lg
-            active:bg-primary transition-opacity"
+          className="tj-tab"
           aria-label={`Previous ${viewDays} days`}
         >
-          <span className="flex flex-col items-center gap-0.5">
-            <span className="text-lg leading-none">‹</span>
-            <span className="text-[8px]">−{viewDays}d</span>
-          </span>
+          −{viewDays}d
         </button>
-      )}
-
-      {/* Edge navigation: next button (right edge) */}
-      {atRight && needsHScroll && (
         <button
+          type="button"
           onClick={() => onNavigate('next')}
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 lg:hidden
-            w-8 h-20 flex items-center justify-center
-            bg-primary/80 text-white rounded-l-xl shadow-lg
-            active:bg-primary transition-opacity"
+          className="tj-tab"
           aria-label={`Next ${viewDays} days`}
         >
-          <span className="flex flex-col items-center gap-0.5">
-            <span className="text-lg leading-none">›</span>
-            <span className="text-[8px]">+{viewDays}d</span>
-          </span>
+          +{viewDays}d
         </button>
-      )}
+      </div>
 
       <div className="flex">
         <TimeColumn
@@ -457,9 +452,11 @@ export default function CalendarGrid({
                 return (
                   <MultiDayStrip
                     date={date}
+                    persons={state.selectedPersons}
+                    sessionUserCode={sessionUserCode}
                     allDayActivities={bd.allDay}
                     tasks={bd.dayTasks}
-                    holidayName={bd.holidayName}
+                    holidays={holidays}
                     collapsed={false}
                     minBodyHeight={expandedBandHeight}
                     getActivityColor={getActivityColor}

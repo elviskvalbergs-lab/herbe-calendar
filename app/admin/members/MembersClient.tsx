@@ -356,13 +356,13 @@ export default function MembersClient({
               </p>
               <ul className="space-y-1.5">
                 {duplicates.map((d, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs">
-                    <span className="font-mono font-bold">{d.rowACode}</span>
-                    <span className="text-text-muted">({d.rowAEmail})</span>
+                  <li key={i} className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs">
+                    <span className="font-mono font-bold break-all">{d.rowACode}</span>
+                    <span className="text-text-muted break-all">({d.rowAEmail})</span>
                     <span className="text-text-muted">↔</span>
-                    <span className="font-mono font-bold">{d.rowBCode}</span>
-                    <span className="text-text-muted">({d.rowBEmail})</span>
-                    <span className="text-[10px] text-text-muted/70 italic ml-1">
+                    <span className="font-mono font-bold break-all">{d.rowBCode}</span>
+                    <span className="text-text-muted break-all">({d.rowBEmail})</span>
+                    <span className="text-[10px] text-text-muted/70 italic">
                       {d.reason === 'cross-code'
                         ? 'erp_code → other row'
                         : d.reason === 'same-name'
@@ -370,7 +370,7 @@ export default function MembersClient({
                         : 'same email'}
                     </span>
                     <button onClick={() => mergeDuplicatePair(d)}
-                      className="ml-auto px-2 py-0.5 border border-amber-500/40 text-amber-500 rounded text-[10px] font-bold hover:bg-amber-500/10">
+                      className="ml-auto px-2 py-0.5 border border-amber-500/40 text-amber-500 rounded text-[10px] font-bold hover:bg-amber-500/10 shrink-0">
                       Merge
                     </button>
                   </li>

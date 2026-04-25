@@ -49,9 +49,6 @@ const MenuIcon = () => (
 const ChevRightIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
 )
-const BellIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-)
 
 export default function AdminShell({ email, accountName, accountId, isSuperAdmin, accounts, children }: Props) {
   const pathname = usePathname()
@@ -83,38 +80,40 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
     const open = mobile ? true : sideOpen
     return (
       <>
-        <div className="admin-sb-head" style={{ padding: open ? '20px 20px 18px' : '20px 10px 18px', justifyContent: open ? 'flex-start' : 'center' }}>
+        <div
+          className="admin-sb-head"
+          style={{
+            padding: open ? '20px 20px 18px' : '20px 10px 18px',
+            justifyContent: open ? 'flex-start' : 'center',
+            alignItems: 'center',
+          }}
+        >
           <button
             className="admin-sb-logo"
             onClick={mobile ? () => setDrawerOpen(false) : toggleSide}
             title={mobile ? 'Close menu' : (open ? 'Collapse sidebar' : 'Expand sidebar')}
           >B</button>
           {open && (
-            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 36 }}>
+              <div className="admin-sb-org-sub">Account</div>
               {isSuperAdmin && accounts && accounts.length > 1 ? (
-                <>
-                  <select
-                    value={accountId}
-                    onChange={e => {
-                      fetch('/api/admin/switch-account', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ accountId: e.target.value }),
-                      }).then(() => window.location.reload())
-                    }}
-                    className="admin-sb-account-select"
-                  >
-                    {accounts.map(a => (
-                      <option key={a.id} value={a.id}>{a.display_name}</option>
-                    ))}
-                  </select>
-                  <div className="admin-sb-org-sub">Organization</div>
-                </>
+                <select
+                  value={accountId}
+                  onChange={e => {
+                    fetch('/api/admin/switch-account', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ accountId: e.target.value }),
+                    }).then(() => window.location.reload())
+                  }}
+                  className="admin-sb-account-select"
+                >
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.display_name}</option>
+                  ))}
+                </select>
               ) : (
-                <>
-                  <div className="admin-sb-org-name">{accountName}</div>
-                  <div className="admin-sb-org-sub">Organization</div>
-                </>
+                <div className="admin-sb-org-name">{accountName}</div>
               )}
             </div>
           )}
@@ -222,10 +221,6 @@ export default function AdminShell({ email, accountName, accountId, isSuperAdmin
           </button>
           <span className="admin-topbar-title">{currentLabel}</span>
           <div style={{ flex: 1 }} />
-          <button className="admin-topbar-bell" title="Notifications">
-            <BellIcon />
-            <span className="admin-topbar-bell-dot" />
-          </button>
           <div className="admin-topbar-user">
             <div className="admin-topbar-avatar">{avatarCode}</div>
             <span className="admin-topbar-email">{email}</span>
