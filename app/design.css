@@ -1155,9 +1155,20 @@ input, select, textarea { font-family: inherit; }
   min-height: 0;
 }
 .month-wrap.no-side { grid-template-columns: 1fr; }
-.month-wrap.tasks-max { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
-.month-wrap.tasks-max .month-main,
-.month-wrap.tasks-max .cursor-col-resize { display: none !important; }
+.month-wrap.tasks-max {
+  display: block !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+}
+.month-wrap.tasks-max > .month-main,
+.month-wrap.tasks-max > .cursor-col-resize { display: none !important; }
+.month-wrap.tasks-max > .month-side {
+  height: 100% !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  border-top: none !important;
+  border-left: none !important;
+}
 .month-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
 .month-head {
@@ -3102,15 +3113,21 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   color: var(--app-fg-subtle);
   font-weight: 400;
 }
-.tasks-tabs .tasks-maximize-btn {
-  flex: 0 0 auto;
-  padding: 0 8px;
-  border-bottom: 2px solid transparent;
+.month-side-hdr .tasks-maximize-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--app-line-strong);
+  border-radius: 3px;
   color: var(--app-fg-muted);
+  cursor: pointer;
+  transition: color var(--dur-quick), border-color var(--dur-quick);
 }
-.tasks-tabs .tasks-maximize-btn:hover { color: var(--app-fg); }
-.tasks-tabs .tasks-maximize-btn[aria-pressed="true"] { color: var(--app-fg); }
-.tasks-tabs .tasks-maximize-btn svg { display: block; }
+.month-side-hdr .tasks-maximize-btn:hover { color: var(--app-fg); border-color: var(--app-fg-faint); }
+.month-side-hdr .tasks-maximize-btn[aria-pressed="true"] { color: var(--app-accent); border-color: var(--app-accent); }
+.month-side-hdr .tasks-maximize-btn svg { display: block; }
 
 /* Section header */
 .task-section { padding-bottom: 6px; }

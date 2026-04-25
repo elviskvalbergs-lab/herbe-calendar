@@ -466,6 +466,26 @@ export default function MonthView({
                 <button onClick={() => setRightSide('agenda')} aria-pressed={rightSide === 'agenda'}>Agenda</button>
                 <button onClick={() => setRightSide('tasks')} aria-pressed={rightSide === 'tasks'}>Tasks</button>
               </div>
+              {rightSide === 'tasks' && (
+                <button
+                  type="button"
+                  className="tasks-maximize-btn"
+                  onClick={() => setTasksMaximized(m => !m)}
+                  aria-pressed={tasksMaximized}
+                  aria-label={tasksMaximized ? 'Exit fullscreen' : 'Maximize tasks'}
+                  title={tasksMaximized ? 'Exit fullscreen' : 'Maximize tasks'}
+                >
+                  {tasksMaximized ? (
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                      <path d="M6 3v3H3M10 3v3h3M6 13v-3H3M10 13v-3h3" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                      <path d="M3 6V3h3M13 6V3h-3M3 10v3h3M13 10v3h-3" strokeLinecap="round" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </header>
             {rightSide === 'tasks' ? (
               <TasksSidebar
@@ -475,8 +495,6 @@ export default function MonthView({
                 errors={taskErrors ?? []}
                 activeTab={tasksTab ?? 'all'}
                 onTabChange={onTasksTabChange ?? (() => {})}
-                maximized={tasksMaximized}
-                onToggleMaximize={() => setTasksMaximized(m => !m)}
                 handlers={{
                   onToggleDone: onToggleTaskDone ?? (() => {}),
                   onEdit: onEditTask ?? (() => {}),
