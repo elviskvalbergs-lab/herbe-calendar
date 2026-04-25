@@ -1430,8 +1430,10 @@ export function ActivityForm({
             return (
               <div className="destination-picker">
                 <label className="aed-label">Destination</label>
-                <div className="destination-picker-row">
-                  <span className="destination-color-dot" style={{ background: destination.color }} aria-hidden="true" />
+                <div
+                  className={`destination-picker-row${destination.color ? ' has-color' : ''}`}
+                  style={destination.color ? ({ ['--dest-color' as string]: destination.color }) : undefined}
+                >
                   <input
                     type="text"
                     className="input aed-input"

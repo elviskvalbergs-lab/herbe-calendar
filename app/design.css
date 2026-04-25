@@ -1155,6 +1155,9 @@ input, select, textarea { font-family: inherit; }
   min-height: 0;
 }
 .month-wrap.no-side { grid-template-columns: 1fr; }
+.month-wrap.tasks-max { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
+.month-wrap.tasks-max .month-main,
+.month-wrap.tasks-max .cursor-col-resize { display: none !important; }
 .month-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 
 .month-head {
@@ -3099,6 +3102,15 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   color: var(--app-fg-subtle);
   font-weight: 400;
 }
+.tasks-tabs .tasks-maximize-btn {
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border-bottom: 2px solid transparent;
+  color: var(--app-fg-muted);
+}
+.tasks-tabs .tasks-maximize-btn:hover { color: var(--app-fg); }
+.tasks-tabs .tasks-maximize-btn[aria-pressed="true"] { color: var(--app-fg); }
+.tasks-tabs .tasks-maximize-btn svg { display: block; }
 
 /* Section header */
 .task-section { padding-bottom: 6px; }
@@ -3244,12 +3256,23 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
 .destination-picker { margin-top: 6px; }
 .destination-picker-row {
   display: flex; align-items: center; gap: 6px;
+  position: relative;
 }
-.destination-color-dot {
-  display: inline-block;
+.destination-picker-row.has-color::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
   width: 10px; height: 10px;
   border-radius: 50%;
-  flex-shrink: 0;
+  background: var(--dest-color, transparent);
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+.destination-picker-row.has-color > .select-field,
+.destination-picker-row.has-color > .input {
+  padding-left: 30px;
 }
 
 /* ============================================================

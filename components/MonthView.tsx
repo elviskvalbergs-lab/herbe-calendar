@@ -58,6 +58,7 @@ export default function MonthView({
   // Right-side panel mode: 'agenda' (default) shows the events list,
   // 'day' shows a full day view of the selected day inline.
   const [rightSide, setRightSide] = useState<'agenda' | 'day' | 'tasks'>('agenda')
+  const [tasksMaximized, setTasksMaximized] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [maxChips, setMaxChips] = useState(4)
@@ -259,7 +260,7 @@ export default function MonthView({
 
   return (
     <div
-      className={`month-wrap flex-1 overflow-hidden relative${showDayViewPanel ? '' : ''}`}
+      className={`month-wrap flex-1 overflow-hidden relative${rightSide === 'tasks' && tasksMaximized ? ' tasks-max' : ''}`}
       style={wrapStyle}
     >
       {loading && (
@@ -474,6 +475,8 @@ export default function MonthView({
                 errors={taskErrors ?? []}
                 activeTab={tasksTab ?? 'all'}
                 onTabChange={onTasksTabChange ?? (() => {})}
+                maximized={tasksMaximized}
+                onToggleMaximize={() => setTasksMaximized(m => !m)}
                 handlers={{
                   onToggleDone: onToggleTaskDone ?? (() => {}),
                   onEdit: onEditTask ?? (() => {}),

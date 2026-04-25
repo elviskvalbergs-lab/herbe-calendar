@@ -121,10 +121,10 @@ export function DestinationPicker({ mode, value, initialKey, filter, label, plac
   return (
     <div className="destination-picker">
       <label className="aed-label">{labelText}</label>
-      <div className="destination-picker-row">
-        {currentColor && (
-          <span className="destination-color-dot" style={{ background: currentColor }} aria-hidden="true" />
-        )}
+      <div
+        className={`destination-picker-row${currentColor ? ' has-color' : ''}`}
+        style={currentColor ? ({ ['--dest-color' as string]: currentColor }) : undefined}
+      >
         <select
           className="select-field aed-input"
           value={value ?? ''}
