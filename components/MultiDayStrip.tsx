@@ -72,7 +72,13 @@ export default function MultiDayStrip({
         borderRight: '1px solid var(--app-line)',
         borderBottom: '1px solid var(--app-line)',
         display: 'flex',
-        minHeight: minBodyHeight ? `${minBodyHeight}px` : undefined,
+        alignItems: 'stretch',
+        // Use exact height (not min-height) so the column band can't grow
+        // taller than the gutter band when one column has more rows than
+        // the global max accounts for, and so iOS Safari can't collapse
+        // the band below the requested size.
+        height: minBodyHeight ? `${minBodyHeight}px` : undefined,
+        overflow: 'hidden',
       }}
     >
       {persons.map((p, idx) => {
