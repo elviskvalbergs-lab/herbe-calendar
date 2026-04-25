@@ -24,6 +24,10 @@ interface PatchBody {
   targetListId?: string
   /** Display name for the target list (pass-through to the created Task's listName). */
   targetListTitle?: string
+  /** Move the task to this Google task list (insert+delete). Ignored if unchanged. */
+  targetGoogleListId?: string
+  /** Display title for the Google target list. */
+  targetGoogleListTitle?: string
 }
 
 export async function PATCH(
@@ -98,6 +102,8 @@ export async function PATCH(
       if (!tokenId) return NextResponse.json({ error: 'Google not connected' }, { status: 400 })
       const task = await updateGoogleTask(tokenId, session.email, session.accountId, id, {
         done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
+        targetListId: body.targetGoogleListId,
+        targetListTitle: body.targetGoogleListTitle,
       })
       await writeThroughTask(session.accountId, session.email, 'google', task)
       return NextResponse.json({ ok: true, task })

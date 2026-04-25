@@ -78,6 +78,12 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
     editId?: string
     canEdit?: boolean
     mode?: 'event' | 'task'
+    /** True when the form was opened by duplicating or moving — turns on the
+     *  discard-confirmation prompt even though no edits have been made yet. */
+    seededFromCopy?: boolean
+    /** Set when "move task to calendar" routed here — the source task gets
+     *  marked done after the new event saves successfully. */
+    sourceTaskInfo?: { id: string; source: 'herbe' | 'outlook' | 'google'; connectionId?: string }
   }>({ open: false })
 
   // Tasks state
@@ -886,7 +892,10 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   function activityShapeFromTask(task: Task, asEvent = false): Partial<Activity> {
     // Tasks are personal — the signed-in user is always the MainPerson.
     // Without this, the form falls through to the calendar's selectedPersons.
-    const shape: Partial<Activity> = {
+    // listName carries through so the Outlook/Google task destination picker
+    // shows the current list (consumed by destinationFromInitial via a
+    // defensively-typed InitialLike — not on the Activity type proper).
+    const shape: Partial<Activity> & { listName?: string } = {
       source: task.source === 'herbe' ? 'herbe' : task.source,
       description: task.title,
       textInMatrix: task.description ?? task.erp?.textInMatrix,
@@ -901,6 +910,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       customerName: task.erp?.customerName,
       erpConnectionId: task.sourceConnectionId,
       done: task.done,
+      listName: task.listName,
     }
     if (asEvent) return shape
     return shape
@@ -917,11 +927,14 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
   }
 
   function handleCopyTaskToEvent(task: Task) {
+    const rawId = task.id.includes(':') ? task.id.split(':', 2)[1] : task.id
     setFormState({
       open: true,
       initial: activityShapeFromTask(task, true),
       canEdit: true,
       mode: 'event',
+      seededFromCopy: true,
+      sourceTaskInfo: { id: rawId, source: task.source, connectionId: task.sourceConnectionId },
     })
   }
 
@@ -933,6 +946,7 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
       initial: { ...activityShapeFromTask(task), done: false },
       canEdit: true,
       mode: 'task',
+      seededFromCopy: true,
     })
   }
 
@@ -1149,6 +1163,18 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
           initial={formState.initial}
           editId={formState.editId}
           mode={formState.mode ?? 'event'}
+          seededFromCopy={formState.seededFromCopy}
+          sourceTaskInfo={formState.sourceTaskInfo}
+          onMoveToCalendar={(initial, sourceTaskInfo) => {
+            setFormState({
+              open: true,
+              initial,
+              mode: 'event',
+              canEdit: true,
+              seededFromCopy: true,
+              sourceTaskInfo,
+            })
+          }}
           people={people}
           defaultPersonCode={userCode}
           defaultPersonCodes={state.selectedPersons.map(p => p.code)}
@@ -1165,9 +1191,23 @@ export default function CalendarShell({ userCode, companyCode, accountId = '' }:
               loadTasks(true, taskInfo?.source)
             } else {
               fetchActivities(true)
+              // Move-to-calendar: mark the source task done now that the new
+              // event has been saved. Fire-and-forget; loadTasks reconciles.
+              const cs = taskInfo?.completeSourceTask
+              if (cs) {
+                const body: Record<string, unknown> = { done: true }
+                if (cs.source === 'herbe' && cs.connectionId) body.connectionId = cs.connectionId
+                fetch(`/api/tasks/${cs.source}/${encodeURIComponent(cs.id)}`, {
+                  method: 'PATCH',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify(body),
+                })
+                  .catch(e => console.warn('move-to-calendar: complete source task failed', e))
+                  .finally(() => loadTasks(true, cs.source))
+              }
             }
           }}
-          onDuplicate={(dup) => setFormState({ open: true, initial: dup })}
+          onDuplicate={(dup) => setFormState({ open: true, initial: dup, seededFromCopy: true })}
           onRsvp={(newStatus) => {
             // Update the activity in-state so re-opening the form shows the correct RSVP
             setActivities(prev => prev.map(a =>

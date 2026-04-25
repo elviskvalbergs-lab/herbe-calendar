@@ -66,6 +66,9 @@ interface Props {
   onSaved: (taskInfo?: {
     source: 'herbe' | 'outlook' | 'google'
     patch?: { taskId: string; fields: { title?: string; description?: string; dueDate?: string } }
+    /** Set when an event save originated from "move task to calendar" — the
+     *  parent should mark this task done and refetch the task list. */
+    completeSourceTask?: { id: string; source: 'herbe' | 'outlook' | 'google'; connectionId?: string }
   }) => void
   onDuplicate: (initial: Partial<Activity>) => void
   onRsvp?: (status: Activity['rsvpStatus']) => void
@@ -79,6 +82,16 @@ interface Props {
   erpConnections?: { id: string; name: string; companyCode?: string; serpUuid?: string }[]
   zoomConfigured?: boolean
   mode?: 'event' | 'task'
+  /** Set when the form was opened by duplicating or moving an existing record —
+   *  the form treats it as already-dirty so closing without saving prompts. */
+  seededFromCopy?: boolean
+  /** When set, the original task is marked done after the new event saves
+   *  (used by "move task to calendar"). */
+  sourceTaskInfo?: { id: string; source: 'herbe' | 'outlook' | 'google'; connectionId?: string }
+  /** Used by task edit-mode "move to calendar" footer button to open a new
+   *  event seeded from the current form state. CalendarShell wires this to
+   *  re-open the form with the right flags. */
+  onMoveToCalendar?: (initial: Partial<Activity>, sourceTaskInfo: { id: string; source: 'herbe' | 'outlook' | 'google'; connectionId?: string }) => void
 }
 
 function SerpIcon() {
@@ -92,7 +105,7 @@ function SerpIcon() {
 }
 
 export function ActivityForm({
-  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], zoomConfigured, mode = 'event'
+  initial, editId, people, defaultPersonCode, defaultPersonCodes, allActivities, onClose, onSaved, onDuplicate, onRsvp, canEdit = true, getTypeColor, getTypeGroup, companyCode = '1', allCustomers, allProjects, allItems, erpConnections = [], zoomConfigured, mode = 'event', seededFromCopy = false, sourceTaskInfo, onMoveToCalendar,
 }: Props) {
   const isEdit = !!editId
   const onCloseRef = useRef(onClose)
@@ -160,15 +173,17 @@ export function ActivityForm({
   const [saving, setSaving] = useState(false)
   const [savedActivity, setSavedActivity] = useState<Partial<Activity> | null>(null)
   // True after resetToCreate(copy) has seeded the form from a previously-saved
-  // activity. Discarding an in-flight copy should confirm even when nothing
-  // has been changed yet — the user has presumably started the copy for a
-  // reason, and closing silently loses that work.
-  const [copyDirty, setCopyDirty] = useState(false)
-  // Outlook edit: when user picks a different list, we stash the target here
-  // and send it in the PATCH body so the backend runs delete+recreate.
-  const [moveToListKey, setMoveToListKey] = useState<string | null>(null)
-  const [moveToListId, setMoveToListId] = useState<string | null>(null)
-  const [moveToListTitle, setMoveToListTitle] = useState<string | null>(null)
+  // activity, or when the form was opened with `seededFromCopy` (e.g. from
+  // TaskRow's "duplicate as task" / "move to calendar"). Discarding silently
+  // loses pre-filled work, so closing prompts in that case.
+  const [copyDirty, setCopyDirty] = useState(seededFromCopy)
+  // Edit mode baseline: the destination at form open. When the user picks a
+  // different list (Outlook or Google task), the save handler compares
+  // `destination.meta` against this and sends a list-move directive to the
+  // backend (Outlook: delete+recreate; Google: insert+delete).
+  const [originalDestinationKey] = useState<string | null>(
+    () => isEdit ? destinationFromInitial(initial, mode, erpConnections)?.key ?? null : null,
+  )
   const [focusedTypeIdx, setFocusedTypeIdx] = useState(-1)
   const [focusedProjectIdx, setFocusedProjectIdx] = useState(-1)
   const [focusedCustomerIdx, setFocusedCustomerIdx] = useState(-1)
@@ -243,6 +258,28 @@ export function ActivityForm({
     }, 120)
     return () => clearTimeout(timer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Anchor the modal above the on-screen keyboard on mobile. Without this the
+  // sheet opens at viewport bottom (which the keyboard now overlaps), and
+  // only jumps up when async data loads forces a re-render. We use the
+  // visualViewport API to compute the actual bottom-occluded pixels and set
+  // it as a CSS variable consumed by the .aed-modal `bottom` rule.
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!vv) return
+    const update = () => {
+      const occluded = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      document.documentElement.style.setProperty('--keyboard-inset', `${occluded}px`)
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+      document.documentElement.style.removeProperty('--keyboard-inset')
+    }
+  }, [])
 
   // Recalculate Outlook attendee matching when people emails become available
   // (initial render may have stubs with empty emails from localStorage)
@@ -713,10 +750,17 @@ export function ActivityForm({
           body.listId = destination.meta.listId
           body.listTitle = destination.meta.listName
         }
-        // Edit-mode move between Outlook lists: backend runs delete+recreate.
-        if (isEdit && destination?.meta.kind === 'outlook-task' && moveToListId) {
-          body.targetListId = moveToListId
-          body.targetListTitle = moveToListTitle ?? undefined
+        // Edit-mode list change: user picked a different list in the
+        // destination dropdown. Backend handles the move (Outlook:
+        // delete+recreate; Google: insert+delete) — no separate UI needed.
+        if (isEdit && originalDestinationKey && destination && destination.key !== originalDestinationKey) {
+          if (destination.meta.kind === 'outlook-task') {
+            body.targetListId = destination.meta.listId
+            body.targetListTitle = destination.meta.listName
+          } else if (destination.meta.kind === 'google-task') {
+            body.targetGoogleListId = destination.meta.listId
+            body.targetGoogleListTitle = destination.meta.listName
+          }
         }
         // Include done status for task edits — lets the user toggle completion
         // from the form instead of only the sidebar checkbox, which is useful
@@ -809,7 +853,7 @@ export function ActivityForm({
           localStorage.setItem(`defaultDestination:${mode}`, destination.key)
         }
       } catch {}
-      onSaved()
+      onSaved(sourceTaskInfo ? { source: sourceTaskInfo.source, completeSourceTask: sourceTaskInfo } : undefined)
       if (activityTypeCode) saveRecentType(activityTypeCode, activeErpConnection?.id)
       saveRecentPersons(selectedPersonCodes)
       saveRecentCCPersons(selectedCCPersonCodes)
@@ -931,6 +975,33 @@ export function ActivityForm({
     })
   }
 
+  function handleMoveToCalendar() {
+    if (!onMoveToCalendar || !editId) return
+    const taskSource = isOutlookSource ? 'outlook' : isGoogleSource ? 'google' : 'herbe'
+    const rawId = editId.includes(':') ? editId.split(':', 2)[1] : editId
+    onClose()
+    onMoveToCalendar(
+      {
+        // Always reopen as an ERP/Outlook event regardless of task source —
+        // CalendarShell decides the actual destination from selectedPersons /
+        // calendar config. Carry the task's text + ERP fields so the new event
+        // form is meaningfully prefilled.
+        description,
+        date,
+        textInMatrix,
+        activityTypeCode,
+        projectCode,
+        projectName,
+        customerCode,
+        customerName,
+        personCode: selectedPersonCodes[0],
+        mainPersons: selectedPersonCodes,
+        ccPersons: selectedCCPersonCodes,
+      },
+      { id: rawId, source: taskSource, connectionId: activeErpConnection?.id },
+    )
+  }
+
   function resetToCreate(copy: Partial<Activity> | null, timeHint?: string) {
     setSavedActivity(null)
     setErrors([])
@@ -1016,7 +1087,11 @@ export function ActivityForm({
         {/* Header — drag-to-dismiss lives on .aed-drag-handle above so header taps (close, copy, etc.) stay clean. */}
         <div className="aed-header">
           <h2 id="activity-form-title" className="aed-title flex items-center gap-2 flex-wrap">
-            {isEdit ? 'Edit Activity' : 'New Activity'}
+            {(() => {
+              const noun = mode === 'task' ? 'task' : 'event'
+              if (!isEdit) return `New ${noun}`
+              return canEdit === false ? `View ${noun}` : `Edit ${noun}`
+            })()}
             {/* Source badge */}
             {isEdit && isErpSource && activeErpConnection && activeErpConnection.name !== 'Default (env)' && (
               <span className="text-[10px] font-normal px-2 py-0.5 rounded-lg border border-border bg-border/20 text-text-muted">
@@ -1122,7 +1197,11 @@ export function ActivityForm({
           <button onClick={handleClose} aria-label="Close" className="icon-btn shrink-0 aed-close">✕</button>
         </div>
 
-        {/* Calendar source label */}
+        {/* Calendar source label — only for cases the header pill doesn't already
+            disambiguate. ICS has no header pill (read-only feed), so it stays.
+            Google's calendar *name* (e.g. "Holidays") adds info beyond the
+            generic "Google" pill, so it stays when present. The bare
+            "Google Calendar" line was redundant with the header pill — gone. */}
         {initial?.icsCalendarName && (
           <div className="px-4 py-1.5 border-b border-border bg-primary/5">
             <p className="text-[11px] text-text-muted">📂 {initial.icsCalendarName}</p>
@@ -1131,11 +1210,6 @@ export function ActivityForm({
         {initial?.googleCalendarName && (
           <div className="px-4 py-1.5 border-b border-border bg-primary/5">
             <p className="text-[11px] text-text-muted">📂 {initial.googleCalendarName}{initial.googleAccountEmail ? ` (${initial.googleAccountEmail})` : ''}</p>
-          </div>
-        )}
-        {isEdit && isGoogleSource && !initial?.googleCalendarName && !initial?.icsCalendarName && (
-          <div className="px-4 py-1.5 border-b border-border bg-primary/5">
-            <p className="text-[11px] text-text-muted">📂 Google Calendar</p>
           </div>
         )}
 
@@ -1282,43 +1356,40 @@ export function ActivityForm({
               onChange={(next) => setDestination(next)}
             />
           )}
-          {isEdit && destination && (
-            <div className="destination-picker">
-              <label className="aed-label">Destination</label>
-              <div className="destination-picker-row">
-                <span className="destination-color-dot" style={{ background: destination.color }} aria-hidden="true" />
-                <input
-                  type="text"
-                  className="input aed-input"
-                  value={destination.label && destination.label !== destination.sourceLabel
-                    ? `${destination.sourceLabel} · ${destination.label}`
-                    : destination.sourceLabel}
-                  disabled
-                  readOnly
+          {isEdit && destination && (() => {
+            // Task edits for Outlook/Google: let the user change the list.
+            // The save handler diffs destination vs originalDestinationKey and
+            // moves transparently (Outlook: delete+recreate; Google: insert+delete).
+            const isTaskListEditable = mode === 'task' && (destination.meta.kind === 'outlook-task' || destination.meta.kind === 'google-task') && canEdit !== false
+            if (isTaskListEditable) {
+              const sourceKind = destination.meta.kind
+              return (
+                <DestinationPicker
+                  mode="task"
+                  value={destination.key}
+                  filter={d => d.meta.kind === sourceKind}
+                  onChange={(next) => setDestination(next)}
                 />
-              </div>
-              {destination.meta.kind === 'outlook-task' && (
-                <div style={{ marginTop: 6 }}>
-                  <DestinationPicker
-                    mode="task"
-                    value={moveToListKey}
-                    label="Move to another list"
-                    placeholder="— pick a list to move —"
-                    filter={d => d.meta.kind === 'outlook-task' && d.meta.listName !== destination.label}
-                    onChange={(next) => {
-                      if (next.meta.kind !== 'outlook-task') return
-                      setMoveToListKey(next.key)
-                      setMoveToListId(next.meta.listId)
-                      setMoveToListTitle(next.meta.listName)
-                    }}
+              )
+            }
+            return (
+              <div className="destination-picker">
+                <label className="aed-label">Destination</label>
+                <div className="destination-picker-row">
+                  <span className="destination-color-dot" style={{ background: destination.color }} aria-hidden="true" />
+                  <input
+                    type="text"
+                    className="input aed-input"
+                    value={destination.label && destination.label !== destination.sourceLabel
+                      ? `${destination.sourceLabel} · ${destination.label}`
+                      : destination.sourceLabel}
+                    disabled
+                    readOnly
                   />
-                  <p className="aed-hint" style={{ marginTop: 4 }}>
-                    Graph has no list-move endpoint — moving recreates the task in the target list and deletes the original.
-                  </p>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )
+          })()}
 
           <ErrorBanner errors={errors} fieldLabels={invalidFieldLabels} />
 
@@ -1566,22 +1637,8 @@ export function ActivityForm({
             </div>
           </div>
 
-          {/* Task done toggle (task edit only) */}
-          {mode === 'task' && isEdit && (
-            <label className="aed-checkbox">
-              <input
-                type="checkbox"
-                checked={done}
-                onChange={e => setDone(e.target.checked)}
-                disabled={canEdit === false}
-              />
-              <span className="aed-check-box">{done && '✓'}</span>
-              <span className="aed-check-label">Done</span>
-            </label>
-          )}
-
-          {/* Date + Time From + Time To */}
-          <div className="aed-dt-grid">
+          {/* Date + Time From + Time To (Done sits inline next to Date for tasks) */}
+          <div className={`aed-dt-grid${mode === 'task' ? ' aed-dt-grid-task' : ''}`}>
             <div>
               <div className="aed-label">Date</div>
               <div className="aed-input-wrap">
@@ -1594,6 +1651,18 @@ export function ActivityForm({
                 />
               </div>
             </div>
+            {mode === 'task' && isEdit && (
+              <label className="aed-checkbox aed-dt-done">
+                <input
+                  type="checkbox"
+                  checked={done}
+                  onChange={e => setDone(e.target.checked)}
+                  disabled={canEdit === false}
+                />
+                <span className="aed-check-box">{done && '✓'}</span>
+                <span className="aed-check-label">Done</span>
+              </label>
+            )}
             {mode === 'event' && <div>
               <div className="aed-label"><span>From</span>
                 <button
@@ -2094,12 +2163,31 @@ export function ActivityForm({
                 Close
               </button>
               <div className="aed-spacer" />
+              {mode === 'task' && onMoveToCalendar && (
+                <button
+                  onClick={handleMoveToCalendar}
+                  title="Move task to calendar"
+                  className="aed-dup-btn"
+                  aria-label="Move task to calendar"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="17" rx="2"/>
+                    <path d="M16 2v4M8 2v4M3 10h18"/>
+                    <path d="M12 14v5M9.5 16.5h5"/>
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={handleDuplicate}
-                title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
+                title={`Duplicate (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
                 className="aed-dup-btn"
-                aria-label="Duplicate activity"
-              >⧉</button>
+                aria-label="Duplicate"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
             </>
           ) : (
             <>
@@ -2128,13 +2216,32 @@ export function ActivityForm({
                 <span>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create activity'}</span>
                 {!saving && <span className="aed-kbd">{saveShortcut}</span>}
               </button>
+              {isEdit && mode === 'task' && onMoveToCalendar && (
+                <button
+                  onClick={handleMoveToCalendar}
+                  title="Move task to calendar"
+                  className="aed-dup-btn"
+                  aria-label="Move task to calendar"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="17" rx="2"/>
+                    <path d="M16 2v4M8 2v4M3 10h18"/>
+                    <path d="M12 14v5M9.5 16.5h5"/>
+                  </svg>
+                </button>
+              )}
               {isEdit && (
                 <button
                   onClick={handleDuplicate}
-                  title={`Duplicate activity (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
+                  title={`Duplicate (${isMac ? '⌃⌘Y' : 'Ctrl+Alt+Y'})`}
                   className="aed-dup-btn"
-                  aria-label="Duplicate activity"
-                >⧉</button>
+                  aria-label="Duplicate"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
               )}
             </>
           )}

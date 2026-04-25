@@ -146,6 +146,12 @@ export interface UpdateGoogleTaskInput {
   title?: string
   description?: string
   dueDate?: string | null
+  /** When set and different from the current list, moves the task to the
+   *  given list. Google Tasks has no cross-list move endpoint — implemented
+   *  as insert-into-target + delete-original (mirrors moveOutlookTask). */
+  targetListId?: string
+  /** Display title for the target list (carried into the returned Task). */
+  targetListTitle?: string
 }
 
 export async function updateGoogleTask(
@@ -159,6 +165,45 @@ export async function updateGoogleTask(
   if (!accessToken) throw new Error('Google access token unavailable')
   const list = await findGoogleTaskList(accessToken, taskId)
     ?? await resolveDefaultGoogleListId(accessToken)
+
+  // Cross-list move: insert in the target list with merged fields, then
+  // delete the original. We don't try to be clever about partial-failure
+  // recovery — if the create succeeds and the delete fails, the user sees
+  // the task in both lists and the next sync reconciles.
+  if (input.targetListId && input.targetListId !== list.id) {
+    const existingRes = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`)
+    if (!existingRes.ok) throw new Error(`fetch existing ${existingRes.status}`)
+    const existing = await existingRes.json() as GoogleTaskApi
+
+    const merged: Record<string, unknown> = {
+      title: input.title ?? existing.title,
+    }
+    const mergedNotes = input.description ?? existing.notes
+    if (mergedNotes) merged.notes = mergedNotes
+    const mergedDue = input.dueDate === null
+      ? null
+      : input.dueDate !== undefined
+        ? `${input.dueDate}T00:00:00.000Z`
+        : existing.due
+    if (mergedDue) merged.due = mergedDue
+    const done = input.done ?? (existing.status === 'completed')
+    if (done) merged.status = 'completed'
+
+    const createRes = await tasksFetch(accessToken, `/lists/${input.targetListId}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(merged),
+    })
+    if (!createRes.ok) throw new Error(`create-in-target ${createRes.status}`)
+    const created = await createRes.json() as GoogleTaskApi
+
+    const delRes = await tasksFetch(accessToken, `/lists/${list.id}/tasks/${taskId}`, { method: 'DELETE' })
+    if (!delRes.ok && delRes.status !== 204) {
+      console.warn(`[updateGoogleTask] delete old ${taskId} from ${list.id} failed: ${delRes.status}`)
+    }
+
+    return mapGoogleTask(created, input.targetListTitle ?? '')
+  }
+
   const payload: Record<string, unknown> = { id: taskId }
   if (input.done !== undefined) payload.status = input.done ? 'completed' : 'needsAction'
   if (input.title !== undefined) payload.title = input.title

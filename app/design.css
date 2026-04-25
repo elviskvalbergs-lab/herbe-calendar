@@ -2383,6 +2383,9 @@ input, select, textarea { font-family: inherit; }
   gap: 10px;
   margin-top: 2px;
 }
+/* Task mode variant: date + done side-by-side */
+.aed-dt-grid-task { grid-template-columns: 1fr auto; align-items: end; }
+.aed-dt-grid-task .aed-dt-done { padding-bottom: 8px; margin: 0; white-space: nowrap; }
 .aed-dt-grid .aed-label { margin-top: 0; }
 .aed-stopwatch {
   display: inline-block;
@@ -2867,22 +2870,31 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   .aed-modal {
     position: fixed !important;
     left: 0 !important; right: 0 !important;
-    bottom: 0 !important; top: auto !important;
+    /* Anchor above the keyboard via visualViewport-driven --keyboard-inset
+       (set in ActivityForm). Falls back to 0 when no keyboard is open. */
+    bottom: var(--keyboard-inset, 0px) !important;
+    top: auto !important;
     width: 100% !important; max-width: 100% !important;
-    /* Leave only the topbar row visible above the sheet (~44px).
-       Use 100dvh so iOS URL bar collapse/expand doesn't push the header
-       behind the URL bar when async content resizes the sheet. */
-    max-height: calc(100vh - 44px) !important;
-    max-height: calc(100dvh - 44px) !important;
+    /* Cap the sheet to the *visual* viewport (not layout viewport) so the
+       header stays visible when the keyboard pushes the layout up. */
+    max-height: calc(100vh - 44px - var(--keyboard-inset, 0px)) !important;
+    max-height: calc(100dvh - 44px - var(--keyboard-inset, 0px)) !important;
     height: auto !important;
     border-radius: 16px 16px 0 0 !important;
     transform: none !important;
     animation: sheet-up 260ms var(--ease-out, cubic-bezier(0.16,1,0.3,1));
   }
-  /* New activity (has source tabs) — drop the header entirely so the top
-     bar is just the tabs (one row). Close via drag-handle swipe / tap-out. */
-  .aed-modal-new .aed-header { display: none; }
-  .aed-modal-new .aed-body { padding-top: 4px; }
+  /* New activity (has source tabs) — keep header so user sees "New task"/
+     "New event" state. Compact it the same as edit mode. */
+  .aed-modal-new .aed-header {
+    flex-shrink: 0;
+    padding: 8px 14px;
+  }
+  .aed-modal-new .aed-title {
+    font-size: 14px;
+    gap: 4px;
+    line-height: 1.2;
+  }
   /* Edit activity (no tabs) — header stays visible, compact */
   .aed-modal-edit .aed-header {
     flex-shrink: 0;
@@ -3182,8 +3194,10 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   color: var(--app-fg-muted);
 }
 .task-actions .icon-btn:hover { color: var(--app-accent); }
+/* Mobile / touch: the row buttons are too small to be useful — use the
+   detail window (tap row to open) for actions. */
 @media (hover: none) {
-  .task-actions { opacity: 1; }
+  .task-actions { display: none; }
 }
 
 .stale-banner {
