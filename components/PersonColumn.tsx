@@ -291,8 +291,11 @@ export default function PersonColumn({
       )}
 
       <div className="relative flex">
-        {/* Herbe sub-column (or full column when no Outlook) — hosts the hour grid */}
-        <div className="relative w-full">
+        {/* Herbe sub-column (or full column when no Outlook) — hosts the hour grid.
+            overflow-hidden clips activities that extend past the visible hour
+            range (e.g. 14:00–20:00 events when the grid ends at 18:00); the
+            outside-hours bar above/below is the affordance to expand. */}
+        <div className="relative w-full overflow-hidden">
           {hours.map(h => (
             <div
               key={h}
