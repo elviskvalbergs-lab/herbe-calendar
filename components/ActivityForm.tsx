@@ -832,8 +832,17 @@ export function ActivityForm({
           }
         } catch {}
         onSaved({ source: taskSource, patch })
+        // Mirror the event-save behaviour: keep the modal open with a
+        // result screen so the in-UI Save debug panel stays visible long
+        // enough to inspect. Removed once the multi-person task save bug
+        // is identified.
+        const taskRawId = String(data?.task?.id ?? '').split(':').pop() ?? ''
+        setSavedActivity({
+          id: taskRawId,
+          source: taskSource,
+          description,
+        })
         setSaving(false)
-        onClose()
       } catch (e) {
         setErrors([String(e)])
         setSaving(false)
