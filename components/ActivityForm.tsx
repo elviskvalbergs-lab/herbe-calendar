@@ -1693,8 +1693,8 @@ export function ActivityForm({
                     onChange={e => setDone(e.target.checked)}
                     disabled={canEdit === false}
                   />
-                  <span className="aed-check-label">Done</span>
                   <span className="aed-check-box">{done && '✓'}</span>
+                  <span className="aed-check-label">Done</span>
                 </label>
               )}
             </div>
