@@ -316,8 +316,10 @@ export default function LandingPage() {
 
         .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 16px 40px; display: flex; align-items: center; gap: 32px; transition: background 0.3s, box-shadow 0.3s; background: transparent; }
         .nav.scrolled { background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); box-shadow: 0 1px 8px rgba(19,74,64,0.08); }
-        .nav-brand { font-size: 20px; font-weight: 700; color: var(--burti-black); letter-spacing: -0.01em; text-decoration: none; }
-        .nav-brand .dot { color: var(--burti-rowanberry); }
+        .nav-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--burti-black); text-decoration: none; flex-shrink: 0; }
+        .nav-brand .nav-brand-b { font-weight: 600; font-size: 20px; line-height: 1; letter-spacing: -0.01em; display: inline-flex; align-items: baseline; }
+        .nav-brand .nav-brand-square { display: inline-block; width: 1cap; height: 1cap; background: var(--burti-rowanberry); margin-right: 4px; vertical-align: baseline; }
+        .nav-brand .nav-brand-tag { font-size: 11px; font-weight: 500; letter-spacing: 0.10em; text-transform: uppercase; color: var(--burti-gray); }
         .nav-links { display: flex; gap: 28px; margin-left: auto; align-items: center; }
         .nav-links a { font-size: 14px; font-weight: 500; color: var(--burti-black); text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
         .nav-links a:hover { opacity: 1; }
@@ -330,8 +332,7 @@ export default function LandingPage() {
         .hero-bg::after { content: ''; position: absolute; right: -10%; top: -20%; width: 70%; height: 140%; background: radial-gradient(ellipse at center, rgba(0,174,231,0.06) 0%, transparent 70%); }
         .hero-content { position: relative; z-index: 2; max-width: 1320px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: 1fr 1.1fr; gap: 60px; align-items: center; }
         .hero-text { max-width: 560px; }
-        .hero-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-        .hero-eyebrow::before { content: ''; width: 24px; height: 2px; background: var(--burti-rowanberry); }
+        .hero-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 16px; display: inline-block; text-decoration: underline; text-decoration-color: var(--burti-rowanberry); text-decoration-thickness: 3px; text-underline-offset: 5px; }
         .hero h1 { font-weight: 800; font-size: clamp(36px, 4.5vw, 56px); line-height: 1.08; color: var(--burti-black); margin-bottom: 20px; letter-spacing: -0.02em; }
         .hero h1 .accent { color: var(--burti-forest); }
         .hero-sub { font-size: 18px; line-height: 1.6; color: var(--burti-gray); margin-bottom: 32px; max-width: 480px; }
@@ -348,7 +349,7 @@ export default function LandingPage() {
         .pain::before { content: ''; position: absolute; right: -5%; top: -30%; width: 40%; height: 160%; background: radial-gradient(ellipse, rgba(0,174,231,0.08), transparent 70%); }
         .pain-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
         .pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-        .pain-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-high-sky); margin-bottom: 12px; }
+        .pain-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-high-sky); margin-bottom: 12px; display: inline-block; text-decoration: underline; text-decoration-color: var(--burti-high-sky); text-decoration-thickness: 3px; text-underline-offset: 5px; }
         .pain h2 { font-size: clamp(28px, 3vw, 40px); font-weight: 800; line-height: 1.12; margin-bottom: 20px; letter-spacing: -0.01em; }
         .pain-desc { font-size: 16px; line-height: 1.7; color: rgba(255,255,255,0.75); margin-bottom: 28px; }
         .pain-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -367,9 +368,8 @@ export default function LandingPage() {
 
         .solution { padding: 100px 60px; background: #fff; }
         .solution-inner { max-width: 1200px; margin: 0 auto; }
-        .section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-        .section-label::before { content: ''; width: 20px; height: 2px; background: var(--burti-rowanberry); }
-        .section-label.center { justify-content: center; }
+        .section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 12px; display: inline-block; text-decoration: underline; text-decoration-color: var(--burti-rowanberry); text-decoration-thickness: 3px; text-underline-offset: 5px; }
+        .section-label.center { display: block; text-align: center; }
         .solution h2 { font-size: clamp(28px, 3vw, 40px); font-weight: 800; line-height: 1.12; color: var(--burti-black); margin-bottom: 16px; letter-spacing: -0.01em; }
         .solution-sub { font-size: 17px; color: var(--burti-gray); line-height: 1.6; max-width: 600px; margin-bottom: 48px; }
         .solution-screenshot { margin: 0 auto 60px; max-width: 960px; }
@@ -464,12 +464,17 @@ export default function LandingPage() {
           .nav { padding: 12px 20px; gap: 16px; }
           .nav-links { gap: 14px; }
           .nav-links a:not(.nav-cta):not(.nav-signin) { display: none; }
+          .nav-brand .nav-brand-tag { display: none; }
         }
       `}</style>
 
       <nav className={`nav ${scrolled ? 'scrolled' : ''}`}>
-        <Link href="/" className="nav-brand">
-          herbe<span className="dot">.</span>calendar
+        <Link href="/" className="nav-brand" aria-label="herbe calendar">
+          <span className="nav-brand-b">
+            <span className="nav-brand-square" aria-hidden="true" />
+            herbe
+          </span>
+          <span className="nav-brand-tag">calendar</span>
         </Link>
         <div className="nav-links">
           <a href="#features">Features</a>
