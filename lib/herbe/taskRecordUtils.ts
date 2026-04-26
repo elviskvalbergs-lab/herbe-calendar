@@ -42,7 +42,11 @@ export function mapHerbeTask(
     description: undefined,
     dueDate: transDate || undefined,
     done: String(r['OKFlag'] ?? '0') === '1',
-    listName: prName || cuName || connectionName || undefined,
+    // listName = ERP connection name. The sidebar groups by listName, so
+    // distinct listNames mean distinct sub-headers. We want ERP tasks grouped
+    // by connection (collapses to no sub-header when there is only one), with
+    // customer/project shown inside each row instead.
+    listName: connectionName || undefined,
     mainPersons: main.length > 0 ? main : undefined,
     ccPersons: cc.length > 0 ? cc : undefined,
     erp: {

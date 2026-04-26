@@ -64,6 +64,14 @@ export function TaskRow(props: {
   if (task.done) rowClass.push('done')
   rowClass.push(`urgency-${urgency}`)
 
+  // For ERP tasks, listName is the connection name (used by the sidebar to
+  // group rows). Repeating it inside the row would be redundant — show the
+  // customer instead. Outlook/Google tasks keep showing listName, which is
+  // the actual list/folder name.
+  const rowSecondary = task.source === 'herbe'
+    ? (task.erp?.customerName || undefined)
+    : task.listName
+
   return (
     <div
       data-testid="task-row"
@@ -79,14 +87,14 @@ export function TaskRow(props: {
       />
       <div className="task-body" onClick={() => onEdit(task)}>
         <div className="task-title">{task.title}</div>
-        {(task.dueDate || task.listName) && (
+        {(task.dueDate || rowSecondary) && (
           <div className="task-meta">
             {task.dueDate && (
               <span data-testid="due-badge" className="task-due">
                 {formatDueDate(task.dueDate)}
               </span>
             )}
-            {task.listName && <span className="task-list">{task.listName}</span>}
+            {rowSecondary && <span className="task-list">{rowSecondary}</span>}
           </div>
         )}
       </div>

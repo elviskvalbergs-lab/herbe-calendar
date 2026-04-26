@@ -32,6 +32,9 @@ describe('mapHerbeTask', () => {
 
   it('maps TodoFlag=1, OKFlag=0 to an open task', () => {
     const task = mapHerbeTask(baseRecord, 'EKS', 'conn-1', 'Burti ERP')
+    // listName is the ERP connection name — the sidebar groups by listName,
+    // so every ERP task on the same connection lives in one group (which
+    // collapses to no sub-header when there is only one connection).
     expect(task).toMatchObject({
       id: 'herbe:12345',
       source: 'herbe',
@@ -39,10 +42,13 @@ describe('mapHerbeTask', () => {
       title: 'Review prototype',
       dueDate: '2026-04-25',
       done: false,
-      listName: 'Burti Product',
+      listName: 'Burti ERP',
     })
+    // Customer and project come through on task.erp for the row to display.
     expect(task.erp?.activityTypeCode).toBe('CALL')
     expect(task.erp?.projectCode).toBe('P001')
+    expect(task.erp?.projectName).toBe('Burti Product')
+    expect(task.erp?.customerName).toBe('Burti')
   })
 
   it('maps OKFlag=1 to done=true', () => {
@@ -50,9 +56,14 @@ describe('mapHerbeTask', () => {
     expect(task.done).toBe(true)
   })
 
-  it('uses customer name when project name is absent', () => {
-    const task = mapHerbeTask({ ...baseRecord, PRName: '', CUName: 'Acme' }, 'EKS', 'conn-1', 'x')
-    expect(task.listName).toBe('Acme')
+  it('keeps listName as the connection name regardless of project/customer', () => {
+    // Regression: a previous fix made listName fall back through PRName /
+    // CUName, which broke per-connection grouping by splitting tasks into
+    // per-customer sub-headers. Customer/project belong on task.erp, not in
+    // listName.
+    const task = mapHerbeTask({ ...baseRecord, PRName: '', CUName: 'Acme' }, 'EKS', 'conn-1', 'Burti ERP')
+    expect(task.listName).toBe('Burti ERP')
+    expect(task.erp?.customerName).toBe('Acme')
   })
 
   it('omits dueDate when TransDate is empty', () => {

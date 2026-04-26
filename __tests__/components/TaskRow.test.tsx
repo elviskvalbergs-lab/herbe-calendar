@@ -60,3 +60,27 @@ it('strikes through title when done', () => {
   render(<TaskRow task={done} urgency="none" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
   expect(screen.getByTestId('task-row')).toHaveClass('done')
 })
+
+it('shows customer name (not connection name) for ERP rows', () => {
+  // listName = connection name (used by the sidebar for grouping). The row
+  // shows erp.customerName so the connection isn't shown twice.
+  const erpTask: Task = {
+    id: 'herbe:99', source: 'herbe', sourceConnectionId: 'c1',
+    title: 'Call Acme', done: false,
+    listName: 'Burti ERP',
+    erp: { customerName: 'Acme', projectName: 'Acme onboarding' },
+  }
+  render(<TaskRow task={erpTask} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
+  expect(screen.getByText('Acme')).toBeInTheDocument()
+  expect(screen.queryByText('Burti ERP')).not.toBeInTheDocument()
+})
+
+it('shows listName for Outlook tasks (the To Do list name)', () => {
+  const outlookTask: Task = {
+    id: 'outlook:1', source: 'outlook', sourceConnectionId: 'u1',
+    title: 'Buy milk', done: false,
+    listName: 'Shopping',
+  }
+  render(<TaskRow task={outlookTask} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
+  expect(screen.getByText('Shopping')).toBeInTheDocument()
+})
