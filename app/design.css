@@ -107,12 +107,14 @@ input, select, textarea { font-family: inherit; }
   display: flex; align-items: center; gap: 10px;
   font-weight: 700; font-size: 15px; letter-spacing: -0.01em;
   padding-right: 10px;
+  flex-shrink: 0;
 }
 .topbar .brand .brand-b {
   font-family: var(--font-sans); font-weight: 900;
   color: var(--app-fg);
   font-size: 20px; line-height: 1;
   display: inline-block;
+  white-space: nowrap;
   transform: translateY(1px);
 }
 .topbar .brand .brand-square {
