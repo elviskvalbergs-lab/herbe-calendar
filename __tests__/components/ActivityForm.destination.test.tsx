@@ -70,12 +70,18 @@ it('pre-selects the localStorage default when it is still valid', async () => {
   await waitFor(() => expect(trigger).toHaveAttribute('data-value', 'outlook:LIST-A'))
 })
 
-it('edit mode: seeds destination from initial so the picker is hidden but source routing works', async () => {
-  // Regression for: in edit mode DestinationPicker isn't rendered, so the
-  // destination state must be seeded synchronously from initial. Without this,
-  // isOutlookSource / isGoogleSource stay false in edit mode and save routes
-  // to the wrong endpoint.
-  mockDestinations([])  // picker fetch won't happen on edit; mock harmless
+it('edit mode: seeds destination from initial so source routing works', async () => {
+  // Regression for: in edit mode the destination state must be seeded
+  // synchronously from initial. Without this, isOutlookSource / isGoogleSource
+  // stay false in edit mode and save routes to the wrong endpoint.
+  // For Outlook/Google task edits the editable list-picker renders so the user
+  // can move the task between lists; the picker reconciles the synthesized
+  // edit-mode entry against the real list via editLabelHint.
+  const OUTLOOK_SHOPPING: Destination = {
+    key: 'outlook:LIST-SHOP', source: 'outlook', label: 'Shopping', sourceLabel: 'Outlook', color: '#6264a7',
+    meta: { kind: 'outlook-task', listId: 'LIST-SHOP', listName: 'Shopping' },
+  }
+  mockDestinations([OUTLOOK_SHOPPING])
   const initial = {
     source: 'outlook' as const,
     listName: 'Shopping',
@@ -83,9 +89,9 @@ it('edit mode: seeds destination from initial so the picker is hidden but source
     date: '2026-04-24',
   }
   render(<ActivityForm {...commonProps({ initial, editId: 'outlook:EXISTING' })} />)
-  // The static destination label is a disabled <input> with the full label.
-  await waitFor(() => expect(screen.getByDisplayValue('Outlook · Shopping')).toBeInTheDocument())
-  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  const trigger = await screen.findByRole('combobox')
+  // After the picker reconciles via editLabelHint, it promotes to the real key.
+  await waitFor(() => expect(trigger).toHaveAttribute('data-value', 'outlook:LIST-SHOP'))
 })
 
 it('move-task-to-calendar: in-place transition resets destination from outlook to ERP', async () => {

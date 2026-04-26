@@ -80,8 +80,11 @@ describe('extractHerbeError', () => {
     })
 
     it('should include @field with mapped code message', () => {
+      // Code 1058 ("Mandatory field missing") gets a friendlier specific
+      // format: "<Field> is required" rather than the generic
+      // "<Field>: Mandatory field missing".
       expect(extractHerbeError({ '@code': '1058', '@field': 'StartDate' }))
-        .toBe('StartDate: Mandatory field missing')
+        .toBe('StartDate is required')
     })
   })
 

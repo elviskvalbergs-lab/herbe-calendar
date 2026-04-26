@@ -372,11 +372,17 @@ describe('resolveColorWithOverrides', () => {
 /*  readableAccentColor                                                */
 /* ------------------------------------------------------------------ */
 describe('readableAccentColor', () => {
-  it('dark theme: returns the original color for any input', () => {
+  it('dark theme: returns mid/light colors unchanged', () => {
+    // Mid- and high-luminance accents (>= 0.12) read fine on dark bg as-is.
     expect(readableAccentColor('#f59e0b', true)).toBe('#f59e0b')
     expect(readableAccentColor('#ffffff', true)).toBe('#ffffff')
-    expect(readableAccentColor('#000000', true)).toBe('#000000')
     expect(readableAccentColor('#cd4c38', true)).toBe('#cd4c38')
+  })
+
+  it('dark theme: lightens very dark colors so they remain readable', () => {
+    // Pure black would disappear on dark bg — implementation mixes 55% toward
+    // white. Exact value is contract-stable: the formula is deterministic.
+    expect(readableAccentColor('#000000', true)).toBe('#8c8c8c')
   })
 
   it('light theme: returns original color for dark colors (e.g. #cd4c38 red)', () => {

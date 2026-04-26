@@ -42,7 +42,7 @@ export function mapHerbeTask(
     description: undefined,
     dueDate: transDate || undefined,
     done: String(r['OKFlag'] ?? '0') === '1',
-    listName: connectionName || undefined,
+    listName: prName || cuName || connectionName || undefined,
     mainPersons: main.length > 0 ? main : undefined,
     ccPersons: cc.length > 0 ? cc : undefined,
     erp: {
@@ -56,8 +56,6 @@ export function mapHerbeTask(
   }
   // personCode kept for signature symmetry with mapHerbeRecord.
   void personCode
-  // Surface project/customer in ERP metadata on the Task (used for copy-to-event pre-fill).
-  void prName; void cuName
   return task
 }
 
