@@ -85,7 +85,7 @@ export function TaskRow(props: {
         onChange={e => onToggleDone(task, e.currentTarget.checked)}
         aria-label="Mark done"
       />
-      <div className="task-body" onClick={() => onEdit(task)}>
+      <button type="button" className="task-body" onClick={() => onEdit(task)}>
         <div className="task-title">{task.title}</div>
         {(task.dueDate || rowSecondary) && (
           <div className="task-meta">
@@ -97,7 +97,7 @@ export function TaskRow(props: {
             {rowSecondary && <span className="task-list">{rowSecondary}</span>}
           </div>
         )}
-      </div>
+      </button>
       <div className="task-actions">
         <button
           type="button"

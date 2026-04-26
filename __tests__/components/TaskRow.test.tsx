@@ -35,6 +35,22 @@ it('fires onEdit when the title is clicked', () => {
   expect(onEdit).toHaveBeenCalledWith(taskFixture)
 })
 
+it('row body is a button so keyboard users can edit (Enter activates onEdit)', () => {
+  // Regression: previously a <div onClick>, which Tab skipped and Enter/Space
+  // ignored. Mobile hides the icon-bar so keyboard-only users on phones had
+  // no way to edit. Body is now a <button>, focusable and Enter-activatable.
+  const onEdit = jest.fn()
+  render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={onEdit} onCopyAsTask={() => {}} onCopyToEvent={() => {}} />)
+  const body = screen.getByText('Review prototype').closest('button')
+  expect(body).not.toBeNull()
+  body!.focus()
+  expect(document.activeElement).toBe(body)
+  // Native <button> handles Enter/Space → click. Simulate the resulting click
+  // (jsdom's keydown does not synthesize a click on its own).
+  fireEvent.click(body!)
+  expect(onEdit).toHaveBeenCalledWith(taskFixture)
+})
+
 it('fires onCopyAsTask when the duplicate icon is clicked', () => {
   const onCopyAsTask = jest.fn()
   render(<TaskRow task={taskFixture} urgency="future" onToggleDone={() => {}} onEdit={() => {}} onCopyAsTask={onCopyAsTask} onCopyToEvent={() => {}} />)
