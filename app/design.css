@@ -116,10 +116,12 @@ input, select, textarea { font-family: inherit; }
   transform: translateY(1px);
 }
 .topbar .brand .brand-square {
-  width: 14px; height: 14px;
-  background: var(--app-accent);
   display: inline-block;
-  flex-shrink: 0;
+  width: 1cap;
+  height: 1cap;
+  background: var(--app-accent);
+  vertical-align: baseline;
+  margin-right: 5px;
 }
 .topbar .sep { width:1px; height:22px; background: var(--app-line-strong); }
 
