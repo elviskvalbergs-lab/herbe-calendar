@@ -4,6 +4,7 @@ import { pool } from '@/lib/db'
 import { computeAllSlots, collectBusyBlocks } from '@/lib/availability'
 import { toTime } from '@/lib/herbe/recordUtils'
 import { isRateLimited } from '@/lib/rateLimit'
+import { getClientIp } from '@/lib/clientIp'
 import type { AvailabilityWindow } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -15,7 +16,7 @@ export async function GET(
   const { token } = await params
 
   // Rate limit
-  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const clientIp = getClientIp(req)
   const rateLimitKey = `avail:${token}:${clientIp}`
   if (isRateLimited(rateLimitKey)) {
     return NextResponse.json({ error: 'Too many requests, try again later' }, { status: 429 })

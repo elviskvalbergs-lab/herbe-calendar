@@ -4,6 +4,7 @@ import { getAzureConfig } from '@/lib/accountConfig'
 import { updateSyncState } from '@/lib/cache/syncState'
 import { listAccountPersons } from '@/lib/cache/accountPersons'
 import { fullSyncRange } from '@/lib/sync/erp'
+import { withTimeout } from '@/lib/sync/withTimeout'
 import { pool } from '@/lib/db'
 
 const SOURCE = 'outlook'
@@ -131,13 +132,21 @@ export async function syncAllOutlook(mode: SyncMode = 'incremental'): Promise<Sy
   result.accounts = accounts.length
 
   const accountResults = await Promise.allSettled(
-    accounts.map(account => syncAccountOutlook(account.id, mode))
+    accounts.map(account => withTimeout(
+      syncAccountOutlook(account.id, mode),
+      60_000,
+      `outlook:${account.id}`,
+    ))
   )
   for (const r of accountResults) {
     if (r.status === 'fulfilled') {
       if (r.value.events > 0) result.connections++
       result.events += r.value.events
       if (r.value.error) result.errors.push(`outlook: ${r.value.error}`)
+    } else {
+      const reason = r.reason instanceof Error ? r.reason.message : String(r.reason)
+      console.error('[sync/outlook] timeout:', reason)
+      result.errors.push(`outlook: ${reason}`)
     }
   }
   return result

@@ -9,6 +9,7 @@ import { getGoogleConfig } from '@/lib/google/client'
 import { updateSyncState } from '@/lib/cache/syncState'
 import { listAccountPersons } from '@/lib/cache/accountPersons'
 import { fullSyncRange } from '@/lib/sync/erp'
+import { withTimeout } from '@/lib/sync/withTimeout'
 import { pool } from '@/lib/db'
 
 export type GoogleSource = 'google' | 'google-user'
@@ -161,7 +162,8 @@ async function syncAccountGoogleUser(
   )
 
   const tokenResults = await Promise.allSettled(
-    tokens.map(async (token) => {
+    tokens.map(token => withTimeout(
+      (async () => {
       let connections = 0
       let events = 0
       const errors: string[] = []
@@ -228,7 +230,10 @@ async function syncAccountGoogleUser(
       }
 
       return { connections, events, errors }
-    })
+      })(),
+      60_000,
+      `google-user:${accountId}/${token.id}`,
+    ))
   )
 
   let connections = 0
@@ -239,6 +244,10 @@ async function syncAccountGoogleUser(
       connections += r.value.connections
       events += r.value.events
       errors.push(...r.value.errors)
+    } else {
+      const reason = r.reason instanceof Error ? r.reason.message : String(r.reason)
+      console.error('[sync/google-user] timeout:', accountId, reason)
+      errors.push(`google-user/${accountId}: ${reason}`)
     }
   }
   return { connections, events, errors }
@@ -259,7 +268,18 @@ export async function syncAllGoogle(mode: SyncMode = 'incremental'): Promise<Syn
     accounts.map(async (account) => {
       const people = await listAccountPersons(account.id)
       const emailToCode = new Map(people.map(p => [p.email.toLowerCase(), p.code]))
-      const dw = await syncAccountGoogleDomainWide(account.id, mode, people)
+      let dw: { events: number; error?: string }
+      try {
+        dw = await withTimeout(
+          syncAccountGoogleDomainWide(account.id, mode, people),
+          60_000,
+          `google:${account.id}`,
+        )
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('[sync/google] timeout:', account.id, msg)
+        dw = { events: 0, error: msg }
+      }
       const pu = await syncAccountGoogleUser(account.id, mode, emailToCode)
       return { dw, pu }
     })
@@ -273,6 +293,10 @@ export async function syncAllGoogle(mode: SyncMode = 'incremental'): Promise<Syn
       result.connections += pu.connections
       result.events += pu.events
       result.errors.push(...pu.errors)
+    } else {
+      const reason = r.reason instanceof Error ? r.reason.message : String(r.reason)
+      console.error('[sync/google] account rejected:', reason)
+      result.errors.push(`google: ${reason}`)
     }
   }
   return result

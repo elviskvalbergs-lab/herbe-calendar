@@ -5,6 +5,7 @@ import { getErpConnections } from '@/lib/accountConfig'
 import type { ErpConnection } from '@/lib/accountConfig'
 import { upsertCachedEvents, type CachedEventRow } from '@/lib/cache/events'
 import { getSyncState, updateSyncState } from '@/lib/cache/syncState'
+import { withTimeout } from '@/lib/sync/withTimeout'
 import { pool } from '@/lib/db'
 import { startOfMonth, endOfMonth, subDays, addDays, format } from 'date-fns'
 
@@ -247,9 +248,19 @@ export async function syncAllErp(mode: SyncMode = 'incremental'): Promise<SyncRe
       for (const conn of connections) {
         connCount++
         const syncFn = mode === 'full' ? fullReconciliation : syncConnection
-        const r = await syncFn(account.id, conn)
-        events += r.events
-        if (r.error) errors.push(`${account.id}/${conn.name}: ${r.error}`)
+        try {
+          const r = await withTimeout(
+            syncFn(account.id, conn),
+            60_000,
+            `herbe:${account.id}/${conn.id}`,
+          )
+          events += r.events
+          if (r.error) errors.push(`${account.id}/${conn.name}: ${r.error}`)
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('[sync/herbe] timeout:', account.id, conn.id, msg)
+          errors.push(`${account.id}/${conn.name}: ${msg}`)
+        }
       }
 
       return { events, errors, connections: connCount }
@@ -261,6 +272,10 @@ export async function syncAllErp(mode: SyncMode = 'incremental'): Promise<SyncRe
       result.connections += r.value.connections
       result.events += r.value.events
       result.errors.push(...r.value.errors)
+    } else {
+      const reason = r.reason instanceof Error ? r.reason.message : String(r.reason)
+      console.error('[sync/herbe] account rejected:', reason)
+      result.errors.push(`herbe: ${reason}`)
     }
   }
 

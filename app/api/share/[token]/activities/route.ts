@@ -13,6 +13,7 @@ import { fetchGoogleEventsForPerson, fetchPerUserGoogleEvents, mapGoogleEvent } 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
 import { emailForCode } from '@/lib/emailForCode'
 import { compare } from 'bcryptjs'
+import { getClientIp } from '@/lib/clientIp'
 import { isRateLimited } from '@/lib/rateLimit'
 import type { Activity, ShareVisibility } from '@/types'
 
@@ -108,7 +109,7 @@ export async function GET(
 
   // Password-protected: check x-share-auth header with rate limiting
   if (link.hasPassword) {
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+    const clientIp = getClientIp(req)
     const rateLimitKey = `share-pw:${token}:${clientIp}`
     if (isRateLimited(rateLimitKey)) {
       return NextResponse.json({ error: 'Too many attempts, try again later' }, { status: 429 })
