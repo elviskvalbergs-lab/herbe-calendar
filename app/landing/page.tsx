@@ -1,479 +1,503 @@
 'use client'
-import Link from 'next/link'
 
-const PRIMARY = '#cd4c38'
-const BG = '#231f20'
-const SURFACE = '#2d2829'
-const SURFACE_HIGH = '#3a3435'
-const MUTED = '#6b6467'
-const CYAN = '#00ABCE'
-const TEAL = '#4db89a'
-const OUTLOOK = '#6264a7'
-const ORANGE = '#e8923a'
-const GOOGLE = '#4285f4'
-const ZOOM = '#2D8CFF'
-const CALENDLY = '#006BFF'
+import Link from 'next/link'
+import { Fragment, useEffect, useState } from 'react'
+import { TeamViewScreenshot, BookingScreenshot } from './MockScreenshots'
+
+const BOOKING_URL =
+  'https://herbe-calendar.vercel.app/book/a82a99e9d6abc23ab17debb089dab542bc3550c49e9189b42b022921e621dea0'
+
+const SOURCES = {
+  hbr: 'https://hbr.org/2022/08/how-much-time-and-energy-do-we-waste-toggling-between-applications',
+  ringCentral: 'https://netstorage.ringcentral.com/documents/connected_workplace.pdf',
+  asana: 'https://asana.com/resources/context-switching',
+}
 
 const FEATURES = [
   {
-    tag: 'MOD_001',
-    title: 'ERP Integration',
-    desc: 'Full read/write access to Standard ERP and Excellent Books activities. Multiple ERP connections with separate registers and color-coded sources per person.',
-    color: TEAL,
-    status: 'SYSTEM INTEGRATED',
-    docsLink: '/docs/integrations#erp',
+    icon: '⟷',
+    color: '#CD4C38',
+    bg: '#CD4C3818',
+    title: 'ERP Read/Write',
+    desc: 'Full bidirectional sync with Standard ERP and Excellent Books. Create, edit, and reschedule activities directly.',
   },
   {
-    tag: 'MOD_002',
-    title: 'Outlook & Teams',
-    desc: 'View and create Outlook calendar events with Teams meetings. RSVP, attendees, and location support. Drag-and-drop to reschedule directly from the calendar.',
-    color: OUTLOOK,
-    status: 'SYNC ACTIVE',
-    docsLink: '/docs/integrations#outlook',
-  },
-  {
-    tag: 'MOD_003',
-    title: 'Google Calendar & Meet',
-    desc: 'Two access modes: personal OAuth where each user connects their own Google account and picks which calendars to show, and team-level Workspace delegation for full domain visibility. Create and edit events, generate Meet video links, share calendars with colleagues.',
-    color: GOOGLE,
-    status: 'OAUTH CONNECTED',
-    docsLink: '/docs/integrations#google',
-  },
-  {
-    tag: 'MOD_004',
-    title: 'Zoom Meetings',
-    desc: 'Connect a Zoom account and generate meeting links directly from activities and booking flows. Works alongside Teams and Meet — choose the right video platform per event. Links appear in event details, confirmations, and ICS invites.',
-    color: ZOOM,
-    status: 'MEETINGS ENABLED',
-    docsLink: '/docs/integrations#zoom',
-  },
-  {
-    tag: 'MOD_005',
-    title: 'Calendly',
-    desc: 'Connect your Calendly account to surface incoming bookings alongside your other calendar sources. Webhooks verified with HMAC signatures sync new and cancelled bookings in real time.',
-    color: CALENDLY,
-    status: 'WEBHOOK LIVE',
-    docsLink: '/docs/integrations#calendly',
-  },
-  {
-    tag: 'MOD_006',
+    icon: '👥',
+    color: '#134A40',
+    bg: '#134A4018',
     title: 'Team Views',
-    desc: 'See multiple people side-by-side in day, 3-day, 5-day, 7-day, or full month views. Month view shows event pills with multi-day spanning, desktop split with day agenda. Swipe navigation, favorites, and month navigator with activity dots.',
-    color: CYAN,
-    status: 'MESH CONNECTED',
-    docsLink: '/docs/getting-started#views',
+    desc: 'See multiple people side-by-side in day, 3-day, 5-day, week, or month views. Favorites and quick switching.',
   },
   {
-    tag: 'MOD_007',
-    title: 'Share & Book',
-    desc: 'Share calendar views via secure links with configurable visibility. Booking templates with buffer minutes, configurable day limits, slot quantity dots, and auto-jump to first available month. Teams, Meet, Zoom, and Calendly links included in confirmed bookings.',
-    color: PRIMARY,
-    status: 'BOOKING LIVE',
-    docsLink: '/docs/booking',
+    icon: '🔗',
+    color: '#0090C0',
+    bg: '#00AEE718',
+    title: 'Multi-Source Sync',
+    desc: 'ERP, Outlook, Google (personal + team), Zoom, Calendly, and any ICS feed — all loading independently.',
   },
   {
-    tag: 'MOD_008',
+    icon: '📅',
+    color: '#6B8E3D',
+    bg: '#6B8E3D18',
+    title: 'Smart Booking',
+    desc: 'Let clients self-book via secure links. Buffer time, day limits, Teams/Meet/Zoom links auto-generated.',
+  },
+  {
+    icon: '🔒',
+    color: '#3F56A6',
+    bg: '#3F56A618',
     title: 'Calendar Sharing',
-    desc: 'Share personal and team Google calendars and ICS feeds with colleagues at four visibility levels: Private, Busy-only, Titles, or Full details. Fine-grained control per calendar per person.',
-    color: ORANGE,
-    status: 'SHARING ACTIVE',
-    docsLink: '/docs/sharing#calendar-sharing',
+    desc: 'Share calendars with colleagues at four visibility levels: Private, Busy-only, Titles, or Full details.',
   },
   {
-    tag: 'MOD_009',
-    title: 'Public Holidays',
-    desc: 'Per-person country holiday calendars with visual banners on holiday dates. Holidays block booking slots by default; templates can explicitly allow bookings on holidays.',
-    color: TEAL,
-    status: 'HOLIDAYS LOADED',
-    docsLink: '/docs/admin#holidays',
-  },
-  {
-    tag: 'MOD_010',
-    title: 'ICS Feeds',
-    desc: 'Attach any ICS feed — Airbnb, booking systems, external calendars — to any person. Cached with 5-minute TTL and manual sync. Share personal ICS calendars with colleagues at controlled visibility levels.',
-    color: ORANGE,
-    status: 'FEEDS ONLINE',
-    docsLink: '/docs/integrations#ics',
-  },
-  {
-    tag: 'MOD_011',
+    icon: '✓',
+    color: '#2A8F94',
+    bg: '#2A8F9418',
     title: 'Unified Tasks',
-    desc: 'Pull tasks from ERP, Microsoft To Do, and Google Tasks into a single panel grouped by source and list. Open them inline next to the month, or switch into the dedicated full-screen Tasks view from the top bar. Tick items done, copy tasks to events, and create new tasks straight into the list of your choice.',
-    color: TEAL,
-    status: 'TASKS UNIFIED',
-    docsLink: '/docs/getting-started#tasks-view',
+    desc: 'Tasks from ERP, Microsoft To Do, and Google Tasks in one panel. Tick done, copy to events, create inline.',
   },
 ]
 
-const SOURCES = [
-  { name: 'Standard ERP', color: TEAL },
-  { name: 'Excellent Books', color: TEAL },
-  { name: 'Microsoft Outlook', color: OUTLOOK },
-  { name: 'Microsoft Teams', color: OUTLOOK },
-  { name: 'Google Calendar (personal + team)', color: GOOGLE },
-  { name: 'Google Meet', color: GOOGLE },
-  { name: 'Zoom Meetings', color: ZOOM },
-  { name: 'Calendly Bookings', color: CALENDLY },
-  { name: 'Any ICS Feed', color: ORANGE },
+const INTEGRATIONS = [
+  { name: 'Standard ERP', type: 'Read/Write', bg: '#CD4C38' },
+  { name: 'Outlook', type: 'Read/Write', bg: '#3F56A6' },
+  { name: 'Google', type: 'OAuth + Workspace', bg: '#6B8E3D' },
+  { name: 'Zoom', type: 'Meeting Links', bg: '#2A8F94' },
+  { name: 'Calendly', type: 'Webhooks', bg: '#E08A2B' },
+  { name: 'Teams', type: 'Video + Calendar', bg: '#5B5FC7' },
+  { name: 'Google Meet', type: 'Video Links', bg: '#00897B' },
+  { name: 'ICS Feeds', type: 'Any Source', bg: '#7A4E9C' },
+  { name: 'Excellent Books', type: 'Read/Write', bg: '#A8446E' },
+  { name: 'Holidays', type: 'Per-Country', bg: '#4A4E53' },
+]
+
+const CHAOS_APPS = [
+  { name: 'Standard ERP', sub: 'Activities & tasks', bg: '#CD4C38' },
+  { name: 'Outlook + Teams', sub: 'Meetings & calls', bg: '#3F56A6' },
+  { name: 'Google Calendar', sub: 'Personal & team', bg: '#6B8E3D' },
+  { name: 'Zoom', sub: 'Video meetings', bg: '#2A8F94' },
+  { name: 'Calendly', sub: 'External bookings', bg: '#E08A2B' },
+]
+
+const DEPLOYMENT = [
+  {
+    title: 'Self-Hosted',
+    desc: 'Deploy on your own Vercel account. Full control over data and infrastructure.',
+    accent: '#134A40',
+  },
+  {
+    title: 'PWA-Ready',
+    desc: 'Works on any device with native-like experience. Install to home screen on mobile.',
+    accent: '#00AEE7',
+  },
+  {
+    title: 'Multi-Company',
+    desc: 'Connect multiple ERP instances with separate registers and color-coded sources.',
+    accent: '#CD4C38',
+  },
+]
+
+const STATS = [
+  { num: '1,200×', label: 'App toggles per day per employee', source: SOURCES.hbr, sourceLabel: 'HBR, 2022' },
+  { num: '4h', label: 'Lost per week per person re-orienting', source: SOURCES.hbr, sourceLabel: 'HBR, 2022' },
+  {
+    num: '32',
+    label: 'Work days lost per year navigating apps',
+    source: SOURCES.ringCentral,
+    sourceLabel: 'RingCentral',
+  },
+  { num: '9', label: 'Apps switched between daily on average', source: SOURCES.asana, sourceLabel: 'Asana, 2022' },
 ]
 
 export default function LandingPage() {
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
-    <div
-      className="min-h-screen text-white"
-      style={{
-        fontFamily: "'Inter', system-ui, sans-serif",
-        background: BG,
-        backgroundImage: `radial-gradient(${PRIMARY}0a 1px, transparent 0)`,
-        backgroundSize: '24px 24px',
-      }}
-    >
-      {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm" style={{ background: `${BG}e6` }}>
-        <div className="max-w-[1440px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="text-2xl font-bold tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            herbe<span style={{ color: PRIMARY }}>.</span>calendar
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            {['Features', 'Integrations', 'How It Works'].map(label => (
-              <a
-                key={label}
-                href={`#${label.toLowerCase().replace(/\s+/g, '-')}`}
-                className="text-white/70 uppercase tracking-widest text-[10px] font-semibold transition-colors duration-150 px-2 py-1"
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                onMouseEnter={e => { e.currentTarget.style.background = PRIMARY; e.currentTarget.style.color = '#fff' }}
-                onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '' }}
-              >
-                {label}
-              </a>
-            ))}
-            <Link
-              href="/docs"
-              className="text-white/70 uppercase tracking-widest text-[10px] font-semibold transition-colors duration-150 px-2 py-1"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-              onMouseEnter={e => { e.currentTarget.style.background = PRIMARY; e.currentTarget.style.color = '#fff' }}
-              onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '' }}
-            >
-              Docs
-            </Link>
-          </div>
-          <Link
-            href="/cal"
-            className="px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
-            style={{ fontFamily: "'Space Grotesk', sans-serif", background: PRIMARY }}
-          >
-            Get Started
+    <div className="herbe-landing">
+      <style jsx global>{`
+        .herbe-landing { font-family: var(--font-sans); background: #fff; color: var(--burti-black); overflow-x: hidden; }
+        .herbe-landing :where(h1, h2, h3, p, ul, li) { margin: 0; padding: 0; text-transform: none; }
+        .herbe-landing ul { list-style: none; }
+        html { scroll-behavior: smooth; }
+
+        .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 16px 40px; display: flex; align-items: center; gap: 32px; transition: background 0.3s, box-shadow 0.3s; background: transparent; }
+        .nav.scrolled { background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); box-shadow: 0 1px 8px rgba(19,74,64,0.08); }
+        .nav-brand { font-size: 20px; font-weight: 700; color: var(--burti-black); letter-spacing: -0.01em; text-decoration: none; }
+        .nav-brand .dot { color: var(--burti-rowanberry); }
+        .nav-links { display: flex; gap: 28px; margin-left: auto; align-items: center; }
+        .nav-links a { font-size: 14px; font-weight: 500; color: var(--burti-black); text-decoration: none; opacity: 0.7; transition: opacity 0.2s; }
+        .nav-links a:hover { opacity: 1; }
+        .nav-signin { font-size: 13px !important; }
+        .nav-cta { background: var(--burti-forest); color: #fff !important; padding: 8px 20px; border-radius: 8px; font-weight: 600; opacity: 1 !important; font-size: 13px !important; }
+        .nav-cta:hover { background: var(--burti-forest-dark); }
+
+        .hero { min-height: 100vh; display: flex; align-items: center; padding: 120px 60px 80px; position: relative; overflow: hidden; }
+        .hero-bg { position: absolute; inset: 0; background: linear-gradient(135deg, #F7F9F8 0%, #E8F0EE 50%, #D4E1DD 100%); }
+        .hero-bg::after { content: ''; position: absolute; right: -10%; top: -20%; width: 70%; height: 140%; background: radial-gradient(ellipse at center, rgba(0,174,231,0.06) 0%, transparent 70%); }
+        .hero-content { position: relative; z-index: 2; max-width: 1320px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: 1fr 1.1fr; gap: 60px; align-items: center; }
+        .hero-text { max-width: 560px; }
+        .hero-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .hero-eyebrow::before { content: ''; width: 24px; height: 2px; background: var(--burti-rowanberry); }
+        .hero h1 { font-weight: 800; font-size: clamp(36px, 4.5vw, 56px); line-height: 1.08; color: var(--burti-black); margin-bottom: 20px; letter-spacing: -0.02em; }
+        .hero h1 .accent { color: var(--burti-forest); }
+        .hero-sub { font-size: 18px; line-height: 1.6; color: var(--burti-gray); margin-bottom: 32px; max-width: 480px; }
+        .hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--burti-forest); color: #fff; padding: 14px 28px; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; transition: all 0.2s; border: none; cursor: pointer; }
+        .btn-primary:hover { background: var(--burti-forest-dark); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(19,74,64,0.2); }
+        .btn-secondary { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: var(--burti-forest); padding: 14px 28px; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; border: 1.5px solid var(--burti-gray-light); transition: all 0.2s; cursor: pointer; }
+        .btn-secondary:hover { border-color: var(--burti-forest); background: var(--burti-forest); color: #fff; }
+        .hero-sources { display: flex; gap: 10px; margin-top: 32px; align-items: center; flex-wrap: wrap; }
+        .hero-sources span.label { font-size: 12px; color: var(--burti-gray); }
+        .source-pill { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 6px; background: #fff; border: 1px solid var(--burti-gray-light); color: var(--burti-gray); }
+
+        .pain { padding: 100px 60px; background: var(--burti-forest); color: #fff; position: relative; overflow: hidden; }
+        .pain::before { content: ''; position: absolute; right: -5%; top: -30%; width: 40%; height: 160%; background: radial-gradient(ellipse, rgba(0,174,231,0.08), transparent 70%); }
+        .pain-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
+        .pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+        .pain-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-high-sky); margin-bottom: 12px; }
+        .pain h2 { font-size: clamp(28px, 3vw, 40px); font-weight: 800; line-height: 1.12; margin-bottom: 20px; letter-spacing: -0.01em; }
+        .pain-desc { font-size: 16px; line-height: 1.7; color: rgba(255,255,255,0.75); margin-bottom: 28px; }
+        .pain-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .pain-stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; }
+        .pain-stat-num { font-size: 36px; font-weight: 800; color: var(--burti-rowanberry); line-height: 1; }
+        .pain-stat-label { font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 6px; }
+        .pain-stat-label a { color: rgba(255,255,255,0.4); font-size: 9px; display: block; margin-top: 3px; text-decoration: none; }
+        .pain-stat-label a:hover { color: rgba(255,255,255,0.8); text-decoration: underline; }
+        .pain-chaos { display: flex; flex-direction: column; gap: 12px; }
+        .chaos-app { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px 18px; }
+        .chaos-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+        .chaos-label { font-size: 14px; font-weight: 600; }
+        .chaos-sub { font-size: 11px; color: rgba(255,255,255,0.5); }
+        .chaos-tag { margin-left: auto; font-size: 9px; color: rgba(255,255,255,0.3); font-weight: 500; padding: 3px 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; }
+        .chaos-arrow { font-size: 10px; color: rgba(255,255,255,0.25); text-align: center; }
+
+        .solution { padding: 100px 60px; background: #fff; }
+        .solution-inner { max-width: 1200px; margin: 0 auto; }
+        .section-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .section-label::before { content: ''; width: 20px; height: 2px; background: var(--burti-rowanberry); }
+        .section-label.center { justify-content: center; }
+        .solution h2 { font-size: clamp(28px, 3vw, 40px); font-weight: 800; line-height: 1.12; color: var(--burti-black); margin-bottom: 16px; letter-spacing: -0.01em; }
+        .solution-sub { font-size: 17px; color: var(--burti-gray); line-height: 1.6; max-width: 600px; margin-bottom: 48px; }
+        .solution-screenshot { margin: 0 auto 60px; max-width: 960px; }
+        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 48px; }
+        .feature-card { background: var(--burti-offwhite); border-radius: 14px; padding: 32px 28px; transition: all 0.25s; border: 1px solid transparent; }
+        .feature-card:hover { border-color: var(--burti-gray-light); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(19,74,64,0.06); }
+        .feature-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 20px; }
+        .feature-card h3 { font-size: 17px; font-weight: 700; color: var(--burti-black); margin-bottom: 8px; }
+        .feature-card p { font-size: 14px; line-height: 1.6; color: var(--burti-gray); }
+
+        .integrations { padding: 80px 60px; background: var(--burti-offwhite); }
+        .integrations-inner { max-width: 1200px; margin: 0 auto; text-align: center; }
+        .integrations h2 { font-size: clamp(24px, 2.5vw, 36px); font-weight: 800; margin-bottom: 12px; }
+        .integrations-sub { font-size: 16px; color: var(--burti-gray); margin-bottom: 48px; }
+        .int-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; max-width: 800px; margin: 0 auto; }
+        .int-card { background: #fff; border-radius: 12px; padding: 24px 16px; text-align: center; border: 1px solid var(--burti-gray-light); transition: all 0.2s; }
+        .int-card:hover { border-color: var(--burti-forest); box-shadow: 0 4px 16px rgba(19,74,64,0.08); }
+        .int-icon { width: 44px; height: 44px; border-radius: 10px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; }
+        .int-name { font-size: 12px; font-weight: 600; color: var(--burti-black); }
+        .int-type { font-size: 10px; color: var(--burti-gray); }
+
+        .how { padding: 100px 60px; background: #fff; }
+        .how-inner { max-width: 1200px; margin: 0 auto; }
+        .how h2 { font-size: clamp(28px, 3vw, 40px); font-weight: 800; margin-bottom: 48px; text-align: center; }
+        .how-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+        .how-step { text-align: center; padding: 32px 24px; }
+        .step-num { width: 48px; height: 48px; border-radius: 50%; background: var(--burti-forest); color: #fff; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+        .how-step h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+        .how-step p { font-size: 14px; color: var(--burti-gray); line-height: 1.6; }
+
+        .booking-section { padding: 100px 60px; background: var(--burti-offwhite); }
+        .booking-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+        .booking-text h2 { font-size: clamp(24px, 2.5vw, 36px); font-weight: 800; margin-bottom: 16px; }
+        .booking-text p { font-size: 16px; color: var(--burti-gray); line-height: 1.7; margin-bottom: 24px; }
+        .booking-features { padding: 0; }
+        .booking-features li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-size: 14px; color: var(--burti-black); }
+        .booking-features li::before { content: '■'; color: var(--burti-rowanberry); font-size: 8px; margin-top: 4px; flex-shrink: 0; }
+
+        .deploy { padding: 80px 60px; background: #fff; }
+        .deploy-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .deploy-card { padding: 32px 28px; background: var(--burti-offwhite); border-radius: 14px; }
+        .deploy-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+        .deploy-card p { font-size: 14px; color: var(--burti-gray); line-height: 1.6; }
+
+        .cta-section { padding: 100px 60px; background: var(--burti-forest); color: #fff; text-align: center; position: relative; overflow: hidden; }
+        .cta-section::before { content: ''; position: absolute; left: 50%; top: 50%; width: 600px; height: 600px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(0,174,231,0.1), transparent 70%); }
+        .cta-inner { position: relative; z-index: 2; max-width: 640px; margin: 0 auto; }
+        .cta-section h2 { font-size: clamp(28px, 3.5vw, 44px); font-weight: 800; margin-bottom: 16px; }
+        .cta-section p { font-size: 17px; color: rgba(255,255,255,0.75); margin-bottom: 32px; line-height: 1.6; }
+        .btn-white { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: var(--burti-forest); padding: 16px 32px; border-radius: 10px; font-size: 16px; font-weight: 700; text-decoration: none; transition: all 0.2s; }
+        .btn-white:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.2); }
+        .cta-fineprint { margin-top: 24px; font-size: 13px; color: rgba(255,255,255,0.5); }
+
+        .footer { padding: 40px 60px; background: var(--burti-mud); color: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: space-between; font-size: 13px; flex-wrap: wrap; gap: 16px; }
+        .footer a { color: rgba(255,255,255,0.7); text-decoration: none; }
+        .footer a:hover { color: #fff; }
+        .footer-links { display: flex; gap: 24px; }
+
+        @media (max-width: 900px) {
+          .hero-content, .pain-grid, .booking-inner { grid-template-columns: 1fr; gap: 40px; }
+          .features-grid, .deploy-inner { grid-template-columns: 1fr; }
+          .how-steps { grid-template-columns: 1fr; }
+          .int-grid { grid-template-columns: repeat(3, 1fr); }
+          .hero, .pain, .solution, .how, .booking-section, .cta-section, .integrations, .deploy { padding-left: 24px; padding-right: 24px; }
+          .nav { padding: 12px 20px; gap: 16px; }
+          .nav-links { gap: 14px; }
+          .nav-links a:not(.nav-cta):not(.nav-signin) { display: none; }
+        }
+      `}</style>
+
+      <nav className={`nav ${scrolled ? 'scrolled' : ''}`}>
+        <Link href="/" className="nav-brand">
+          herbe<span className="dot">.</span>calendar
+        </Link>
+        <div className="nav-links">
+          <a href="#features">Features</a>
+          <a href="#integrations">Integrations</a>
+          <a href="#how">How It Works</a>
+          <a href="#booking">Booking</a>
+          <Link href="/cal" className="nav-signin">
+            Sign in
           </Link>
+          <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="nav-cta">
+            Book a Demo
+          </a>
         </div>
       </nav>
 
-      <main className="pt-24">
-        {/* Hero */}
-        <section className="px-6 py-20 max-w-[1440px] mx-auto grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 border-l-2" style={{ background: SURFACE, borderColor: PRIMARY }}>
-              <span className="text-[10px] uppercase tracking-[0.2em]" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>System Status: Online</span>
-            </div>
-
-            <h1 className="text-6xl md:text-8xl font-black leading-[0.9] tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              All Your <br />
-              Calendars. <br />
-              <span style={{ color: PRIMARY }}>One View.</span>
+      <section className="hero">
+        <div className="hero-bg"></div>
+        <div className="hero-content">
+          <div className="hero-text">
+            <div className="hero-eyebrow">herbe.calendar</div>
+            <h1>
+              See your whole team&apos;s schedule.
+              <br />
+              <span className="accent">Across every app.</span>
             </h1>
-
-            <p className="text-lg max-w-md leading-relaxed" style={{ color: MUTED }}>
-              Connect ERP, Outlook, personal and team Google accounts, Zoom, Teams, Meet, and Calendly into a single unified view.
-              Share calendars with colleagues, let clients book time, and see public holidays — all in one place.
+            <p className="hero-sub">
+              herbe.calendar unifies ERP, Outlook, Google Calendar, Zoom, Teams, Meet, and Calendly into one view. Stop
+              switching between five apps — see everyone&apos;s real availability instantly.
             </p>
-
-            <div className="flex flex-wrap gap-4">
-              <Link
-                href="/cal"
-                className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
-                style={{ fontFamily: "'Space Grotesk', sans-serif", background: PRIMARY }}
-              >
-                Open Calendar
-              </Link>
-              <a
-                href="#features"
-                className="px-8 py-4 text-xs font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
-                style={{ fontFamily: "'Space Grotesk', sans-serif", background: SURFACE_HIGH }}
-              >
-                Review Systems
+            <div className="hero-actions">
+              <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                Book a Demo →
+              </a>
+              <a href="#features" className="btn-secondary">
+                See Features
               </a>
             </div>
-          </div>
-
-          {/* Kinetic Visualization */}
-          <div className="relative aspect-square p-4 overflow-hidden" style={{ background: SURFACE }}>
-            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `repeating-linear-gradient(0deg, ${PRIMARY} 0, ${PRIMARY} 1px, transparent 1px, transparent 40px)` }} />
-            <div className="relative h-full w-full border flex items-center justify-center" style={{ borderColor: SURFACE_HIGH }}>
-              <div className="w-4/5 h-4/5 rounded-full flex items-center justify-center relative" style={{ borderWidth: 16, borderColor: SURFACE_HIGH }}>
-                <div className="absolute inset-0 rounded-full animate-pulse" style={{ borderTopWidth: 16, borderColor: PRIMARY }} />
-                <div className="absolute inset-2 rounded-full opacity-60" style={{ borderRightWidth: 16, borderColor: OUTLOOK }} />
-                <div className="absolute inset-4 rounded-full opacity-40" style={{ borderLeftWidth: 16, borderColor: ZOOM }} />
-                <div className="text-center">
-                  <span className="block text-5xl font-bold tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>14:30</span>
-                  <span className="block text-[10px] uppercase tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>Multi-Source Sync</span>
-                </div>
-              </div>
-              <div className="absolute top-10 right-10 p-3 border-l-2" style={{ background: SURFACE_HIGH, borderColor: OUTLOOK }}>
-                <span className="block text-[8px] uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif", color: OUTLOOK }}>Outlook</span>
-                <span className="block text-sm font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Strategy Session</span>
-              </div>
-              <div className="absolute bottom-20 left-4 p-3 border-l-2" style={{ background: SURFACE_HIGH, borderColor: TEAL }}>
-                <span className="block text-[8px] uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif", color: TEAL }}>Herbe ERP</span>
-                <span className="block text-sm font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Client Onboarding</span>
-              </div>
-              <div className="absolute top-10 left-4 p-3 border-l-2" style={{ background: SURFACE_HIGH, borderColor: ZOOM }}>
-                <span className="block text-[8px] uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ZOOM }}>Zoom</span>
-                <span className="block text-sm font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Team Standup</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Problem / Solution */}
-        <section style={{ background: '#1a1718' }} className="py-24">
-          <div className="px-6 max-w-[1440px] mx-auto grid md:grid-cols-2 gap-1">
-            <div className="p-8 border-t-4" style={{ background: SURFACE, borderColor: ORANGE }}>
-              <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ORANGE }}>The Problem</span>
-              <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Calendars Everywhere, Visibility Nowhere</h3>
-              <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                Your team uses Standard ERP for activity tracking, Outlook with Teams for meetings, personal and team Google accounts for calendars,
-                and Zoom or Calendly for video bookings. Each person&apos;s schedule lives in a different system. Checking availability
-                means opening five apps and mentally merging the results.
-              </p>
-            </div>
-            <div className="p-8 border-t-4" style={{ background: SURFACE, borderColor: PRIMARY }}>
-              <span className="text-[10px] uppercase tracking-widest block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>The Solution</span>
-              <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>One Calendar, All Sources, Real-Time</h3>
-              <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-                herbe.calendar pulls activities from ERP, Outlook, personal and team Google accounts, Zoom, Calendly, and ICS feeds
-                into a single multi-person view. Share personal calendars with colleagues, display public holidays per person,
-                and let clients self-book with smart templates — all from one place.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Feature Modules */}
-        <section id="features" className="py-24">
-          <div className="px-6 max-w-[1440px] mx-auto">
-            <div className="mb-16">
-              <h2 className="text-4xl font-bold uppercase tracking-tighter italic" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Data Modules</h2>
-              <div className="h-1 w-24 mt-2" style={{ background: PRIMARY }} />
-            </div>
-            <div className="grid md:grid-cols-3 gap-1">
-              {FEATURES.map(f => (
-                <div
-                  key={f.tag}
-                  className="p-8 border-t-4 transition-all cursor-default"
-                  style={{ background: SURFACE, borderColor: f.color }}
-                  onMouseEnter={e => { e.currentTarget.style.background = SURFACE_HIGH }}
-                  onMouseLeave={e => { e.currentTarget.style.background = SURFACE }}
-                >
-                  <div className="flex justify-between items-start mb-12">
-                    <div className="w-10 h-10 flex items-center justify-center" style={{ color: f.color }}>
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                      </svg>
-                    </div>
-                    <span className="text-[10px] tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif", color: f.color, opacity: 0.5 }}>{f.tag}</span>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4 uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{f.title}</h3>
-                  <p className="text-sm leading-relaxed mb-8" style={{ color: MUTED }}>{f.desc}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[10px] tracking-widest" style={{ fontFamily: "'Space Grotesk', sans-serif", color: f.color }}>
-                      <span className="w-2 h-2" style={{ background: f.color }} />
-                      {f.status}
-                    </div>
-                    <Link
-                      href={f.docsLink}
-                      className="text-[10px] uppercase tracking-widest transition-colors"
-                      style={{ fontFamily: "'Space Grotesk', sans-serif", color: MUTED }}
-                      onMouseEnter={e => { e.currentTarget.style.color = f.color }}
-                      onMouseLeave={e => { e.currentTarget.style.color = MUTED }}
-                    >
-                      Learn more &rarr;
-                    </Link>
-                  </div>
-                </div>
+            <div className="hero-sources">
+              <span className="label">Connects:</span>
+              {['ERP', 'Outlook', 'Google', 'Zoom', 'Calendly', 'ICS'].map(s => (
+                <span key={s} className="source-pill">
+                  {s}
+                </span>
               ))}
             </div>
           </div>
-        </section>
-
-        {/* Integrations */}
-        <section id="integrations" className="py-24" style={{ background: '#1a1718' }}>
-          <div className="px-6 max-w-[1440px] mx-auto">
-            <div className="grid lg:grid-cols-2 gap-20 items-center">
-              <div className="space-y-12">
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest mb-4 block" style={{ fontFamily: "'Space Grotesk', sans-serif", color: CYAN }}>Connected Systems</span>
-                  <h2 className="text-5xl font-black tracking-tighter uppercase leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    Real-Time <br />
-                    <span style={{ color: CYAN }}>Multi-Source Sync</span>
-                  </h2>
-                </div>
-                <div className="space-y-6">
-                  {SOURCES.map(s => (
-                    <div key={s.name} className="flex gap-4 items-center">
-                      <div className="w-12 h-12 flex items-center justify-center shrink-0" style={{ background: SURFACE }}>
-                        <span className="w-3 h-3 rounded-full" style={{ background: s.color }} />
-                      </div>
-                      <div>
-                        <h4 className="font-bold uppercase text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{s.name}</h4>
-                        <p className="text-xs" style={{ color: MUTED }}>Real-time bidirectional sync</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Stats panel */}
-              <div className="p-10 border-l-4 space-y-8" style={{ background: SURFACE, borderColor: PRIMARY }}>
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>Data Sources</span>
-                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Live</span>
-                </div>
-                <div className="h-px" style={{ background: SURFACE_HIGH }} />
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: CYAN }}>ICS Cache TTL</span>
-                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>5 min</span>
-                </div>
-                <div className="h-px" style={{ background: SURFACE_HIGH }} />
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ZOOM }}>Video Integrations</span>
-                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Teams + Meet + Zoom</span>
-                </div>
-                <div className="h-px" style={{ background: SURFACE_HIGH }} />
-                <div>
-                  <span className="text-[10px] uppercase tracking-widest block mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: ORANGE }}>Calendar Sources</span>
-                  <span className="text-5xl font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Unlimited</span>
-                </div>
-              </div>
-            </div>
+          <div className="hero-screenshot">
+            <TeamViewScreenshot
+              style={{
+                transform: 'perspective(1200px) rotateY(-3deg) rotateX(1.5deg)',
+                transformOrigin: 'center center',
+              }}
+            />
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* How It Works */}
-        <section id="how-it-works" className="py-24">
-          <div className="px-6 max-w-[1440px] mx-auto">
-            <div className="mb-16">
-              <h2 className="text-4xl font-bold uppercase tracking-tighter italic" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Protocol Sequence</h2>
-              <div className="h-1 w-24 mt-2" style={{ background: CYAN }} />
-            </div>
-            <div className="grid md:grid-cols-3 gap-1">
-              {[
-                {
-                  step: '01',
-                  title: 'Connect Sources',
-                  desc: 'Add ERP connections, Azure AD for Outlook and Teams, personal or team Google accounts, Zoom, Calendly, or any ICS feed URL through the self-service admin panel. Each source loads independently — no waiting for the slowest one.',
-                  color: PRIMARY,
-                },
-                {
-                  step: '02',
-                  title: 'See Everyone Together',
-                  desc: 'Select team members to view side-by-side in day, 3-day, 5-day, 7-day, or full month views. Multi-day events span across days. Month navigator with activity dots and week numbers. Public holidays per person.',
-                  color: CYAN,
-                },
-                {
-                  step: '03',
-                  title: 'Share & Book',
-                  desc: 'Share personal and team calendars with colleagues at the right visibility level. Let clients self-book via secure links with smart templates — buffer time, day limits, Teams/Meet/Zoom links auto-generated.',
-                  color: TEAL,
-                },
-              ].map(item => (
-                <div
-                  key={item.step}
-                  className="p-8 border-t-4 transition-all"
-                  style={{ background: SURFACE, borderColor: item.color }}
-                  onMouseEnter={e => { e.currentTarget.style.background = SURFACE_HIGH }}
-                  onMouseLeave={e => { e.currentTarget.style.background = SURFACE }}
-                >
-                  <span className="text-5xl font-black tracking-tighter block mb-6" style={{ fontFamily: "'Space Grotesk', sans-serif", color: item.color }}>{item.step}</span>
-                  <h3 className="text-xl font-bold uppercase mb-4" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{item.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: MUTED }}>{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Benefits */}
-        <section className="py-24" style={{ background: '#1a1718' }}>
-          <div className="px-6 max-w-[1440px] mx-auto">
-            <div className="grid lg:grid-cols-2 gap-16 items-start">
-              <div>
-                <span className="text-[10px] uppercase tracking-widest mb-4 block" style={{ fontFamily: "'Space Grotesk', sans-serif", color: PRIMARY }}>System Capabilities</span>
-                <h2 className="text-5xl font-black tracking-tighter uppercase leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                  Why Teams <br />
-                  <span style={{ color: PRIMARY }}>Choose This</span>
-                </h2>
-              </div>
-              <div className="space-y-4">
-                {[
-                  'No more switching between ERP, Outlook, Google, and video conferencing apps',
-                  'See your whole team at a glance across all calendar systems',
-                  'Connect personal Google calendars alongside team workspace accounts',
-                  'Teams, Meet, Zoom, and Calendly for video meetings in bookings',
-                  'Share specific calendars with colleagues at controlled visibility levels',
-                  'Public holiday awareness per person and country — blocks booking slots automatically',
-                  'Progressive loading — each source loads independently, no waiting',
-                  'Configurable booking templates with buffer time and day limits',
-                  'Create activities in Standard ERP directly from the calendar',
-                  'Unified tasks view across ERP, Microsoft To Do, and Google Tasks',
-                  'Let clients self-book meetings based on real-time availability across all sources',
-                  'Works on any device with native-like PWA experience',
-                  'Self-hosted on your Vercel account with full data control',
-                  'Multi-company support for multiple ERP instances',
-                ].map(item => (
-                  <div key={item} className="flex items-start gap-4 group">
-                    <div className="w-6 h-6 flex items-center justify-center shrink-0 mt-0.5" style={{ background: PRIMARY }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
+      <section className="pain">
+        <div className="pain-inner">
+          <div className="pain-grid">
+            <div>
+              <div className="pain-eyebrow">The Problem</div>
+              <h2>Your team&apos;s schedule is scattered across 5+ apps</h2>
+              <p className="pain-desc">
+                ERP tracks activities. Outlook holds meetings. Google Calendar has personal events. Zoom, Teams, Meet
+                each manage their own video calls. Calendly handles external bookings. To check if someone is free, you
+                open them all and hope you didn&apos;t miss one.
+              </p>
+              <div className="pain-stats">
+                {STATS.map(stat => (
+                  <div key={stat.label} className="pain-stat">
+                    <div className="pain-stat-num">{stat.num}</div>
+                    <div className="pain-stat-label">
+                      {stat.label}
+                      <a href={stat.source} target="_blank" rel="noopener noreferrer">
+                        {stat.sourceLabel}
+                      </a>
                     </div>
-                    <span className="group-hover:text-white transition-colors" style={{ color: MUTED }}>{item}</span>
                   </div>
                 ))}
               </div>
             </div>
+            <div className="pain-chaos">
+              {CHAOS_APPS.map((app, i) => (
+                <Fragment key={app.name}>
+                  <div className="chaos-app">
+                    <div className="chaos-icon" style={{ background: app.bg }}>
+                      {app.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="chaos-label">{app.name}</div>
+                      <div className="chaos-sub">{app.sub}</div>
+                    </div>
+                    <div className="chaos-tag">ISOLATED</div>
+                  </div>
+                  {i < CHAOS_APPS.length - 1 && <div className="chaos-arrow">↕ no sync</div>}
+                </Fragment>
+              ))}
+            </div>
           </div>
-        </section>
-
-        {/* CTA */}
-        <section className="py-32 text-center px-6">
-          <div className="max-w-4xl mx-auto space-y-12">
-            <h2 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              Ready to <br />
-              <span className="italic" style={{ color: PRIMARY }}>Unify?</span>
-            </h2>
-            <p className="text-xl max-w-2xl mx-auto" style={{ color: MUTED }}>
-              Set up in minutes. Connect ERP, Outlook, Google, Teams, Meet, Zoom, and Calendly. Share calendars. Book smarter.
-            </p>
-            <Link
-              href="/cal"
-              className="inline-block px-12 py-6 text-sm font-bold uppercase tracking-widest text-white hover:brightness-110 transition-all"
-              style={{ fontFamily: "'Space Grotesk', sans-serif", background: PRIMARY }}
-            >
-              Establish Connection
-            </Link>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="w-full px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4" style={{ background: '#1a1718' }}>
-        <div className="font-black tracking-tighter" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-          herbe<span style={{ color: PRIMARY }}>.</span>calendar
         </div>
-        <div className="text-white/30 uppercase tracking-widest text-[10px]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-          Unified Calendar Systems
+      </section>
+
+      <section className="solution" id="features">
+        <div className="solution-inner">
+          <div className="section-label">The Solution</div>
+          <h2>One calendar that shows everything</h2>
+          <p className="solution-sub">
+            herbe.calendar pulls every source into a single, real-time multi-person view. See your whole team
+            side-by-side with color-coded sources — no more mental merging.
+          </p>
+          <div className="solution-screenshot">
+            <TeamViewScreenshot />
+          </div>
+
+          <div className="features-grid">
+            {FEATURES.map(f => (
+              <div key={f.title} className="feature-card">
+                <div className="feature-icon" style={{ background: f.bg, color: f.color }}>
+                  {f.icon}
+                </div>
+                <h3>{f.title}</h3>
+                <p>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="integrations" id="integrations">
+        <div className="integrations-inner">
+          <div className="section-label center">Connected Systems</div>
+          <h2>Real-time sync with everything your team uses</h2>
+          <p className="integrations-sub">
+            Each source connects independently — the calendar loads progressively, never waiting for the slowest.
+          </p>
+          <div className="int-grid">
+            {INTEGRATIONS.map(int => (
+              <div key={int.name} className="int-card">
+                <div className="int-icon" style={{ background: int.bg }}>
+                  {int.name.charAt(0)}
+                </div>
+                <div className="int-name">{int.name}</div>
+                <div className="int-type">{int.type}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="how" id="how">
+        <div className="how-inner">
+          <div className="section-label center">How It Works</div>
+          <h2>Up and running in three steps</h2>
+          <div className="how-steps">
+            <div className="how-step">
+              <div className="step-num">1</div>
+              <h3>Connect your sources</h3>
+              <p>
+                Add ERP, Azure AD, Google accounts, Zoom, Calendly, or ICS feeds through the self-service admin panel.
+                Each source loads independently.
+              </p>
+            </div>
+            <div className="how-step">
+              <div className="step-num">2</div>
+              <h3>See everyone together</h3>
+              <p>
+                View your team side-by-side across all calendar systems. Day, week, or month — with color-coded sources
+                and public holidays per person.
+              </p>
+            </div>
+            <div className="how-step">
+              <div className="step-num">3</div>
+              <h3>Share &amp; book smarter</h3>
+              <p>
+                Share calendars with colleagues. Let clients self-book meetings with smart templates — availability
+                checked across all sources in real-time.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="booking-section" id="booking">
+        <div className="booking-inner">
+          <div>
+            <div className="section-label">Client Booking</div>
+            <div className="booking-text">
+              <h2>Let clients book time based on real availability</h2>
+              <p>
+                No more back-and-forth emails. Booking templates check availability across all connected calendars in
+                real-time and auto-generate video meeting links.
+              </p>
+              <ul className="booking-features">
+                <li>Checks ERP, Outlook, Google, and Calendly simultaneously</li>
+                <li>Auto-generates Teams, Meet, or Zoom links per booking</li>
+                <li>Configurable buffer time between meetings</li>
+                <li>Day limits and slot quantity controls</li>
+                <li>Holiday awareness — blocks booking on public holidays</li>
+                <li>Secure shareable links with controlled visibility</li>
+              </ul>
+              <div style={{ marginTop: 24 }}>
+                <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                  Try the booking flow →
+                </a>
+              </div>
+            </div>
+          </div>
+          <BookingScreenshot style={{ margin: '0 auto', maxWidth: 580 }} />
+        </div>
+      </section>
+
+      <section className="deploy">
+        <div className="deploy-inner">
+          {DEPLOYMENT.map(item => (
+            <div key={item.title} className="deploy-card" style={{ borderTop: `3px solid ${item.accent}` }}>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="cta-section" id="contact">
+        <div className="cta-inner">
+          <h2>Ready to unify your team&apos;s calendars?</h2>
+          <p>Set up in minutes. Connect ERP, Outlook, Google, Teams, Zoom, and Calendly. See your whole team at a glance.</p>
+          <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-white">
+            Book a Demo →
+          </a>
+          <div className="cta-fineprint">Custom deployment · Tailored to your stack · Dedicated support</div>
+        </div>
+      </section>
+
+      <footer className="footer">
+        <div>© 2026 burti · herbe.calendar</div>
+        <div className="footer-links">
+          <Link href="/docs">Documentation</Link>
+          <Link href="/cal">Sign in</Link>
+          <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer">
+            Book a Demo
+          </a>
         </div>
       </footer>
     </div>

@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 
 export const metadata: Metadata = {
-  title: 'herbe.calendar — All your calendars, one view',
-  description: 'Unified calendar for Standard ERP, Outlook, and ICS feeds. Shared team views, multi-company support, and full event management.',
+  title: "herbe.calendar — See your whole team's schedule. Across every app.",
+  description:
+    'Unify ERP, Outlook, Google Calendar, Zoom, Teams, Meet, and Calendly into one team view. Real-time multi-source sync, smart booking, and calendar sharing.',
 }
 
 export const viewport: Viewport = {
@@ -11,14 +12,5 @@ export const viewport: Viewport = {
 }
 
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-      />
-      {children}
-    </>
-  )
+  return <>{children}</>
 }
