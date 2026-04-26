@@ -110,7 +110,7 @@ input, select, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 .topbar .brand .brand-b {
-  font-family: var(--font-sans); font-weight: 900;
+  font-family: var(--font-sans); font-weight: 800;
   color: var(--app-fg);
   font-size: 20px; line-height: 1;
   display: inline-block;
@@ -123,7 +123,7 @@ input, select, textarea { font-family: inherit; }
   height: 1cap;
   background: var(--app-accent);
   vertical-align: baseline;
-  margin-right: 5px;
+  margin-right: 4px;
 }
 .topbar .sep { width:1px; height:22px; background: var(--app-line-strong); }
 
