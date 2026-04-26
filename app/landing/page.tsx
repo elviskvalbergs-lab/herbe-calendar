@@ -58,17 +58,191 @@ const FEATURES = [
   },
 ]
 
-const INTEGRATIONS = [
-  { name: 'Standard ERP', type: 'Read/Write', bg: '#CD4C38' },
-  { name: 'Outlook', type: 'Read/Write', bg: '#3F56A6' },
-  { name: 'Google', type: 'OAuth + Workspace', bg: '#6B8E3D' },
-  { name: 'Zoom', type: 'Meeting Links', bg: '#2A8F94' },
-  { name: 'Calendly', type: 'Webhooks', bg: '#E08A2B' },
-  { name: 'Teams', type: 'Video + Calendar', bg: '#5B5FC7' },
-  { name: 'Google Meet', type: 'Video Links', bg: '#00897B' },
-  { name: 'ICS Feeds', type: 'Any Source', bg: '#7A4E9C' },
-  { name: 'Excellent Books', type: 'Read/Write', bg: '#A8446E' },
-  { name: 'Holidays', type: 'Per-Country', bg: '#4A4E53' },
+type IntegrationDetail = {
+  name: string
+  type: string
+  bg: string
+  sync: string
+  calendars: boolean
+  tasks: 'yes' | 'no' | 'partial'
+  tasksNote?: string
+  parallel: string
+  detail: string
+  capabilities: string[]
+}
+
+const INTEGRATIONS: IntegrationDetail[] = [
+  {
+    name: 'Standard ERP',
+    type: 'Read/Write',
+    bg: '#CD4C38',
+    sync: 'Two-way · real-time',
+    calendars: true,
+    tasks: 'yes',
+    parallel: 'Multiple ERP databases side-by-side',
+    detail:
+      'Full bidirectional sync with Standard ERP. Activities and to-do tasks live alongside every other source.',
+    capabilities: [
+      'Create, edit, and reschedule activities directly from any calendar view',
+      'Connect multiple ERP databases — each gets its own register and color',
+      'Tasks (TodoFlag) appear in the unified tasks panel and the calendar tasks row',
+      'Customer/contact lookup, project assignment, activity types preserved',
+      'Drag-and-drop rescheduling writes back to ERP',
+    ],
+  },
+  {
+    name: 'Outlook',
+    type: 'Read/Write',
+    bg: '#3F56A6',
+    sync: 'Two-way · real-time',
+    calendars: true,
+    tasks: 'yes',
+    tasksNote: 'Microsoft To Do',
+    parallel: 'Pairs with any other source',
+    detail:
+      'Microsoft Graph integration covering calendars and Microsoft To Do. One Azure AD app covers your whole tenant.',
+    capabilities: [
+      'Two-way: read and create events, RSVP, attendees, locations, drag to reschedule',
+      'Microsoft To Do tasks read and write — pulled into the unified tasks panel',
+      'Tenant-wide Azure AD auth — no per-user setup once admin consents',
+      'Teams online meetings can be auto-attached when creating events',
+    ],
+  },
+  {
+    name: 'Google',
+    type: 'OAuth + Workspace',
+    bg: '#6B8E3D',
+    sync: 'Two modes',
+    calendars: true,
+    tasks: 'partial',
+    tasksNote: 'Personal OAuth only',
+    parallel: 'Both modes can run together',
+    detail:
+      'Two parallel modes: per-user OAuth for personal calendars and Workspace domain-wide delegation for full team visibility.',
+    capabilities: [
+      'Personal OAuth: each user connects their account, picks calendars, two-way for Calendar + Google Tasks',
+      'Workspace delegation: one service account reads every user\'s calendars across the org (calendar only)',
+      'Both modes can coexist — events deduplicated by Google ID',
+      'Google Meet links auto-generated when booking through a Google target',
+      'Calendar sharing with colleagues at four visibility levels',
+    ],
+  },
+  {
+    name: 'Zoom',
+    type: 'Meeting Links',
+    bg: '#2A8F94',
+    sync: 'One-way (write)',
+    calendars: false,
+    tasks: 'no',
+    parallel: 'One Zoom account per herbe account',
+    detail:
+      'Generate Zoom meetings on-demand for events and bookings. Account-level credentials, not per user.',
+    capabilities: [
+      'Auto-creates a Zoom meeting and embeds the join URL on event creation',
+      'Available as a video target on any calendar source (ERP, Outlook, Google)',
+      'OAuth account credentials grant — works for the whole organization',
+      'One Zoom account per herbe.calendar account — not multi-instance',
+    ],
+  },
+  {
+    name: 'Calendly',
+    type: 'Webhooks',
+    bg: '#E08A2B',
+    sync: 'One-way (read)',
+    calendars: true,
+    tasks: 'no',
+    parallel: 'One Calendly user per herbe account',
+    detail:
+      'Inbound bookings from Calendly surface alongside your other calendars in real-time via webhooks.',
+    capabilities: [
+      'Webhook-driven: new and cancelled bookings appear within seconds',
+      'HMAC-signed webhooks — verified at the edge',
+      'Read-only inside herbe — manage bookings in Calendly, see them in the team view',
+      'One Calendly user per herbe account, but pairs with every other source in parallel',
+    ],
+  },
+  {
+    name: 'Teams',
+    type: 'Video + Calendar',
+    bg: '#5B5FC7',
+    sync: 'Linked to Outlook',
+    calendars: true,
+    tasks: 'no',
+    parallel: 'Bundled with Outlook',
+    detail:
+      'Teams meetings are generated through the Outlook connection — no separate setup or auth.',
+    capabilities: [
+      'Teams meeting links auto-attached on events created through Outlook',
+      'Available as a video target in booking templates',
+      'Uses the same Azure AD app credentials as Outlook',
+    ],
+  },
+  {
+    name: 'Google Meet',
+    type: 'Video Links',
+    bg: '#00897B',
+    sync: 'Bundled with Google',
+    calendars: false,
+    tasks: 'no',
+    parallel: 'Bundled with Google',
+    detail:
+      'Meet links are generated through the Google Calendar connection — no separate setup.',
+    capabilities: [
+      'Meet links extracted from Google events, attached as video target on creation',
+      'Available as a video option in booking templates',
+      'Works in both personal-OAuth and Workspace modes',
+    ],
+  },
+  {
+    name: 'ICS Feeds',
+    type: 'Any Source',
+    bg: '#7A4E9C',
+    sync: 'One-way (read)',
+    calendars: true,
+    tasks: 'no',
+    parallel: 'Multiple feeds per person',
+    detail:
+      'Drop in any iCalendar URL — Airbnb, booking systems, school schedules, anything that publishes ICS.',
+    capabilities: [
+      'Read-only — events from the feed appear in the calendar',
+      'Multiple feeds per person, each with its own color and label',
+      'Cached with 5-minute TTL; manual refresh available',
+      'No auth needed — works with any public ICS URL',
+      'Personal ICS calendars can be shared with colleagues at controlled visibility',
+    ],
+  },
+  {
+    name: 'Excellent Books',
+    type: 'Read/Write',
+    bg: '#A8446E',
+    sync: 'Two-way · real-time',
+    calendars: true,
+    tasks: 'yes',
+    parallel: 'Pairs with any other source',
+    detail:
+      'Same engine as Standard ERP — connect Excellent Books activities and tasks with full read/write access.',
+    capabilities: [
+      'Same capabilities as Standard ERP — read/write events and tasks, multi-instance, color-coded',
+      'Use side-by-side with other ERP databases or any other source',
+    ],
+  },
+  {
+    name: 'Holidays',
+    type: 'Per-Country',
+    bg: '#4A4E53',
+    sync: 'One-way (read)',
+    calendars: true,
+    tasks: 'no',
+    parallel: 'Multiple countries per account',
+    detail:
+      'Public holiday overlays per person, sourced from openholidaysapi.org and cached server-side.',
+    capabilities: [
+      'Each person can have their own country (e.g. team in LV + remote contractor in DE)',
+      'Holidays block booking slots by default — templates can opt to allow them',
+      'Read-only overlay; visual banner on holiday dates',
+      'Cached server-side per country/year',
+    ],
+  },
 ]
 
 const CHAOS_APPS = [
@@ -111,6 +285,7 @@ const STATS = [
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
+  const [openInt, setOpenInt] = useState<IntegrationDetail | null>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -118,6 +293,20 @@ export default function LandingPage() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    if (!openInt) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenInt(null)
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [openInt])
 
   return (
     <div className="herbe-landing">
@@ -198,11 +387,38 @@ export default function LandingPage() {
         .integrations h2 { font-size: clamp(24px, 2.5vw, 36px); font-weight: 800; margin-bottom: 12px; }
         .integrations-sub { font-size: 16px; color: var(--burti-gray); margin-bottom: 48px; }
         .int-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; max-width: 800px; margin: 0 auto; }
-        .int-card { background: #fff; border-radius: 12px; padding: 24px 16px; text-align: center; border: 1px solid var(--burti-gray-light); transition: all 0.2s; }
-        .int-card:hover { border-color: var(--burti-forest); box-shadow: 0 4px 16px rgba(19,74,64,0.08); }
+        .int-card { background: #fff; border-radius: 12px; padding: 24px 16px; text-align: center; border: 1px solid var(--burti-gray-light); transition: all 0.2s; cursor: pointer; font-family: inherit; width: 100%; }
+        .int-card:hover { border-color: var(--burti-forest); box-shadow: 0 4px 16px rgba(19,74,64,0.08); transform: translateY(-2px); }
+        .int-card:focus-visible { outline: 2px solid var(--burti-forest); outline-offset: 2px; }
         .int-icon { width: 44px; height: 44px; border-radius: 10px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; }
         .int-name { font-size: 12px; font-weight: 600; color: var(--burti-black); }
         .int-type { font-size: 10px; color: var(--burti-gray); }
+        .int-hint { font-size: 9px; color: var(--burti-forest); margin-top: 6px; opacity: 0; transition: opacity 0.2s; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+        .int-card:hover .int-hint, .int-card:focus-visible .int-hint { opacity: 0.7; }
+
+        .modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(19,74,64,0.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.18s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-card { background: #fff; border-radius: 16px; max-width: 560px; width: 100%; max-height: calc(100vh - 48px); overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.25); animation: slideUp 0.22s ease-out; position: relative; }
+        .modal-head { padding: 28px 32px 20px; border-bottom: 1px solid var(--burti-gray-light); display: flex; align-items: flex-start; gap: 16px; }
+        .modal-head-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; color: #fff; flex-shrink: 0; }
+        .modal-head-text { flex: 1; min-width: 0; }
+        .modal-head-text h3 { font-size: 22px; font-weight: 800; color: var(--burti-black); margin-bottom: 4px; }
+        .modal-head-text p { font-size: 13px; color: var(--burti-gray); }
+        .modal-close { background: var(--burti-offwhite); border: 1px solid var(--burti-gray-light); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--burti-gray); font-size: 16px; line-height: 1; flex-shrink: 0; transition: all 0.15s; padding: 0; }
+        .modal-close:hover { background: var(--burti-forest); border-color: var(--burti-forest); color: #fff; }
+        .modal-body { padding: 24px 32px 32px; }
+        .modal-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        .modal-badge { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; letter-spacing: 0.02em; }
+        .badge-yes { background: #E6EED6; color: #4A6B25; }
+        .badge-no { background: var(--burti-offwhite); color: var(--burti-gray); }
+        .badge-info { background: #DDE3F3; color: #2B3D74; }
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .modal-detail { font-size: 14px; line-height: 1.6; color: var(--burti-black); margin-bottom: 18px; }
+        .modal-section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--burti-forest); margin-bottom: 10px; }
+        .modal-caps { padding: 0; }
+        .modal-caps li { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: 13px; color: var(--burti-black); line-height: 1.5; }
+        .modal-caps li::before { content: '■'; color: var(--burti-rowanberry); font-size: 8px; margin-top: 6px; flex-shrink: 0; }
 
         .how { padding: 100px 60px; background: #fff; }
         .how-inner { max-width: 1200px; margin: 0 auto; }
@@ -394,15 +610,25 @@ export default function LandingPage() {
           </p>
           <div className="int-grid">
             {INTEGRATIONS.map(int => (
-              <div key={int.name} className="int-card">
+              <button
+                key={int.name}
+                type="button"
+                className="int-card"
+                onClick={() => setOpenInt(int)}
+                aria-label={`Open ${int.name} integration details`}
+              >
                 <div className="int-icon" style={{ background: int.bg }}>
                   {int.name.charAt(0)}
                 </div>
                 <div className="int-name">{int.name}</div>
                 <div className="int-type">{int.type}</div>
-              </div>
+                <div className="int-hint">View details</div>
+              </button>
             ))}
           </div>
+          <p style={{ fontSize: 13, color: 'var(--burti-gray)', marginTop: 24 }}>
+            Click any integration to see what it covers and how it pairs with the others.
+          </p>
         </div>
       </section>
 
@@ -444,18 +670,16 @@ export default function LandingPage() {
           <div>
             <div className="section-label">Client Booking</div>
             <div className="booking-text">
-              <h2>Let clients book time based on real availability</h2>
+              <h2>Booking, fully under your control</h2>
               <p>
-                No more back-and-forth emails. Booking templates check availability across all connected calendars in
-                real-time and auto-generate video meeting links.
+                Build multiple booking templates — each with its own people, availability rules, output target, and
+                visibility. You decide what&apos;s checked, what&apos;s shared, and where the event lands.
               </p>
               <ul className="booking-features">
-                <li>Checks ERP, Outlook, Google, and Calendly simultaneously</li>
-                <li>Auto-generates Teams, Meet, or Zoom links per booking</li>
-                <li>Configurable buffer time between meetings</li>
-                <li>Day limits and slot quantity controls</li>
-                <li>Holiday awareness — blocks booking on public holidays</li>
-                <li>Secure shareable links with controlled visibility</li>
+                <li>Per-template: who&apos;s bookable and which calendars set availability</li>
+                <li>Pick where the event is created — ERP activity, Outlook + Teams, Google + Meet, or Zoom</li>
+                <li>Control what clients see — slot count, buffer time, day caps, holiday handling</li>
+                <li>Secure shareable links, no client account needed</li>
               </ul>
               <div style={{ marginTop: 24 }}>
                 <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer" className="btn-primary">
@@ -500,6 +724,82 @@ export default function LandingPage() {
           </a>
         </div>
       </footer>
+
+      {openInt && <IntegrationModal int={openInt} onClose={() => setOpenInt(null)} />}
+    </div>
+  )
+}
+
+function IntegrationModal({ int, onClose }: { int: IntegrationDetail; onClose: () => void }) {
+  const tasksBadge =
+    int.tasks === 'yes' ? (
+      <span className="modal-badge badge-yes">
+        <span className="badge-dot" style={{ background: '#6B8E3D' }} />
+        Tasks {int.tasksNote ? `· ${int.tasksNote}` : ''}
+      </span>
+    ) : int.tasks === 'partial' ? (
+      <span className="modal-badge badge-info">
+        <span className="badge-dot" style={{ background: '#3F56A6' }} />
+        Tasks · {int.tasksNote}
+      </span>
+    ) : (
+      <span className="modal-badge badge-no">
+        <span className="badge-dot" style={{ background: 'var(--burti-gray)' }} />
+        No tasks
+      </span>
+    )
+
+  return (
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="int-modal-title"
+    >
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="modal-head-icon" style={{ background: int.bg }}>
+            {int.name.charAt(0)}
+          </div>
+          <div className="modal-head-text">
+            <h3 id="int-modal-title">{int.name}</h3>
+            <p>
+              {int.type} · {int.sync}
+            </p>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          <div className="modal-badges">
+            {int.calendars ? (
+              <span className="modal-badge badge-yes">
+                <span className="badge-dot" style={{ background: '#6B8E3D' }} />
+                Calendars
+              </span>
+            ) : (
+              <span className="modal-badge badge-no">
+                <span className="badge-dot" style={{ background: 'var(--burti-gray)' }} />
+                No calendar
+              </span>
+            )}
+            {tasksBadge}
+            <span className="modal-badge badge-info">
+              <span className="badge-dot" style={{ background: '#3F56A6' }} />
+              {int.parallel}
+            </span>
+          </div>
+          <p className="modal-detail">{int.detail}</p>
+          <div className="modal-section-label">Capabilities</div>
+          <ul className="modal-caps">
+            {int.capabilities.map(c => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   )
 }
