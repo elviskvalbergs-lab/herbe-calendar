@@ -72,7 +72,8 @@ export default function CalendarHeader({ state, onStateChange, people, onNewActi
     <header className="topbar shrink-0">
       {/* Brand */}
       <div className="brand">
-        <span className="brand-b">herbe<span style={{ color: 'var(--app-accent)' }}>.</span></span>
+        <span className="brand-square" aria-hidden="true" />
+        <span className="brand-b">herbe</span>
         <span style={{ fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--app-fg-subtle)', fontWeight: 500 }}>calendar</span>
       </div>
       {accountName && (
