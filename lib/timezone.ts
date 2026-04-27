@@ -3,7 +3,12 @@ const FALLBACK_TZ = 'Europe/Riga'
 export function isValidTimezone(tz: unknown): tz is string {
   if (typeof tz !== 'string' || tz.length === 0) return false
   try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    const resolved = new Intl.DateTimeFormat('en-US', { timeZone: tz })
+      .resolvedOptions().timeZone
+    // Reject inputs that differ from the resolved name only by case
+    // (e.g. "europe/riga" -> "Europe/Riga"). Allow IANA alias resolution
+    // (e.g. "Asia/Kolkata" -> "Asia/Calcutta") to pass through unchanged.
+    if (resolved !== tz && resolved.toLowerCase() === tz.toLowerCase()) return false
     return true
   } catch {
     return false
@@ -49,12 +54,22 @@ export function bucketDateInTz(date: Date, tz: string): string {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: safeTz }).format(date) // YYYY-MM-DD
 }
 
+/**
+ * Resolve the timezone for a viewer/member. Member's explicit choice wins;
+ * otherwise fall back to the account's default timezone, then to Europe/Riga.
+ */
 export function resolveMemberTimezone(input: { memberTz: string | null; accountTz: string | null }): string {
   if (isValidTimezone(input.memberTz)) return input.memberTz
   if (isValidTimezone(input.accountTz)) return input.accountTz
   return FALLBACK_TZ
 }
 
+/**
+ * Resolve the timezone of an external source connection (Outlook mailbox,
+ * Google calendar, ERP host, Calendly account). The connection's declared
+ * timezone wins; otherwise fall back to the account's default timezone,
+ * then to Europe/Riga.
+ */
 export function resolveSourceTimezone(input: { sourceTz: string | null; accountTz: string | null }): string {
   if (isValidTimezone(input.sourceTz)) return input.sourceTz
   if (isValidTimezone(input.accountTz)) return input.accountTz
