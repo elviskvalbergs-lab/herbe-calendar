@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import type { Activity } from '@/types'
 import type { Task } from '@/types/task'
+import { textOnAccent } from '@/lib/activityColors'
 
 interface PersonRef {
   code: string
@@ -131,7 +132,7 @@ export default function MultiDayStrip({
                   style={{
                     height: ROW_H,
                     background: color,
-                    color: '#fff',
+                    color: textOnAccent(color),
                     borderRadius: 2,
                     padding: '0 6px',
                     display: 'flex',
