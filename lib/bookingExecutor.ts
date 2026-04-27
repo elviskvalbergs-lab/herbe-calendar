@@ -8,6 +8,8 @@ import { REGISTERS } from '@/lib/herbe/constants'
 import { emailForCode } from '@/lib/emailForCode'
 import { toMinutes, fromMinutes } from '@/lib/availability'
 import { buildBookingEmail, buildActivityText } from '@/lib/bookingEmail'
+import { resolveSourceTimezone } from '@/lib/timezone'
+import { getAccountTimezone, getMemberTimezone } from '@/lib/accountTimezone'
 import type { TemplateTargets } from '@/types'
 
 export interface BookingParams {
@@ -205,6 +207,9 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
       try {
         const azureConfig = await getAzureConfig(accountId)
         if (azureConfig) {
+          const accountTz = await getAccountTimezone(accountId)
+          const outlookTz = resolveSourceTimezone({ sourceTz: azureConfig.sourceTimezone, accountTz })
+
           const attendees = [...participantEmails, bookerEmail].map(email => ({
             emailAddress: { address: email },
             type: 'required' as const,
@@ -213,8 +218,8 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
           const eventBody: Record<string, unknown> = {
             subject: `${templateName} - ${bookerEmail}`,
             body: { contentType: 'Text', content: activityText },
-            start: { dateTime: `${date}T${time}:00`, timeZone: 'Europe/Riga' },
-            end: { dateTime: `${date}T${endTime}:00`, timeZone: 'Europe/Riga' },
+            start: { dateTime: `${date}T${time}:00`, timeZone: outlookTz },
+            end: { dateTime: `${date}T${endTime}:00`, timeZone: outlookTz },
             attendees,
           }
 
@@ -249,6 +254,7 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
       try {
         const googleConfig = await getGoogleConfig(accountId)
         if (googleConfig) {
+          const hostTz = await getMemberTimezone(accountId, ownerEmail)
           // Use the first participant's email for domain-wide delegation (not login email which may differ)
         const calendarUserEmail = participantEmails[0] ?? ownerEmail
         const calendar = getCalendarClient(googleConfig, calendarUserEmail)
@@ -257,8 +263,8 @@ export async function executeBooking(params: BookingParams): Promise<BookingResu
           const requestBody: Record<string, unknown> = {
             summary: `${templateName} - ${bookerEmail}`,
             description: activityText,
-            start: { dateTime: `${date}T${time}:00`, timeZone: 'Europe/Riga' },
-            end: { dateTime: `${date}T${endTime}:00`, timeZone: 'Europe/Riga' },
+            start: { dateTime: `${date}T${time}:00`, timeZone: hostTz },
+            end: { dateTime: `${date}T${endTime}:00`, timeZone: hostTz },
             attendees: allEmails.map(e => ({ email: e })),
           }
 
