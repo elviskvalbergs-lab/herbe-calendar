@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
         refreshToken: r.refresh_token ? decrypt(r.refresh_token) : null,
         tokenExpiresAt: Number(r.token_expires_at) || 0,
         username: r.username || null, password: r.password ? decrypt(r.password) : null, active: r.active,
+        timezone: r.timezone || 'Europe/Riga',
       }
       const result = await testErpConnection(conn)
       return NextResponse.json(result)

@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest) {
         clientId: body.clientId ?? '',
         clientSecret: body.clientSecret || existing?.clientSecret || '',
         senderEmail: body.senderEmail ?? '',
+        sourceTimezone: existing?.sourceTimezone ?? null,
       })
       return NextResponse.json({ ok: true })
     }
