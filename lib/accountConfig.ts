@@ -6,6 +6,7 @@ export interface AzureConfig {
   clientId: string
   clientSecret: string
   senderEmail: string
+  sourceTimezone: string | null
 }
 
 export interface ErpConnection {
@@ -52,7 +53,7 @@ export async function getAzureConfig(accountId: string): Promise<AzureConfig | n
 
   try {
     const { rows } = await pool.query(
-      'SELECT tenant_id, client_id, client_secret, sender_email FROM account_azure_config WHERE account_id = $1',
+      'SELECT tenant_id, client_id, client_secret, sender_email, source_timezone FROM account_azure_config WHERE account_id = $1',
       [accountId]
     )
     if (rows[0] && rows[0].tenant_id) {
@@ -61,6 +62,7 @@ export async function getAzureConfig(accountId: string): Promise<AzureConfig | n
         clientId: rows[0].client_id,
         clientSecret: decryptField(rows[0].client_secret),
         senderEmail: rows[0].sender_email,
+        sourceTimezone: rows[0].source_timezone ?? null,
       }
       evictStale(azureCache)
       azureCache.set(accountId, { data: config, ts: Date.now() })

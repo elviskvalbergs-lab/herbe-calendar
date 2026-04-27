@@ -1,5 +1,7 @@
 import { graphFetch } from '@/lib/graph/client'
 import { getAzureConfig } from '@/lib/accountConfig'
+import { resolveSourceTimezone } from '@/lib/timezone'
+import { getAccountTimezone } from '@/lib/accountTimezone'
 
 export interface OutlookEvent {
   id: string
@@ -43,13 +45,17 @@ export async function fetchOutlookEventsForPerson(
   const azureConfig = await getAzureConfig(accountId)
   if (!azureConfig) return null
 
+  const accountTz = await getAccountTimezone(accountId)
+  const tz = resolveSourceTimezone({ sourceTz: azureConfig.sourceTimezone, accountTz })
+  const preferHeader = `outlook.timezone="${tz}"`
+
   const startDt = `${dateFrom}T00:00:00`
   const endDt = `${dateTo}T23:59:59`
   const calendarViewParams = `startDateTime=${startDt}&endDateTime=${endDt}&$top=200&$select=id,subject,start,end,organizer,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,attendees,location,bodyPreview,webLink,responseStatus`
 
   let res = await graphFetch(
     `/users/${email}/calendarView?${calendarViewParams}`,
-    { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+    { headers: { Prefer: preferHeader } },
     azureConfig,
   )
 
@@ -72,7 +78,7 @@ export async function fetchOutlookEventsForPerson(
           console.log(`[outlookUtils] Fallback found calendar ID ${sharedCal.id} for ${email}`)
           res = await graphFetch(
             `/users/${fallbackSessionEmail}/calendars/${sharedCal.id}/calendarView?${calendarViewParams}`,
-            { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+            { headers: { Prefer: preferHeader } },
             azureConfig,
           )
         } else {
@@ -98,7 +104,7 @@ export async function fetchOutlookEventsForPerson(
   while (nextLink) {
     const pageRes = await graphFetch(
       nextLink.replace('https://graph.microsoft.com/v1.0', ''),
-      { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+      { headers: { Prefer: preferHeader } },
       azureConfig,
     )
     if (!pageRes.ok) break
@@ -122,11 +128,15 @@ export async function fetchOutlookEventsMinimal(
   const azureConfig = await getAzureConfig(accountId)
   if (!azureConfig) return null
 
+  const accountTz = await getAccountTimezone(accountId)
+  const tz = resolveSourceTimezone({ sourceTz: azureConfig.sourceTimezone, accountTz })
+  const preferHeader = `outlook.timezone="${tz}"`
+
   const startDt = `${dateFrom}T00:00:00`
   const endDt = `${dateTo}T23:59:59`
   const res = await graphFetch(
     `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=500&$select=id,start,end`,
-    { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+    { headers: { Prefer: preferHeader } },
     azureConfig,
   )
   if (!res.ok) return null
@@ -138,7 +148,7 @@ export async function fetchOutlookEventsMinimal(
   while (nextLink) {
     const pageRes = await graphFetch(
       nextLink.replace('https://graph.microsoft.com/v1.0', ''),
-      { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+      { headers: { Prefer: preferHeader } },
       azureConfig,
     )
     if (!pageRes.ok) break

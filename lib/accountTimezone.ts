@@ -55,6 +55,7 @@ export async function getMemberTimezone(accountId: string, email: string): Promi
  */
 export async function getCurrentMemberTimezone(): Promise<string> {
   const accountId = (await getAdminAccountId()) ?? DEFAULT_ACCOUNT_ID
+  const { auth } = await import('@/lib/auth')
   const session = await auth()
   const email = session?.user?.email
   if (!email) return getAccountTimezone(accountId)

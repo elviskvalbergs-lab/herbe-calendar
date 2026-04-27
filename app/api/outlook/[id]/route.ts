@@ -6,6 +6,8 @@ import type { AzureConfig } from '@/lib/accountConfig'
 import { upsertCachedEvents, deleteCachedEvent, type CachedEventRow } from '@/lib/cache/events'
 import { buildOutlookCacheRows } from '@/lib/sync/graph'
 import { listAccountPersons } from '@/lib/cache/accountPersons'
+import { resolveSourceTimezone } from '@/lib/timezone'
+import { getAccountTimezone } from '@/lib/accountTimezone'
 
 /** Verify the session user is the organizer of the Outlook event */
 async function assertOrganizer(eventId: string, email: string, azureConfig: AzureConfig): Promise<NextResponse | null> {
@@ -52,9 +54,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       try {
         // Drop stale rows for this event first — attendee list may have changed
         await deleteCachedEvent(session.accountId, 'outlook', id)
+        const accountTz = await getAccountTimezone(session.accountId)
+        const tz = resolveSourceTimezone({ sourceTz: azureConfig.sourceTimezone, accountTz })
         const refetch = await graphFetch(
           `/users/${session.email}/events/${id}?$select=id,subject,start,end,organizer,isOnlineMeeting,onlineMeetingUrl,onlineMeeting,attendees,location,bodyPreview,webLink,responseStatus`,
-          { headers: { Prefer: 'outlook.timezone="Europe/Riga"' } },
+          { headers: { Prefer: `outlook.timezone="${tz}"` } },
           azureConfig,
         )
         if (refetch.ok) {
