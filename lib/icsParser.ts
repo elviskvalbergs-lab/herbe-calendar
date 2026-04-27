@@ -1,21 +1,21 @@
 import ICAL from 'ical.js'
 import { parseISO, isWithinInterval, startOfDay, endOfDay, addDays, format } from 'date-fns'
+import { isValidTimezone } from '@/lib/timezone'
 
-const TIMEZONE = 'Europe/Riga'
 const FETCH_TIMEOUT_MS = 8000
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 // In-memory cache: URL → { text, fetchedAt }
 const icsCache = new Map<string, { text: string; fetchedAt: number }>()
 
-/** Format a Date as 'YYYY-MM-DD' in Europe/Riga timezone */
-function rigaDate(d: Date): string {
-  return d.toLocaleDateString('sv-SE', { timeZone: TIMEZONE }) // sv-SE gives YYYY-MM-DD
+/** Format a Date as 'YYYY-MM-DD' in the supplied timezone */
+function formatDateInTz(d: Date, tz: string): string {
+  return d.toLocaleDateString('sv-SE', { timeZone: tz })
 }
 
-/** Format a Date as 'HH:mm' in Europe/Riga timezone */
-function rigaTime(d: Date): string {
-  return d.toLocaleTimeString('en-GB', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false })
+/** Format a Date as 'HH:mm' in the supplied timezone */
+function formatTimeInTz(d: Date, tz: string): string {
+  return d.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 async function fetchIcsText(url: string, bustCache: boolean): Promise<string> {
@@ -49,7 +49,15 @@ export interface IcsResult {
   error?: string
 }
 
-export async function fetchIcsEvents(url: string, code: string, dateFrom: string, dateTo: string, bustCache = false): Promise<IcsResult> {
+export async function fetchIcsEvents(
+  url: string,
+  code: string,
+  dateFrom: string,
+  dateTo: string,
+  bustCache = false,
+  timezone?: string,
+): Promise<IcsResult> {
+  const tz = isValidTimezone(timezone) ? timezone : 'Europe/Riga'
   try {
     const rawText = await fetchIcsText(url, bustCache)
     // Sanitize: remove lines that aren't valid ICS (no property name with : or ;)
@@ -87,7 +95,7 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
             const duration = event.duration
             const occEnd = new Date(occStart.getTime() + (duration?.toSeconds() ?? 3600) * 1000)
             if (occStart >= rangeStart || occEnd >= rangeStart) {
-              const dateStr = rigaDate(occStart)
+              const dateStr = formatDateInTz(occStart, tz)
               const joinUrl = extractJoinUrl(comp, event)
 
               if (isAllDay) {
@@ -116,8 +124,8 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
                   personCode: code,
                   description: event.summary || '',
                   date: dateStr,
-                  timeFrom: rigaTime(occStart),
-                  timeTo: rigaTime(occEnd),
+                  timeFrom: formatTimeInTz(occStart, tz),
+                  timeTo: formatTimeInTz(occEnd, tz),
                   isOrganizer: false,
                   location: event.location || undefined,
                   bodyPreview: event.description || '',
@@ -190,9 +198,9 @@ export async function fetchIcsEvents(url: string, code: string, dateFrom: string
             isExternal: true,
             personCode: code,
             description: event.summary || '',
-            date: rigaDate(start),
-            timeFrom: rigaTime(start),
-            timeTo: rigaTime(end),
+            date: formatDateInTz(start, tz),
+            timeFrom: formatTimeInTz(start, tz),
+            timeTo: formatTimeInTz(end, tz),
             isOrganizer: false,
             location: event.location || undefined,
             bodyPreview: event.description || '',
