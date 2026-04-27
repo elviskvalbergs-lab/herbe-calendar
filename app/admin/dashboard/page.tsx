@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { requireAdminSession } from '@/lib/adminAuth'
 import { getAdminAccountId, getAllAccounts, getAccountLogoUrl } from '@/lib/adminAccountId'
+import { getCurrentMemberTimezone } from '@/lib/accountTimezone'
 import AdminShell from '@/components/AdminShell'
 import { pool } from '@/lib/db'
 
@@ -15,6 +16,7 @@ export default async function DashboardPage() {
   }
   const accounts = session.isSuperAdmin ? await getAllAccounts() : []
   const accountLogoUrl = await getAccountLogoUrl(session.accountId)
+  const viewerTz = await getCurrentMemberTimezone()
 
   // Fetch dashboard stats
   const accountId = session.accountId
@@ -65,7 +67,7 @@ export default async function DashboardPage() {
               <div key={r.email} className="flex justify-between text-xs">
                 <span className="text-text-muted truncate">{r.email}</span>
                 <span className="text-text-muted shrink-0 ml-2">
-                  {new Date(r.last_login).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(r.last_login).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: viewerTz })}
                 </span>
               </div>
             ))}

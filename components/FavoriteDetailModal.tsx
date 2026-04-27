@@ -4,6 +4,7 @@ import type { Favorite, ShareLink, ShareVisibility, BookingTemplate } from '@/ty
 import { loadShareLinks, createShareLink, removeShareLink, removeAllShareLinks, updateShareLink } from '@/lib/shareLinks'
 import ConfirmDialog from './ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
+import { useViewerTimezone } from '@/lib/useViewerTimezone'
 
 interface Props {
   favorite: Favorite
@@ -85,6 +86,7 @@ function FieldLabel({ label, info }: { label: string; info: string }) {
 }
 
 export default function FavoriteDetailModal({ favorite, open, onClose, onLinksChange }: Props) {
+  const viewerTz = useViewerTimezone()
   const [links, setLinks] = useState<ShareLink[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -424,7 +426,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                   {visibilityLabel[link.visibility]}
                   {link.hasPassword && ' · 🔒'}
                   {link.bookingEnabled && ' · 📅 Booking'}
-                  {link.expiresAt && ` · Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
+                  {link.expiresAt && ` · Expires ${new Date(link.expiresAt).toLocaleDateString(undefined, { timeZone: viewerTz })}`}
                 </p>
                 <div className="flex gap-2 mt-2 flex-wrap">
                   <button
@@ -461,7 +463,7 @@ export default function FavoriteDetailModal({ favorite, open, onClose, onLinksCh
                 <p className="text-[10px] text-text-muted mt-1.5">
                   {link.accessCount === 0
                     ? 'Never accessed'
-                    : `Accessed ${link.accessCount} time${link.accessCount !== 1 ? 's' : ''} · Last: ${new Date(link.lastAccessedAt!).toLocaleDateString()}`
+                    : `Accessed ${link.accessCount} time${link.accessCount !== 1 ? 's' : ''} · Last: ${new Date(link.lastAccessedAt!).toLocaleDateString(undefined, { timeZone: viewerTz })}`
                   }
                 </p>
               </>

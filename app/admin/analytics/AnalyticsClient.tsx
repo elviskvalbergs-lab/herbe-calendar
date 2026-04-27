@@ -1,10 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useViewerTimezone } from '@/lib/useViewerTimezone'
 
 interface TimelineEntry { period: string; event_type: string; count: number }
 interface TopUser { user_email: string; total: number; logins: number; created: number; edited: number; days_viewed: number }
 
 export default function AnalyticsClient() {
+  const viewerTz = useViewerTimezone()
   const [from, setFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30)
     return d.toISOString().slice(0, 10)
@@ -81,7 +83,7 @@ export default function AnalyticsClient() {
                   return (
                     <div key={period} className="flex items-center gap-2">
                       <span className="text-[10px] text-text-muted w-20 shrink-0 text-right">
-                        {new Date(period).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        {new Date(period).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: viewerTz })}
                       </span>
                       <div className="flex-1 h-4 bg-border/20 rounded overflow-hidden">
                         <div className="h-full bg-primary/60 rounded" style={{ width: `${pct}%` }} />

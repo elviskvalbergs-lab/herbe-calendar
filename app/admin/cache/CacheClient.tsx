@@ -2,19 +2,20 @@
 import { useState } from 'react'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { useConfirm } from '@/lib/useConfirm'
+import { useViewerTimezone } from '@/lib/useViewerTimezone'
 import type { SyncState } from '@/lib/cache/syncState'
 
 interface Props {
   initialSyncStates: SyncState[]
 }
 
-function formatTs(value: Date | string | null): string {
-  if (!value) return '—'
-  const d = typeof value === 'string' ? new Date(value) : value
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
 export default function CacheClient({ initialSyncStates }: Props) {
+  const viewerTz = useViewerTimezone()
+  function formatTs(value: Date | string | null): string {
+    if (!value) return '—'
+    const d = typeof value === 'string' ? new Date(value) : value
+    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: viewerTz })
+  }
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [nukeAll, setNukeAll] = useState(false)

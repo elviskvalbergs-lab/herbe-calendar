@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useViewerTimezone } from '@/lib/useViewerTimezone'
 
 interface Token {
   id: string
@@ -13,6 +14,7 @@ interface Token {
 }
 
 export default function TokensClient({ tokens: initial, isSuperAdmin }: { tokens: Token[]; isSuperAdmin?: boolean }) {
+  const viewerTz = useViewerTimezone()
   const [tokens, setTokens] = useState(initial)
   const [showCreate, setShowCreate] = useState(false)
   const [revealedToken, setRevealedToken] = useState<string | null>(null)
@@ -97,7 +99,7 @@ export default function TokensClient({ tokens: initial, isSuperAdmin }: { tokens
       if (hrs === 0) return `${Math.floor(diffMs / 60000)}m ago`
       return `${hrs}h ago`
     }
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined, timeZone: viewerTz })
   }
 
   return (

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useViewerTimezone } from '@/lib/useViewerTimezone'
 
 interface Member {
   email: string
@@ -43,6 +44,7 @@ export default function MembersClient({
   isSuperAdmin?: boolean
   duplicates?: DuplicateCandidate[]
 }) {
+  const viewerTz = useViewerTimezone()
   const [members, setMembers] = useState(initial)
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState<string | null>(null)
@@ -494,7 +496,7 @@ export default function MembersClient({
                 </td>
                 <td className="px-3 py-1.5 text-[10px] text-text-muted whitespace-nowrap">
                   {m.last_login
-                    ? new Date(m.last_login).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+                    ? new Date(m.last_login).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: viewerTz })
                     : '—'}
                 </td>
                 <td className="px-3 py-1.5">
