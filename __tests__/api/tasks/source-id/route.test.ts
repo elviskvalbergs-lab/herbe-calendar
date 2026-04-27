@@ -25,6 +25,9 @@ jest.mock('@/lib/accountConfig', () => ({
   getAzureConfig: jest.fn().mockResolvedValue({ tenantId: 't', clientId: 'c', clientSecret: 's', senderEmail: 's@x.com' }),
   getErpConnections: jest.fn().mockResolvedValue([{ id: 'c1', name: 'C' }]),
 }))
+jest.mock('@/lib/accountTimezone', () => ({
+  getMemberTimezone: jest.fn().mockResolvedValue('Europe/Riga'),
+}))
 jest.mock('@/lib/google/userOAuth', () => ({
   getUserGoogleAccounts: jest.fn().mockResolvedValue([{ id: 'tok-1', googleEmail: 'g@x.com', calendars: [] }]),
 }))

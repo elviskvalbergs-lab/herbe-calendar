@@ -3,6 +3,7 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { createOutlookTask } from '@/lib/outlook/tasks'
 import { createGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
+import { getMemberTimezone } from '@/lib/accountTimezone'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import { getCodeByEmail } from '@/lib/personCodes'
 import { buildCreateTaskBody, mapHerbeTask } from '@/lib/herbe/taskRecordUtils'
@@ -122,10 +123,12 @@ export async function POST(
     if (source === 'outlook') {
       const azure = await getAzureConfig(session.accountId)
       if (!azure) return NextResponse.json({ error: 'Outlook not configured' }, { status: 400 })
+      const memberTz = await getMemberTimezone(session.accountId, session.email)
       const task = await createOutlookTask(session.email, {
         title: body.title, description: body.description, dueDate: body.dueDate,
         listId: body.listId,
         listTitle: body.listTitle,
+        timezone: memberTz,
       }, azure)
       await writeThroughTask(session.accountId, session.email, 'outlook', task)
       return NextResponse.json({ ok: true, task })

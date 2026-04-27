@@ -3,6 +3,7 @@ import { requireSession, unauthorized } from '@/lib/herbe/auth-guard'
 import { updateOutlookTask, moveOutlookTask, deleteOutlookTask } from '@/lib/outlook/tasks'
 import { updateGoogleTask, deleteGoogleTask } from '@/lib/google/tasks'
 import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
+import { getMemberTimezone } from '@/lib/accountTimezone'
 import { getUserGoogleAccounts } from '@/lib/google/userOAuth'
 import {
   buildCompleteTaskBody,
@@ -170,6 +171,7 @@ export async function PATCH(
     if (source === 'outlook') {
       const azure = await getAzureConfig(session.accountId)
       if (!azure) return NextResponse.json({ error: 'Outlook not configured' }, { status: 400 })
+      const memberTz = await getMemberTimezone(session.accountId, session.email)
       let task: Task
       let warning: 'ORIGINAL_NOT_DELETED' | undefined
       if (body.targetListId) {
@@ -179,14 +181,17 @@ export async function PATCH(
           patch: {
             done: body.done, title: body.title,
             description: body.description, dueDate: body.dueDate,
+            timezone: memberTz,
           },
           currentListId: body.currentListId,
+          timezone: memberTz,
         }, azure)
         task = r.task
         warning = r.warning
       } else {
         task = await updateOutlookTask(session.email, id, {
           done: body.done, title: body.title, description: body.description, dueDate: body.dueDate,
+          timezone: memberTz,
         }, azure, body.currentListId)
       }
       // List moves delete+recreate, producing a new id. Drop the stale cache

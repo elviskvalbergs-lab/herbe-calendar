@@ -134,6 +134,110 @@ describe('updateOutlookTask', () => {
   })
 })
 
+describe('createOutlookTask — timezone propagation', () => {
+  it('writes dueDateTime.timeZone from input.timezone', async () => {
+    mockGraph
+      .mockResolvedValueOnce({ // lists (default-list resolution)
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ // POST
+        ok: true,
+        json: async () => ({ id: 'NEW', title: 't', status: 'notStarted' }),
+      })
+    await createOutlookTask('u@x.com', { title: 't', dueDate: '2026-05-01', timezone: 'Asia/Tokyo' }, {} as any)
+    const [, opts] = mockGraph.mock.calls[1] as [string, any]
+    const body = JSON.parse(opts.body)
+    expect(body.dueDateTime).toEqual({ dateTime: '2026-05-01T00:00:00', timeZone: 'Asia/Tokyo' })
+  })
+
+  it('falls back to UTC when no timezone is supplied', async () => {
+    mockGraph
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'NEW', title: 't', status: 'notStarted' }),
+      })
+    await createOutlookTask('u@x.com', { title: 't', dueDate: '2026-05-01' }, {} as any)
+    const [, opts] = mockGraph.mock.calls[1] as [string, any]
+    const body = JSON.parse(opts.body)
+    expect(body.dueDateTime).toEqual({ dateTime: '2026-05-01T00:00:00', timeZone: 'UTC' })
+  })
+})
+
+describe('updateOutlookTask — timezone propagation', () => {
+  it('writes dueDateTime.timeZone from input.timezone', async () => {
+    mockGraph
+      .mockResolvedValueOnce({ // findOutlookTaskList: lists
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T', title: 't', status: 'notStarted' }) })
+    await updateOutlookTask('u@x.com', 'T', { dueDate: '2026-05-01', timezone: 'Europe/Riga' }, {} as any)
+    const patchCall = mockGraph.mock.calls[mockGraph.mock.calls.length - 1] as [string, any]
+    const payload = JSON.parse(patchCall[1].body)
+    expect(payload.dueDateTime).toEqual({ dateTime: '2026-05-01T00:00:00', timeZone: 'Europe/Riga' })
+  })
+
+  it('falls back to UTC when no timezone is supplied', async () => {
+    mockGraph
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ value: [{ id: 'L', displayName: 'Tasks', wellknownListName: 'defaultList' }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'T', title: 't', status: 'notStarted' }) })
+    await updateOutlookTask('u@x.com', 'T', { dueDate: '2026-05-01' }, {} as any)
+    const patchCall = mockGraph.mock.calls[mockGraph.mock.calls.length - 1] as [string, any]
+    const payload = JSON.parse(patchCall[1].body)
+    expect(payload.dueDateTime).toEqual({ dateTime: '2026-05-01T00:00:00', timeZone: 'UTC' })
+  })
+})
+
+describe('moveOutlookTask — timezone propagation', () => {
+  it('forwards input.timezone into the recreated task', async () => {
+    mockGraph.mockImplementation(async (path: string, init?: { method?: string }) => {
+      if (path.endsWith('/todo/lists') && !init?.method) {
+        return { ok: true, json: async () => ({ value: [
+          { id: 'OLD', displayName: 'Tasks' },
+          { id: 'NEW', displayName: 'Elvis' },
+        ] }) } as unknown as Response
+      }
+      if (path === '/users/x%40y.z/todo/lists/OLD/tasks/OLDID' && !init?.method) {
+        return { ok: true, json: async () => ({
+          id: 'OLDID', title: 'Original', status: 'notStarted',
+          dueDateTime: { dateTime: '2026-05-01T00:00:00', timeZone: 'UTC' },
+        }) } as unknown as Response
+      }
+      if (path === '/users/x%40y.z/todo/lists/NEW/tasks/OLDID' && !init?.method) {
+        return { ok: false, status: 404, text: async () => '' } as unknown as Response
+      }
+      if (path === '/users/x%40y.z/todo/lists/NEW/tasks' && init?.method === 'POST') {
+        return { ok: true, json: async () => ({ id: 'NEWID', title: 'Original', status: 'notStarted' }) } as unknown as Response
+      }
+      if (path === '/users/x%40y.z/todo/lists/OLD/tasks/OLDID' && init?.method === 'DELETE') {
+        return { ok: true, status: 204 } as unknown as Response
+      }
+      return { ok: false, status: 500, text: async () => '' } as unknown as Response
+    })
+
+    await moveOutlookTask(
+      'x@y.z', 'OLDID',
+      { targetListId: 'NEW', targetListTitle: 'Elvis', timezone: 'Asia/Tokyo' },
+      {} as any,
+    )
+    const postCall = mockGraph.mock.calls.find((c: any[]) =>
+      String(c[0]).endsWith('/lists/NEW/tasks') && c[1]?.method === 'POST',
+    ) as [string, any]
+    const body = JSON.parse(postCall[1].body)
+    expect(body.dueDateTime).toEqual({ dateTime: '2026-05-01T00:00:00', timeZone: 'Asia/Tokyo' })
+  })
+})
+
 describe('createOutlookTask with explicit listId', () => {
   it('POSTs to the provided listId without resolving the default', async () => {
     mockGraph.mockImplementation(async (path: string) => {

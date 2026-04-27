@@ -126,6 +126,8 @@ export interface CreateOutlookTaskInput {
   listId?: string
   /** Human list name for the returned Task's listName. Pass through when you already have it. */
   listTitle?: string
+  /** IANA timezone for dueDateTime; defaults to UTC for backward compatibility. */
+  timezone?: string
 }
 
 export async function createOutlookTask(
@@ -143,7 +145,7 @@ export async function createOutlookTask(
     payload.body = { contentType: 'text', content: input.description }
   }
   if (input.dueDate) {
-    payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: 'UTC' }
+    payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: input.timezone ?? 'UTC' }
   }
   const res = await graphFetch(
     `/users/${enc}/todo/lists/${encodeURIComponent(listId)}/tasks`,
@@ -160,6 +162,8 @@ export interface UpdateOutlookTaskInput {
   title?: string
   description?: string
   dueDate?: string | null  // null clears
+  /** IANA timezone for dueDateTime; defaults to UTC for backward compatibility. */
+  timezone?: string
 }
 
 export async function updateOutlookTask(
@@ -184,7 +188,7 @@ export async function updateOutlookTask(
   if (input.description !== undefined) payload.body = { contentType: 'text', content: input.description }
   if (input.dueDate === null) payload.dueDateTime = null
   else if (input.dueDate !== undefined) {
-    payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: 'UTC' }
+    payload.dueDateTime = { dateTime: `${input.dueDate}T00:00:00`, timeZone: input.timezone ?? 'UTC' }
   }
   const res = await graphFetch(
     `/users/${enc}/todo/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`,
@@ -205,6 +209,8 @@ export interface MoveOutlookTaskInput {
   patch?: UpdateOutlookTaskInput
   /** Optional: id of the list the task currently lives in. Skips the N+1 probe. */
   currentListId?: string
+  /** Member timezone forwarded to the recreated task in the target list. */
+  timezone?: string
 }
 
 export interface MoveOutlookTaskResult {
@@ -269,6 +275,7 @@ export async function moveOutlookTask(
     dueDate,
     listId: input.targetListId,
     listTitle: input.targetListTitle,
+    timezone: input.timezone,
   }, azureConfig)
 
   // If the task was done, reflect that in the new list — createOutlookTask
