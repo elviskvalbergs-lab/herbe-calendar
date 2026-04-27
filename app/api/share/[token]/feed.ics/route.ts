@@ -6,6 +6,7 @@ import { getAzureConfig, getErpConnections } from '@/lib/accountConfig'
 import { REGISTERS } from '@/lib/herbe/constants'
 import { fetchIcsForPerson } from '@/lib/icsUtils'
 import { toTime, isCalendarRecord, parsePersons } from '@/lib/herbe/recordUtils'
+import { getMemberTimezone } from '@/lib/accountTimezone'
 import ICAL from 'ical.js'
 import type { ShareVisibility } from '@/types'
 
@@ -62,6 +63,7 @@ export async function GET(
   const visibility: ShareVisibility = link.visibility
   const ownerEmail: string = link.ownerEmail
   const accountId: string = link.accountId ?? DEFAULT_ACCOUNT_ID
+  const ownerTz = await getMemberTimezone(accountId, ownerEmail)
 
   // Fetch activities for a rolling window: 30 days back, 90 days forward
   const now = new Date()
@@ -130,7 +132,7 @@ export async function GET(
       // ICS feeds
       if (!hiddenCalendarsSet.has('ics')) {
         try {
-          const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, dateTo)
+          const icsResult = await fetchIcsForPerson(ownerEmail, code, accountId, dateFrom, dateTo, false, ownerTz)
           for (const ev of icsResult.events) {
             const calName = ev.icsCalendarName as string | undefined
             const icsKey = calName ? `ics:${calName}` : 'ics'
@@ -154,7 +156,7 @@ export async function GET(
             const endDt = `${dateTo}T23:59:59`
             const res = await graphFetch(
               `/users/${email}/calendarView?startDateTime=${startDt}&endDateTime=${endDt}&$top=200`,
-              { headers: { 'Prefer': 'outlook.timezone="Europe/Riga"' } },
+              { headers: { 'Prefer': `outlook.timezone="${ownerTz}"` } },
               azureConfig
             )
             if (res.ok) {
@@ -193,11 +195,11 @@ export async function GET(
   cal.updatePropertyWithValue('calscale', 'GREGORIAN')
   cal.updatePropertyWithValue('method', 'PUBLISH')
   cal.updatePropertyWithValue('x-wr-calname', link.favoriteName || 'herbe.calendar')
-  cal.updatePropertyWithValue('x-wr-timezone', 'Europe/Riga')
+  cal.updatePropertyWithValue('x-wr-timezone', ownerTz)
 
   // Add timezone component
   const vtimezone = new ICAL.Component('vtimezone')
-  vtimezone.addPropertyWithValue('tzid', 'Europe/Riga')
+  vtimezone.addPropertyWithValue('tzid', ownerTz)
   cal.addSubcomponent(vtimezone)
 
   for (const act of allActivities) {

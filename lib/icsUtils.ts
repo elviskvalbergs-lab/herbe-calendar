@@ -29,6 +29,7 @@ export async function fetchIcsForPerson(
   dateFrom: string,
   dateTo: string,
   bustCache = false,
+  timezone?: string,
 ): Promise<IcsResult> {
   const { rows: icsRows } = await pool.query(
     'SELECT ics_url, color, name FROM user_calendars WHERE user_email = $1 AND target_person_code = $2 AND account_id = $3',
@@ -43,7 +44,7 @@ export async function fetchIcsForPerson(
   await Promise.all(
     icsRows.map(async (row) => {
       try {
-        const result = await fetchIcsEvents(row.ics_url as string, personCode, dateFrom, dateTo, bustCache)
+        const result = await fetchIcsEvents(row.ics_url as string, personCode, dateFrom, dateTo, bustCache, timezone)
         const events = result.events.map((ev: Record<string, unknown>) => ({
           ...ev,
           ...(row.color ? { icsColor: row.color as string } : {}),
