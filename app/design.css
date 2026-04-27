@@ -2458,22 +2458,36 @@ input, select, textarea { font-family: inherit; }
 }
 .aed-dur-chip:hover { border-color: var(--app-fg-faint); color: var(--app-fg); }
 .aed-dur-chip.on { border-color: var(--app-accent); color: var(--app-accent); font-weight: 600; }
-.aed-actual {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
-  background: transparent;
+/* Segmented Actual / Planned toggle. Both options always visible so it
+ * reads as a switch — clicking the inactive label flips the state. */
+.aed-actual-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--app-bg-soft);
   border: 1px solid var(--app-line-strong);
-  border-radius: 6px;
+  border-radius: 999px;
+  padding: 2px;
+}
+.aed-actual-toggle.is-disabled { opacity: 0.5; }
+.aed-actual-opt {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
   color: var(--app-fg-muted);
   cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
-.aed-actual-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--app-fg-subtle);
+.aed-actual-opt:hover:not(.on):not(:disabled) { color: var(--app-fg); }
+.aed-actual-opt.on {
+  background: var(--app-accent);
+  color: #fff;
+  font-weight: 600;
 }
-.aed-actual.on { border-color: var(--app-accent); color: var(--app-accent); }
-.aed-actual.on .aed-actual-dot { background: var(--app-accent); box-shadow: 0 0 0 3px rgba(205,76,56,0.15); }
+.aed-actual-opt:disabled { cursor: default; }
 
 /* Checkbox row */
 .aed-checkbox {
@@ -2731,7 +2745,8 @@ button.aed-stopwatch:hover { color: var(--app-fg); }
   .aed-dur-chips { flex-wrap: nowrap; overflow-x: auto; gap: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .aed-dur-chips::-webkit-scrollbar { display: none; }
   .aed-dur-chip { min-height: 26px; min-width: 0; padding: 3px 9px; font-size: 11px; flex: 0 0 auto; }
-  .aed-actual { padding: 3px 9px; font-size: 11px; min-height: 26px; white-space: nowrap; flex: 0 0 auto; }
+  .aed-actual-toggle { flex: 0 0 auto; padding: 1px; }
+  .aed-actual-opt { padding: 3px 9px; font-size: 11px; min-height: 22px; white-space: nowrap; }
   /* Footer buttons — match sizes so Cancel/Save are visually balanced */
   .aed-primary { flex: 0 1 auto; height: 34px; min-height: 34px; padding: 0 14px; font-size: 12.5px; white-space: nowrap; gap: 6px; }
   .aed-primary span:first-child { white-space: nowrap; }

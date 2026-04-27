@@ -12,6 +12,7 @@ import { readableAccentColor } from '@/lib/activityColors'
 import { format } from 'date-fns'
 import { serpLink } from '@/lib/serpLink'
 import { getRecentTypes, saveRecentType, getRecentPersons, saveRecentPersons, getRecentCCPersons, saveRecentCCPersons } from '@/lib/recentItems'
+import { findTimeConflicts, formatTimeConflictMessage, isTimeConflictError } from '@/lib/herbe/timeConflict'
 
 interface Attendee { email?: string; name?: string }
 
@@ -863,7 +864,32 @@ export function ActivityForm({
         const apiErrors = Array.isArray(data?.errors)
           ? data.errors.map((e: { message?: string }) => e.message ?? String(e))
           : [String(data?.error ?? `Server error (${res.status})`)]
-        setErrors(apiErrors)
+        // Time conflict (1547 / StartTime / EndTime): the ERP message is
+        // cryptic. Look up the actual conflicts in the cached calendar so we
+        // can name them and tell the user how to adjust. Falls back to the
+        // raw ERP message if nothing matches (rare case where the conflict
+        // is with an event that hasn't loaded into the cache yet).
+        const finalErrors = (() => {
+          if (!isErpSource) return apiErrors
+          if (!isTimeConflictError(data?.fieldErrors, apiErrors)) return apiErrors
+          const conflicts = findTimeConflicts(
+            {
+              date,
+              timeFrom,
+              timeTo,
+              personCodes: selectedPersonCodes,
+              editId,
+              connectionId: activeErpConnection?.id,
+            },
+            allActivities,
+          )
+          const friendly = formatTimeConflictMessage(
+            { date, timeFrom, timeTo, personCodes: selectedPersonCodes },
+            conflicts,
+          )
+          return friendly ? [friendly] : apiErrors
+        })()
+        setErrors(finalErrors)
         applyFieldErrors(data?.fieldErrors)
         setSaving(false)
         return
@@ -1831,17 +1857,34 @@ export function ActivityForm({
                         ✓ OK'd
                       </span>
                     )}
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setPlanned(p => !p)}
-                      disabled={canEdit === false}
-                      className={`aed-actual ${planned ? 'on' : ''} ${canEdit === false ? 'opacity-50 cursor-default' : ''}`}
-                      title={planned ? 'Planned — not yet actually performed' : 'Actual tracked time'}
+                    <div
+                      role="group"
+                      aria-label="Time type"
+                      className={`aed-actual-toggle ${canEdit === false ? 'is-disabled' : ''}`}
                     >
-                      <span className="aed-actual-dot" />
-                      {planned ? 'Planned' : 'Actual'}
-                    </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setPlanned(false)}
+                        disabled={canEdit === false}
+                        aria-pressed={!planned}
+                        className={`aed-actual-opt ${!planned ? 'on' : ''}`}
+                        title="Actual tracked time"
+                      >
+                        Actual
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setPlanned(true)}
+                        disabled={canEdit === false}
+                        aria-pressed={planned}
+                        className={`aed-actual-opt ${planned ? 'on' : ''}`}
+                        title="Planned — not yet actually performed"
+                      >
+                        Planned
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

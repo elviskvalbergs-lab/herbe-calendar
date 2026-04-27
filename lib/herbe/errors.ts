@@ -15,6 +15,8 @@ const HERBE_FIELD_LABELS: Record<string, string> = {
   CUCode: 'Customer',
   TimeFromHHMM: 'Start time',
   TimeToHHMM: 'End time',
+  StartTime: 'Start time',
+  EndTime: 'End time',
   Text: 'Additional text',
 }
 
