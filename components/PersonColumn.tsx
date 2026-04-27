@@ -239,12 +239,13 @@ export default function PersonColumn({
           : source === 'google'
             ? `/api/google/${activity.id}`
             : `/api/outlook/${activity.id}`
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Riga'
         const body = source === 'herbe'
           ? { StartTime: capturedDragState.currentFrom, EndTime: capturedDragState.currentTo }
           : {
               subject: activity.description,
-              start: { dateTime: `${date}T${capturedDragState.currentFrom}:00`, timeZone: 'Europe/Riga' },
-              end: { dateTime: `${date}T${capturedDragState.currentTo}:00`, timeZone: 'Europe/Riga' },
+              start: { dateTime: `${date}T${capturedDragState.currentFrom}:00`, timeZone: browserTz },
+              end: { dateTime: `${date}T${capturedDragState.currentTo}:00`, timeZone: browserTz },
             }
 
         const res = await fetch(url, {

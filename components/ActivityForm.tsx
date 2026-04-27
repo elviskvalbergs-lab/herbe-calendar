@@ -663,10 +663,11 @@ export function ActivityForm({
       emailAddress: { address: email },
       type: 'required' as const,
     }))
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Riga'
     const payload: Record<string, unknown> = {
       subject: description,
-      start: { dateTime: `${date}T${timeFrom}:00`, timeZone: 'Europe/Riga' },
-      end: { dateTime: `${date}T${timeTo}:00`, timeZone: 'Europe/Riga' },
+      start: { dateTime: `${date}T${timeFrom}:00`, timeZone: browserTz },
+      end: { dateTime: `${date}T${timeTo}:00`, timeZone: browserTz },
       attendees: [...internalAttendees, ...external],
     }
     if (location.trim()) {
