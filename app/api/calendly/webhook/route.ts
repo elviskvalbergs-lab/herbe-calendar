@@ -3,6 +3,8 @@ import { createHmac, timingSafeEqual } from 'crypto'
 import { pool } from '@/lib/db'
 import { findConnectionByUserUri, getTemplateForEventType, claimWebhookEvent, updateWebhookStatus } from '@/lib/calendly/client'
 import { executeBooking } from '@/lib/bookingExecutor'
+import { bucketDateInTz, formatInTz } from '@/lib/timezone'
+import { getMemberTimezone } from '@/lib/accountTimezone'
 import type { TemplateTargets } from '@/types'
 
 function verifySignature(body: string, signature: string, key: string): boolean {
@@ -92,10 +94,12 @@ export async function POST(req: NextRequest) {
   }
   const template = templateRows[0]
 
-  // Extract booking info
-  const startTime = scheduledEvent.start_time // ISO 8601
-  const date = startTime.slice(0, 10)
-  const time = startTime.slice(11, 16)
+  // Extract booking info — convert booker's wall clock (start_time has offset)
+  // to the host's TZ so the entry lands at the correct local time on the host's calendar.
+  const startInstant = new Date(scheduledEvent.start_time)
+  const hostTz = await getMemberTimezone(connection.accountId, connection.userEmail)
+  const date = bucketDateInTz(startInstant, hostTz)
+  const time = formatInTz(startInstant, hostTz, { hour: '2-digit', minute: '2-digit', hour12: false })
   const bookerEmail = invitee.email ?? ''
   const bookerName = invitee.name ?? ''
 
