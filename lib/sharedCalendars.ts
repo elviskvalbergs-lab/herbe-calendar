@@ -1,4 +1,5 @@
 import { pool } from '@/lib/db'
+import { getAccountTimezone } from '@/lib/accountTimezone'
 import type { Activity, SharingLevel } from '@/types'
 
 interface BusyBlock { start: string; end: string }
@@ -18,6 +19,7 @@ export async function fetchSharedCalendarEvents(
 ): Promise<{ events: Activity[]; busyBlocks: Map<string, BusyBlock[]> }> {
   const events: Activity[] = []
   const busyBlocks = new Map<string, BusyBlock[]>()
+  const tz = await getAccountTimezone(accountId)
 
   function addBusy(date: string, block: BusyBlock) {
     const existing = busyBlocks.get(date) ?? []
@@ -111,7 +113,7 @@ export async function fetchSharedCalendarEvents(
             calendarId: cal.calendar_id,
             timeMin: `${dateFrom}T00:00:00Z`,
             timeMax: `${dateTo}T23:59:59Z`,
-            timeZone: 'Europe/Riga',  // Google converts UTC boundaries to this timezone for filtering
+            timeZone: tz,  // Google converts UTC boundaries to this timezone for filtering
             singleEvents: true,
             fields: 'items(id,summary,start,end,status)',
             maxResults: 250,

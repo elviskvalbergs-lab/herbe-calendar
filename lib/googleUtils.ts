@@ -1,5 +1,6 @@
 import { getGoogleConfig, getCalendarClient, getOAuthCalendarClient } from '@/lib/google/client'
 import { getUserGoogleAccounts, getValidAccessTokenForUser } from '@/lib/google/userOAuth'
+import { getAccountTimezone } from '@/lib/accountTimezone'
 import type { calendar_v3 } from 'googleapis'
 import type { Activity } from '@/types'
 
@@ -108,13 +109,15 @@ export async function fetchGoogleEventsForPerson(
   const googleConfig = await getGoogleConfig(accountId)
   if (!googleConfig) return null
 
+  const tz = await getAccountTimezone(accountId)
+
   try {
     const calendar = getCalendarClient(googleConfig, email)
     const params: calendar_v3.Params$Resource$Events$List = {
       calendarId: 'primary',
-      timeMin: `${dateFrom}T00:00:00+03:00`,
-      timeMax: `${dateTo}T23:59:59+03:00`,
-      timeZone: 'Europe/Riga',
+      timeMin: `${dateFrom}T00:00:00Z`,
+      timeMax: `${dateTo}T23:59:59Z`,
+      timeZone: tz,
       singleEvents: true,
       maxResults: 200,
     }
