@@ -23,6 +23,8 @@ export interface ErpConnection {
   password: string | null
   active: boolean
   serpUuid?: string | null
+  /** IANA timezone of the ERP server's TransDate / StartTime / EndTime values. */
+  timezone: string
 }
 
 // Cache per account, 5 min TTL, bounded to prevent unbounded growth
@@ -103,6 +105,7 @@ export async function getErpConnections(accountId: string): Promise<ErpConnectio
         password: decryptField(r.password) || null,
         active: r.active,
         serpUuid: r.serp_uuid || null,
+        timezone: r.timezone || 'Europe/Riga',
       }))
       evictStale(erpCache)
       erpCache.set(accountId, { data: connections, ts: Date.now() })
