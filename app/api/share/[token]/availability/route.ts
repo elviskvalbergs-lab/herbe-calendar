@@ -5,6 +5,7 @@ import { computeAllSlots, collectBusyBlocks } from '@/lib/availability'
 import { toTime } from '@/lib/herbe/recordUtils'
 import { isRateLimited } from '@/lib/rateLimit'
 import { getClientIp } from '@/lib/clientIp'
+import { getMemberTimezone } from '@/lib/accountTimezone'
 import type { AvailabilityWindow } from '@/types'
 
 const DEFAULT_ACCOUNT_ID = '00000000-0000-0000-0000-000000000001'
@@ -175,12 +176,16 @@ export async function GET(
     if (dayUnavail.length > 0) unavailableSlots[dateStr] = dayUnavail
   }
 
+  // Resolve host timezone so the booking page can label slots correctly.
+  const hostTimezone = await getMemberTimezone(accountId, link.ownerEmail)
+
   // 7. Return response
   return NextResponse.json(
     {
       slots,
       unavailableSlots,
       bookingMaxDays: maxDays,
+      hostTimezone,
       template: {
         name: template.name,
         duration_minutes: durationMinutes,

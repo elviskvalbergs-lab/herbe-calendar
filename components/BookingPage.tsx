@@ -40,7 +40,10 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
   const [confirmData, setConfirmData] = useState<{ cancelToken: string; emailError?: string | null } | null>(null)
 
   const browserTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
-  const [timezone] = useState(browserTz)
+  // Slots come from the host's calendar in the host's timezone; we surface that
+  // explicitly so the booker doesn't read them in their own (different) zone.
+  const [hostTimezone, setHostTimezone] = useState<string | null>(null)
+  const timezone = hostTimezone ?? browserTz
 
   // Track today's date-string so dateRange stays fresh if the page is left open across midnight.
   const [today, setToday] = useState(() => format(new Date(), 'yyyy-MM-dd'))
@@ -70,6 +73,7 @@ export default function BookingPage({ token, templates, title, maxDays = 60, onB
         if (data.error) { setError(data.error); return }
         setSlots(data.slots ?? {})
         setUnavailableSlots(data.unavailableSlots ?? {})
+        if (typeof data.hostTimezone === 'string') setHostTimezone(data.hostTimezone)
       })
       .catch(e => setError(String(e)))
       .finally(() => setSlotsLoading(false))
