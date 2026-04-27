@@ -88,6 +88,8 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
   const [theme, setTheme] = useState<Theme>('system')
   const [evStyle, setEvStyle] = useState<EvStyle>('solid')
   const [accent, setAccent] = useState<AccentName>('rowanberry')
+  const [timezone, setTimezone] = useState<string>('Europe/Riga')
+  const [tzSaving, setTzSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('style')
   interface CustomCalendar { id: string; personCode: string; name: string; icsUrl: string; color?: string; sharing?: string }
   const [customCals, setCustomCals] = useState<CustomCalendar[]>([])
@@ -135,8 +137,32 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
       setEvStyle(storedStyle === 'tinted' || storedStyle === 'outlined' ? storedStyle : 'solid')
       const storedAccent = localStorage.getItem('accent') as AccentName | null
       setAccent(storedAccent && ACCENT_NAMES.includes(storedAccent) ? storedAccent : 'rowanberry')
+      const storedTz = localStorage.getItem('viewerTimezone')
+      if (storedTz) {
+        setTimezone(storedTz)
+      } else {
+        try {
+          setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Riga')
+        } catch {}
+      }
     } catch {}
   }, [])
+
+  async function handleTimezone(tz: string) {
+    setTimezone(tz)
+    setTzSaving(true)
+    try {
+      localStorage.setItem('viewerTimezone', tz)
+    } catch {}
+    try {
+      await fetch('/api/me/timezone', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: tz }),
+      })
+    } catch {}
+    setTzSaving(false)
+  }
 
   // ESC: close template editor first, then the whole modal
   useEffect(() => {
@@ -483,6 +509,28 @@ export default function SettingsModal({ classGroups, colorMap, persons, connecti
                   })}
                 </div>
                 <p className="text-[10px] text-text-muted">Applied to buttons, current-time indicator, active states and the brand dot.</p>
+              </div>
+
+              {/* Timezone */}
+              <div className="space-y-2">
+                <p className="text-[10px] text-text-muted uppercase font-bold tracking-wide">Timezone</p>
+                <select
+                  aria-label="Timezone"
+                  value={timezone}
+                  onChange={(e) => handleTimezone(e.target.value)}
+                  disabled={tzSaving}
+                  className="w-full sm:w-auto bg-surface border border-border rounded px-2 py-1 text-sm"
+                >
+                  {(typeof Intl !== 'undefined' && (Intl as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf
+                    ? (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone')
+                    : ['UTC', 'Europe/Riga', 'Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney']
+                  ).map(tz => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-text-muted">
+                  Used when rendering dates and times. Auto-detected from your browser; override here. Synced to your account.
+                </p>
               </div>
             </>
           )}
