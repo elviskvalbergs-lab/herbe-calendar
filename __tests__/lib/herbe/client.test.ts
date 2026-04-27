@@ -4,6 +4,7 @@ const testConn = {
   id: 'test', name: 'Test', apiBaseUrl: 'https://example.com/api', companyCode: '3',
   clientId: '', clientSecret: '', accessToken: null, refreshToken: null,
   tokenExpiresAt: 0, username: null, password: null, active: true,
+  timezone: 'Europe/Riga',
 }
 
 describe('herbeUrl', () => {
